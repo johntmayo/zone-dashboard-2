@@ -6130,12 +6130,12 @@
       if (!zoneMap) {
         try {
           // Default center (Altadena, CA - adjust as needed)
-          zoneMap = L.map('zoneMap', { attributionControl: false }).setView([34.19, -118.15], 12);
+          zoneMap = L.map('zoneMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 12);
           
           // Add CartoDB Voyager tiles (warm, colorful with labels)
           currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '© OpenStreetMap contributors, © CARTO',
-            maxZoom: 19,
+            maxZoom: 22,
             subdomains: 'abcd'
           }).addTo(zoneMap);
           
@@ -6164,7 +6164,7 @@
                   // Switch to street map (CartoDB Voyager)
                   currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                     attribution: '© OpenStreetMap contributors, © CARTO',
-                    maxZoom: 19,
+                    maxZoom: 22,
                     subdomains: 'abcd'
                   }).addTo(zoneMap);
                   button.innerHTML = '🛰️';
@@ -6175,7 +6175,7 @@
                   currentTileLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
                     subdomains: ['0', '1', '2', '3'],
                     attribution: '© Google',
-                    maxZoom: 20
+                    maxZoom: 22
                   }).addTo(zoneMap);
                   button.innerHTML = '🗺️';
                   button.title = 'Switch to street map';
@@ -6253,12 +6253,12 @@
       if (!homeMap) {
         try {
           // Default center (Altadena, CA - adjust as needed)
-          homeMap = L.map('homeMap', { attributionControl: false }).setView([34.19, -118.15], 12);
+          homeMap = L.map('homeMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 12);
           
           // Add CartoDB Voyager tiles (warm, colorful with labels)
           homeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '© OpenStreetMap contributors, © CARTO',
-            maxZoom: 19,
+            maxZoom: 22,
             subdomains: 'abcd'
           }).addTo(homeMap);
           
@@ -6287,7 +6287,7 @@
                   // Switch to street map (CartoDB Voyager)
                   homeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                     attribution: '© OpenStreetMap contributors, © CARTO',
-                    maxZoom: 19,
+                    maxZoom: 22,
                     subdomains: 'abcd'
                   }).addTo(homeMap);
                   button.innerHTML = '🛰️';
@@ -6298,7 +6298,7 @@
                   homeTileLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
                     subdomains: ['0', '1', '2', '3'],
                     attribution: '© Google',
-                    maxZoom: 20
+                    maxZoom: 22
                   }).addTo(homeMap);
                   button.innerHTML = '🗺️';
                   button.title = 'Switch to street map';
@@ -6395,7 +6395,7 @@
       
       // Fit bounds to show all markers
       if (bounds.length > 0 && homeMap) {
-        homeMap.fitBounds(bounds, { padding: [20, 20] });
+        homeMap.fitBounds(bounds, { padding: [20, 20], maxZoom: 22 });
       }
     }
 
@@ -6601,7 +6601,7 @@
           }).addTo(homeMap);
           
           if (homeKmlLayer.getBounds && homeKmlLayer.getBounds().isValid()) {
-            homeMap.fitBounds(homeKmlLayer.getBounds(), { padding: [10, 10] });
+            homeMap.fitBounds(homeKmlLayer.getBounds(), { padding: [10, 10], maxZoom: 22 });
           }
         } else {
           console.error('toGeoJSON not available for home map KML loading');
@@ -6722,7 +6722,7 @@
         }
         kmlLayer = L.geoJSON(zoneFc, { style: ZONE_BOUNDARY_STYLE }).addTo(zoneMap);
         if (kmlLayer.getBounds && kmlLayer.getBounds().isValid()) {
-          zoneMap.fitBounds(kmlLayer.getBounds(), { padding: [20, 20] });
+          zoneMap.fitBounds(kmlLayer.getBounds(), { padding: [20, 20], maxZoom: 22 });
         }
         return true;
       } catch (e) {
@@ -6746,7 +6746,7 @@
         }
         homeKmlLayer = L.geoJSON(zoneFc, { style: HOME_BOUNDARY_STYLE }).addTo(homeMap);
         if (homeKmlLayer.getBounds && homeKmlLayer.getBounds().isValid()) {
-          homeMap.fitBounds(homeKmlLayer.getBounds(), { padding: [10, 10] });
+          homeMap.fitBounds(homeKmlLayer.getBounds(), { padding: [10, 10], maxZoom: 22 });
         }
         return true;
       } catch (e) {
@@ -6908,7 +6908,7 @@
         
         // Fit map to boundary
         if (kmlLayer.getBounds && kmlLayer.getBounds().isValid()) {
-          zoneMap.fitBounds(kmlLayer.getBounds(), { padding: [20, 20] });
+          zoneMap.fitBounds(kmlLayer.getBounds(), { padding: [20, 20], maxZoom: 22 });
         }
       } catch (error) {
         console.error('Error loading KML:', error);
@@ -7173,7 +7173,7 @@
             try {
               zoneMap.fitBounds(bounds, { 
                 padding: [20, 20],
-                maxZoom: 19 // Allow zooming in close so more address numbers appear on the map
+                maxZoom: 22 // Allow zooming in close so more address numbers appear on the map
               });
             } catch (error) {
               console.error('Error fitting bounds:', error);
