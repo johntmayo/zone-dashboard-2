@@ -3693,6 +3693,51 @@
       box-shadow: 0 0 0 2px rgba(58, 110, 165, 0.15);
     }
 
+    /* Add Record modal: same conventions as Details panel */
+    .add-record-input,
+    .add-record-select {
+      width: 100%;
+      max-width: 280px;
+      padding: 6px 10px;
+      margin-bottom: 8px;
+      border: 1px dashed rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.4);
+      font-family: inherit;
+      font-size: inherit;
+      color: inherit;
+      transition: all 0.2s;
+      box-sizing: border-box;
+    }
+    .add-record-input:hover,
+    .add-record-select:hover {
+      background: rgba(255, 255, 255, 0.7);
+      border-color: var(--mint);
+    }
+    .add-record-input:focus,
+    .add-record-select:focus {
+      outline: none;
+      background: white;
+      border: 1px solid var(--river);
+      box-shadow: 0 0 0 2px rgba(58, 110, 165, 0.15);
+    }
+    .add-record-select {
+      cursor: pointer;
+      min-width: 100px;
+    }
+    .add-record-checkbox-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+    .add-record-checkbox {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
     .save-status {
       font-size: 0.8rem;
       margin-top: 6px;

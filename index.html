@@ -2536,39 +2536,29 @@
       const contactDateCol = findColumn(headers, ['contact', 'date']) || findColumn(headers, ['last', 'contact']);
       const contactNotesCol = headers.find(h => /contact\s*note/i.test(h));
       const getUniqueValues = (col) => col ? [...new Set(sheetData.data.map(r => (r[col] || '').trim()).filter(Boolean))].sort() : [];
-      const inputStyle = 'width:100%; max-width:280px; padding:6px 10px; margin-bottom:8px; border:1px solid var(--border-soft); border-radius:6px;';
-      const selectStyle = 'width:100%; max-width:280px; padding:6px 10px; margin-bottom:8px; border:1px solid var(--border-soft); border-radius:6px;';
-      const field = (label, id, type = 'text', opts = '') => `<p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p><input type="${type}" id="${id}" ${opts} style="${inputStyle}">`;
-      const selectField = (label, id, values) => `<p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p><select id="${id}" style="${selectStyle}"><option value="">—</option>${(values || []).map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}</select>`;
+      const field = (label, id, type = 'text', opts = '') => `<p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p><input type="${type}" id="${id}" class="add-record-input" ${opts}>`;
+      const selectField = (label, id, values) => `<p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p><select id="${id}" class="add-record-select"><option value="">—</option>${(values || []).map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}</select>`;
+      const checkboxField = (label, id) => `<label class="add-record-checkbox-wrap"><input type="checkbox" id="${id}" class="add-record-checkbox"><span>${escapeHtml(label)}</span></label>`;
 
-      // Fixed Person details: Age, Gender, Home phone, Cell, Email address, Renter, Needs Follow-Up, Person Notes, Last Contact Date, Contact Notes
+      // Person details: Age, Home phone, Cell, Email address, Renter (checkbox), Needs Follow-Up (checkbox), Person Notes
       const buildPersonDetailsHtml = (prefix) => {
         const parts = [
-          field('Age', prefix + 'Age', 'text', 'placeholder="Optional"'),
-          selectField('Gender', prefix + 'Gender', getUniqueValues(genderCol)),
+          field('Age', prefix + 'Age', 'text'),
           field('Home phone', prefix + 'HomePhone'),
           field('Cell', prefix + 'Cell'),
           field('Email address', prefix + 'Email', 'email'),
-          selectField('Renter', prefix + 'Renter', getUniqueValues(renterCol)),
-          selectField('Needs Follow-Up', prefix + 'FollowUp', getUniqueValues(followUpCol)),
-          field('Person Notes', prefix + 'PersonNotes'),
-          field('Last Contact Date', prefix + 'ContactDate', 'text', 'placeholder="e.g. today"'),
-          field('Contact Notes', prefix + 'ContactNotes')
+          checkboxField('Renter', prefix + 'Renter'),
+          checkboxField('Needs Follow-Up', prefix + 'FollowUp'),
+          field('Person Notes', prefix + 'PersonNotes')
         ];
         return parts.join('');
       };
-      // Fixed Address details: Damage, Property Status, Rebuild Status, Indoors Remediated?, Soil Remediated?, Address Notes, Captain Assigned, Sale Date, Sale Notes, New Owner
+      // Address details: Damage, Property Status, Rebuild Status, Address Notes only
       const addressDetailsFields = [
         selectField('Damage', 'addRecordDamage', getUniqueValues(damageCol)),
         selectField('Property Status', 'addRecordStatus', getUniqueValues(statusCol)),
         selectField('Rebuild Status', 'addRecordRebuild', getUniqueValues(rebuildCol)),
-        selectField('Indoors Remediated?', 'addRecordIndoors', getUniqueValues(indoorsCol)),
-        selectField('Soil Remediated?', 'addRecordSoil', getUniqueValues(soilCol)),
-        field('Address Notes', 'addRecordAddressNotes'),
-        selectField('Captain Assigned', 'addRecordCaptain', getUniqueValues(captainCol)),
-        field('Sale Date', 'addRecordSaleDate'),
-        field('Sale Notes', 'addRecordSaleNotes'),
-        field('New Owner', 'addRecordNewOwner')
+        field('Address Notes', 'addRecordAddressNotes')
       ].join('');
       const personDetailsFields = buildPersonDetailsHtml('addRecord');
       const personDetailsFieldsP = buildPersonDetailsHtml('addRecordP');
@@ -2579,7 +2569,6 @@
             <button class="newsletter-modal-close" id="addRecordModalClose">&times;</button>
             <div class="newsletter-modal-header">
               <h3 class="newsletter-modal-title">Add a record</h3>
-              <p class="newsletter-modal-subtitle">Add an address or a person. The new record will appear in your zone list.</p>
             </div>
             <div class="newsletter-modal-content">
               <div class="newsletter-modal-section">
@@ -2593,63 +2582,63 @@
                 <h4 class="newsletter-modal-section-title">Address</h4>
                 <div class="newsletter-modal-instructions">
                   <p style="margin:0 0 6px 0;"><label>House number</label></p>
-                  <input type="text" id="addRecordHouseNum" placeholder="e.g. 123" style="width:100%; max-width:120px; padding:8px 12px; margin-bottom:10px; border:1px solid var(--border-soft); border-radius:6px;">
+                  <input type="text" id="addRecordHouseNum" class="add-record-input" placeholder="e.g. 123" style="max-width:120px; margin-bottom:10px;">
                   <p style="margin:0 0 6px 0;"><label>Street</label></p>
-                  <select id="addRecordStreetSelect" style="width:100%; max-width:320px; padding:8px 12px; margin-bottom:10px; border:1px solid var(--border-soft); border-radius:6px;">
+                  <select id="addRecordStreetSelect" class="add-record-select" style="max-width:320px; margin-bottom:10px;">
                     <option value="">-- Select street --</option>
                     ${uniqueStreets.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
                     <option value="__other__">Other (type new street)</option>
                   </select>
                   <div id="addRecordStreetOtherWrap" class="hidden" style="margin-bottom:10px;">
-                    <input type="text" id="addRecordStreetOther" placeholder="e.g. Main St" style="width:100%; max-width:320px; padding:8px 12px; border:1px solid var(--border-soft); border-radius:6px;">
+                    <input type="text" id="addRecordStreetOther" class="add-record-input" placeholder="e.g. Main St" style="max-width:320px;">
                   </div>
                   <p style="margin:0 0 6px 0;"><label>City, State, Zip</label></p>
-                  <input type="text" id="addRecordCityState" placeholder="e.g. Altadena, CA 91001" value="${escapeHtml(cityStateZip)}" style="width:100%; max-width:320px; padding:8px 12px; margin-bottom:10px; border:1px solid var(--border-soft); border-radius:6px;">
+                  <input type="text" id="addRecordCityState" class="add-record-input" placeholder="e.g. Altadena, CA 91001" value="${escapeHtml(cityStateZip)}" style="max-width:320px; margin-bottom:10px;">
                 </div>
                 <div class="newsletter-modal-section" style="margin-top:16px;">
                   <h4 class="newsletter-modal-section-title">Someone at this address?</h4>
                   <p style="margin:0 0 8px 0; font-size:0.9rem; color:var(--text-light);">Optional. Add a name and details if you know who lives here.</p>
                   <p style="margin:0 0 6px 0;"><label>Name</label></p>
-                  <input type="text" id="addRecordPersonName" placeholder="e.g. Jane Smith" style="width:100%; max-width:320px; padding:8px 12px; margin-bottom:10px; border:1px solid var(--border-soft); border-radius:6px;">
-                  <details style="margin-top:10px;"><summary style="cursor:pointer; font-weight:600;">Person details</summary><div style="margin-top:12px; padding-left:0;">${personDetailsFields}</div></details>
+                  <input type="text" id="addRecordPersonName" class="add-record-input" placeholder="e.g. Jane Smith" style="max-width:320px; margin-bottom:10px;">
+                  <details style="margin-top:10px;"><summary style="cursor:pointer; font-weight:600;">Person details</summary><p style="margin:8px 0 10px 0; font-size:0.9rem; color:var(--text-light);">All fields are optional and can be added later.</p><div style="margin-top:8px; padding-left:0;">${personDetailsFields}</div></details>
                 </div>
-                <details style="margin-top:12px;"><summary style="cursor:pointer; font-weight:600;">Address details</summary><div style="margin-top:12px; padding-left:0;">${addressDetailsFields}</div></details>
+                <details style="margin-top:12px;"><summary style="cursor:pointer; font-weight:600;">Address details</summary><p style="margin:8px 0 10px 0; font-size:0.9rem; color:var(--text-light);">All fields are optional and can be added later.</p><div style="margin-top:8px; padding-left:0;">${addressDetailsFields}</div></details>
               </div>
               <div id="addRecordPersonForm" class="newsletter-modal-section hidden">
                 <h4 class="newsletter-modal-section-title">Where do they live?</h4>
                 <div class="newsletter-modal-instructions">
                   <p style="margin:0 0 6px 0;"><label>Choose one</label></p>
-                  <select id="addRecordPersonAddressType" style="width:100%; max-width:360px; padding:8px 12px; margin-bottom:10px; border:1px solid var(--border-soft); border-radius:6px;">
+                  <select id="addRecordPersonAddressType" class="add-record-select" style="max-width:360px; margin-bottom:10px;">
                     <option value="existing">Existing address</option>
                     <option value="new">New address</option>
                     <option value="none">No address / leave blank</option>
                   </select>
                   <div id="addRecordPersonExistingWrap">
                     <p style="margin:0 0 6px 0;"><label>Address</label></p>
-                    <select id="addRecordExistingAddress" style="width:100%; max-width:400px; padding:8px 12px; margin-bottom:10px; border:1px solid var(--border-soft); border-radius:6px;">
+                    <select id="addRecordExistingAddress" class="add-record-select" style="max-width:400px; margin-bottom:10px;">
                       <option value="">-- Select an address --</option>
                       ${addresses.map(addr => `<option value="${escapeHtml(addr)}">${escapeHtml(addr)}</option>`).join('')}
                     </select>
                   </div>
                   <div id="addRecordPersonNewWrap" class="hidden">
                     <p style="margin:0 0 6px 0;"><label>House number</label></p>
-                    <input type="text" id="addRecordPersonHouseNum" placeholder="e.g. 123" style="width:100%; max-width:120px; padding:8px 12px; margin-bottom:8px; border:1px solid var(--border-soft); border-radius:6px;">
+                    <input type="text" id="addRecordPersonHouseNum" class="add-record-input" placeholder="e.g. 123" style="max-width:120px; margin-bottom:8px;">
                     <p style="margin:0 0 6px 0;"><label>Street</label></p>
-                    <select id="addRecordPersonStreetSelect" style="width:100%; max-width:320px; padding:8px 12px; margin-bottom:8px; border:1px solid var(--border-soft); border-radius:6px;">
+                    <select id="addRecordPersonStreetSelect" class="add-record-select" style="max-width:320px; margin-bottom:8px;">
                       <option value="">-- Select street --</option>
                       ${uniqueStreets.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
                       <option value="__other__">Other (type new street)</option>
                     </select>
-                    <div id="addRecordPersonStreetOtherWrap" class="hidden" style="margin-bottom:8px;"><input type="text" id="addRecordPersonStreetOther" placeholder="e.g. Main St" style="width:100%; max-width:320px; padding:8px 12px; border:1px solid var(--border-soft); border-radius:6px;"></div>
+                    <div id="addRecordPersonStreetOtherWrap" class="hidden" style="margin-bottom:8px;"><input type="text" id="addRecordPersonStreetOther" class="add-record-input" placeholder="e.g. Main St" style="max-width:320px;"></div>
                     <p style="margin:0 0 6px 0;"><label>City, State, Zip</label></p>
-                    <input type="text" id="addRecordPersonCityState" placeholder="e.g. Altadena, CA 91001" value="${escapeHtml(cityStateZip)}" style="width:100%; max-width:320px; padding:8px 12px; border:1px solid var(--border-soft); border-radius:6px;">
+                    <input type="text" id="addRecordPersonCityState" class="add-record-input" placeholder="e.g. Altadena, CA 91001" value="${escapeHtml(cityStateZip)}" style="max-width:320px;">
                   </div>
                 </div>
                 <div style="margin-top:16px;">
                   <h4 class="newsletter-modal-section-title">Person</h4>
                   <p style="margin:0 0 6px 0;"><label>Name</label></p>
-                  <input type="text" id="addRecordPersonNameInput" placeholder="e.g. Jane Smith" style="width:100%; max-width:320px; padding:8px 12px; margin-bottom:10px; border:1px solid var(--border-soft); border-radius:6px;">
-                  <details style="margin-top:10px;"><summary style="cursor:pointer; font-weight:600;">Person details</summary><div style="margin-top:12px; padding-left:0;">${personDetailsFieldsP}</div></details>
+                  <input type="text" id="addRecordPersonNameInput" class="add-record-input" placeholder="e.g. Jane Smith" style="max-width:320px; margin-bottom:10px;">
+                  <details style="margin-top:10px;"><summary style="cursor:pointer; font-weight:600;">Person details</summary><p style="margin:8px 0 10px 0; font-size:0.9rem; color:var(--text-light);">All fields are optional and can be added later.</p><div style="margin-top:8px; padding-left:0;">${personDetailsFieldsP}</div></details>
                 </div>
               </div>
               <div id="addRecordMapSection" class="newsletter-modal-section hidden">
@@ -2765,15 +2754,12 @@
       function collectPersonDetails(prefix) {
         const out = {};
         if (ageCol) { const el = document.getElementById(prefix + 'Age'); if (el && el.value) out[ageCol] = el.value.trim(); }
-        if (genderCol) { const el = document.getElementById(prefix + 'Gender'); if (el && el.value) out[genderCol] = el.value; }
         if (homePhoneCol) { const el = document.getElementById(prefix + 'HomePhone'); if (el && el.value) out[homePhoneCol] = el.value.trim(); }
         if (cellCol) { const el = document.getElementById(prefix + 'Cell'); if (el && el.value) out[cellCol] = el.value.trim(); }
         if (emailCol) { const el = document.getElementById(prefix + 'Email'); if (el && el.value) out[emailCol] = el.value.trim(); }
-        if (renterCol) { const el = document.getElementById(prefix + 'Renter'); if (el && el.value) out[renterCol] = el.value; }
-        if (followUpCol) { const el = document.getElementById(prefix + 'FollowUp'); if (el && el.value) out[followUpCol] = el.value; }
+        if (renterCol) { const el = document.getElementById(prefix + 'Renter'); if (el && el.type === 'checkbox') out[renterCol] = el.checked ? 'TRUE' : 'FALSE'; }
+        if (followUpCol) { const el = document.getElementById(prefix + 'FollowUp'); if (el && el.type === 'checkbox') out[followUpCol] = el.checked ? 'TRUE' : 'FALSE'; }
         if (personNotesCol) { const el = document.getElementById(prefix + 'PersonNotes'); if (el && el.value) out[personNotesCol] = el.value.trim(); }
-        if (contactDateCol) { const el = document.getElementById(prefix + 'ContactDate'); if (el && el.value) out[contactDateCol] = el.value.trim(); }
-        if (contactNotesCol) { const el = document.getElementById(prefix + 'ContactNotes'); if (el && el.value) out[contactNotesCol] = el.value.trim(); }
         return out;
       }
       function collectAddressDetails() {
@@ -2781,13 +2767,7 @@
         if (damageCol) { const el = document.getElementById('addRecordDamage'); if (el && el.value) out[damageCol] = el.value; }
         if (statusCol) { const el = document.getElementById('addRecordStatus'); if (el && el.value) out[statusCol] = el.value; }
         if (rebuildCol) { const el = document.getElementById('addRecordRebuild'); if (el && el.value) out[rebuildCol] = el.value; }
-        if (indoorsCol) { const el = document.getElementById('addRecordIndoors'); if (el && el.value) out[indoorsCol] = el.value; }
-        if (soilCol) { const el = document.getElementById('addRecordSoil'); if (el && el.value) out[soilCol] = el.value; }
         if (addressNotesCol) { const el = document.getElementById('addRecordAddressNotes'); if (el && el.value) out[addressNotesCol] = el.value.trim(); }
-        if (captainCol) { const el = document.getElementById('addRecordCaptain'); if (el && el.value) out[captainCol] = el.value; }
-        if (saleDateCol) { const el = document.getElementById('addRecordSaleDate'); if (el && el.value) out[saleDateCol] = el.value.trim(); }
-        if (saleNotesCol) { const el = document.getElementById('addRecordSaleNotes'); if (el && el.value) out[saleNotesCol] = el.value.trim(); }
-        if (newOwnerCol) { const el = document.getElementById('addRecordNewOwner'); if (el && el.value) out[newOwnerCol] = el.value.trim(); }
         return out;
       }
 
