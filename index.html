@@ -6333,18 +6333,20 @@
               throw new Error(`Direct fetch failed: ${response.status}`);
             }
             kmlText = await response.text();
+            if (isHtmlResponse(kmlText)) {
+              throw new Error('Google Drive returned HTML instead of KML (virus-scan page)');
+            }
           } catch (fetchError) {
             clearTimeout(timeoutId);
             throw fetchError; // Re-throw to be caught by outer catch
           }
         } catch (error) {
-          // If direct fetch fails (CORS issue or timeout), try multiple proxy services
+          // If direct fetch fails (CORS, timeout, or HTML response), try multiple proxy services
           
-          // Try multiple proxy services with fallback
           const proxyServices = [
             `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`,
-            `https://cors-anywhere.herokuapp.com/${directUrl}`,
-            `https://corsproxy.io/?${encodeURIComponent(directUrl)}`
+            `https://corsproxy.io/?${encodeURIComponent(directUrl)}`,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(directUrl)}`
           ];
           
           let proxySuccess = false;
@@ -6353,6 +6355,7 @@
               const proxyResponse = await fetch(proxyUrl);
               if (proxyResponse.ok) {
                 kmlText = await proxyResponse.text();
+                if (isHtmlResponse(kmlText)) continue;
                 proxySuccess = true;
                 break;
               }
@@ -6364,6 +6367,10 @@
           if (!proxySuccess) {
             throw new Error('All proxy services failed');
           }
+        }
+        
+        if (isHtmlResponse(kmlText)) {
+          throw new Error('KML URL returned an HTML page (e.g. Google Drive virus-scan).');
         }
         
         const parser = new DOMParser();
@@ -6397,6 +6404,16 @@
       } finally {
         homeKmlLoading = false; // Always reset the flag
       }
+    }
+
+    // Detect if response body is HTML (e.g. Google Drive virus-scan page) instead of KML.
+    // When Drive can't virus-scan a file it returns 200 with an HTML page; we must retry via proxy.
+    function isHtmlResponse(text) {
+      if (!text || typeof text !== 'string') return true;
+      const t = text.trim();
+      if (!t.length) return true;
+      const start = t.substring(0, 200).toLowerCase();
+      return start.startsWith('<!') || start.startsWith('<html') || start.includes('<!doctype');
     }
 
     // Convert Google Drive sharing URL to direct download URL
@@ -6461,12 +6478,16 @@
               throw new Error(`Direct fetch failed: ${response.status}`);
             }
             kmlText = await response.text();
+            // Google Drive sometimes returns 200 with an HTML virus-scan page instead of the file
+            if (isHtmlResponse(kmlText)) {
+              throw new Error('Google Drive returned HTML instead of KML (virus-scan page)');
+            }
           } catch (fetchError) {
             clearTimeout(timeoutId);
             throw fetchError; // Re-throw to be caught by outer catch
           }
         } catch (error) {
-          // If direct fetch fails (CORS issue or timeout), try multiple proxy services
+          // If direct fetch fails (CORS, timeout, or HTML response), try multiple proxy services
           
           // Try multiple proxy services with fallback
           const proxyServices = [
@@ -6488,6 +6509,10 @@
               
               if (response.ok) {
                 kmlText = await response.text();
+                if (isHtmlResponse(kmlText)) {
+                  lastError = new Error('Google Drive returned HTML instead of KML');
+                  continue;
+                }
                 success = true;
                 break; // Success, exit loop
               } else {
@@ -6506,6 +6531,10 @@
           if (!success) {
             throw new Error(`Failed to fetch KML: ${lastError ? lastError.message : 'All proxy services failed'}. The KML file may be too large, the URL may be invalid, or the file may not be publicly accessible. Try using a direct download link or a smaller KML file.`);
           }
+        }
+        
+        if (isHtmlResponse(kmlText)) {
+          throw new Error('KML URL returned an HTML page (e.g. Google Drive virus-scan). Use a direct download link or make the file publicly viewable.');
         }
         
         // Parse KML to GeoJSON
