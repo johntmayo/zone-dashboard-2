@@ -1639,65 +1639,70 @@
       return Array.from(streets).sort();
     }
 
-    // Get unique damage values from all addresses
+    // Full option lists for filters (always show all options; empty result is user's problem)
+    const DEFAULT_DAMAGE_VALUES = ['Total Loss', 'Partial Loss', 'Standing'];
+    const DEFAULT_PROPERTY_STATUS_VALUES = ['Rebuilding', 'For sale', 'Sold'];
+
+    // Get all damage options for filter: full list always, then any custom values from data
+    function getFullDamageOptions() {
+      if (!sheetData || !sheetData.headers) return DEFAULT_DAMAGE_VALUES;
+      const damageCol = findColumn(sheetData.headers, 'damage');
+      if (!damageCol) return DEFAULT_DAMAGE_VALUES;
+      const fromData = new Set();
+      sheetData.data.forEach(row => {
+        if (row[damageCol] !== undefined && row[damageCol] !== null) {
+          const v = String(row[damageCol]).trim();
+          if (v) fromData.add(v);
+        }
+      });
+      const custom = Array.from(fromData).filter(d => !DEFAULT_DAMAGE_VALUES.some(def => def.toLowerCase() === d.toLowerCase())).sort();
+      return [...DEFAULT_DAMAGE_VALUES, ...custom];
+    }
+
+    // Get all property status options for filter: full list always, then any custom from data
+    function getFullStatusOptions() {
+      if (!sheetData || !sheetData.headers) return DEFAULT_PROPERTY_STATUS_VALUES;
+      const statusCol = findColumn(sheetData.headers, 'property status');
+      if (!statusCol) return DEFAULT_PROPERTY_STATUS_VALUES;
+      const fromData = new Set();
+      sheetData.data.forEach(row => {
+        if (row[statusCol] !== undefined && row[statusCol] !== null) {
+          const v = String(row[statusCol]).trim();
+          if (v) fromData.add(v);
+        }
+      });
+      const custom = Array.from(fromData).filter(s => !DEFAULT_PROPERTY_STATUS_VALUES.some(def => def.toLowerCase() === s.toLowerCase())).sort();
+      return [...DEFAULT_PROPERTY_STATUS_VALUES, ...custom];
+    }
+
+    // Get all rebuild status options for filter: full sequential list first, then any custom from data
+    function getFullRebuildStatusOptions() {
+      if (!sheetData || !sheetData.headers) return [...REBUILD_STAGES_SEQUENTIAL];
+      const rebuildCol = findColumn(sheetData.headers, 'rebuild');
+      if (!rebuildCol) return [...REBUILD_STAGES_SEQUENTIAL];
+      const fromData = new Set();
+      sheetData.data.forEach(row => {
+        if (row[rebuildCol] !== undefined && row[rebuildCol] !== null) {
+          const v = String(row[rebuildCol]).trim();
+          if (v) fromData.add(v);
+        }
+      });
+      const custom = Array.from(fromData).filter(s => !REBUILD_STAGES_SEQUENTIAL.some(stage => stage.toLowerCase().trim() === s.toLowerCase().trim())).sort();
+      return [...REBUILD_STAGES_SEQUENTIAL, ...custom];
+    }
+
+    // Get unique damage values from all addresses (legacy; filter bar uses getFullDamageOptions)
     function getUniqueDamage(addresses) {
       const damageCol = findColumn(sheetData.headers, 'damage');
       if (!damageCol) return [];
-      
-      const damages = new Set();
-      // Check all data, not just filtered addresses
-      sheetData.data.forEach(row => {
-        if (row[damageCol] !== undefined && row[damageCol] !== null) {
-          const damage = String(row[damageCol]).trim();
-          if (damage) damages.add(damage);
-        }
-      });
-      
-      // Always include default values (even if not in data yet)
-      const defaultDamageValues = ['Total Loss', 'Partial Loss', 'Standing'];
-      defaultDamageValues.forEach(val => {
-        // Check if this value exists (case-insensitive)
-        const existing = Array.from(damages).find(d => d.toLowerCase() === val.toLowerCase());
-        if (existing && existing !== val) {
-          // Replace with exact case from defaults
-          damages.delete(existing);
-        }
-        damages.add(val);
-      });
-      
-      return Array.from(damages).sort();
+      return getFullDamageOptions();
     }
 
-    // Get unique property status values from all addresses
+    // Get unique property status values from all addresses (legacy; filter bar uses getFullStatusOptions)
     function getUniqueStatus(addresses) {
       const statusCol = findColumn(sheetData.headers, 'property status');
       if (!statusCol) return [];
-      
-      const statuses = new Set();
-      // Check all data, not just filtered addresses
-      sheetData.data.forEach(row => {
-        if (row[statusCol] !== undefined && row[statusCol] !== null) {
-          const status = String(row[statusCol]).trim();
-          if (status) statuses.add(status);
-        }
-      });
-      
-      // Always include default values (even if not in data yet) in specific order
-      const defaultStatusValues = ['Rebuilding', 'For sale', 'Sold'];
-      defaultStatusValues.forEach(val => {
-        // Check if this value exists (case-insensitive)
-        const existing = Array.from(statuses).find(s => s.toLowerCase() === val.toLowerCase());
-        if (existing && existing !== val) {
-          // Replace with exact case from defaults
-          statuses.delete(existing);
-        }
-        statuses.add(val);
-      });
-      
-      // Return in specific order: defaults first (in order), then any others alphabetically
-      const orderedStatuses = defaultStatusValues.filter(val => statuses.has(val));
-      const otherStatuses = Array.from(statuses).filter(val => !defaultStatusValues.includes(val)).sort();
-      return [...orderedStatuses, ...otherStatuses];
+      return getFullStatusOptions();
     }
 
     // Parse multiple captains from semicolon-separated values in NC Name, NC Phone, NC Email columns
@@ -2991,21 +2996,9 @@
       const contactDateCol = findColumn(headers, ['contact', 'date']);
 
       const streets = getUniqueStreets(addresses);
-      const damages = getUniqueDamage(addresses);
-      const statuses = getUniqueStatus(addresses);
-
-      // Get unique rebuild status values
-      const rebuildStatuses = new Set();
-      if (rebuildCol) {
-        sheetData.data.forEach(row => {
-          if (row[rebuildCol] !== undefined && row[rebuildCol] !== null) {
-            const value = String(row[rebuildCol]).trim();
-            if (value) rebuildStatuses.add(value);
-          }
-        });
-      }
-      // Sort rebuild statuses in sequential order, with any custom values at the end
-      const rebuildStatusesArray = sortRebuildStatusesSequential(Array.from(rebuildStatuses));
+      const damages = getFullDamageOptions();
+      const statuses = getFullStatusOptions();
+      const rebuildStatusesArray = rebuildCol ? getFullRebuildStatusOptions() : [];
       
       // Check if zone has multiple captains and get captain names for filter
       const ncNameCol = findColumn(headers, 'nc name');
