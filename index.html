@@ -2454,10 +2454,48 @@
       return headers.map(h => (valuesByColumn[h] != null && valuesByColumn[h] !== '') ? String(valuesByColumn[h]).trim() : '');
     }
 
-    // Show Add Record modal (new address or add person to existing address)
+    // Parse leading house number from address string for sorting (e.g. "123 Main St" -> 123)
+    function parseHouseNumber(address) {
+      if (!address || typeof address !== 'string') return 0;
+      const m = address.trim().match(/^(\d+)/);
+      return m ? parseInt(m[1], 10) : 0;
+    }
+
+    // Sort addresses by street name then house number (numeric)
+    function sortAddressesByStreetThenNumber(addresses) {
+      if (!addresses || !addresses.length) return [];
+      return [...addresses].sort((a, b) => {
+        const streetA = extractStreet(a);
+        const streetB = extractStreet(b);
+        if (streetA !== streetB) return (streetA || '').localeCompare(streetB || '');
+        return (parseHouseNumber(a) || 0) - (parseHouseNumber(b) || 0);
+      });
+    }
+
+    // Get predominant city, state, zip from sheet for pre-filling Add Record
+    function getPredominantLocation() {
+      if (!sheetData || !sheetData.headers || !sheetData.data || !sheetData.data.length) return { city: '', state: '', zip: '' };
+      const headers = sheetData.headers;
+      const cityCol = headers.find(h => /^city$/i.test(h));
+      const stateCol = headers.find(h => /^state$/i.test(h));
+      const zipCol = headers.find(h => /zip|postal/i.test(h));
+      const count = (arr) => {
+        const m = new Map();
+        arr.forEach(v => { const x = (v || '').trim(); if (x) m.set(x, (m.get(x) || 0) + 1); });
+        let best = '', max = 0;
+        m.forEach((n, v) => { if (n > max) { max = n; best = v; } });
+        return best;
+      };
+      const city = cityCol ? count(sheetData.data.map(r => r[cityCol])) : '';
+      const state = stateCol ? count(sheetData.data.map(r => r[stateCol])) : '';
+      const zip = zipCol ? count(sheetData.data.map(r => r[zipCol])) : '';
+      return { city, state, zip };
+    }
+
+    // Show Add Record modal (v2: flexible flow, geocode + minimap, no "spreadsheet" copy)
     function showAddRecordModal() {
       if (!sheetData || !sheetData.headers || !sheetData.addressMap) {
-        alert('Please load a spreadsheet first.');
+        alert('Please load your zone data first.');
         return;
       }
       if (!accessToken || !currentSheetId) {
@@ -2465,67 +2503,102 @@
         return;
       }
       const headers = sheetData.headers;
-      const addresses = Array.from(sheetData.addressMap.keys()).sort();
+      const addresses = sortAddressesByStreetThenNumber(Array.from(sheetData.addressMap.keys()));
+      const predominantLoc = getPredominantLocation();
+      const cityStateZip = [predominantLoc.city, predominantLoc.state, predominantLoc.zip].filter(Boolean).join(', ');
+      const uniqueStreets = [...new Set(addresses.map(addr => extractStreet(addr)))].filter(Boolean).sort();
       const houseNumCol = sheetData.houseNumCol || headers.find(h => /house\s*#?/i.test(h));
       const streetCol = sheetData.streetCol || headers.find(h => h.toLowerCase() === 'street');
       const addressCol = sheetData.addressCol;
-      const nameCol = headers.find(h => {
-        const l = h.toLowerCase();
-        return l.includes('resident name') || l.includes('name') || (l === 'name');
-      }) || headers.find(h => /name/i.test(h));
+      const nameCol = headers.find(h => { const l = h.toLowerCase(); return l.includes('resident name') || l === 'name'; }) || headers.find(h => /name/i.test(h));
       const latCol = headers.find(h => /latitude|^lat$/i.test(h));
       const lonCol = headers.find(h => /longitude|^lon$|^lng$/i.test(h));
       let zoneCol = headers.find(h => /zone\s*name|zonename/i.test(h));
       if (!zoneCol) zoneCol = headers.find(h => h.toLowerCase().includes('zone'));
+      const damageCol = findColumn(headers, 'damage');
+      const statusCol = findColumn(headers, ['property', 'status']) || findColumn(headers, 'status');
+      const rebuildCol = findColumn(headers, 'rebuild');
+      const contactDateCol = findColumn(headers, ['contact', 'date']);
+      const addressNotesCol = headers.find(h => /address\s*note/i.test(h));
+      const personNotesCol = headers.find(h => /person\s*note/i.test(h));
+      const getUniqueValues = (col) => col ? [...new Set(sheetData.data.map(r => (r[col] || '').trim()).filter(Boolean))].sort() : [];
 
       const modalHTML = `
         <div class="newsletter-modal-overlay" id="addRecordModalOverlay">
-          <div class="newsletter-modal">
+          <div class="newsletter-modal" style="max-width:560px;">
             <button class="newsletter-modal-close" id="addRecordModalClose">&times;</button>
             <div class="newsletter-modal-header">
               <h3 class="newsletter-modal-title">Add a record</h3>
-              <p class="newsletter-modal-subtitle">Add a new address or a person at an existing address. The new row will be added to your spreadsheet.</p>
+              <p class="newsletter-modal-subtitle">Add an address, a person, or both. The new record will appear in your zone list.</p>
             </div>
             <div class="newsletter-modal-content">
               <div class="newsletter-modal-section">
-                <p style="margin:0 0 12px 0; font-weight:600;">What do you want to add?</p>
-                <div style="display:flex; gap:16px; margin-bottom:20px;">
-                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                    <input type="radio" name="addRecordType" value="new" checked> New address (with at least one person)
-                  </label>
-                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                    <input type="radio" name="addRecordType" value="existing"> Person at an existing address
-                  </label>
+                <p style="margin:0 0 10px 0; font-weight:600;">What are you adding?</p>
+                <div style="display:flex; flex-wrap:wrap; gap:10px 16px;">
+                  <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="radio" name="addRecordType" value="addressOnly"> Address only (e.g. vacant lot)</label>
+                  <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="radio" name="addRecordType" value="existing"> Person at an existing address</label>
+                  <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="radio" name="addRecordType" value="new" checked> New address</label>
+                  <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="radio" name="addRecordType" value="personOnly"> Person only (no fixed address)</label>
                 </div>
               </div>
-              <div id="addRecordNewFields" class="newsletter-modal-section">
-                <h4 class="newsletter-modal-section-title">New address</h4>
+              <div id="addRecordAddressSection" class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">Address</h4>
                 <div class="newsletter-modal-instructions">
-                  <p style="margin:0 0 8px 0;"><label>House number <span style="color:var(--primary);">*</span></label></p>
-                  <input type="text" id="addRecordHouseNum" placeholder="e.g. 123" style="width:100%; max-width:200px; padding:8px 12px; margin-bottom:12px; border:1px solid var(--border-soft); border-radius:6px;">
-                  <p style="margin:0 0 8px 0;"><label>Street <span style="color:var(--primary);">*</span></label></p>
-                  <input type="text" id="addRecordStreet" placeholder="e.g. Main St" style="width:100%; max-width:320px; padding:8px 12px; margin-bottom:12px; border:1px solid var(--border-soft); border-radius:6px;">
-                  <p style="margin:0 0 8px 0;"><label>City, State (optional – helps map placement)</label></p>
-                  <input type="text" id="addRecordCityState" placeholder="e.g. Altadena, CA" style="width:100%; max-width:320px; padding:8px 12px; margin-bottom:12px; border:1px solid var(--border-soft); border-radius:6px;">
-                  <p style="margin:0 0 8px 0;"><label>Person at this address <span style="color:var(--primary);">*</span></label></p>
-                  <input type="text" id="addRecordPersonName" placeholder="e.g. Jane Smith" style="width:100%; max-width:320px; padding:8px 12px; border:1px solid var(--border-soft); border-radius:6px;">
+                  <p style="margin:0 0 6px 0;"><label>Street</label></p>
+                  <select id="addRecordStreetSelect" style="width:100%; max-width:320px; padding:8px 12px; margin-bottom:10px; border:1px solid var(--border-soft); border-radius:6px;">
+                    <option value="">-- Select street --</option>
+                    ${uniqueStreets.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
+                    <option value="__other__">Other (type new street)</option>
+                  </select>
+                  <div id="addRecordStreetOtherWrap" class="hidden" style="margin-bottom:10px;">
+                    <input type="text" id="addRecordStreetOther" placeholder="e.g. Main St" style="width:100%; max-width:320px; padding:8px 12px; border:1px solid var(--border-soft); border-radius:6px;">
+                  </div>
+                  <p style="margin:0 0 6px 0;"><label>House number</label></p>
+                  <input type="text" id="addRecordHouseNum" placeholder="e.g. 123" style="width:100%; max-width:120px; padding:8px 12px; margin-bottom:10px; border:1px solid var(--border-soft); border-radius:6px;">
+                  <p style="margin:0 0 6px 0;"><label>City, State, Zip</label></p>
+                  <input type="text" id="addRecordCityState" placeholder="e.g. Altadena, CA 91001" value="${escapeHtml(cityStateZip)}" style="width:100%; max-width:320px; padding:8px 12px; margin-bottom:10px; border:1px solid var(--border-soft); border-radius:6px;">
                 </div>
               </div>
-              <div id="addRecordExistingFields" class="newsletter-modal-section hidden">
+              <div id="addRecordExistingSection" class="newsletter-modal-section hidden">
                 <h4 class="newsletter-modal-section-title">Choose address</h4>
                 <div class="newsletter-modal-instructions">
-                  <p style="margin:0 0 8px 0;"><label>Address <span style="color:var(--primary);">*</span></label></p>
-                  <select id="addRecordExistingAddress" style="width:100%; max-width:400px; padding:8px 12px; margin-bottom:12px; border:1px solid var(--border-soft); border-radius:6px;">
+                  <p style="margin:0 0 6px 0;"><label>Address</label></p>
+                  <select id="addRecordExistingAddress" style="width:100%; max-width:400px; padding:8px 12px; margin-bottom:10px; border:1px solid var(--border-soft); border-radius:6px;">
                     <option value="">-- Select an address --</option>
                     ${addresses.map(addr => `<option value="${escapeHtml(addr)}">${escapeHtml(addr)}</option>`).join('')}
                   </select>
-                  <p style="margin:0 0 8px 0;"><label>Person name <span style="color:var(--primary);">*</span></label></p>
-                  <input type="text" id="addRecordExistingPersonName" placeholder="e.g. Jane Smith" style="width:100%; max-width:320px; padding:8px 12px; border:1px solid var(--border-soft); border-radius:6px;">
                 </div>
+              </div>
+              <div id="addRecordPersonSection" class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">Person (optional for address-only)</h4>
+                <div class="newsletter-modal-instructions">
+                  <p style="margin:0 0 6px 0;"><label>Name</label></p>
+                  <input type="text" id="addRecordPersonName" placeholder="e.g. Jane Smith" style="width:100%; max-width:320px; padding:8px 12px; margin-bottom:10px; border:1px solid var(--border-soft); border-radius:6px;">
+                  <p style="margin:0 0 6px 0;"><label>Note (e.g. unhoused, no fixed address)</label></p>
+                  <input type="text" id="addRecordPersonNote" placeholder="Optional" style="width:100%; max-width:320px; padding:8px 12px; border:1px solid var(--border-soft); border-radius:6px;">
+                </div>
+              </div>
+              <div id="addRecordMoreSection" class="newsletter-modal-section">
+                <details style="margin-top:8px;">
+                  <summary style="cursor:pointer; font-weight:600;">Add more details</summary>
+                  <div style="margin-top:12px; padding-left:8px;">
+                    ${damageCol ? `<p style="margin:0 0 4px 0;"><label>Damage status</label></p><select id="addRecordDamage" style="width:100%; max-width:280px; padding:6px 10px; margin-bottom:8px; border:1px solid var(--border-soft); border-radius:6px;"><option value="">—</option>${getUniqueValues(damageCol).map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}</select>` : ''}
+                    ${statusCol ? `<p style="margin:0 0 4px 0;"><label>Property status</label></p><select id="addRecordStatus" style="width:100%; max-width:280px; padding:6px 10px; margin-bottom:8px; border:1px solid var(--border-soft); border-radius:6px;"><option value="">—</option>${getUniqueValues(statusCol).map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}</select>` : ''}
+                    ${rebuildCol ? `<p style="margin:0 0 4px 0;"><label>Rebuild stage</label></p><select id="addRecordRebuild" style="width:100%; max-width:280px; padding:6px 10px; margin-bottom:8px; border:1px solid var(--border-soft); border-radius:6px;"><option value="">—</option>${getUniqueValues(rebuildCol).map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}</select>` : ''}
+                    ${addressNotesCol ? `<p style="margin:0 0 4px 0;"><label>Address notes</label></p><input type="text" id="addRecordAddressNotes" style="width:100%; max-width:320px; padding:6px 10px; margin-bottom:8px; border:1px solid var(--border-soft); border-radius:6px;">` : ''}
+                  </div>
+                </details>
+              </div>
+              <div id="addRecordMapSection" class="newsletter-modal-section hidden">
+                <h4 class="newsletter-modal-section-title">Location on map</h4>
+                <p id="addRecordGeocodeStatus" style="margin:0 0 8px 0; font-size:0.9rem;"></p>
+                <div id="addRecordMinimap" style="height:200px; width:100%; border-radius:8px; border:1px solid var(--border-soft);"></div>
+                <p style="margin:8px 0 0 0; font-size:0.85rem; color:var(--text-light);">Drag the pin to adjust, or click &quot;Place pin manually&quot; to set by clicking on the map.</p>
+                <button type="button" id="addRecordPlacePinBtn" class="btn-copy-emails" style="margin-top:8px; font-size:0.9rem;">Place pin manually</button>
               </div>
             </div>
             <div class="newsletter-modal-actions">
-              <button type="button" class="btn-copy-emails" id="addRecordSubmitBtn">Add to spreadsheet</button>
+              <button type="button" class="btn-copy-emails" id="addRecordSubmitBtn">Add record</button>
             </div>
           </div>
         </div>
@@ -2537,74 +2610,183 @@
 
       const overlay = document.getElementById('addRecordModalOverlay');
       const closeBtn = document.getElementById('addRecordModalClose');
-      const newFields = document.getElementById('addRecordNewFields');
-      const existingFields = document.getElementById('addRecordExistingFields');
-      const radios = overlay.querySelectorAll('input[name="addRecordType"]');
+      const addressSection = document.getElementById('addRecordAddressSection');
+      const existingSection = document.getElementById('addRecordExistingSection');
+      const personSection = document.getElementById('addRecordPersonSection');
+      const mapSection = document.getElementById('addRecordMapSection');
+      const streetSelect = document.getElementById('addRecordStreetSelect');
+      const streetOtherWrap = document.getElementById('addRecordStreetOtherWrap');
+      const geocodeStatus = document.getElementById('addRecordGeocodeStatus');
+      const minimapDiv = document.getElementById('addRecordMinimap');
+      const placePinBtn = document.getElementById('addRecordPlacePinBtn');
       const submitBtn = document.getElementById('addRecordSubmitBtn');
 
-      function toggleFields() {
-        const isNew = overlay.querySelector('input[name="addRecordType"]:checked').value === 'new';
-        newFields.classList.toggle('hidden', !isNew);
-        existingFields.classList.toggle('hidden', isNew);
-      }
-      radios.forEach(r => r.addEventListener('change', toggleFields));
-      toggleFields();
+      let addRecordMinimap = null;
+      let addRecordMarker = null;
+      let addRecordLat = null;
+      let addRecordLon = null;
+      let addRecordPendingMapConfirm = false;
+      let addRecordPendingRowValues = null;
+      const defaultCenter = [34.19, -118.15];
 
-      overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-      closeBtn.addEventListener('click', () => overlay.remove());
-      document.addEventListener('keydown', function escapeHandler(e) {
-        if (e.key === 'Escape' && overlay && document.body.contains(overlay)) {
-          overlay.remove();
-          document.removeEventListener('keydown', escapeHandler);
+      function showMapSection(lat, lon) {
+        mapSection.classList.remove('hidden');
+        addRecordLat = lat;
+        addRecordLon = lon;
+        if (!addRecordMinimap && minimapDiv && typeof L !== 'undefined') {
+          const center = (lat != null && lon != null) ? [lat, lon] : defaultCenter;
+          const zoom = (lat != null && lon != null) ? 16 : 11;
+          addRecordMinimap = L.map(minimapDiv, { attributionControl: false }).setView(center, zoom);
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(addRecordMinimap);
+          addRecordMarker = L.marker(center, { draggable: true }).addTo(addRecordMinimap);
+          addRecordMarker.on('dragend', () => {
+            const pos = addRecordMarker.getLatLng();
+            addRecordLat = pos.lat;
+            addRecordLon = pos.lng;
+          });
+        } else if (addRecordMinimap && addRecordMarker && lat != null && lon != null) {
+          addRecordMarker.setLatLng([lat, lon]);
+          addRecordMinimap.setView([lat, lon], 16);
+          addRecordLat = lat;
+          addRecordLon = lon;
         }
+        if (placePinBtn) placePinBtn.onclick = () => {
+          if (!addRecordMinimap) return;
+          addRecordMinimap.once('click', (e) => {
+            addRecordLat = e.latlng.lat;
+            addRecordLon = e.latlng.lng;
+            addRecordMarker.setLatLng(e.latlng);
+            geocodeStatus.textContent = 'Location set manually.';
+          });
+          geocodeStatus.textContent = 'Click on the map to place the pin.';
+        };
+      }
+
+      function removeModalAndMap() {
+        if (addRecordMinimap) { addRecordMinimap.remove(); addRecordMinimap = null; addRecordMarker = null; }
+        overlay.remove();
+      }
+
+      function toggleByType() {
+        const t = overlay.querySelector('input[name="addRecordType"]:checked').value;
+        addressSection.classList.toggle('hidden', t === 'existing' || t === 'personOnly');
+        existingSection.classList.toggle('hidden', t !== 'existing');
+        personSection.classList.toggle('hidden', false);
+        mapSection.classList.add('hidden');
+      }
+      overlay.querySelectorAll('input[name="addRecordType"]').forEach(r => r.addEventListener('change', toggleByType));
+      toggleByType();
+
+      streetSelect.addEventListener('change', () => { streetOtherWrap.classList.toggle('hidden', streetSelect.value !== '__other__'); });
+      if (streetSelect.value === '__other__') streetOtherWrap.classList.remove('hidden');
+
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) removeModalAndMap(); });
+      closeBtn.addEventListener('click', removeModalAndMap);
+      document.addEventListener('keydown', function escapeHandler(e) {
+        if (e.key === 'Escape' && overlay && document.body.contains(overlay)) { removeModalAndMap(); document.removeEventListener('keydown', escapeHandler); }
       });
 
       submitBtn.addEventListener('click', async () => {
-        const isNew = overlay.querySelector('input[name="addRecordType"]:checked').value === 'new';
-        let personName = '';
+        if (addRecordPendingMapConfirm && addRecordPendingRowValues) {
+          if (latCol && addRecordLat != null) addRecordPendingRowValues[latCol] = String(addRecordLat);
+          if (lonCol && addRecordLon != null) addRecordPendingRowValues[lonCol] = String(addRecordLon);
+          const row = buildRowForHeaders(headers, addRecordPendingRowValues);
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Adding…';
+          try {
+            await appendRowsToSheet([row]);
+            removeModalAndMap();
+            if (currentSheetUrl) loadAddressData(currentSheetUrl);
+            alert('Record added. Your list will refresh.');
+          } catch (err) {
+            alert('Could not add record: ' + (err.message || err));
+          } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Add record';
+          }
+          addRecordPendingMapConfirm = false;
+          addRecordPendingRowValues = null;
+          return;
+        }
+        const t = overlay.querySelector('input[name="addRecordType"]:checked').value;
         let rowValuesByColumn = {};
 
-        if (isNew) {
-          const houseNum = (document.getElementById('addRecordHouseNum').value || '').trim();
-          const street = (document.getElementById('addRecordStreet').value || '').trim();
-          personName = (document.getElementById('addRecordPersonName').value || '').trim();
-          if (!street || !personName) {
-            alert('Please fill in Street and Person at this address.');
-            return;
-          }
-          const addressString = [houseNum, street].filter(Boolean).join(' ');
-          if (houseNumCol) rowValuesByColumn[houseNumCol] = houseNum;
-          if (streetCol) rowValuesByColumn[streetCol] = street;
-          if (addressCol) rowValuesByColumn[addressCol] = addressString;
+        if (t === 'personOnly') {
+          const personName = (document.getElementById('addRecordPersonName').value || '').trim();
+          const note = (document.getElementById('addRecordPersonNote').value || '').trim();
+          if (!personName) { alert('Please enter the person\'s name.'); return; }
+          if (addressCol) rowValuesByColumn[addressCol] = 'No fixed address';
+          if (houseNumCol) rowValuesByColumn[houseNumCol] = '';
+          if (streetCol) rowValuesByColumn[streetCol] = '';
           if (nameCol) rowValuesByColumn[nameCol] = personName;
+          if (personNotesCol && note) rowValuesByColumn[personNotesCol] = note;
           if (zoneCol && currentZoneName) rowValuesByColumn[zoneCol] = currentZoneName;
+          if (damageCol) { const v = document.getElementById('addRecordDamage'); if (v && v.value) rowValuesByColumn[damageCol] = v.value; }
+          if (statusCol) { const v = document.getElementById('addRecordStatus'); if (v && v.value) rowValuesByColumn[statusCol] = v.value; }
+          if (rebuildCol) { const v = document.getElementById('addRecordRebuild'); if (v && v.value) rowValuesByColumn[rebuildCol] = v.value; }
+          if (latCol) rowValuesByColumn[latCol] = '';
+          if (lonCol) rowValuesByColumn[lonCol] = '';
+        } else if (t === 'existing') {
+          const existingAddr = (document.getElementById('addRecordExistingAddress').value || '').trim();
+          const personName = (document.getElementById('addRecordPersonName').value || '').trim();
+          if (!existingAddr) { alert('Please select an address.'); return; }
+          if (!personName) { alert('Please enter the person\'s name.'); return; }
+          const existingRows = sheetData.addressMap.get(existingAddr);
+          if (!existingRows || !existingRows.length) { alert('Could not find that address.'); return; }
+          const firstRow = existingRows[0];
+          headers.forEach(h => { rowValuesByColumn[h] = (firstRow[h] != null ? firstRow[h] : ''); });
+          rowValuesByColumn[nameCol] = personName;
+          if (damageCol) { const v = document.getElementById('addRecordDamage'); if (v && v.value) rowValuesByColumn[damageCol] = v.value; }
+          if (statusCol) { const v = document.getElementById('addRecordStatus'); if (v && v.value) rowValuesByColumn[statusCol] = v.value; }
+          if (rebuildCol) { const v = document.getElementById('addRecordRebuild'); if (v && v.value) rowValuesByColumn[rebuildCol] = v.value; }
+          if (personNotesCol) { const v = document.getElementById('addRecordPersonNote'); if (v && v.value) rowValuesByColumn[personNotesCol] = v.value; }
+        } else {
+          const streetVal = streetSelect.value === '__other__' ? (document.getElementById('addRecordStreetOther').value || '').trim() : (streetSelect.value || '').trim();
+          const houseNum = (document.getElementById('addRecordHouseNum').value || '').trim();
+          const personName = (document.getElementById('addRecordPersonName').value || '').trim();
+          if (!streetVal && t === 'new') { alert('Please select or enter a street.'); return; }
+          if (t === 'addressOnly' && !streetVal) { alert('Please select or enter a street for the address.'); return; }
+          const addressString = [houseNum, streetVal].filter(Boolean).join(' ');
+          if (houseNumCol) rowValuesByColumn[houseNumCol] = houseNum;
+          if (streetCol) rowValuesByColumn[streetCol] = streetVal;
+          if (addressCol) rowValuesByColumn[addressCol] = addressString || '';
+          if (nameCol) rowValuesByColumn[nameCol] = personName || (t === 'addressOnly' ? '' : '');
+          if (zoneCol && currentZoneName) rowValuesByColumn[zoneCol] = currentZoneName;
+          if (damageCol) { const v = document.getElementById('addRecordDamage'); if (v && v.value) rowValuesByColumn[damageCol] = v.value; }
+          if (statusCol) { const v = document.getElementById('addRecordStatus'); if (v && v.value) rowValuesByColumn[statusCol] = v.value; }
+          if (rebuildCol) { const v = document.getElementById('addRecordRebuild'); if (v && v.value) rowValuesByColumn[rebuildCol] = v.value; }
+          if (addressNotesCol) { const v = document.getElementById('addRecordAddressNotes'); if (v && v.value) rowValuesByColumn[addressNotesCol] = v.value; }
+          if (personNotesCol) { const v = document.getElementById('addRecordPersonNote'); if (v && v.value) rowValuesByColumn[personNotesCol] = v.value; }
           let lat = '', lon = '';
           const cityState = (document.getElementById('addRecordCityState').value || '').trim();
-          const geocodeQuery = cityState ? `${addressString}, ${cityState}` : addressString;
-          const coords = await geocodeWithMapbox(geocodeQuery);
-          if (coords) {
-            lat = String(coords.lat);
-            lon = String(coords.lon);
+          const geocodeQuery = addressString && (addressString + (cityState ? ', ' + cityState : ''));
+          if (geocodeQuery && latCol && lonCol) {
+            geocodeStatus.textContent = 'Looking up location…';
+            mapSection.classList.remove('hidden');
+            const coords = await geocodeWithMapbox(geocodeQuery);
+            if (coords) {
+              addRecordLat = coords.lat;
+              addRecordLon = coords.lon;
+              geocodeStatus.textContent = 'Location found. Drag the pin to adjust, then click Confirm.';
+              showMapSection(coords.lat, coords.lon);
+            } else {
+              geocodeStatus.textContent = 'We couldn\'t find a location. Place the pin manually, then click Confirm.';
+              showMapSection(null, null);
+            }
+            addRecordPendingRowValues = { ...rowValuesByColumn };
+            addRecordPendingMapConfirm = true;
+            submitBtn.textContent = 'Confirm and add record';
+            return;
+          }
+          if (addRecordLat != null && addRecordLon != null) {
+            lat = String(addRecordLat);
+            lon = String(addRecordLon);
+          } else if (geocodeQuery) {
+            const coords = await geocodeWithMapbox(geocodeQuery);
+            if (coords) { lat = String(coords.lat); lon = String(coords.lon); }
           }
           if (latCol) rowValuesByColumn[latCol] = lat;
           if (lonCol) rowValuesByColumn[lonCol] = lon;
-        } else {
-          const existingAddr = (document.getElementById('addRecordExistingAddress').value || '').trim();
-          personName = (document.getElementById('addRecordExistingPersonName').value || '').trim();
-          if (!existingAddr || !personName) {
-            alert('Please select an address and enter the person\'s name.');
-            return;
-          }
-          const existingRows = sheetData.addressMap.get(existingAddr);
-          if (!existingRows || existingRows.length === 0) {
-            alert('Could not find that address in the data.');
-            return;
-          }
-          const firstRow = existingRows[0];
-          headers.forEach(h => {
-            if (h !== nameCol) rowValuesByColumn[h] = (firstRow[h] != null ? firstRow[h] : '');
-          });
-          rowValuesByColumn[nameCol] = personName;
         }
 
         const row = buildRowForHeaders(headers, rowValuesByColumn);
@@ -2612,14 +2794,14 @@
         submitBtn.textContent = 'Adding…';
         try {
           await appendRowsToSheet([row]);
-          overlay.remove();
+          removeModalAndMap();
           if (currentSheetUrl) loadAddressData(currentSheetUrl);
-          alert('Record added. The list will refresh.');
+          alert('Record added. Your list will refresh.');
         } catch (err) {
           alert('Could not add record: ' + (err.message || err));
         } finally {
           submitBtn.disabled = false;
-          submitBtn.textContent = 'Add to spreadsheet';
+          submitBtn.textContent = 'Add record';
         }
       });
     }
