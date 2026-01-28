@@ -314,6 +314,7 @@
       <div class="people-view-header">
         <h2 style="margin: 0; color: var(--primary-dark); font-size: 1.8rem; letter-spacing: 0.5px; font-family: 'Chivo', sans-serif;">Neighbors</h2>
         <div class="people-view-actions">
+          <button class="btn-print-export" id="btnAddRecord">➕ Add Record</button>
           <button class="btn-print-export" id="btnPrintAddresses">🖨️ Print</button>
           <button class="btn-print-export" id="btnExportAddresses">📥 Export CSV</button>
         </div>
@@ -2404,6 +2405,225 @@
       });
     }
 
+    // Geocode an address string with Mapbox Geocoding API; returns { lat, lon } or null
+    async function geocodeWithMapbox(addressString) {
+      if (!addressString || !addressString.trim()) return null;
+      if (!MAPBOX_CONFIG.accessToken) return null;
+      try {
+        const query = encodeURIComponent(addressString.trim());
+        const proximity = '-118.15,34.19'; // Altadena area to bias results
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${MAPBOX_CONFIG.accessToken}&limit=1&types=address&proximity=${proximity}`;
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        const feature = data.features && data.features[0];
+        if (!feature || !feature.geometry || !feature.geometry.coordinates) return null;
+        const [lon, lat] = feature.geometry.coordinates;
+        return { lat, lon };
+      } catch (e) {
+        console.warn('Mapbox geocode failed:', e);
+        return null;
+      }
+    }
+
+    // Append rows to the main data sheet via Google Sheets API
+    async function appendRowsToSheet(rows) {
+      if (!currentSheetId || !accessToken || !rows || rows.length === 0) {
+        throw new Error('Not signed in or no sheet loaded.');
+      }
+      const range = 'Sheet1!A1:ZZ'; // append to first sheet
+      const res = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${currentSheetId}/values/${range}:append?valueInputOption=USER_ENTERED`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ values: rows })
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message || 'Failed to add record to spreadsheet.');
+      }
+    }
+
+    // Build one row array in header order from a key-value map
+    function buildRowForHeaders(headers, valuesByColumn) {
+      return headers.map(h => (valuesByColumn[h] != null && valuesByColumn[h] !== '') ? String(valuesByColumn[h]).trim() : '');
+    }
+
+    // Show Add Record modal (new address or add person to existing address)
+    function showAddRecordModal() {
+      if (!sheetData || !sheetData.headers || !sheetData.addressMap) {
+        alert('Please load a spreadsheet first.');
+        return;
+      }
+      if (!accessToken || !currentSheetId) {
+        alert('Please sign in with Google to add records.');
+        return;
+      }
+      const headers = sheetData.headers;
+      const addresses = Array.from(sheetData.addressMap.keys()).sort();
+      const houseNumCol = sheetData.houseNumCol || headers.find(h => /house\s*#?/i.test(h));
+      const streetCol = sheetData.streetCol || headers.find(h => h.toLowerCase() === 'street');
+      const addressCol = sheetData.addressCol;
+      const nameCol = headers.find(h => {
+        const l = h.toLowerCase();
+        return l.includes('resident name') || l.includes('name') || (l === 'name');
+      }) || headers.find(h => /name/i.test(h));
+      const latCol = headers.find(h => /latitude|^lat$/i.test(h));
+      const lonCol = headers.find(h => /longitude|^lon$|^lng$/i.test(h));
+      let zoneCol = headers.find(h => /zone\s*name|zonename/i.test(h));
+      if (!zoneCol) zoneCol = headers.find(h => h.toLowerCase().includes('zone'));
+
+      const modalHTML = `
+        <div class="newsletter-modal-overlay" id="addRecordModalOverlay">
+          <div class="newsletter-modal">
+            <button class="newsletter-modal-close" id="addRecordModalClose">&times;</button>
+            <div class="newsletter-modal-header">
+              <h3 class="newsletter-modal-title">Add a record</h3>
+              <p class="newsletter-modal-subtitle">Add a new address or a person at an existing address. The new row will be added to your spreadsheet.</p>
+            </div>
+            <div class="newsletter-modal-content">
+              <div class="newsletter-modal-section">
+                <p style="margin:0 0 12px 0; font-weight:600;">What do you want to add?</p>
+                <div style="display:flex; gap:16px; margin-bottom:20px;">
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="radio" name="addRecordType" value="new" checked> New address (with at least one person)
+                  </label>
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="radio" name="addRecordType" value="existing"> Person at an existing address
+                  </label>
+                </div>
+              </div>
+              <div id="addRecordNewFields" class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">New address</h4>
+                <div class="newsletter-modal-instructions">
+                  <p style="margin:0 0 8px 0;"><label>House number <span style="color:var(--primary);">*</span></label></p>
+                  <input type="text" id="addRecordHouseNum" placeholder="e.g. 123" style="width:100%; max-width:200px; padding:8px 12px; margin-bottom:12px; border:1px solid var(--border-soft); border-radius:6px;">
+                  <p style="margin:0 0 8px 0;"><label>Street <span style="color:var(--primary);">*</span></label></p>
+                  <input type="text" id="addRecordStreet" placeholder="e.g. Main St" style="width:100%; max-width:320px; padding:8px 12px; margin-bottom:12px; border:1px solid var(--border-soft); border-radius:6px;">
+                  <p style="margin:0 0 8px 0;"><label>City, State (optional – helps map placement)</label></p>
+                  <input type="text" id="addRecordCityState" placeholder="e.g. Altadena, CA" style="width:100%; max-width:320px; padding:8px 12px; margin-bottom:12px; border:1px solid var(--border-soft); border-radius:6px;">
+                  <p style="margin:0 0 8px 0;"><label>Person at this address <span style="color:var(--primary);">*</span></label></p>
+                  <input type="text" id="addRecordPersonName" placeholder="e.g. Jane Smith" style="width:100%; max-width:320px; padding:8px 12px; border:1px solid var(--border-soft); border-radius:6px;">
+                </div>
+              </div>
+              <div id="addRecordExistingFields" class="newsletter-modal-section hidden">
+                <h4 class="newsletter-modal-section-title">Choose address</h4>
+                <div class="newsletter-modal-instructions">
+                  <p style="margin:0 0 8px 0;"><label>Address <span style="color:var(--primary);">*</span></label></p>
+                  <select id="addRecordExistingAddress" style="width:100%; max-width:400px; padding:8px 12px; margin-bottom:12px; border:1px solid var(--border-soft); border-radius:6px;">
+                    <option value="">-- Select an address --</option>
+                    ${addresses.map(addr => `<option value="${escapeHtml(addr)}">${escapeHtml(addr)}</option>`).join('')}
+                  </select>
+                  <p style="margin:0 0 8px 0;"><label>Person name <span style="color:var(--primary);">*</span></label></p>
+                  <input type="text" id="addRecordExistingPersonName" placeholder="e.g. Jane Smith" style="width:100%; max-width:320px; padding:8px 12px; border:1px solid var(--border-soft); border-radius:6px;">
+                </div>
+              </div>
+            </div>
+            <div class="newsletter-modal-actions">
+              <button type="button" class="btn-copy-emails" id="addRecordSubmitBtn">Add to spreadsheet</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const existingModal = document.getElementById('addRecordModalOverlay');
+      if (existingModal) existingModal.remove();
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+      const overlay = document.getElementById('addRecordModalOverlay');
+      const closeBtn = document.getElementById('addRecordModalClose');
+      const newFields = document.getElementById('addRecordNewFields');
+      const existingFields = document.getElementById('addRecordExistingFields');
+      const radios = overlay.querySelectorAll('input[name="addRecordType"]');
+      const submitBtn = document.getElementById('addRecordSubmitBtn');
+
+      function toggleFields() {
+        const isNew = overlay.querySelector('input[name="addRecordType"]:checked').value === 'new';
+        newFields.classList.toggle('hidden', !isNew);
+        existingFields.classList.toggle('hidden', isNew);
+      }
+      radios.forEach(r => r.addEventListener('change', toggleFields));
+      toggleFields();
+
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+      closeBtn.addEventListener('click', () => overlay.remove());
+      document.addEventListener('keydown', function escapeHandler(e) {
+        if (e.key === 'Escape' && overlay && document.body.contains(overlay)) {
+          overlay.remove();
+          document.removeEventListener('keydown', escapeHandler);
+        }
+      });
+
+      submitBtn.addEventListener('click', async () => {
+        const isNew = overlay.querySelector('input[name="addRecordType"]:checked').value === 'new';
+        let personName = '';
+        let rowValuesByColumn = {};
+
+        if (isNew) {
+          const houseNum = (document.getElementById('addRecordHouseNum').value || '').trim();
+          const street = (document.getElementById('addRecordStreet').value || '').trim();
+          personName = (document.getElementById('addRecordPersonName').value || '').trim();
+          if (!street || !personName) {
+            alert('Please fill in Street and Person at this address.');
+            return;
+          }
+          const addressString = [houseNum, street].filter(Boolean).join(' ');
+          if (houseNumCol) rowValuesByColumn[houseNumCol] = houseNum;
+          if (streetCol) rowValuesByColumn[streetCol] = street;
+          if (addressCol) rowValuesByColumn[addressCol] = addressString;
+          if (nameCol) rowValuesByColumn[nameCol] = personName;
+          if (zoneCol && currentZoneName) rowValuesByColumn[zoneCol] = currentZoneName;
+          let lat = '', lon = '';
+          const cityState = (document.getElementById('addRecordCityState').value || '').trim();
+          const geocodeQuery = cityState ? `${addressString}, ${cityState}` : addressString;
+          const coords = await geocodeWithMapbox(geocodeQuery);
+          if (coords) {
+            lat = String(coords.lat);
+            lon = String(coords.lon);
+          }
+          if (latCol) rowValuesByColumn[latCol] = lat;
+          if (lonCol) rowValuesByColumn[lonCol] = lon;
+        } else {
+          const existingAddr = (document.getElementById('addRecordExistingAddress').value || '').trim();
+          personName = (document.getElementById('addRecordExistingPersonName').value || '').trim();
+          if (!existingAddr || !personName) {
+            alert('Please select an address and enter the person\'s name.');
+            return;
+          }
+          const existingRows = sheetData.addressMap.get(existingAddr);
+          if (!existingRows || existingRows.length === 0) {
+            alert('Could not find that address in the data.');
+            return;
+          }
+          const firstRow = existingRows[0];
+          headers.forEach(h => {
+            if (h !== nameCol) rowValuesByColumn[h] = (firstRow[h] != null ? firstRow[h] : '');
+          });
+          rowValuesByColumn[nameCol] = personName;
+        }
+
+        const row = buildRowForHeaders(headers, rowValuesByColumn);
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Adding…';
+        try {
+          await appendRowsToSheet([row]);
+          overlay.remove();
+          if (currentSheetUrl) loadAddressData(currentSheetUrl);
+          alert('Record added. The list will refresh.');
+        } catch (err) {
+          alert('Could not add record: ' + (err.message || err));
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Add to spreadsheet';
+        }
+      });
+    }
+
     // Display list of addresses
     // Helper function to adjust content views for filter bar
     function adjustContentViewsForFilterBar() {
@@ -2942,11 +3162,10 @@
     
     // Setup print and export button handlers
     function setupPrintExportHandlers() {
-      // Get buttons - they should always exist in the HTML
       const printBtn = document.getElementById('btnPrintAddresses');
       const exportBtn = document.getElementById('btnExportAddresses');
+      const addRecordBtn = document.getElementById('btnAddRecord');
       
-      // Set up print button handler if it exists and doesn't have one yet
       if (printBtn && !printBtn.hasAttribute('data-handler-attached')) {
         printBtn.addEventListener('click', (e) => {
           e.preventDefault();
@@ -2955,8 +3174,6 @@
         });
         printBtn.setAttribute('data-handler-attached', 'true');
       }
-      
-      // Set up export button handler if it exists and doesn't have one yet
       if (exportBtn && !exportBtn.hasAttribute('data-handler-attached')) {
         exportBtn.addEventListener('click', (e) => {
           e.preventDefault();
@@ -2964,6 +3181,14 @@
           exportAddressesToCSV();
         });
         exportBtn.setAttribute('data-handler-attached', 'true');
+      }
+      if (addRecordBtn && !addRecordBtn.hasAttribute('data-handler-attached')) {
+        addRecordBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          showAddRecordModal();
+        });
+        addRecordBtn.setAttribute('data-handler-attached', 'true');
       }
     }
     
@@ -6948,7 +7173,7 @@
             try {
               zoneMap.fitBounds(bounds, { 
                 padding: [20, 20],
-                maxZoom: 16 // Prevent zooming in too close
+                maxZoom: 19 // Allow zooming in close so more address numbers appear on the map
               });
             } catch (error) {
               console.error('Error fitting bounds:', error);
