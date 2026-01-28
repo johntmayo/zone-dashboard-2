@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Help - Altagether Zone Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* -- COLORS: Grassroots & Grounded Palette -- */
+      --bg-paper: #FDFBF7;
+      --bg-card: #FFFFFF;
+      --text-primary: #1F2937;
+      --text-secondary: #4B5563;
+      
+      /* -- INK & STRUCTURE -- */
+      --brand-primary-dark: #314059;
+      --accent-gold: #F59E0B;
+      --accent-clay: #BC5838;
+      --accent-teal: #347072;
+      
+      /* Legacy mappings for compatibility */
+      --primary: var(--brand-primary-dark);
+      --primary-dark: var(--brand-primary-dark);
+      --accent: var(--accent-gold);
+      --accent-dark: var(--accent-clay);
+      --background: var(--bg-paper);
+      --text: var(--text-primary);
+      --text-light: var(--text-secondary);
+      --light-cream: #FDFBF7;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      font-family: 'Merriweather', serif;
+      background: var(--bg-paper);
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    h1, h2, h3 {
+      font-family: 'Chivo', sans-serif;
+      font-weight: 900;
+      color: var(--primary-dark);
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      display: flex;
+      gap: 40px;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      width: 280px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 20px;
+      height: fit-content;
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+    }
+
+    .sidebar-nav {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 12px rgba(40, 54, 24, 0.15), 0 2px 4px rgba(40, 54, 24, 0.1);
+      border: 2px solid var(--primary);
+    }
+
+    .sidebar-nav h2 {
+      font-size: 1.3rem;
+      margin: 0 0 20px 0;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--primary);
+    }
+
+    .nav-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .nav-item {
+      margin-bottom: 8px;
+    }
+
+    .nav-item a {
+      display: block;
+      padding: 10px 14px;
+      color: var(--text);
+      text-decoration: none;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+      font-size: 0.95rem;
+    }
+
+    .nav-item a:hover {
+      background: rgba(49, 64, 89, 0.1);
+      color: var(--primary-dark);
+      transform: translateX(4px);
+    }
+
+    .nav-item a.active {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: var(--light-cream);
+      font-weight: 600;
+    }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding-bottom: 30px;
+      border-bottom: 3px solid var(--primary);
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      margin: 0 0 10px 0;
+      text-shadow: 0 2px 4px rgba(40, 54, 24, 0.1);
+    }
+
+    .header p {
+      font-size: 1.1rem;
+      color: var(--text-light);
+    }
+
+    .help-content {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      padding: 40px;
+      box-shadow: 0 4px 12px rgba(40, 54, 24, 0.15), 0 2px 4px rgba(40, 54, 24, 0.1);
+    }
+
+    .help-content section {
+      margin-bottom: 40px;
+      scroll-margin-top: 20px;
+    }
+
+    .help-content section:last-child {
+      margin-bottom: 0;
+    }
+
+    .help-content h2 {
+      font-size: 1.8rem;
+      margin: 0 0 20px 0;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--primary);
+      color: var(--primary-dark);
+    }
+
+    .help-content h3 {
+      font-size: 1.3rem;
+      margin: 25px 0 15px 0;
+      color: var(--primary);
+    }
+
+    .help-content p {
+      margin: 0 0 15px 0;
+    }
+
+    .help-content ul, .help-content ol {
+      margin: 15px 0;
+      padding-left: 30px;
+    }
+
+    .help-content li {
+      margin-bottom: 10px;
+    }
+
+    .help-content code {
+      background: rgba(49, 64, 89, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+
+    .step-box {
+      background: rgba(52, 112, 114, 0.1);
+      border-left: 4px solid var(--accent-teal);
+      padding: 15px 20px;
+      margin: 15px 0;
+      border-radius: 4px;
+    }
+
+    .step-box strong {
+      color: var(--primary-dark);
+    }
+
+    .note-box {
+      background: rgba(245, 158, 11, 0.1);
+      border-left: 4px solid var(--accent-gold);
+      padding: 15px 20px;
+      margin: 15px 0;
+      border-radius: 4px;
+    }
+
+    .note-box strong {
+      color: var(--accent-clay);
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-top: 30px;
+      padding: 12px 24px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: var(--light-cream);
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 8px rgba(40, 54, 24, 0.3);
+    }
+
+    .back-link:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(40, 54, 24, 0.4);
+    }
+
+    /* Responsive Design */
+    @media (max-width: 900px) {
+      .container {
+        flex-direction: column;
+        padding: 20px 15px;
+      }
+
+      .sidebar {
+        width: 100%;
+        position: relative;
+        top: 0;
+      }
+
+      .help-content {
+        padding: 24px;
+      }
+
+      .header h1 {
+        font-size: 2rem;
+      }
+    }
+
+    /* Smooth scrolling */
+    html {
+      scroll-behavior: smooth;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <h2>Navigation</h2>
+        <ul class="nav-list">
+          <li class="nav-item"><a href="#getting-started" class="active">Getting Started</a></li>
+          <li class="nav-item"><a href="#using-dashboard">Using the Dashboard</a></li>
+          <li class="nav-item"><a href="#map-features">Map Features</a></li>
+          <li class="nav-item"><a href="#contact-mode">Contact Mode</a></li>
+          <li class="nav-item"><a href="#filters">Filters</a></li>
+          <li class="nav-item"><a href="#spreadsheet">Spreadsheet Setup</a></li>
+          <li class="nav-item"><a href="#troubleshooting">Troubleshooting</a></li>
+          <li class="nav-item"><a href="#tips">Tips</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="header">
+        <h1>Altagether Zone Dashboard</h1>
+        <p>Help & Instructions</p>
+      </div>
+
+      <div class="help-content">
+        <section id="getting-started">
+          <h2>Getting Started</h2>
+          
+          <h3>Two Simple Steps</h3>
+          
+          <h3>Step 1: Sign In with Google</h3>
+          <div class="step-box">
+            <p><strong>First, sign in with Google:</strong></p>
+            <ul>
+              <li>When you first open the dashboard, you'll see a welcome message</li>
+              <li>Click the "Sign in with Google" button in Step 1</li>
+              <li>Grant the dashboard permission to access your Google Sheets</li>
+              <li>Once signed in, you'll see a checkmark confirming you're signed in</li>
+            </ul>
+            <p><strong>Why sign in?</strong> Signing in allows the dashboard to securely access and edit your spreadsheet data.</p>
+          </div>
+
+          <h3>Step 2: Link Your Spreadsheet</h3>
+          <div class="step-box">
+            <p><strong>After signing in, link your spreadsheet:</strong></p>
+            <ul>
+              <li>Open your Google Sheets spreadsheet that contains your zone data</li>
+              <li>Copy the URL from your browser's address bar</li>
+              <li>In the dashboard welcome message, paste the URL into the text box in Step 2</li>
+              <li>Click the "Load" button</li>
+            </ul>
+            <p><strong>Note:</strong> You can also change your linked spreadsheet later using the input in the left navigation menu.</p>
+          </div>
+
+          <div class="note-box">
+            <strong>Note:</strong> Make sure your spreadsheet is shared with your Google account, or set to "Anyone with the link can view/edit" depending on your needs.
+          </div>
+        </section>
+
+        <section id="using-dashboard">
+          <h2>Using the Dashboard</h2>
+
+          <h3>Navigation</h3>
+          <p>The dashboard has several views accessible from the left navigation menu:</p>
+          <ul>
+            <li><strong>Home:</strong> Overview of your zone with key statistics, announcements, and quick actions</li>
+            <li><strong>Map:</strong> Interactive map showing addresses in your zone with color-coded markers</li>
+            <li><strong>Neighbors:</strong> Table view of all addresses and residents with sorting and export options</li>
+            <li><strong>Actions:</strong> Task-oriented view showing what needs attention (uncontacted addresses, missing data, follow-ups)</li>
+            <li><strong>Tools:</strong> Zone Analysis report generator, Flyer Creator, and community resources</li>
+            <li><strong>Help:</strong> Links to documentation, Discord support, and tutorials</li>
+          </ul>
+
+          <h3>Viewing Address Details</h3>
+          <p>To view details about a specific address:</p>
+          <ul>
+            <li>On the Map view: Click on a marker or address in the list</li>
+            <li>On the Neighbors view: Click on a row in the table</li>
+          </ul>
+          <p>The address details will appear in the panel on the right side of the screen.</p>
+
+          <h3>Editing Data</h3>
+          <p>When signed in, you can edit data directly in the dashboard:</p>
+          <ul>
+            <li><strong>Notes fields:</strong> Click on any notes field and type to edit</li>
+            <li><strong>Dropdown fields:</strong> Use the dropdown menus to select values (e.g., Damage Status, Property Status)</li>
+            <li><strong>Other fields:</strong> Click on editable fields to modify them</li>
+          </ul>
+          <p>Changes are automatically saved after a short delay, or you can click "Save Changes" to save immediately.</p>
+        </section>
+
+        <section id="map-features">
+          <h2>Map Features</h2>
+
+          <h3>Address Markers</h3>
+          <p>Each address in your zone appears as a colored dot on the map. Click any marker to see the address details in the right panel.</p>
+
+          <h3>Color by (Top-Left Control)</h3>
+          <p>Use the "Color by" control on the map to color markers by different criteria:</p>
+          <ul>
+            <li><strong>Contact Status:</strong> Green for contacted, Red for uncontacted</li>
+            <li><strong>Damage Status:</strong> Different colors for each damage level</li>
+            <li><strong>Captain Assigned:</strong> Colors by assigned captain (if your zone has multiple captains)</li>
+          </ul>
+
+          <h3>Zone Boundary</h3>
+          <p>If your spreadsheet has a KML URL in the Zone Notes sheet, your zone boundary will display as an overlay on the map.</p>
+
+          <h3>Satellite Toggle</h3>
+          <p>Switch between standard map view and satellite imagery using the layer control on the map.</p>
+        </section>
+
+        <section id="contact-mode">
+          <h2>Contact Mode</h2>
+          
+          <p>Contact Mode enables quick contact tracking directly from the dashboard.</p>
+
+          <h3>How to Use Contact Mode</h3>
+          <div class="step-box">
+            <ol>
+              <li>Click the <strong>📞 Contact Mode</strong> button at the top of the right panel</li>
+              <li>The button turns active (highlighted) when enabled</li>
+              <li>When viewing any address, each person now shows a <strong>"Mark as Contacted"</strong> button</li>
+              <li>Optionally add contact notes in the text field</li>
+              <li>Click "Mark as Contacted" to save:
+                <ul>
+                  <li>Today's date to the "Last Contact Date" column</li>
+                  <li>Your notes to the "Contact Notes" column</li>
+                </ul>
+              </li>
+            </ol>
+          </div>
+
+          <div class="note-box">
+            <strong>Tip:</strong> Contact Mode stays on until you click the button again to toggle it off.
+          </div>
+        </section>
+
+        <section id="filters">
+          <h2>Filters</h2>
+          
+          <p>The Filter Bar appears at the top of the <strong>Map</strong> and <strong>Neighbors</strong> views. Use it to narrow down what you're seeing.</p>
+
+          <h3>Available Filters</h3>
+          <ul>
+            <li><strong>Streets:</strong> Show only addresses on a specific street</li>
+            <li><strong>Damage Status:</strong> Filter by Total Loss, Partial, Standing, etc.</li>
+            <li><strong>Property Status:</strong> Filter by Staying, Selling, Rebuilding, etc.</li>
+            <li><strong>Rebuild Status:</strong> Filter by rebuild stage (if your spreadsheet has this column)</li>
+            <li><strong>Captain:</strong> Filter by assigned captain (if your zone has multiple captains)</li>
+            <li><strong>Contact Status:</strong> Checkboxes to show or hide contacted/uncontacted addresses</li>
+          </ul>
+          
+          <p>Filters apply to both the map markers and the address list simultaneously.</p>
+        </section>
+
+        <section id="spreadsheet">
+          <h2>Spreadsheet Setup</h2>
+
+          <h3>Required Columns</h3>
+          <p>Your spreadsheet should include at least these columns:</p>
+          <ul>
+            <li><strong>Address:</strong> The street address (required)</li>
+            <li><strong>Resident Name:</strong> Name of the person at that address</li>
+          </ul>
+
+          <h3>Recommended Columns</h3>
+          <p>These columns enable additional functionality:</p>
+          <ul>
+            <li><strong>Phone:</strong> Phone number for contact</li>
+            <li><strong>Email:</strong> Email address for contact</li>
+            <li><strong>Damage:</strong> Damage status (e.g., Total Loss, Partial, Standing)</li>
+            <li><strong>Property Status:</strong> E.g., Staying, Selling, Rebuilding</li>
+            <li><strong>Rebuild Status:</strong> Current rebuild stage</li>
+            <li><strong>Last Contact Date:</strong> Filled automatically by Contact Mode</li>
+            <li><strong>Contact Notes:</strong> Notes from contact attempts</li>
+            <li><strong>Follow Up:</strong> Yes/No for follow-up needed</li>
+            <li><strong>Latitude / Longitude:</strong> For precise map placement</li>
+          </ul>
+
+          <h3>Zone Notes Sheet</h3>
+          <p>You can create a separate sheet named "Zone Notes" in your spreadsheet with:</p>
+          <ul>
+            <li><strong>Zone Notes:</strong> Zone-level notes visible in the dashboard</li>
+            <li><strong>KML URL:</strong> URL to a KML file for zone boundaries on the map</li>
+          </ul>
+
+          <h3>Multiple Captains</h3>
+          <p>If your zone has multiple neighborhood captains:</p>
+          <ul>
+            <li><strong>NC Name, NC Phone, NC Email:</strong> Captain information</li>
+            <li><strong>Captain Assigned:</strong> Which captain handles each address</li>
+          </ul>
+        </section>
+
+        <section id="troubleshooting">
+          <h2>Troubleshooting</h2>
+
+          <h3>Can't See Data</h3>
+          <ul>
+            <li><strong>First, make sure you've signed in with Google</strong> - This is required before you can load any data</li>
+            <li>Verify that your spreadsheet URL is correct</li>
+            <li>Check that your spreadsheet is shared with your Google account or set to "Anyone with the link can view"</li>
+            <li>Ensure your spreadsheet has an "Address" column</li>
+            <li>Try clicking "Load" again after signing in</li>
+          </ul>
+
+          <h3>Can't Edit Data</h3>
+          <ul>
+            <li>Make sure you're signed in with Google</li>
+            <li>Verify that you have edit permissions on the spreadsheet</li>
+            <li>Check that the spreadsheet isn't set to "View only" for your account</li>
+          </ul>
+
+          <h3>Map Not Showing</h3>
+          <ul>
+            <li>Make sure you've loaded a spreadsheet with addresses</li>
+            <li>Check that your spreadsheet has Latitude and Longitude columns with valid coordinates</li>
+            <li>Verify your internet connection</li>
+          </ul>
+
+          <h3>Markers Not Appearing</h3>
+          <ul>
+            <li>Ensure addresses have valid latitude/longitude values</li>
+            <li>Check that coordinates are in the correct format (decimal degrees)</li>
+            <li>Try resetting filters to "All" to make sure addresses aren't filtered out</li>
+          </ul>
+        </section>
+
+        <section id="tips">
+          <h2>Tips</h2>
+          <ul>
+            <li>Use the <strong>Color by</strong> feature on the map to quickly visualize contact status or damage distribution</li>
+            <li>Use <strong>Contact Mode</strong> to efficiently track when you've contacted residents</li>
+            <li>Your spreadsheet URL is saved automatically - it will be remembered for next time</li>
+            <li>Changes are auto-saved, but you can also click "Save Changes" to save immediately</li>
+            <li>Use the <strong>Zone Analysis</strong> tool to generate comprehensive PDF reports</li>
+            <li>The <strong>Export CSV</strong> button on the Neighbors page lets you download filtered data</li>
+            <li>Check the <strong>Actions</strong> page for a quick overview of what needs attention</li>
+            <li>Use the <strong>🧪 Beta Feedback</strong> button to report issues or suggest improvements</li>
+          </ul>
+        </section>
+
+        <a href="javascript:window.close()" class="back-link">Close Help</a>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Update active nav item on scroll
+    const sections = document.querySelectorAll('.help-content section');
+    const navLinks = document.querySelectorAll('.nav-item a');
+
+    function updateActiveNav() {
+      let current = '';
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        const sectionHeight = section.clientHeight;
+        if (window.pageYOffset >= sectionTop - 100) {
+          current = section.getAttribute('id');
+        }
+      });
+
+      navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === '#' + current) {
+          link.classList.add('active');
+        }
+      });
+    }
+
+    // Update on scroll
+    window.addEventListener('scroll', updateActiveNav);
+
+    // Update on click
+    navLinks.forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const targetId = this.getAttribute('href').substring(1);
+        const targetSection = document.getElementById(targetId);
+        
+        if (targetSection) {
+          targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          
+          // Update active state
+          navLinks.forEach(l => l.classList.remove('active'));
+          this.classList.add('active');
+        }
+      });
+    });
+
+    // Initial update
+    updateActiveNav();
+  </script>
+</body>
+</html>

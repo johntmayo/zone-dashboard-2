@@ -1,0 +1,2649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Altagether Flyer Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #FDFBF7;
+      --accent: #314059;
+      --accent-light: #e1f1e6;
+      --text-main: #1F2937;
+      --text-muted: #4B5563;
+      --border-soft: #ddd;
+      --font-header: 'Chivo', sans-serif;
+      --font-body: 'Merriweather', serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text-main);
+    }
+
+    .page {
+      max-width: 1100px;
+      margin: 1.5rem auto;
+      padding: 1rem 1.5rem 2rem;
+    }
+
+    h1 {
+      margin: 0 0 1rem;
+      font-family: 'Chivo', sans-serif;
+      font-weight: 900;
+      font-size: 1.8rem;
+      letter-spacing: 0.5px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr);
+      gap: 1.5rem;
+      align-items: flex-start;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Form styles */
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+      border: 1px solid #eee;
+    }
+
+    .card h2 {
+      font-size: 1.1rem;
+      margin: 0 0 0.75rem;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+
+    .form-section {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 2px solid #f0f0f0;
+    }
+
+    .form-section:last-of-type {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .form-section-header {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #e8e8e8;
+    }
+
+    .form-section-content {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.2rem;
+    }
+
+    input[type="text"],
+    input[type="date"],
+    input[type="time"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 0.45rem 0.6rem;
+      border-radius: 6px;
+      border: 1px solid var(--border-soft);
+      font-size: 0.9rem;
+      font-family: var(--font-body);
+    }
+
+    select {
+      background-color: #fff;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23555' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.6rem center;
+      padding-right: 2rem;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .small-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    button {
+      cursor: pointer;
+      border-radius: 999px;
+      border: none;
+      padding: 0.45rem 0.9rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: var(--font-body);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      transition: opacity 0.2s;
+    }
+
+    button:hover {
+      opacity: 0.85;
+    }
+
+    button:active {
+      opacity: 0.7;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: #fff;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+
+    .help-text {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.3rem;
+    }
+
+    /* Flyer Preview */
+    .preview-wrapper {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .flyer-container {
+      background: #fdfdfd;
+      border-radius: 10px;
+      padding: 1rem 1rem 0.5rem 1rem; /* Reduce bottom padding */
+      border: 1px solid var(--border-soft);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+      overflow: visible;
+      max-width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: fit-content;
+      overflow: visible;
+    }
+
+    .preview-header {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      margin-bottom: 0.75rem;
+    }
+
+    /* Container for the scaled flyer preview */
+    .flyer-scale-container {
+      max-width: calc(100% - 2rem);
+      overflow: visible;
+      position: relative;
+      margin: 0 auto;
+      width: 4.25in; /* Scaled width: 8.5in * 0.5 */
+      min-height: 0; /* Remove fixed min-height */
+      height: fit-content; /* Let it size to content */
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    @media (min-width: 1400px) {
+      .flyer-scale-container {
+        width: 4.675in;
+        min-height: 0;
+        height: fit-content;
+      }
+    }
+
+    @media (max-width: 1200px) {
+      .flyer-scale-container {
+        width: 3.825in;
+        min-height: 0;
+        height: fit-content;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .flyer-scale-container {
+        width: 3.4in;
+        min-height: 0;
+        height: fit-content;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .flyer-scale-container {
+        width: 2.975in;
+        min-height: 0;
+        height: fit-content;
+      }
+    }
+
+    /* Scale wrapper - sized to scaled dimensions in layout */
+    .flyer-scale-wrapper {
+      width: 4.25in; /* Actual layout size = scaled size */
+      min-height: 0; /* Remove fixed min-height */
+      height: fit-content; /* Let it size to content */
+      position: relative;
+      overflow: visible;
+    }
+
+    @media (min-width: 1400px) {
+      .flyer-scale-wrapper {
+        width: 4.675in;
+        min-height: 0;
+        height: fit-content;
+      }
+    }
+
+    @media (max-width: 1200px) {
+      .flyer-scale-wrapper {
+        width: 3.825in;
+        min-height: 0;
+        height: fit-content;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .flyer-scale-wrapper {
+        width: 3.4in;
+        min-height: 0;
+        height: fit-content;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .flyer-scale-wrapper {
+        width: 2.975in;
+        min-height: 0;
+        height: fit-content;
+      }
+    }
+
+    /* The actual print flyer - always 8.5×11, scaled down to fit wrapper for preview */
+    .flyer {
+      width: 8.5in;
+      min-height: 11in;
+      margin: 0;
+      padding: 0.75in;
+      box-sizing: border-box;
+      border: 1px solid #ddd;
+      background: #ffffff;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      font-family: var(--font-body);
+      color: var(--text-main);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.1);
+      transform: scale(0.5);
+      transform-origin: top left;
+    }
+
+
+    @media (min-width: 1400px) {
+      .flyer {
+        transform: scale(0.55);
+      }
+    }
+
+    @media (max-width: 1200px) {
+      .flyer {
+        transform: scale(0.45);
+      }
+    }
+
+    @media (max-width: 900px) {
+      .flyer {
+        transform: scale(0.4);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .flyer {
+        transform: scale(0.35);
+      }
+    }
+
+
+    /* Social Media Square Preview */
+    .social-preview-container {
+      background: #fdfdfd;
+      border-radius: 10px;
+      padding: 1rem;
+      border: 1px solid var(--border-soft);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+      overflow: visible;
+      max-width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: fit-content;
+      margin-top: 2rem;
+    }
+
+    .social-preview-scale-container {
+      width: 500px;
+      height: 500px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #ddd;
+      background: #fff;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+    }
+
+    @media (max-width: 900px) {
+      .social-preview-scale-container {
+        width: 400px;
+        height: 400px;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .social-preview-scale-container {
+        width: 300px;
+        height: 300px;
+      }
+    }
+
+    /* Square flyer - completely independent layout for social media */
+    .flyer-social {
+      width: 500px !important;
+      height: 500px !important;
+      min-height: 500px !important;
+      margin: 0 !important;
+      padding: 20px !important;
+      box-sizing: border-box;
+      background: linear-gradient(135deg, #2d5016 0%, #3d6b1f 25%, #4a7c28 50%, #5a9a35 75%, #6bb847 100%) !important;
+      background-size: 400% 400% !important;
+      animation: gradientShift 15s ease infinite !important;
+      position: relative;
+      display: flex !important;
+      flex-direction: column !important;
+      font-family: var(--font-body);
+      color: var(--text-main);
+      overflow: hidden;
+      border: none !important;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+      transform: none !important;
+    }
+
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    @media (max-width: 900px) {
+      .flyer-social {
+        width: 400px !important;
+        height: 400px !important;
+        padding: 16px !important;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .flyer-social {
+        width: 300px !important;
+        height: 300px !important;
+        padding: 12px !important;
+      }
+    }
+
+    /* Hide all decorative elements */
+    .flyer-social::before,
+    .flyer-social::after {
+      display: none !important;
+    }
+
+    /* Social media header - clean layout */
+    .flyer-social .flyer-header {
+      margin: 0 0 14px 0 !important;
+      padding: 0 0 12px 0 !important;
+      border-bottom: 3px solid rgba(255, 255, 255, 0.9) !important;
+      flex-shrink: 0;
+      width: 100% !important;
+      background: rgba(255, 255, 255, 0.15) !important;
+      backdrop-filter: blur(10px) !important;
+      padding: 12px 14px !important;
+      border-radius: 8px !important;
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: flex-start !important;
+    }
+
+    .flyer-social .flyer-header > div:first-child {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .flyer-social .flyer-logo {
+      font-size: 12px !important;
+      margin: 0 0 8px 0 !important;
+      line-height: 1.3 !important;
+      color: #ffffff !important;
+      font-weight: 700 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.08em !important;
+      width: 100% !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    .flyer-social .flyer-title {
+      font-size: 32px !important;
+      margin: 0 0 10px 0 !important;
+      line-height: 1.2 !important;
+      font-weight: 900 !important;
+      color: #ffffff !important;
+      width: 100% !important;
+      word-wrap: break-word;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+    }
+
+    .flyer-social .flyer-subtitle {
+      display: none !important;
+    }
+
+    .flyer-social .flyer-zone-tag {
+      font-size: 11px !important;
+      padding: 5px 12px !important;
+      border-radius: 12px !important;
+      background: rgba(255, 255, 255, 0.95) !important;
+      color: #2d5016 !important;
+      font-weight: 700 !important;
+      text-transform: uppercase !important;
+      display: inline-block !important;
+      margin-top: 0 !important;
+      flex-shrink: 0;
+      white-space: nowrap;
+      border: 2px solid rgba(255, 255, 255, 0.8) !important;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+    }
+
+    /* Social media highlight */
+    .flyer-social .flyer-highlight {
+      padding: 14px 16px !important;
+      font-size: 15px !important;
+      line-height: 1.5 !important;
+      margin: 0 0 14px 0 !important;
+      flex-shrink: 0;
+      background: rgba(255, 255, 255, 0.95) !important;
+      border-left: 5px solid #4a7c28 !important;
+      border-radius: 8px !important;
+      width: 100% !important;
+      color: #2d3748 !important;
+      border-top: none !important;
+      border-right: none !important;
+      border-bottom: none !important;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    /* Compact info line */
+    .flyer-social .flyer-info-line {
+      font-size: 14px !important;
+      line-height: 1.8 !important;
+      margin: 0 0 14px 0 !important;
+      padding: 12px 14px !important;
+      color: #ffffff !important;
+      font-weight: 600 !important;
+      flex-shrink: 0;
+      width: 100% !important;
+      background: rgba(255, 255, 255, 0.2) !important;
+      backdrop-filter: blur(5px) !important;
+      border-radius: 6px !important;
+      border: 1px solid rgba(255, 255, 255, 0.3) !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+      white-space: pre-line !important;
+    }
+
+    /* Hide details grid */
+    .flyer-social .flyer-details-grid {
+      display: none !important;
+    }
+
+    /* Social media body - proper flex sizing with auto-shrink */
+    .flyer-social .flyer-body {
+      font-size: 15px !important;
+      line-height: 1.6 !important;
+      padding: 16px !important;
+      margin: 0 0 14px 0 !important;
+      flex: 1 !important;
+      overflow: hidden !important;
+      overflow-x: hidden !important;
+      min-height: 0 !important;
+      background: rgba(255, 255, 255, 0.95) !important;
+      border: 2px solid rgba(255, 255, 255, 0.8) !important;
+      border-radius: 8px !important;
+      width: 100% !important;
+      color: #2d3748 !important;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    /* Social media footer - minimal */
+    .flyer-social .flyer-footer {
+      padding: 0 !important;
+      margin: 0 !important;
+      flex-shrink: 0;
+      border-top: 2px solid rgba(255, 255, 255, 0.3) !important;
+      padding-top: 12px !important;
+      width: 100% !important;
+      background: transparent !important;
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+    }
+
+    .flyer-social .flyer-cta {
+      display: none !important;
+    }
+
+    .flyer-social .flyer-footer > div:first-child {
+      display: none !important;
+    }
+
+    .flyer-social .flyer-contact {
+      font-size: 12px !important;
+      line-height: 1.5 !important;
+      color: #ffffff !important;
+      width: 100% !important;
+      text-align: center !important;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5) !important;
+      font-weight: 600 !important;
+      background: rgba(0, 0, 0, 0.2) !important;
+      padding: 8px 12px !important;
+      border-radius: 6px !important;
+      backdrop-filter: blur(5px) !important;
+    }
+
+    .flyer-social .flyer-contact .flyer-small {
+      color: #ffffff !important;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    .flyer-header {
+      border-bottom: 3px solid var(--accent);
+      padding-bottom: 0.5rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .flyer-logo {
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+    }
+
+    .flyer-zone-tag {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      background: var(--accent-light);
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+
+    .flyer-title {
+      font-family: var(--font-header);
+      font-size: 2rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      margin: 0.3rem 0;
+      line-height: 1.1;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .flyer-subtitle {
+      font-size: 1rem;
+      color: var(--text-muted);
+      margin-bottom: 0.7rem;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .flyer-highlight {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 0.5rem 0.6rem;
+      font-size: 0.9rem;
+      margin-bottom: 0.8rem;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      display: none !important; /* Hidden for now, but kept in code for future event builder tool */
+    }
+
+    .flyer-details-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 0.75rem;
+      margin-bottom: 0.9rem;
+      font-size: 0.9rem;
+    }
+
+    .detail-block {
+      margin-bottom: 0.35rem;
+    }
+
+    .detail-label {
+      font-weight: 700;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+
+    .detail-value {
+      font-size: 0.95rem;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .flyer-body {
+      flex: 0 1 auto;
+      font-size: 0.95rem;
+      line-height: 1.45;
+      margin-bottom: 0.8rem;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: pre-line;
+      min-height: auto;
+    }
+
+    .flyer-footer {
+      border-top: 1px solid #eee;
+      padding-top: 0.4rem;
+      font-size: 0.78rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .flyer-cta {
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      font-size: 0.78rem;
+    }
+
+    .flyer-contact {
+      text-align: right;
+    }
+
+    .flyer-small {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Poster Design Template - Graphic & Visual */
+    .flyer.poster {
+      background: #ffffff;
+      border: 6px solid var(--accent);
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25), 0 6px 16px rgba(0, 0, 0, 0.2);
+      position: relative;
+      overflow: visible;
+    }
+
+    /* Decorative corner elements */
+    .flyer.poster::before,
+    .flyer.poster::after {
+      content: '';
+      position: absolute;
+      width: 120px;
+      height: 120px;
+      background: var(--accent);
+      opacity: 0.1;
+      z-index: 0;
+    }
+
+    .flyer.poster::before {
+      top: -60px;
+      right: -60px;
+      border-radius: 50%;
+    }
+
+    .flyer.poster::after {
+      bottom: -60px;
+      left: -60px;
+      border-radius: 50%;
+    }
+
+    .flyer.poster > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .flyer.poster .flyer-header {
+      background: var(--accent);
+      color: #fff;
+      margin: -0.75in -0.75in 1.2rem -0.75in;
+      padding: 1.5rem 0.75in 1.2rem;
+      border-bottom: 8px solid #1e5a3a;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .flyer.poster .flyer-logo {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 0.85rem;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+    }
+
+    .flyer.poster .flyer-title {
+      font-size: 3.5rem;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.4);
+      margin: 0.3rem 0 0.5rem;
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+
+    .flyer.poster .flyer-subtitle {
+      font-size: 1.4rem;
+      color: rgba(255, 255, 255, 0.95);
+      font-weight: 600;
+      margin-bottom: 0;
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    .flyer.poster .flyer-zone-tag {
+      background: #fff;
+      color: var(--accent);
+      border: 3px solid #fff;
+      font-size: 0.8rem;
+      padding: 0.4rem 0.9rem;
+      font-weight: 800;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      transform: rotate(-2deg);
+    }
+
+    .flyer.poster .flyer-highlight {
+      background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+      border: 4px solid var(--accent);
+      border-radius: 12px;
+      padding: 1rem 1.2rem;
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 1.2rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      text-align: center;
+      color: #1a1a1a;
+    }
+
+    .flyer.poster .flyer-details-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      margin-bottom: 0.8rem;
+      background: #f8f9fa;
+      padding: 0.8rem;
+      border-radius: 8px;
+      border: 2px solid var(--accent-light);
+    }
+
+    .flyer.poster .detail-block {
+      background: #fff;
+      padding: 0.5rem 0.7rem;
+      border-radius: 6px;
+      border-left: 4px solid var(--accent);
+      margin-bottom: 0.3rem;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    }
+
+    .flyer.poster .detail-label {
+      color: var(--accent);
+      font-size: 0.75rem;
+      margin-bottom: 0.2rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+    }
+
+    .flyer.poster .detail-value {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #222;
+      line-height: 1.3;
+    }
+
+    .flyer.poster .flyer-body {
+      font-size: 1.1rem;
+      line-height: 1.7;
+      background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+      padding: 1.2rem;
+      border-radius: 10px;
+      border: 3px solid var(--accent-light);
+      margin-bottom: 1.2rem;
+      font-weight: 500;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      flex: 0 1 auto;
+      min-height: auto;
+    }
+
+    .flyer.poster .flyer-footer {
+      border-top: 6px solid var(--accent);
+      padding-top: 0.8rem;
+      background: linear-gradient(135deg, var(--accent) 0%, #1e5a3a 100%);
+      margin: 0 -0.75in -0.75in 0;
+      padding: 0.8rem 0.75in 0.75in;
+      color: #fff;
+      border-radius: 0 0 8px 8px;
+    }
+
+    .flyer.poster .flyer-cta {
+      font-size: 1.1rem;
+      color: #fff;
+      font-weight: 900;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+      letter-spacing: 0.05em;
+    }
+
+    .flyer.poster .flyer-small {
+      color: rgba(255, 255, 255, 0.9);
+      font-weight: 500;
+    }
+
+    .flyer.poster .flyer-contact {
+      font-weight: 700;
+      color: #fff;
+      font-size: 0.9rem;
+    }
+
+    /* Bold Design Template - Vibrant & Angular */
+    .flyer.bold {
+      background: linear-gradient(135deg, #fff5f0 0%, #ffffff 50%, #f0f5ff 100%);
+      border: 8px solid #ff6b35;
+      box-shadow: 0 20px 60px rgba(255, 107, 53, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+      position: relative;
+      overflow: visible;
+    }
+
+    /* Angular decorative elements */
+    .flyer.bold::before {
+      content: '';
+      position: absolute;
+      top: -40px;
+      right: -40px;
+      width: 200px;
+      height: 200px;
+      background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%);
+      transform: rotate(45deg);
+      z-index: 0;
+      opacity: 0.15;
+    }
+
+    .flyer.bold::after {
+      content: '';
+      position: absolute;
+      bottom: -30px;
+      left: -30px;
+      width: 150px;
+      height: 150px;
+      background: linear-gradient(135deg, #4a90e2 0%, #6ba3e8 100%);
+      transform: rotate(-45deg);
+      z-index: 0;
+      opacity: 0.15;
+    }
+
+    .flyer.bold > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .flyer.bold .flyer-header {
+      background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%);
+      margin: -0.75in -0.75in 1.2rem -0.75in;
+      padding: 1.2rem 0.75in 1rem;
+      color: #fff;
+      position: relative;
+      clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
+    }
+
+    .flyer.bold .flyer-logo {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: 0.6rem;
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .flyer.bold .flyer-title {
+      font-size: 3rem;
+      font-weight: 900;
+      color: #fff;
+      margin: 0.3rem 0 0.5rem;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+      text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
+      font-family: 'Arial Black', 'Arial Bold', sans-serif;
+    }
+
+    .flyer.bold .flyer-subtitle {
+      font-size: 1.3rem;
+      color: rgba(255, 255, 255, 0.95);
+      font-weight: 600;
+      margin-bottom: 0;
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .flyer.bold .flyer-zone-tag {
+      background: #fff;
+      color: #ff6b35;
+      border: 3px solid #fff;
+      font-size: 0.8rem;
+      padding: 0.4rem 0.9rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      transform: rotate(-2deg);
+      display: inline-block;
+    }
+
+    .flyer.bold .flyer-highlight {
+      background: linear-gradient(135deg, #ffe066 0%, #ffd700 100%);
+      border: 4px solid #ff6b35;
+      border-radius: 0;
+      padding: 1rem 1.2rem;
+      font-size: 1.1rem;
+      font-weight: 800;
+      margin-bottom: 1.2rem;
+      box-shadow: 0 4px 16px rgba(255, 107, 53, 0.3);
+      clip-path: polygon(0 0, 100% 0, 98% 100%, 2% 100%);
+      color: #1a1a1a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .flyer.bold .flyer-details-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.8rem;
+      margin-bottom: 1.2rem;
+      padding: 0;
+    }
+
+    .flyer.bold .detail-block {
+      background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+      border: 3px solid #4a90e2;
+      border-left: 8px solid #4a90e2;
+      padding: 0.6rem 0.8rem;
+      border-radius: 0;
+      margin-bottom: 0.5rem;
+      box-shadow: 0 2px 8px rgba(74, 144, 226, 0.2);
+      clip-path: polygon(0 0, 100% 0, 95% 100%, 0 100%);
+    }
+
+    .flyer.bold .detail-label {
+      color: #4a90e2;
+      font-size: 0.7rem;
+      margin-bottom: 0.3rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .flyer.bold .detail-value {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #1a1a1a;
+      line-height: 1.3;
+    }
+
+    .flyer.bold .flyer-body {
+      font-size: 1.15rem;
+      line-height: 1.7;
+      background: #fff;
+      padding: 1.3rem;
+      border-radius: 0;
+      border: 4px solid #ff6b35;
+      margin-bottom: 1.2rem;
+      font-weight: 600;
+      box-shadow: 0 4px 16px rgba(255, 107, 53, 0.2);
+      clip-path: polygon(2% 0, 100% 0, 98% 100%, 0 100%);
+    }
+
+    .flyer.bold .flyer-footer {
+      border-top: 8px solid #4a90e2;
+      padding-top: 1rem;
+      background: linear-gradient(135deg, #4a90e2 0%, #6ba3e8 100%);
+      margin: 0 -0.75in -0.75in 0;
+      padding: 1rem 0.75in 0.75in;
+      color: #fff;
+      clip-path: polygon(0 15%, 100% 0, 100% 100%, 0 100%);
+    }
+
+    .flyer.bold .flyer-cta {
+      font-size: 1.2rem;
+      color: #fff;
+      font-weight: 900;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .flyer.bold .flyer-small {
+      color: rgba(255, 255, 255, 0.95);
+      font-weight: 600;
+    }
+
+    .flyer.bold .flyer-contact {
+      font-weight: 800;
+      color: #fff;
+      font-size: 1rem;
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Mountain Design Template - Nature Inspired */
+    .flyer.mountain {
+      background: linear-gradient(180deg, #e8f5e9 0%, #ffffff 30%, #ffffff 100%);
+      border: 6px solid #2e7d32;
+      box-shadow: 0 20px 60px rgba(46, 125, 50, 0.2), 0 8px 24px rgba(0, 0, 0, 0.15);
+      position: relative;
+      overflow: visible;
+    }
+
+    /* Mountain silhouette at top */
+    .flyer.mountain::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -0.75in;
+      right: -0.75in;
+      height: 2.5in;
+      background: linear-gradient(180deg, #81c784 0%, #66bb6a 50%, #a5d6a7 100%);
+      clip-path: polygon(
+        0% 100%,
+        15% 85%,
+        25% 90%,
+        35% 75%,
+        45% 80%,
+        55% 65%,
+        65% 70%,
+        75% 55%,
+        85% 60%,
+        95% 45%,
+        100% 50%,
+        100% 100%
+      );
+      z-index: 0;
+    }
+
+    /* Pine tree decorative elements */
+    .flyer.mountain::after {
+      content: '';
+      position: absolute;
+      bottom: 1.5in;
+      right: 0.5in;
+      width: 80px;
+      height: 120px;
+      background: linear-gradient(180deg, transparent 0%, transparent 30%, #81c784 30%, #81c784 100%);
+      clip-path: polygon(
+        50% 0%,
+        60% 20%,
+        80% 20%,
+        70% 40%,
+        90% 40%,
+        60% 70%,
+        50% 100%,
+        40% 70%,
+        10% 40%,
+        30% 40%,
+        20% 20%,
+        40% 20%
+      );
+      opacity: 0.2;
+      z-index: 0;
+    }
+
+    .flyer.mountain > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .flyer.mountain .flyer-header {
+      background: transparent;
+      margin: 0.5rem -0.75in 1.2rem -0.75in;
+      padding: 0 0.75in 0.8rem;
+      color: #1b5e20;
+      border-bottom: 4px solid #2e7d32;
+      position: relative;
+    }
+
+    .flyer.mountain .flyer-logo {
+      color: #2e7d32;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+
+    .flyer.mountain .flyer-title {
+      font-size: 2.8rem;
+      font-weight: 900;
+      color: #1b5e20;
+      margin: 0.3rem 0 0.4rem;
+      line-height: 1.1;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      text-shadow: 2px 2px 4px rgba(46, 125, 50, 0.2);
+      font-family: 'Arial Black', 'Arial Bold', sans-serif;
+    }
+
+    .flyer.mountain .flyer-subtitle {
+      font-size: 1.2rem;
+      color: #388e3c;
+      font-weight: 600;
+      margin-bottom: 0;
+      line-height: 1.3;
+    }
+
+    .flyer.mountain .flyer-zone-tag {
+      background: #2e7d32;
+      color: #fff;
+      border: 3px solid #1b5e20;
+      font-size: 0.75rem;
+      padding: 0.35rem 0.8rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      white-space: nowrap;
+      box-shadow: 0 3px 8px rgba(46, 125, 50, 0.3);
+      border-radius: 4px;
+    }
+
+    .flyer.mountain .flyer-highlight {
+      background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
+      border: 4px solid #2e7d32;
+      border-left: 8px solid #2e7d32;
+      border-radius: 8px;
+      padding: 1rem 1.2rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 1.2rem;
+      box-shadow: 0 4px 12px rgba(46, 125, 50, 0.2);
+      color: #1b5e20;
+    }
+
+    .flyer.mountain .flyer-details-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.8rem;
+      margin-bottom: 1.2rem;
+      padding: 0;
+    }
+
+    .flyer.mountain .detail-block {
+      background: #f1f8e9;
+      border: 3px solid #66bb6a;
+      border-left: 6px solid #2e7d32;
+      padding: 0.6rem 0.8rem;
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+      box-shadow: 0 2px 6px rgba(46, 125, 50, 0.15);
+    }
+
+    .flyer.mountain .detail-label {
+      color: #2e7d32;
+      font-size: 0.7rem;
+      margin-bottom: 0.3rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .flyer.mountain .detail-value {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #1b5e20;
+      line-height: 1.3;
+    }
+
+    .flyer.mountain .flyer-body {
+      font-size: 1.1rem;
+      line-height: 1.7;
+      background: #fff;
+      padding: 1.2rem;
+      border-radius: 8px;
+      border: 3px solid #66bb6a;
+      margin-bottom: 1.2rem;
+      font-weight: 500;
+      box-shadow: 0 3px 10px rgba(46, 125, 50, 0.15);
+      color: #1b5e20;
+    }
+
+    .flyer.mountain .flyer-footer {
+      border-top: 4px solid #2e7d32;
+      padding-top: 0.8rem;
+      background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+      margin: 0 -0.75in -0.75in 0;
+      padding: 0.8rem 0.75in 0.75in;
+      color: #fff;
+      border-radius: 0 0 4px 4px;
+    }
+
+    .flyer.mountain .flyer-cta {
+      font-size: 1.1rem;
+      color: #fff;
+      font-weight: 800;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .flyer.mountain .flyer-small {
+      color: rgba(255, 255, 255, 0.95);
+      font-weight: 500;
+    }
+
+    .flyer.mountain .flyer-contact {
+      font-weight: 700;
+      color: #fff;
+      font-size: 0.9rem;
+    }
+
+    /* Ink Saver Design Template - Minimal & Illustrated */
+    .flyer.inksaver {
+      background: #ffffff;
+      border: 3px solid #000;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+      position: relative;
+      overflow: visible;
+    }
+
+    /* Decorative line art elements - inside printable area */
+    .flyer.inksaver::before {
+      content: '';
+      position: absolute;
+      top: 0.5in;
+      left: 0;
+      right: 0;
+      height: 0.15in;
+      background: repeating-linear-gradient(
+        90deg,
+        #000 0px,
+        #000 1px,
+        transparent 1px,
+        transparent 6px
+      );
+      z-index: 0;
+    }
+
+    .flyer.inksaver::after {
+      content: '';
+      position: absolute;
+      bottom: 0.5in;
+      left: 0;
+      right: 0;
+      height: 0.15in;
+      background: repeating-linear-gradient(
+        90deg,
+        #000 0px,
+        #000 1px,
+        transparent 1px,
+        transparent 6px
+      );
+      z-index: 0;
+    }
+
+    .flyer.inksaver > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .flyer.inksaver .flyer-header {
+      border-bottom: 4px solid #000;
+      padding-bottom: 0.8rem;
+      margin-bottom: 1rem;
+      background: transparent;
+    }
+
+    .flyer.inksaver .flyer-logo {
+      color: #000;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+    }
+
+    .flyer.inksaver .flyer-title {
+      font-size: 2.6rem;
+      font-weight: 900;
+      color: #000;
+      margin: 0.2rem 0 0.3rem;
+      line-height: 1.1;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      font-family: 'Arial Black', 'Arial Bold', sans-serif;
+      position: relative;
+    }
+
+    .flyer.inksaver .flyer-title::after {
+      content: '';
+      position: absolute;
+      bottom: -0.2rem;
+      left: 0;
+      width: 60%;
+      height: 3px;
+      background: #000;
+    }
+
+    .flyer.inksaver .flyer-subtitle {
+      font-size: 1.1rem;
+      color: #333;
+      font-weight: 600;
+      margin-bottom: 0;
+      line-height: 1.4;
+    }
+
+    .flyer.inksaver .flyer-zone-tag {
+      background: #000;
+      color: #fff;
+      border: 2px solid #000;
+      font-size: 0.7rem;
+      padding: 0.3rem 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      white-space: nowrap;
+    }
+
+    .flyer.inksaver .flyer-highlight {
+      background: #f5f5f5;
+      border: 3px solid #000;
+      border-left: 6px solid #000;
+      border-radius: 0;
+      padding: 0.9rem 1rem;
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: #000;
+      position: relative;
+    }
+
+    .flyer.inksaver .flyer-highlight::before {
+      content: '▸';
+      position: absolute;
+      left: -0.5rem;
+      font-size: 1.5rem;
+      color: #000;
+    }
+
+    .flyer.inksaver .flyer-details-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.7rem;
+      margin-bottom: 1rem;
+      padding: 0;
+    }
+
+    .flyer.inksaver .detail-block {
+      background: #fff;
+      border: 2px solid #000;
+      border-left: 4px solid #000;
+      padding: 0.5rem 0.7rem;
+      border-radius: 0;
+      margin-bottom: 0.4rem;
+    }
+
+    .flyer.inksaver .detail-label {
+      color: #000;
+      font-size: 0.65rem;
+      margin-bottom: 0.25rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .flyer.inksaver .detail-value {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #000;
+      line-height: 1.3;
+    }
+
+    .flyer.inksaver .flyer-body {
+      font-size: 1rem;
+      line-height: 1.6;
+      background: #fff;
+      padding: 1rem;
+      border-radius: 0;
+      border: 2px solid #000;
+      margin-bottom: 1rem;
+      font-weight: 500;
+      color: #000;
+      position: relative;
+    }
+
+    .flyer.inksaver .flyer-body::before,
+    .flyer.inksaver .flyer-body::after {
+      content: '';
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #000;
+    }
+
+    .flyer.inksaver .flyer-body::before {
+      top: -2px;
+      left: -2px;
+      border-right: none;
+      border-bottom: none;
+    }
+
+    .flyer.inksaver .flyer-body::after {
+      bottom: -2px;
+      right: -2px;
+      border-left: none;
+      border-top: none;
+    }
+
+    .flyer.inksaver .flyer-footer {
+      border-top: 4px solid #000;
+      padding-top: 0.7rem;
+      background: #fff;
+      background-image: radial-gradient(circle, #999 0.5px, transparent 0.5px);
+      background-size: 4px 4px;
+      background-position: 0 0, 2px 2px;
+      margin: 0 -0.75in -0.75in 0;
+      padding: 0.7rem 0.75in 0.75in;
+      color: #000;
+    }
+
+    .flyer.inksaver .flyer-cta {
+      font-size: 1rem;
+      color: #000;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .flyer.inksaver .flyer-small {
+      color: #000;
+      font-weight: 500;
+    }
+
+    .flyer.inksaver .flyer-contact {
+      font-weight: 700;
+      color: #000;
+      font-size: 0.85rem;
+    }
+
+    /* Print styles */
+    @page {
+      size: letter;
+      margin: 0.5in;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+        margin: 0;
+        padding: 0;
+      }
+
+      /* Hide everything except the flyer */
+      .page > h1,
+      .layout > .card,
+      .preview-wrapper > *:not(.flyer-container),
+      .preview-header {
+        display: none !important;
+      }
+
+      .page,
+      .layout,
+      .preview-wrapper,
+      .flyer-container {
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+        background: transparent !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+
+      .flyer-container {
+        overflow: visible !important;
+      }
+
+      /* Remove scale container and wrapper in print - show full size */
+      .flyer-scale-container {
+        width: auto !important;
+        height: auto !important;
+        overflow: visible !important;
+        display: block !important;
+      }
+
+      .flyer-scale-wrapper {
+        width: auto !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+
+      .flyer {
+        border: none !important;
+        width: 8.5in !important;
+        min-height: 11in !important;
+        height: auto !important;
+        margin: 0 auto !important;
+        padding: 0.75in !important;
+        background: #fff !important;
+        box-shadow: none !important;
+        transform: none !important;
+        page-break-after: avoid;
+      }
+
+
+      /* Remove playful angle on zone tag in print - keep it straight */
+      .flyer.poster .flyer-zone-tag {
+        transform: none !important;
+      }
+
+      .flyer.bold .flyer-zone-tag {
+        transform: none !important;
+      }
+
+      /* Preserve colors and backgrounds for design templates in print */
+      .flyer.poster .flyer-header {
+        background: var(--accent) !important;
+        background-image: linear-gradient(135deg, var(--accent) 0%, #1e5a3a 100%) !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color: #fff !important;
+      }
+      
+      .flyer.poster .flyer-logo,
+      .flyer.poster .flyer-title,
+      .flyer.poster .flyer-subtitle {
+        color: #fff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      /* Poster zone tag has white background with green text - preserve that */
+      .flyer.poster .flyer-zone-tag {
+        background: #fff !important;
+        color: var(--accent) !important;
+        border-color: #fff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      .flyer.poster .flyer-footer {
+        background: var(--accent) !important;
+        background-image: linear-gradient(135deg, var(--accent) 0%, #1e5a3a 100%) !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color: #fff !important;
+      }
+      
+      .flyer.poster .flyer-cta,
+      .flyer.poster .flyer-contact,
+      .flyer.poster .flyer-small {
+        color: #fff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      .flyer.poster .flyer-highlight {
+        background: #fff3cd !important;
+        background-image: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%) !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        border-color: var(--accent) !important;
+      }
+
+      /* Bold design print styles */
+      .flyer.bold .flyer-header {
+        background: #ff6b35 !important;
+        background-image: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%) !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color: #fff !important;
+      }
+
+      .flyer.bold .flyer-logo,
+      .flyer.bold .flyer-title,
+      .flyer.bold .flyer-subtitle {
+        color: #fff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .flyer.bold .flyer-zone-tag {
+        background: #fff !important;
+        color: #ff6b35 !important;
+        border-color: #fff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .flyer.bold .flyer-highlight {
+        background: #ffe066 !important;
+        background-image: linear-gradient(135deg, #ffe066 0%, #ffd700 100%) !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        border-color: #ff6b35 !important;
+      }
+
+      .flyer.bold .detail-block {
+        border-color: #4a90e2 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .flyer.bold .detail-label {
+        color: #4a90e2 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .flyer.bold .flyer-body {
+        border-color: #ff6b35 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .flyer.bold .flyer-footer {
+        background: #4a90e2 !important;
+        background-image: linear-gradient(135deg, #4a90e2 0%, #6ba3e8 100%) !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color: #fff !important;
+      }
+
+      .flyer.bold .flyer-cta,
+      .flyer.bold .flyer-contact,
+      .flyer.bold .flyer-small {
+        color: #fff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      /* Mountain design print styles */
+      .flyer.mountain::before {
+        background: linear-gradient(180deg, #81c784 0%, #66bb6a 50%, #a5d6a7 100%) !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        top: 0 !important;
+      }
+
+      .flyer.mountain::after {
+        background: linear-gradient(180deg, transparent 0%, transparent 30%, #81c784 30%, #81c784 100%) !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .flyer.mountain .flyer-header {
+        background: transparent !important;
+        color: #1b5e20 !important;
+        border-color: #2e7d32 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .flyer.mountain .flyer-logo,
+      .flyer.mountain .flyer-title {
+        color: #1b5e20 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .flyer.mountain .flyer-subtitle {
+        color: #388e3c !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .flyer.mountain .flyer-zone-tag {
+        background: #2e7d32 !important;
+        color: #fff !important;
+        border-color: #1b5e20 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .flyer.mountain .flyer-highlight {
+        background: #c8e6c9 !important;
+        background-image: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%) !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        border-color: #2e7d32 !important;
+      }
+
+      .flyer.mountain .detail-block {
+        border-color: #66bb6a !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .flyer.mountain .detail-label {
+        color: #2e7d32 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .flyer.mountain .detail-value {
+        color: #1b5e20 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .flyer.mountain .flyer-body {
+        border-color: #66bb6a !important;
+        color: #1b5e20 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .flyer.mountain .flyer-footer {
+        background: #2e7d32 !important;
+        background-image: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%) !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color: #fff !important;
+      }
+
+      .flyer.mountain .flyer-cta,
+      .flyer.mountain .flyer-contact,
+      .flyer.mountain .flyer-small {
+        color: #fff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      /* Ink saver design print styles - already optimized for black and white */
+      .flyer.inksaver .flyer-header,
+      .flyer.inksaver .flyer-logo,
+      .flyer.inksaver .flyer-title,
+      .flyer.inksaver .flyer-subtitle,
+      .flyer.inksaver .flyer-zone-tag,
+      .flyer.inksaver .flyer-highlight,
+      .flyer.inksaver .detail-block,
+      .flyer.inksaver .detail-label,
+      .flyer.inksaver .detail-value,
+      .flyer.inksaver .flyer-body {
+        color: #000 !important;
+        border-color: #000 !important;
+        background: #fff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .flyer.inksaver .flyer-zone-tag {
+        background: #000 !important;
+        color: #fff !important;
+      }
+
+      .flyer.inksaver::before,
+      .flyer.inksaver::after {
+        top: 0.5in !important;
+        bottom: 0.5in !important;
+      }
+
+      .flyer.inksaver .flyer-footer {
+        background: #fff !important;
+        background-image: radial-gradient(circle, #999 0.5px, transparent 0.5px) !important;
+        background-size: 4px 4px !important;
+        color: #000 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .flyer.inksaver .flyer-cta,
+      .flyer.inksaver .flyer-contact,
+      .flyer.inksaver .flyer-small {
+        color: #000 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Altagether Flyer Generator</h1>
+    <div class="layout">
+      <!-- Form -->
+      <div class="card">
+        <h2>Flyer Content</h2>
+        <form id="flyerForm">
+          <div class="form-grid">
+            <!-- Setup Section -->
+            <div class="form-section">
+              <div class="form-section-header">Setup</div>
+              <div class="form-section-content">
+                <div>
+                  <label for="flyerDesign">Flyer Design</label>
+                  <select id="flyerDesign">
+                    <option value="poster">Poster (Graphic & Visual)</option>
+                    <option value="bold">Bold (Vibrant & Angular)</option>
+                    <option value="mountain">Mountain (Nature Inspired)</option>
+                    <option value="inksaver">Ink Saver (Minimal & Illustrated)</option>
+                  </select>
+                  <div class="help-text">
+                    Choose a design style for your flyer.
+                  </div>
+                </div>
+                <div>
+                  <label for="eventType">Event Type (Optional Template)</label>
+                  <div style="display: flex; gap: 0.5rem; align-items: stretch; flex-wrap: wrap;">
+                    <select id="eventType" style="flex: 1; min-width: 200px;">
+                      <option value="">-- Select an event type --</option>
+                      <option value="healing-walk">Healing Walk</option>
+                      <option value="coffee-driveway">Coffee in the Driveway</option>
+                      <option value="byo-picnic">Bring-Your-Own-Blanket Picnic</option>
+                      <option value="chalk-art">Kids' Chalk Art Hour</option>
+                      <option value="qa-circle">Neighborhood Q&A Circle</option>
+                      <option value="sunset-gratitude">Sunset Gratitude Gathering</option>
+                    </select>
+                    <button type="button" class="btn-secondary" onclick="clearTemplate()" style="white-space: nowrap; flex-shrink: 0;">
+                      Clear Template
+                    </button>
+                  </div>
+                  <div class="help-text">
+                    Select an event type to auto-fill suggested content, then customize as needed.
+                  </div>
+                </div>
+                <div id="purposeContainer" style="display: none;">
+                  <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.3rem;">
+                    Event Purpose — Not shown on flyer
+                  </div>
+                  <textarea id="purpose" readonly style="background-color: #f9f9f9; cursor: not-allowed; resize: none;"></textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- Event Details Section -->
+            <div class="form-section">
+              <div class="form-section-header">Event Details</div>
+              <div class="form-section-content">
+                <div>
+                  <label for="zoneName">Your Zone</label>
+                  <input id="zoneName" type="text" placeholder="Altadena" />
+                </div>
+                <div>
+                  <label for="eventTitle">Event Title</label>
+                  <input id="eventTitle" type="text" placeholder="Fire Recovery Neighborhood Meetup" />
+                </div>
+                <div>
+                  <label for="subtitle">Short Subtitle / Hook</label>
+                  <input id="subtitle" type="text" placeholder="Share updates, ask questions, and plan next steps together." />
+                </div>
+
+                <div class="small-row">
+                  <div>
+                    <label for="date">Date</label>
+                    <input id="date" type="date" />
+                  </div>
+                  <div>
+                    <label for="time">Time</label>
+                    <input id="time" type="time" />
+                  </div>
+                </div>
+
+                <div>
+                  <label for="location">Location</label>
+                  <input id="location" type="text" placeholder="1234 Maple Street, Altadena" />
+                </div>
+
+                <div>
+                  <label for="host">Host / Group</label>
+                  <input id="host" type="text" placeholder="Your friendly Neighborhood Captain" />
+                </div>
+
+                <div>
+                  <label for="bodyText">Description (2–4 sentences)</label>
+                  <textarea id="bodyText" placeholder="We'll share the latest updates on fire recovery, swap information about resources, and talk about how we can support each other in the months ahead. Kids welcome. Light snacks provided."></textarea>
+                  <div class="help-text">
+                    This will go in the main body of the flyer.
+                  </div>
+                </div>
+
+                <div>
+                  <label for="contact">Contact / RSVP</label>
+                  <input id="contact" type="text" placeholder="Questions? Contact your Neighborhood Captain." />
+                </div>
+
+                <div>
+                  <label for="footerCta">Footer Message (Line 1)</label>
+                  <input id="footerCta" type="text" placeholder="All neighbors welcome • Please share with your block" />
+                </div>
+
+                <div>
+                  <label for="footerSmall">Footer Message (Line 2)</label>
+                  <input id="footerSmall" type="text" placeholder="This gathering is part of the community-led Eaton Fire recovery effort." />
+                </div>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="button-row" style="margin-top: 1.5rem;">
+              <button type="button" class="btn-primary" onclick="updateFlyer()">
+                Generate Flyer
+              </button>
+              <button type="button" class="btn-secondary" onclick="window.print()">
+                Print / Save as PDF
+              </button>
+              <button type="button" class="btn-secondary" onclick="downloadAsHTML()">
+                Download as HTML
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Preview -->
+      <div class="preview-wrapper">
+        <div class="flyer-container">
+          <div class="preview-header">
+            <span>Flyer Preview (Letter size 8.5×11")</span>
+            <span style="font-size:0.75rem;color:#999;">Update, then print</span>
+          </div>
+          <div class="flyer-scale-container">
+            <div class="flyer-scale-wrapper">
+              <div class="flyer" id="flyer">
+            <div class="flyer-header">
+              <div>
+                <div class="flyer-logo">Altagether • Keep Altadena Together</div>
+                <div class="flyer-title" id="flyerTitle">Fire Recovery Neighborhood Meetup</div>
+                <div class="flyer-subtitle" id="flyerSubtitle">
+                  Share updates, ask questions, and plan next steps together.
+                </div>
+              </div>
+              <div class="flyer-zone-tag" id="flyerZone">
+                Zone 12 • East Altadena
+              </div>
+            </div>
+
+            <div class="flyer-highlight" id="flyerHighlight">
+              Neighbors affected by the Eaton Fire are invited to connect, share information,
+              and help shape our recovery together.
+            </div>
+
+            <div class="flyer-details-grid">
+              <div>
+                <div class="detail-block">
+                  <div class="detail-label">Date &amp; Time</div>
+                  <div class="detail-value" id="flyerDateTime">Thursday, July 24 • 7:00 PM</div>
+                </div>
+                <div class="detail-block">
+                  <div class="detail-label">Location</div>
+                  <div class="detail-value" id="flyerLocation">
+                    1234 Maple Street, Altadena
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div class="detail-block">
+                  <div class="detail-label">Hosted By</div>
+                  <div class="detail-value" id="flyerHost">
+                    Eaton Fire Neighborhood Captains
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="flyer-body" id="flyerBody">
+              We’ll share the latest updates on fire recovery, swap information about resources,
+              and talk about how we can support each other in the months ahead. Bring your
+              questions, ideas, and neighbors. Kids welcome. Light snacks provided.
+            </div>
+
+            <div class="flyer-footer">
+              <div>
+                <div class="flyer-cta" id="flyerCta">All neighbors welcome • Please share with your block</div>
+                <div class="flyer-small" id="flyerFooterSmall">
+                  This gathering is part of the community-led Eaton Fire recovery effort.
+                </div>
+              </div>
+              <div class="flyer-contact">
+                <div class="flyer-small" id="flyerContact">
+                  RSVP / questions: zone12@altagether.org
+                </div>
+              </div>
+            </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Social Media Preview -->
+      <div class="social-preview-container">
+        <div class="preview-header">
+          <span>Social Media Post Preview (Square format)</span>
+          <span style="font-size:0.75rem;color:#999;">Update, then screenshot</span>
+        </div>
+        <div class="social-preview-scale-container">
+          <div class="flyer flyer-social" id="flyerSocial">
+            <div class="flyer-header">
+              <div>
+                <div class="flyer-logo">Altagether • Keep Altadena Together</div>
+                <div class="flyer-title" id="flyerTitleSocial">Fire Recovery Neighborhood Meetup</div>
+                <div class="flyer-subtitle" id="flyerSubtitleSocial">
+                  Share updates, ask questions, and plan next steps together.
+                </div>
+              </div>
+              <div class="flyer-zone-tag" id="flyerZoneSocial">
+                Zone 12 • East Altadena
+              </div>
+            </div>
+
+            <div class="flyer-highlight" id="flyerHighlightSocial">
+              Neighbors affected by the Eaton Fire are invited to connect, share information,
+              and help shape our recovery together.
+            </div>
+
+            <div class="flyer-info-line" id="flyerInfoLineSocial">
+              📅 Thursday, July 24 • 7:00 PM • 📍 1234 Maple Street, Altadena
+            </div>
+
+            <div class="flyer-details-grid" style="display: none;">
+              <div>
+                <div class="detail-block">
+                  <div class="detail-label">Date &amp; Time</div>
+                  <div class="detail-value" id="flyerDateTimeSocial">Thursday, July 24 • 7:00 PM</div>
+                </div>
+                <div class="detail-block">
+                  <div class="detail-label">Location</div>
+                  <div class="detail-value" id="flyerLocationSocial">
+                    1234 Maple Street, Altadena
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div class="detail-block">
+                  <div class="detail-label">Hosted By</div>
+                  <div class="detail-value" id="flyerHostSocial">
+                    Eaton Fire Neighborhood Captains
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="flyer-body" id="flyerBodySocial">
+              We'll share the latest updates on fire recovery, swap information about resources,
+              and talk about how we can support each other in the months ahead. Bring your
+              questions, ideas, and neighbors. Kids welcome. Light snacks provided.
+            </div>
+
+            <div class="flyer-footer">
+              <div>
+                <!-- Footer messages hidden in social media version -->
+              </div>
+              <div class="flyer-contact">
+                <div class="flyer-small" id="flyerContactSocial">
+                  RSVP / questions: zone12@altagether.org
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Event type templates
+    const eventTemplates = {
+      "healing-walk": {
+        title: "Healing Walk",
+        purpose: "A gentle, grounding neighborhood walk to reconnect, get fresh air, and support each other through recovery.",
+        shortInvite: "Join us for a gentle Healing Walk. We'll meet at [location] and take a slow, community-focused walk together. All ages and paces welcome.",
+        longInvite: "Hi neighbors — you're invited to a calming, slow-paced Healing Walk. This is simply a chance to breathe, reconnect, and support one another as we navigate recovery.\n\n📅 [Date], [Time]\n📍 Meet at: [location]\n👟 Pace: gentle; all mobility levels welcome\n\nBring a friend, dog, or morning coffee. No agenda — just connection."
+      },
+      "coffee-driveway": {
+        title: "Coffee in the Driveway",
+        purpose: "A light, drop-in-anytime gathering to say hello, build familiarity, and reconnect.",
+        shortInvite: "Coffee in the Driveway this [day] from [time]. Swing by for a few minutes, grab a cup, and say hello. Kids welcome.",
+        longInvite: "Good morning neighbors! Grab a cup and drop by for Coffee in the Driveway. Stay for 5 minutes or the whole hour — no agenda, just community.\n\n📅 [Date], [Time]\n📍 [Location]\n\nCoffee, water, and simple snacks provided."
+      },
+      "byo-picnic": {
+        title: "Bring-Your-Own-Blanket Picnic",
+        purpose: "A simple, family-friendly picnic where everyone brings their own food and hangs out together.",
+        shortInvite: "BYO Blanket Picnic at [location] this [day] at [time]. Bring snacks and a blanket — we'll gather casually and enjoy the afternoon.",
+        longInvite: "Let's enjoy the afternoon together with a Bring-Your-Own-Blanket Picnic. Super easy: bring your own food, drinks, and a blanket.\n\n📅 [Date], [Time]\n📍 [Location]\n\nWe'll play music, relax, and let kids run around."
+      },
+      "chalk-art": {
+        title: "Kids' Chalk Art Hour",
+        purpose: "A creative, low-pressure activity to help kids reconnect and express themselves.",
+        shortInvite: "Kids' Chalk Art Hour this [day] at [time] in front of [address]. Chalk provided — easy, fun, and a nice way to get kids together again.",
+        longInvite: "Families — join us for a Kids' Chalk Art Hour! We'll set out chalk and let the kids draw along the sidewalk/driveway while adults chat.\n\n📅 [Date], [Time]\n📍 [Location]\n\nTheme idea: \"Draw something that makes you feel calm.\""
+      },
+      "qa-circle": {
+        title: "Neighborhood Q&A Circle",
+        purpose: "A calm space for neighbors to ask questions about rebuilding, insurance, resources, and next steps.",
+        shortInvite: "Neighborhood Q&A Circle this [day] at [time]. A space to share questions and challenges; I'll gather everything and ensure follow-up.",
+        longInvite: "Hi neighbors — I'm hosting a Neighborhood Q&A Circle. This is a low-stress way to bring questions, concerns, or obstacles you're dealing with in recovery.\n\n📅 [Date], [Time]\n📍 [Location or Virtual Link]\n\nI'll collect all questions and elevate them for accurate follow-up."
+      },
+      "sunset-gratitude": {
+        title: "Sunset Gratitude Gathering",
+        purpose: "A peaceful moment to ground ourselves, share gratitude, and reconnect emotionally.",
+        shortInvite: "Sunset Gratitude Gathering this [day] at [time]. A simple moment to slow down, breathe, and reconnect.",
+        longInvite: "You're invited to a peaceful Sunset Gratitude Gathering. We'll meet at [location], enjoy the sky, and each share one small thing we're grateful for.\n\n📅 [Date], [Time]\n📍 [Location]\n\nAll ages welcome."
+      }
+    };
+
+    function formatDate(dateStr) {
+      if (!dateStr) return "";
+      const d = new Date(dateStr + "T00:00:00");
+      if (isNaN(d)) return "";
+      const opts = { weekday: "long", month: "long", day: "numeric" };
+      return d.toLocaleDateString(undefined, opts);
+    }
+
+    function formatTime(timeStr) {
+      if (!timeStr) return "";
+      // Expect HH:MM
+      const [hStr, mStr] = timeStr.split(":");
+      let h = parseInt(hStr, 10);
+      const m = mStr || "00";
+      if (isNaN(h)) return timeStr;
+      const ampm = h >= 12 ? "PM" : "AM";
+      h = h % 12 || 12;
+      return `${h}:${m} ${ampm}`;
+    }
+
+    function getDayOfWeek(dateStr) {
+      if (!dateStr) return "[day]";
+      const d = new Date(dateStr + "T00:00:00");
+      if (isNaN(d)) return "[day]";
+      return d.toLocaleDateString(undefined, { weekday: "long" });
+    }
+
+    function replacePlaceholders(text) {
+      if (!text) return text;
+      const date = document.getElementById("date").value;
+      const time = document.getElementById("time").value;
+      const location = document.getElementById("location").value.trim();
+      
+      let result = text;
+      
+      // Replace [date] with formatted date or placeholder
+      if (result.includes("[Date]")) {
+        const dateFormatted = date ? formatDate(date) : "[Date]";
+        result = result.replace(/\[Date\]/g, dateFormatted);
+      }
+      if (result.includes("[date]")) {
+        const dateFormatted = date ? formatDate(date) : "[date]";
+        result = result.replace(/\[date\]/g, dateFormatted);
+      }
+      
+      // Replace [time] with formatted time or placeholder
+      if (result.includes("[Time]")) {
+        const timeFormatted = time ? formatTime(time) : "[Time]";
+        result = result.replace(/\[Time\]/g, timeFormatted);
+      }
+      if (result.includes("[time]")) {
+        const timeFormatted = time ? formatTime(time) : "[time]";
+        result = result.replace(/\[time\]/g, timeFormatted);
+      }
+      
+      // Replace [day] with day of week or placeholder
+      if (result.includes("[day]")) {
+        const dayFormatted = date ? getDayOfWeek(date) : "[day]";
+        result = result.replace(/\[day\]/g, dayFormatted);
+      }
+      
+      // Replace [location] with actual location or placeholder
+      if (result.includes("[Location]")) {
+        result = result.replace(/\[Location\]/g, location || "[Location]");
+      }
+      if (result.includes("[location]")) {
+        result = result.replace(/\[location\]/g, location || "[location]");
+      }
+      if (result.includes("[address]")) {
+        result = result.replace(/\[address\]/g, location || "[address]");
+      }
+      if (result.includes("[Location or Virtual Link]")) {
+        result = result.replace(/\[Location or Virtual Link\]/g, location || "[Location or Virtual Link]");
+      }
+      
+      // Replace combined [Date], [Time] pattern
+      if (date && time) {
+        const dateFormatted = formatDate(date);
+        const timeFormatted = formatTime(time);
+        result = result.replace(/\[Date\], \[Time\]/g, `${dateFormatted}, ${timeFormatted}`);
+        result = result.replace(/\[date\], \[time\]/g, `${dateFormatted}, ${timeFormatted}`);
+      }
+      
+      return result;
+    }
+
+    function loadEventTemplate(eventType) {
+      const template = eventTemplates[eventType];
+      if (!template) return;
+
+      // Show purpose container
+      document.getElementById("purposeContainer").style.display = "block";
+
+      // Populate title
+      document.getElementById("eventTitle").value = template.title;
+      
+      // Populate subtitle (short invite) - keep placeholders for now
+      document.getElementById("subtitle").value = template.shortInvite;
+      
+      // Populate purpose/highlight
+      document.getElementById("purpose").value = template.purpose;
+      
+      // Populate body text (long invite) - keep placeholders for now
+      document.getElementById("bodyText").value = template.longInvite;
+      
+      // Trigger update to show preview with placeholders replaced
+      updateFlyer();
+    }
+
+    function clearTemplate() {
+      // Hide purpose container
+      document.getElementById("purposeContainer").style.display = "none";
+      
+      document.getElementById("eventType").value = "";
+      document.getElementById("eventTitle").value = "";
+      document.getElementById("subtitle").value = "";
+      document.getElementById("purpose").value = "";
+      document.getElementById("bodyText").value = "";
+      updateFlyer();
+    }
+
+    function updateFlyer() {
+      const zone = document.getElementById("zoneName").value.trim();
+      const title = document.getElementById("eventTitle").value.trim();
+      const subtitle = document.getElementById("subtitle").value.trim();
+      const date = document.getElementById("date").value;
+      const time = document.getElementById("time").value;
+      const location = document.getElementById("location").value.trim();
+      const host = document.getElementById("host").value.trim();
+      const body = document.getElementById("bodyText").value.trim();
+      const contact = document.getElementById("contact").value.trim();
+      const purpose = document.getElementById("purpose").value.trim();
+      const footerCta = document.getElementById("footerCta").value.trim();
+      const footerSmall = document.getElementById("footerSmall").value.trim();
+      const eventType = document.getElementById("eventType").value;
+
+      const flyerTitle = document.getElementById("flyerTitle");
+      const flyerSubtitle = document.getElementById("flyerSubtitle");
+      const flyerZone = document.getElementById("flyerZone");
+      const flyerDateTime = document.getElementById("flyerDateTime");
+      const flyerLocation = document.getElementById("flyerLocation");
+      const flyerHost = document.getElementById("flyerHost");
+      const flyerBody = document.getElementById("flyerBody");
+      const flyerContact = document.getElementById("flyerContact");
+      const flyerHighlight = document.getElementById("flyerHighlight");
+      const flyerCta = document.getElementById("flyerCta");
+      const flyerFooterSmall = document.getElementById("flyerFooterSmall");
+
+      flyerTitle.textContent = title || "Fire Recovery Neighborhood Meetup";
+      
+      // Replace placeholders in subtitle
+      flyerSubtitle.textContent = replacePlaceholders(subtitle) ||
+        "Share updates, ask questions, and plan next steps together.";
+
+      flyerZone.textContent = zone || "Altadena";
+
+      const dateFormatted = formatDate(date);
+      const timeFormatted = formatTime(time);
+      let dt = "";
+      if (dateFormatted && timeFormatted) {
+        dt = `${dateFormatted} • ${timeFormatted}`;
+      } else if (dateFormatted) {
+        dt = dateFormatted;
+      } else if (timeFormatted) {
+        dt = timeFormatted;
+      }
+      flyerDateTime.textContent = dt || "Date & time to be announced";
+
+      flyerLocation.textContent = location || "Location to be announced";
+
+      flyerHost.textContent =
+        host || "Hosted by local Neighborhood Captains and neighbors";
+
+      // Replace placeholders in body text
+      flyerBody.textContent = replacePlaceholders(body) ||
+        "We'll share the latest updates on fire recovery, swap information about resources, and talk about how we can support each other in the months ahead. Bring your questions, ideas, and neighbors. Kids welcome.";
+
+      flyerContact.textContent =
+        contact || "Questions? Contact your Neighborhood Captain.";
+
+      flyerCta.textContent = footerCta || "All neighbors welcome • Please share with your block";
+
+      flyerFooterSmall.textContent = footerSmall || "This gathering is part of the community-led Eaton Fire recovery effort.";
+
+      // Use purpose from form field if provided, otherwise use template or default
+      if (purpose) {
+        flyerHighlight.textContent = purpose;
+      } else if (eventType && eventTemplates[eventType]) {
+        flyerHighlight.textContent = eventTemplates[eventType].purpose;
+      } else {
+        flyerHighlight.textContent =
+          zone
+            ? `Neighbors in ${zone} affected by the Eaton Fire are invited to connect, share information, and help shape our recovery together.`
+            : "Neighbors affected by the Eaton Fire are invited to connect, share information, and help shape our recovery together.";
+      }
+
+      // Update social media preview
+      const flyerTitleSocial = document.getElementById("flyerTitleSocial");
+      const flyerSubtitleSocial = document.getElementById("flyerSubtitleSocial");
+      const flyerZoneSocial = document.getElementById("flyerZoneSocial");
+      const flyerDateTimeSocial = document.getElementById("flyerDateTimeSocial");
+      const flyerLocationSocial = document.getElementById("flyerLocationSocial");
+      const flyerHostSocial = document.getElementById("flyerHostSocial");
+      const flyerBodySocial = document.getElementById("flyerBodySocial");
+      const flyerContactSocial = document.getElementById("flyerContactSocial");
+      const flyerHighlightSocial = document.getElementById("flyerHighlightSocial");
+      const flyerSocial = document.getElementById("flyerSocial");
+
+      // Sync social media preview with main flyer
+      flyerTitleSocial.textContent = flyerTitle.textContent;
+      // Subtitle is hidden in social media version, so don't update it
+      flyerZoneSocial.textContent = flyerZone.textContent;
+      flyerDateTimeSocial.textContent = flyerDateTime.textContent;
+      flyerLocationSocial.textContent = flyerLocation.textContent;
+      flyerHostSocial.textContent = flyerHost.textContent;
+      
+      // Update compact info line for social media - separate lines for Date/Time and Location
+      const flyerInfoLineSocial = document.getElementById("flyerInfoLineSocial");
+      const dateTimeText = flyerDateTime.textContent;
+      const locationText = flyerLocation.textContent;
+      let infoLineText = "";
+      if (dateTimeText && dateTimeText !== "Date & time to be announced") {
+        infoLineText = `📅 ${dateTimeText}`;
+      }
+      if (locationText && locationText !== "Location to be announced") {
+        if (infoLineText) {
+          infoLineText += `\n📍 ${locationText}`;
+        } else {
+          infoLineText = `📍 ${locationText}`;
+        }
+      }
+      flyerInfoLineSocial.textContent = infoLineText || "📅 Date & time to be announced\n📍 Location to be announced";
+      
+      // Clean up body text for social media - remove duplicate date/time/location info
+      let bodyText = flyerBody.textContent;
+      // Remove common patterns like "📅 [Date], [Time]" and "📍 [Location]" or "[Location or Virtual Link]"
+      bodyText = bodyText.replace(/📅\s*\[?Date\]?,?\s*\[?Time\]?/gi, "");
+      bodyText = bodyText.replace(/📍\s*\[?Location(?:\s+or\s+Virtual\s+Link)?\]?/gi, "");
+      bodyText = bodyText.replace(/\[Date\],?\s*\[Time\]/gi, "");
+      bodyText = bodyText.replace(/\[Location(?:\s+or\s+Virtual\s+Link)?\]/gi, "");
+      bodyText = bodyText.replace(/\n\n+/g, "\n"); // Clean up extra line breaks
+      bodyText = bodyText.trim();
+      flyerBodySocial.textContent = bodyText || flyerBody.textContent;
+      
+      flyerContactSocial.textContent = flyerContact.textContent;
+      flyerHighlightSocial.textContent = flyerHighlight.textContent;
+
+      // Social media preview always uses clean design, no template classes
+      flyerSocial.className = "flyer flyer-social";
+
+      // Auto-shrink body text if it overflows (run after DOM updates)
+      setTimeout(() => {
+        const bodySocial = flyerBodySocial;
+        let fontSize = 15;
+        bodySocial.style.fontSize = fontSize + 'px';
+        
+        // Check if content overflows and reduce font size if needed
+        while (bodySocial.scrollHeight > bodySocial.clientHeight && fontSize > 10) {
+          fontSize -= 0.5;
+          bodySocial.style.fontSize = fontSize + 'px';
+        }
+      }, 10);
+    }
+
+    // Event listener for flyer design selector
+    document.getElementById("flyerDesign").addEventListener("change", function() {
+      const design = this.value;
+      const flyer = document.getElementById("flyer");
+      const flyerSocial = document.getElementById("flyerSocial");
+      
+      // Remove all design classes from main flyer
+      flyer.classList.remove("poster", "bold", "mountain", "inksaver");
+      
+      // Social media always stays clean - no design template classes
+      flyerSocial.className = "flyer flyer-social";
+      
+      // Add the selected design class to main flyer only
+      if (design === "poster") {
+        flyer.classList.add("poster");
+      } else if (design === "bold") {
+        flyer.classList.add("bold");
+      } else if (design === "mountain") {
+        flyer.classList.add("mountain");
+      } else if (design === "inksaver") {
+        flyer.classList.add("inksaver");
+      }
+    });
+
+    // Event listener for event type dropdown
+    document.getElementById("eventType").addEventListener("change", function() {
+      const eventType = this.value;
+      if (eventType) {
+        loadEventTemplate(eventType);
+      } else {
+        // Hide purpose container when no event type selected
+        document.getElementById("purposeContainer").style.display = "none";
+      }
+    });
+
+    // Event listeners to update preview when fields change
+    // Placeholders are replaced in the preview, not in the input fields
+    // This allows users to customize the text while still seeing updated placeholders in preview
+    document.getElementById("date").addEventListener("change", function() {
+      updateFlyer();
+    });
+
+    document.getElementById("time").addEventListener("change", function() {
+      updateFlyer();
+    });
+
+    document.getElementById("location").addEventListener("input", function() {
+      updateFlyer();
+    });
+
+    // Auto-update preview as user types in other fields
+    document.getElementById("zoneName").addEventListener("input", function() {
+      updateFlyer();
+    });
+
+    document.getElementById("eventTitle").addEventListener("input", function() {
+      updateFlyer();
+    });
+
+    document.getElementById("subtitle").addEventListener("input", function() {
+      updateFlyer();
+    });
+
+    document.getElementById("host").addEventListener("input", function() {
+      updateFlyer();
+    });
+
+    document.getElementById("bodyText").addEventListener("input", function() {
+      updateFlyer();
+    });
+
+    // Purpose field is read-only, so no input listener needed
+
+
+    document.getElementById("contact").addEventListener("input", function() {
+      updateFlyer();
+    });
+
+    document.getElementById("footerCta").addEventListener("input", function() {
+      updateFlyer();
+    });
+
+    document.getElementById("footerSmall").addEventListener("input", function() {
+      updateFlyer();
+    });
+
+    function downloadAsHTML() {
+      const flyer = document.getElementById("flyer");
+      const design = document.getElementById("flyerDesign").value;
+      
+      // Get all the CSS styles
+      const styles = Array.from(document.styleSheets)
+        .map(sheet => {
+          try {
+            return Array.from(sheet.cssRules)
+              .map(rule => rule.cssText)
+              .join('\n');
+          } catch (e) {
+            return '';
+          }
+        })
+        .join('\n');
+      
+      // Clone the flyer element
+      const flyerClone = flyer.cloneNode(true);
+      
+      // Remove the scale transform from the cloned element
+      flyerClone.style.transform = 'none';
+      flyerClone.style.width = '8.5in';
+      flyerClone.style.height = 'auto';
+      flyerClone.style.minHeight = '11in';
+      flyerClone.style.margin = '0 auto';
+      flyerClone.style.padding = '0.75in';
+      
+      // Create the HTML document
+      const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Event Flyer</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+    
+    ${styles}
+    
+    .flyer {
+      transform: none !important;
+      width: 8.5in !important;
+      min-height: 11in !important;
+      height: auto !important;
+      margin: 0 auto !important;
+      padding: 0.75in !important;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    @media print {
+      body {
+        background: #fff;
+        padding: 0;
+      }
+      
+      .flyer {
+        box-shadow: none !important;
+        border: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  ${flyerClone.outerHTML}
+</body>
+</html>`;
+      
+      // Create a blob and download
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'flyer.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // Initialize with defaults
+    const flyer = document.getElementById("flyer");
+    const flyerSocial = document.getElementById("flyerSocial");
+    flyer.classList.add("poster"); // Start with poster design
+    flyerSocial.className = "flyer flyer-social"; // Social media always clean design
+    updateFlyer();
+  </script>
+</body>
+</html>

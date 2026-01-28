@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Discord Help - Altagether Zone Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* -- COLORS: Grassroots & Grounded Palette -- */
+      --bg-paper: #FDFBF7;
+      --bg-card: #FFFFFF;
+      --text-primary: #1F2937;
+      --text-secondary: #4B5563;
+      
+      /* -- INK & STRUCTURE -- */
+      --brand-primary-dark: #314059;
+      --accent-gold: #F59E0B;
+      --accent-clay: #BC5838;
+      --accent-teal: #347072;
+      
+      /* Legacy mappings for compatibility */
+      --primary: var(--brand-primary-dark);
+      --primary-dark: var(--brand-primary-dark);
+      --accent: var(--accent-gold);
+      --accent-dark: var(--accent-clay);
+      --background: var(--bg-paper);
+      --text: var(--text-primary);
+      --text-light: var(--text-secondary);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      font-family: 'Merriweather', serif;
+      background: var(--bg-paper);
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    h1, h2, h3 {
+      font-family: 'Chivo', sans-serif;
+      font-weight: 900;
+      color: var(--primary-dark);
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      display: flex;
+      gap: 40px;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      width: 280px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 20px;
+      height: fit-content;
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+    }
+
+    .sidebar-nav {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 12px rgba(40, 54, 24, 0.15), 0 2px 4px rgba(40, 54, 24, 0.1);
+      border: 2px solid var(--primary);
+    }
+
+    .sidebar-nav h2 {
+      font-size: 1.3rem;
+      margin: 0 0 20px 0;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--primary);
+    }
+
+    .nav-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .nav-item {
+      margin-bottom: 8px;
+    }
+
+    .nav-item a {
+      display: block;
+      padding: 10px 14px;
+      color: var(--text);
+      text-decoration: none;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+      font-size: 0.95rem;
+    }
+
+    .nav-item a:hover {
+      background: rgba(96, 108, 56, 0.1);
+      color: var(--primary-dark);
+      transform: translateX(4px);
+    }
+
+    .nav-item a.active {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: var(--light-cream);
+      font-weight: 600;
+    }
+
+    .video-links-section {
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 2px solid var(--primary);
+    }
+
+    .video-links-section h3 {
+      font-size: 1.1rem;
+      margin: 0 0 16px 0;
+      color: var(--primary-dark);
+    }
+
+    .video-link {
+      display: block;
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      background: rgba(221, 161, 94, 0.1);
+      border-left: 3px solid var(--accent);
+      border-radius: 6px;
+      text-decoration: none;
+      color: var(--text);
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
+    }
+
+    .video-link:hover {
+      background: rgba(221, 161, 94, 0.2);
+      transform: translateX(4px);
+      border-left-color: var(--accent-dark);
+    }
+
+    .video-link::before {
+      content: "▶ ";
+      color: var(--accent-dark);
+      font-weight: bold;
+      margin-right: 6px;
+    }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding-bottom: 30px;
+      border-bottom: 3px solid var(--primary);
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      margin: 0 0 10px 0;
+      text-shadow: 0 2px 4px rgba(40, 54, 24, 0.1);
+    }
+
+    .header p {
+      font-size: 1.1rem;
+      color: var(--text-light);
+    }
+
+    .discord-help {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      padding: 40px;
+      box-shadow: 0 4px 12px rgba(40, 54, 24, 0.15), 0 2px 4px rgba(40, 54, 24, 0.1);
+    }
+
+    .discord-help section {
+      margin-bottom: 40px;
+      scroll-margin-top: 20px;
+    }
+
+    .discord-help section:last-child {
+      margin-bottom: 0;
+    }
+
+    .discord-help h2 {
+      font-size: 1.8rem;
+      margin: 0 0 20px 0;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--primary);
+      color: var(--primary-dark);
+    }
+
+    .discord-help h3 {
+      font-size: 1.3rem;
+      margin: 25px 0 15px 0;
+      color: var(--primary);
+    }
+
+    .discord-help p {
+      margin: 0 0 15px 0;
+    }
+
+    .discord-help ul, .discord-help ol {
+      margin: 15px 0;
+      padding-left: 30px;
+    }
+
+    .discord-help li {
+      margin-bottom: 10px;
+    }
+
+    .discord-help code {
+      background: rgba(96, 108, 56, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+
+    .step-box {
+      background: rgba(175, 204, 142, 0.2);
+      border-left: 4px solid var(--primary);
+      padding: 15px 20px;
+      margin: 15px 0;
+      border-radius: 4px;
+    }
+
+    .step-box strong {
+      color: var(--primary-dark);
+    }
+
+    .note-box {
+      background: rgba(221, 161, 94, 0.15);
+      border-left: 4px solid var(--accent);
+      padding: 15px 20px;
+      margin: 15px 0;
+      border-radius: 4px;
+    }
+
+    .note-box strong {
+      color: var(--accent-dark);
+    }
+
+    .video-embed-section {
+      margin: 20px 0;
+      padding: 20px;
+      background: rgba(96, 108, 56, 0.05);
+      border-radius: 8px;
+      border: 2px solid var(--primary);
+    }
+
+    .video-embed-section h4 {
+      margin: 0 0 12px 0;
+      color: var(--primary-dark);
+      font-size: 1.1rem;
+    }
+
+    .video-link-inline {
+      display: inline-block;
+      padding: 8px 16px;
+      margin: 8px 8px 8px 0;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+      color: var(--light-cream);
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(188, 108, 37, 0.3);
+    }
+
+    .video-link-inline:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(188, 108, 37, 0.4);
+    }
+
+    .video-link-inline::before {
+      content: "▶ ";
+      margin-right: 4px;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-top: 30px;
+      padding: 12px 24px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: var(--light-cream);
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 8px rgba(40, 54, 24, 0.3);
+    }
+
+    .back-link:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(40, 54, 24, 0.4);
+    }
+
+    /* Step Number Badges */
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background: var(--primary-dark);
+      color: var(--light-cream);
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 1rem;
+      flex-shrink: 0;
+      margin-right: 12px;
+    }
+
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+
+    .step-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .step-content {
+      flex: 1;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+        padding: 20px 15px;
+      }
+
+      .sidebar {
+        width: 100%;
+        position: relative;
+        top: 0;
+      }
+
+      .discord-help {
+        padding: 24px;
+      }
+
+      .header h1 {
+        font-size: 2rem;
+      }
+    }
+
+    /* Smooth scrolling */
+    html {
+      scroll-behavior: smooth;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <h2>Navigation</h2>
+        <ul class="nav-list">
+          <li class="nav-item"><a href="#quick-start" class="active">Quick Start</a></li>
+          <li class="nav-item"><a href="#what-is-discord">What Discord Is</a></li>
+          <li class="nav-item"><a href="#basic-layout">Basic Layout</a></li>
+          <li class="nav-item"><a href="#customize-channels">Customize Channels</a></li>
+          <li class="nav-item"><a href="#edit-profile">Edit Profile</a></li>
+          <li class="nav-item"><a href="#display-names">Display Names</a></li>
+          <li class="nav-item"><a href="#adding-friends">Adding Friends</a></li>
+          <li class="nav-item"><a href="#notifications">Notifications</a></li>
+          <li class="nav-item"><a href="#etiquette">Etiquette</a></li>
+          <li class="nav-item"><a href="#need-help">Need Help?</a></li>
+        </ul>
+
+        <div class="video-links-section">
+          <h3>Training Videos</h3>
+          <a href="https://drive.google.com/file/d/1ITF5yi1W14jenwAS92XFO3e99W5QIzGG/view?usp=drive_link" target="_blank" class="video-link">Quick-Start Training</a>
+          <a href="https://drive.google.com/file/d/1XOpUAFLVET-aODFRdMZIU62Isroiukm6/view?usp=drive_link" target="_blank" class="video-link">Customize Channels</a>
+          <a href="https://drive.google.com/file/d/1U4bWF3p8yDgNNqpyVCyVPvQwGH4qPp3j/view?usp=drive_link" target="_blank" class="video-link">Customize Profile</a>
+          <a href="https://drive.google.com/file/d/1Ay8uVX82CBBXb0ePOfE9VZq0RfbgVssa/view?usp=drive_link" target="_blank" class="video-link">Display Names Explained</a>
+          <a href="https://drive.google.com/file/d/1f8bZ5M1sEfc9N9_9rsl-1iT294QnDhWQ/view?usp=drive_link" target="_blank" class="video-link">How to Add a Friend</a>
+          
+          <h3 style="margin-top: 24px; margin-bottom: 16px; font-size: 1.1rem; color: var(--primary-dark);">Other Sources</h3>
+          <a href="https://www.loom.com/share/8d33ad77362d43f99da25d8fa1323581?sid=a34f51d7-07d3-4a93-a0e1-40eae87d96fb" target="_blank" class="video-link">Customizing Experience (Loom)</a>
+          <a href="https://vimeo.com/1108250643" target="_blank" class="video-link">Morning Routine (Vimeo)</a>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="header">
+        <h1>Discord Quick Guide</h1>
+        <p>Everything you need to get started with Discord</p>
+      </div>
+
+      <div class="discord-help">
+        <!-- First Steps Callout -->
+        <div class="note-box" style="background: rgba(96, 108, 56, 0.15); border-left: 4px solid var(--primary-dark); margin-bottom: 30px;">
+          <h2 style="margin-top: 0; margin-bottom: 16px; color: var(--primary-dark); font-size: 1.5rem;">🚀 First Thing to Do: Join the Discord</h2>
+          <p style="margin-bottom: 12px; font-size: 1.05rem;"><strong>This is the first thing a new captain should do on Discord.</strong></p>
+          <p style="margin-bottom: 16px;">
+            Hosted within the broader <a href="https://www.efsurvivors.net/" target="_blank" rel="noopener noreferrer" style="color: var(--primary-dark); text-decoration: underline; font-weight: 600;">Eaton Fire Survivors Network</a>, Altagether's Discord channel is our shared space for chatting, trading ideas, and finding quick answers.
+          </p>
+          <div style="margin: 16px 0;">
+            <div class="step-item">
+              <span class="step-number">1</span>
+              <div class="step-content">
+                <strong>Use this link to join:</strong> <a href="https://discord.com/invite/Y5atRPvc3V" target="_blank" rel="noopener noreferrer" style="color: var(--primary-dark); text-decoration: underline; font-weight: 600;">Discord Invite</a>
+              </div>
+            </div>
+            <div class="step-item">
+              <span class="step-number">2</span>
+              <div class="step-content">
+                Then message us (<strong>@altagether_org</strong>) with your name so we can add you to the private NC channel.
+              </div>
+            </div>
+          </div>
+          <p style="margin-top: 16px; margin-bottom: 0; padding: 12px; background: rgba(255, 255, 255, 0.5); border-radius: 6px; border-left: 3px solid var(--accent);">
+            <strong>This video shows you how:</strong> <a href="https://drive.google.com/file/d/1ITF5yi1W14jenwAS92XFO3e99W5QIzGG/view?usp=drive_link" target="_blank" rel="noopener noreferrer" style="color: var(--primary-dark); text-decoration: underline; font-weight: 600;">Watch Quick-Start Training Video</a>
+          </p>
+        </div>
+
+        <section id="quick-start">
+          <h2>Quick Start (Do These First)</h2>
+          <ul>
+            <li>Join the <strong>Eaton Fire Survivors Network</strong> Discord server (see instructions above).</li>
+            <li><strong>Message @altagether_org</strong> with your name to get added to the private NC channel.</li>
+            <li><strong>Friend the Altagether team</strong> so we can assign your Neighborhood Captain (NC) role.</li>
+            <li>Set your <strong>display name</strong> (including your zone number if you're an NC).</li>
+            <li>Choose the <strong>channels</strong> you actually want to follow.</li>
+          </ul>
+
+          <div class="video-embed-section">
+            <h4>📹 Quick-Start Training Video</h4>
+            <a href="https://drive.google.com/file/d/1ITF5yi1W14jenwAS92XFO3e99W5QIzGG/view?usp=drive_link" target="_blank" class="video-link-inline">Watch Quick-Start Training</a>
+          </div>
+        </section>
+
+        <section id="what-is-discord">
+          <h2>1. What Discord Is</h2>
+          <p>
+            Discord is a group-chat platform (similar to Slack or WhatsApp) built for larger communities. 
+            You can use it in your web browser or as an app on your phone or tablet.
+          </p>
+          <p>Everything is organized into:</p>
+          <ul>
+            <li><strong>Servers</strong> – big containers for communities (you'll mainly use the <em>Eaton Fire Survivors Network</em> server).</li>
+            <li><strong>Categories</strong> – folders that group related topics.</li>
+            <li><strong>Channels</strong> – individual chat rooms (insurance, remediation, general, etc.).</li>
+          </ul>
+          <p>
+            Neighborhood Captains also get access to a private <strong>Neighborhood Captain</strong> category once we assign your role.
+          </p>
+        </section>
+
+        <section id="basic-layout">
+          <h2>2. Basic Layout</h2>
+          <ul>
+            <li><strong>Left column:</strong> Your Direct Messages (DMs) and the list of servers you're in.</li>
+            <li><strong>Middle column:</strong> Categories and channels for the server you're viewing.</li>
+            <li><strong>Main panel:</strong> The chat, emoji reactions, and the message box.</li>
+          </ul>
+          <p>In the message box you can:</p>
+          <ul>
+            <li>Use <code>@name</code> to tag someone and send them a notification.</li>
+            <li>Use <code>#channel</code> to reference another channel.</li>
+          </ul>
+        </section>
+
+        <section id="customize-channels">
+          <h2>3. Customizing Which Channels You See</h2>
+          <p>To reduce clutter and focus on what matters to you:</p>
+          <ol>
+            <li>Click the <strong>server name</strong> at the top of the channel list.</li>
+            <li>Select <strong>"Channels &amp; Roles"</strong> and then <strong>"Browse Channels"</strong>.</li>
+            <li>
+              For each category, decide if you want to:
+              <ul>
+                <li>Leave <strong>"Follow Category"</strong> on to see all channels in that category, or</li>
+                <li>Turn <strong>"Follow Category"</strong> off and individually toggle the channels you care about.</li>
+              </ul>
+            </li>
+            <li>Changes save automatically—there's no save button.</li>
+            <li>Go back to the server view to see your simplified channel list.</li>
+          </ol>
+
+          <div class="video-embed-section">
+            <h4>📹 How to Customize Which Channels You See</h4>
+            <a href="https://drive.google.com/file/d/1XOpUAFLVET-aODFRdMZIU62Isroiukm6/view?usp=drive_link" target="_blank" class="video-link-inline">Watch Channel Customization Video</a>
+          </div>
+        </section>
+
+        <section id="edit-profile">
+          <h2>4. Editing Your Profile</h2>
+          <ol>
+            <li>Click your <strong>profile area</strong> in the bottom left of Discord.</li>
+            <li>Select <strong>"Edit Profile"</strong>.</li>
+            <li>Update your:
+              <ul>
+                <li><strong>Display name</strong></li>
+                <li><strong>Pronouns</strong> (optional)</li>
+                <li><strong>Avatar</strong> (profile picture)</li>
+                <li><strong>About Me</strong> (short bio)</li>
+              </ul>
+            </li>
+            <li>Click <strong>"Save Changes"</strong> when you're done.</li>
+          </ol>
+          <p>
+            Discord Nitro (paid) unlocks cosmetic extras only. All the core features you need are included in the free version.
+          </p>
+          <p><strong>Tip:</strong> Neighborhood Captains often add their <strong>Zone number</strong> to their display name.</p>
+
+          <div class="video-embed-section">
+            <h4>📹 How to Customize Your Profile</h4>
+            <a href="https://drive.google.com/file/d/1U4bWF3p8yDgNNqpyVCyVPvQwGH4qPp3j/view?usp=drive_link" target="_blank" class="video-link-inline">Watch Profile Customization Video</a>
+          </div>
+        </section>
+
+        <section id="display-names">
+          <h2>5. Display Name vs Username vs Server Nickname</h2>
+          <ul>
+            <li><strong>Username:</strong> Your global Discord identity (often includes numbers). This rarely changes.</li>
+            <li><strong>Display Name:</strong> The name most people see when you chat on servers.</li>
+            <li><strong>Server Nickname:</strong> An optional name that only applies inside a specific server.</li>
+          </ul>
+          <p>
+            If you're only using Discord for the Eaton Fire Survivors Network and Altagether, you can ignore server nicknames—just set a clear display name and you're good.
+          </p>
+
+          <div class="video-embed-section">
+            <h4>📹 Display Names vs. Usernames Explained</h4>
+            <a href="https://drive.google.com/file/d/1Ay8uVX82CBBXb0ePOfE9VZq0RfbgVssa/view?usp=drive_link" target="_blank" class="video-link-inline">Watch Display Names Video</a>
+          </div>
+        </section>
+
+        <section id="adding-friends">
+          <h2>6. Adding Friends & Getting NC Access</h2>
+          <p><strong>Important:</strong> After joining the Discord server, message <strong>@altagether_org</strong> with your name so we can add you to the private NC channel.</p>
+          
+          <p>You'll also need to add the Altagether account as a friend so we can assign your Neighborhood Captain role.</p>
+
+          <h3>Method 1: From a Post</h3>
+          <ol>
+            <li>Click on the person's <strong>name</strong> anywhere you see it.</li>
+            <li>Click <strong>"Add Friend"</strong>.</li>
+          </ol>
+
+          <h3>Method 2: By Searching</h3>
+          <ol>
+            <li>Go to <strong>Direct Messages</strong> in the left column.</li>
+            <li>Click <strong>"Friends"</strong>.</li>
+            <li>Click <strong>"Add Friend"</strong>.</li>
+            <li>Type their exact <strong>username</strong> and send the request.</li>
+            <li>Check the <strong>Pending</strong> tab to see requests you've sent.</li>
+          </ol>
+
+          <p>
+            Once we accept your friend request and you've messaged us, we'll assign your <strong>Neighborhood Captain</strong> role so you can see the private NC channels.
+          </p>
+
+          <div class="video-embed-section">
+            <h4>📹 How to Add a Friend</h4>
+            <a href="https://drive.google.com/file/d/1f8bZ5M1sEfc9N9_9rsl-1iT294QnDhWQ/view?usp=drive_link" target="_blank" class="video-link-inline">Watch Add Friend Video</a>
+          </div>
+        </section>
+
+        <section id="notifications">
+          <h2>7. Notifications</h2>
+          <p>You can control how often Discord pings you:</p>
+          <ul>
+            <li>Right-click a <strong>channel</strong> and choose <strong>"Mute"</strong> to silence that channel.</li>
+            <li>Mute an entire <strong>category</strong> if it's not relevant to you.</li>
+            <li>You'll still see unread indicators, but you won't get sound or push notifications.</li>
+          </ul>
+        </section>
+
+        <section id="etiquette">
+          <h2>8. Light Etiquette</h2>
+          <ul>
+            <li>Try to post questions in the channel that best matches your topic.</li>
+            <li>Use threads when they're available to keep conversations tidy.</li>
+            <li>Be kind and patient—everyone's navigating a lot.</li>
+            <li>No question is too small; this space exists to support you.</li>
+          </ul>
+        </section>
+
+        <section id="need-help">
+          <h2>Need Help?</h2>
+          <p>
+            If you get stuck in Discord or something doesn't look right, reach out to the Altagether team. 
+            We're happy to help you get set up or troubleshoot.
+          </p>
+
+          <div class="video-embed-section">
+            <h4>📹 Additional Resources</h4>
+            <a href="https://www.loom.com/share/8d33ad77362d43f99da25d8fa1323581?sid=a34f51d7-07d3-4a93-a0e1-40eae87d96fb" target="_blank" class="video-link-inline">Customizing Your Discord Experience with Sandra Stanisa</a>
+            <a href="https://vimeo.com/1108250643" target="_blank" class="video-link-inline">Discord Morning Routine with Ellen Rippberger</a>
+          </div>
+        </section>
+
+        <a href="javascript:window.close()" class="back-link">Close Help</a>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Update active nav item on scroll
+    const sections = document.querySelectorAll('.discord-help section');
+    const navLinks = document.querySelectorAll('.nav-item a');
+
+    function updateActiveNav() {
+      let current = '';
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        const sectionHeight = section.clientHeight;
+        if (window.pageYOffset >= sectionTop - 100) {
+          current = section.getAttribute('id');
+        }
+      });
+
+      navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === '#' + current) {
+          link.classList.add('active');
+        }
+      });
+    }
+
+    // Update on scroll
+    window.addEventListener('scroll', updateActiveNav);
+
+    // Update on click
+    navLinks.forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const targetId = this.getAttribute('href').substring(1);
+        const targetSection = document.getElementById(targetId);
+        
+        if (targetSection) {
+          targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          
+          // Update active state
+          navLinks.forEach(l => l.classList.remove('active'));
+          this.classList.add('active');
+        }
+      });
+    });
+
+    // Initial update
+    updateActiveNav();
+  </script>
+</body>
+</html>
+
