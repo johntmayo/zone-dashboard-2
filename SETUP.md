@@ -95,6 +95,30 @@ The backend expects the sheet to have this structure:
 - **No announcements shown**: Verify backend server is running and `/api/homepage-feed` returns data
 - **Map not showing**: Check that you've navigated to Map view (click "Map" or "Open Map" button)
 
+## Mapbox Zone Boundaries (Optional)
+
+Zone boundaries can be loaded directly from a **Mapbox dataset** instead of per-spreadsheet KML URLs. This removes the manual KML export/upload workflow.
+
+### Setup
+
+1. **Mapbox account**: You need a Mapbox account and a dataset containing zone polygons. Each feature should have a property **ZoneName** (or "Zone name") matching the zone name in your spreadsheets (e.g. "Zone 55", "Zone 61").
+2. **Access token**: Create a Mapbox [access token](https://account.mapbox.com/access-tokens/) with the **`datasets:read`** scope (no write scopes needed).
+3. **Config in the app**: In `index.html`, find the `MAPBOX_CONFIG` object (near the top of the main script) and set:
+   - **username**: Your Mapbox account username (from Studio URL or account settings).
+   - **datasetId**: The dataset ID that contains all zone polygons (from Mapbox Studio → Datasets → copy ID).
+   - **accessToken**: Your token with `datasets:read`.
+
+Leave any value empty to disable Mapbox; the app will fall back to the Zone Notes "KML URL" if present.
+
+### Behavior
+
+- When a spreadsheet is loaded, the app reads **currentZoneName** from the data (ZoneName column). It then fetches the Mapbox dataset, finds the feature whose `ZoneName` (or "Zone name") matches, and draws that polygon on the zone map and home map.
+- If Mapbox is not configured or no matching zone is found, the app uses the **KML URL** from the Zone Notes sheet as before.
+
+### Security
+
+- The token is used in the browser to call the Mapbox Datasets API. Use a token with **only** `datasets:read` so it cannot modify data. For stricter security, you can proxy the API through your backend (`server.js`) and keep a secret token on the server.
+
 ## Future Enhancements
 
 The home dashboard is designed to be easily extensible. Additional panels can be added by:

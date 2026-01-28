@@ -728,6 +728,14 @@
     let currentZoneName = ''; // Current zone name from spreadsheet
     let homeKmlLoading = false; // Prevent duplicate KML loads causing transparency issues
 
+    // Mapbox Datasets API config (zone boundaries). Leave token empty to disable; KML fallback still works.
+    const MAPBOX_CONFIG = {
+      username: 'info@altagether.org',   // Your Mapbox account username (e.g. from Studio URL)
+      datasetId: 'cm64fisju135z1qqmifs0zty5',  // Dataset ID containing zone polygons (ZoneName, Status, ContactEmail, etc.)
+      accessToken: 'pk.eyJ1IjoiYWx0YWdldGhlciIsImEiOiJjbWt5aXBhM2cwN2ZxM2ZxOWhteW0waTV4In0.UbhJ8qrWAsv1RSKQbpT9Aw' // Mapbox access token with datasets:read scope
+    };
+    const MAPBOX_ENABLED = !!(MAPBOX_CONFIG.accessToken && MAPBOX_CONFIG.username && MAPBOX_CONFIG.datasetId);
+
     // Load OAuth token from localStorage
     const savedToken = localStorage.getItem('googleOAuthToken');
     const savedTokenExpiry = localStorage.getItem('googleOAuthTokenExpiry');
@@ -1335,30 +1343,7 @@
             zoneNotes = metadata.notes || '';
             zoneKmlUrl = metadata.kmlUrl || '';
             updateZoneNotesUI();
-            // Auto-load KML if URL is provided (wait for map to initialize if needed)
-            if (zoneKmlUrl) {
-              if (zoneMap) {
-                loadKMLBoundary(zoneKmlUrl);
-              } else {
-                // Wait a bit for map to initialize, then load KML
-                setTimeout(() => {
-                  if (zoneMap && zoneKmlUrl) {
-                    loadKMLBoundary(zoneKmlUrl);
-                  }
-                }, 1000);
-              }
-              // Also load KML for home map
-              if (homeMap) {
-                loadHomeKMLBoundary(zoneKmlUrl);
-              } else {
-                // Wait a bit for home map to initialize, then load KML
-                setTimeout(() => {
-                  if (homeMap && zoneKmlUrl) {
-                    loadHomeKMLBoundary(zoneKmlUrl);
-                  }
-                }, 1000);
-              }
-            }
+            // Boundary loading (Mapbox or KML) happens after currentZoneName is set and map is ready
           }
         } catch (oauthError) {
           console.error('OAuth fetch failed:', oauthError);
@@ -1535,7 +1520,9 @@
         // Initialize or update map with addresses
         // Initialize map but don't update markers yet if map view isn't active
         initializeMap();
-        
+        // Load zone boundary (Mapbox first if configured, else KML from Zone Notes)
+        loadZoneBoundary();
+
         // Only update map markers if we're currently on the map view
         if (currentView === 'map') {
           // Wait for map to be properly sized
@@ -4509,6 +4496,7 @@
         
         if (!zoneMap) {
           initializeMap();
+          loadZoneBoundary(); // Boundary may not have been loaded if map was created just now
           // After map is initialized, ensure color filter control exists and restore color mode
           setTimeout(() => {
             ensureColorFilterControl();
@@ -4594,11 +4582,9 @@
           setTimeout(() => {
             if (homeMap) {
               homeMap.invalidateSize();
-              // Load KML if URL is available (in case map wasn't ready before)
-              if (zoneKmlUrl) {
-                setTimeout(() => {
-                  loadHomeKMLBoundary(zoneKmlUrl);
-                }, 200);
+              // Load zone boundary on home map (Mapbox or KML) if map wasn't ready before
+              if (zoneKmlUrl || (MAPBOX_ENABLED && currentZoneName)) {
+                setTimeout(() => loadHomeZoneBoundary(), 200);
               }
             }
           }, 100);
@@ -6126,13 +6112,9 @@
       // Create color filter control for home map
       createHomeColorFilterControl();
       
-      // Load KML if URL is provided (with delay to ensure map is fully ready)
-      if (zoneKmlUrl) {
-        setTimeout(() => {
-          if (homeMap && zoneKmlUrl) {
-            loadHomeKMLBoundary(zoneKmlUrl);
-          }
-        }, 300);
+      // Load zone boundary on home map (Mapbox or KML) with delay to ensure map is ready
+      if (zoneKmlUrl || (MAPBOX_ENABLED && currentZoneName)) {
+        setTimeout(() => loadHomeZoneBoundary(), 300);
       }
     }
 
@@ -6443,6 +6425,139 @@
       
       // If it's already a direct download URL or other format, return as-is
       return url;
+    }
+
+    // Fetch all features from a Mapbox dataset (with pagination; max 1000 per request)
+    async function fetchMapboxDatasetFeatures(username, datasetId, accessToken) {
+      const baseUrl = `https://api.mapbox.com/datasets/v1/${encodeURIComponent(username)}/${encodeURIComponent(datasetId)}/features`;
+      const allFeatures = [];
+      let start = null;
+      do {
+        const params = new URLSearchParams({ limit: '1000', access_token: accessToken });
+        if (start) params.set('start', start);
+        const url = `${baseUrl}?${params.toString()}`;
+        const res = await fetch(url);
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error(`Mapbox Datasets API: ${res.status} ${err || res.statusText}`);
+        }
+        const fc = await res.json();
+        if (fc.type !== 'FeatureCollection' || !Array.isArray(fc.features)) {
+          throw new Error('Mapbox API did not return a FeatureCollection');
+        }
+        allFeatures.push(...fc.features);
+        const link = res.headers.get('Link');
+        start = null;
+        if (link) {
+          const nextMatch = link.match(/<[^>]*[?&]start=([^>&\s]+)/);
+          if (nextMatch && nextMatch[1]) start = nextMatch[1];
+        }
+      } while (start);
+      return { type: 'FeatureCollection', features: allFeatures };
+    }
+
+    // Find the zone feature by ZoneName (or "Zone name") and return a single-feature GeoJSON FeatureCollection, or null
+    function getZoneBoundaryFromMapbox(featureCollection, zoneName) {
+      if (!featureCollection || !featureCollection.features || !zoneName || !zoneName.trim()) return null;
+      const needle = zoneName.trim();
+      const feature = featureCollection.features.find(f => {
+        const p = f.properties || {};
+        const name = p.ZoneName ?? p['Zone name'] ?? p.zoneName ?? '';
+        return String(name).trim() === needle;
+      });
+      if (!feature || !feature.geometry) return null;
+      return { type: 'FeatureCollection', features: [feature] };
+    }
+
+    const ZONE_BOUNDARY_STYLE = {
+      color: '#214025',
+      weight: 3,
+      opacity: 0.8,
+      fillColor: '#214025',
+      fillOpacity: 0.1
+    };
+    const HOME_BOUNDARY_STYLE = {
+      color: '#214025',
+      weight: 2,
+      opacity: 0.8,
+      fillColor: '#214025',
+      fillOpacity: 0.1
+    };
+
+    // Load zone boundary from Mapbox (main zone map). Returns true if a layer was added.
+    async function loadMapboxBoundary(zoneName) {
+      if (!zoneMap || !zoneName || !zoneName.trim()) return false;
+      try {
+        const fc = await fetchMapboxDatasetFeatures(MAPBOX_CONFIG.username, MAPBOX_CONFIG.datasetId, MAPBOX_CONFIG.accessToken);
+        const zoneFc = getZoneBoundaryFromMapbox(fc, zoneName);
+        if (!zoneFc || zoneFc.features.length === 0) return false;
+        if (kmlLayer) {
+          zoneMap.removeLayer(kmlLayer);
+          kmlLayer = null;
+        }
+        kmlLayer = L.geoJSON(zoneFc, { style: ZONE_BOUNDARY_STYLE }).addTo(zoneMap);
+        if (kmlLayer.getBounds && kmlLayer.getBounds().isValid()) {
+          zoneMap.fitBounds(kmlLayer.getBounds(), { padding: [20, 20] });
+        }
+        return true;
+      } catch (e) {
+        console.warn('Mapbox boundary load failed:', e);
+        return false;
+      }
+    }
+
+    // Load zone boundary from Mapbox (home map). Returns true if a layer was added.
+    async function loadMapboxBoundaryForHome(zoneName) {
+      if (!homeMap || !zoneName || !zoneName.trim()) return false;
+      if (homeKmlLoading) return false;
+      homeKmlLoading = true;
+      try {
+        const fc = await fetchMapboxDatasetFeatures(MAPBOX_CONFIG.username, MAPBOX_CONFIG.datasetId, MAPBOX_CONFIG.accessToken);
+        const zoneFc = getZoneBoundaryFromMapbox(fc, zoneName);
+        if (!zoneFc || zoneFc.features.length === 0) return false;
+        if (homeKmlLayer) {
+          homeMap.removeLayer(homeKmlLayer);
+          homeKmlLayer = null;
+        }
+        homeKmlLayer = L.geoJSON(zoneFc, { style: HOME_BOUNDARY_STYLE }).addTo(homeMap);
+        if (homeKmlLayer.getBounds && homeKmlLayer.getBounds().isValid()) {
+          homeMap.fitBounds(homeKmlLayer.getBounds(), { padding: [10, 10] });
+        }
+        return true;
+      } catch (e) {
+        console.warn('Mapbox boundary load failed (home):', e);
+        return false;
+      } finally {
+        homeKmlLoading = false;
+      }
+    }
+
+    // Load zone boundary: try Mapbox first (if configured and zone name set), then KML URL fallback.
+    async function loadZoneBoundary() {
+      if (!zoneMap) return;
+      if (MAPBOX_ENABLED && currentZoneName && currentZoneName.trim()) {
+        const ok = await loadMapboxBoundary(currentZoneName.trim());
+        if (ok) return;
+      }
+      if (zoneKmlUrl && zoneKmlUrl.trim()) {
+        await loadKMLBoundary(zoneKmlUrl);
+      }
+    }
+
+    // Load zone boundary on home map: try Mapbox first, then KML fallback.
+    async function loadHomeZoneBoundary() {
+      if (MAPBOX_ENABLED && currentZoneName && currentZoneName.trim()) {
+        if (homeMap) {
+          const ok = await loadMapboxBoundaryForHome(currentZoneName.trim());
+          if (ok) return;
+        } else {
+          setTimeout(() => loadHomeZoneBoundary(), 500);
+          return;
+        }
+      }
+      if (zoneKmlUrl && zoneKmlUrl.trim()) {
+        await loadHomeKMLBoundary(zoneKmlUrl);
+      }
     }
 
     // Load KML boundary
@@ -7884,16 +7999,12 @@
       updateZoneProgressCharts();
       updateRebuildProgressCharts();
       initializeHomeMap();
-      // Load KML for home map if URL is available (in case it was set after map initialization)
-      if (zoneKmlUrl) {
+      // Load zone boundary on home map (Mapbox or KML) if available
+      if (zoneKmlUrl || (MAPBOX_ENABLED && currentZoneName)) {
         if (homeMap) {
-          loadHomeKMLBoundary(zoneKmlUrl);
+          loadHomeZoneBoundary();
         } else {
-          setTimeout(() => {
-            if (homeMap && zoneKmlUrl) {
-              loadHomeKMLBoundary(zoneKmlUrl);
-            }
-          }, 500);
+          setTimeout(() => loadHomeZoneBoundary(), 500);
         }
       }
       fetchAndDisplayCentralFeed();
