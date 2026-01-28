@@ -5905,7 +5905,7 @@
       if (!zoneMap) {
         try {
           // Default center (Altadena, CA - adjust as needed)
-          zoneMap = L.map('zoneMap').setView([34.19, -118.15], 12);
+          zoneMap = L.map('zoneMap', { attributionControl: false }).setView([34.19, -118.15], 12);
           
           // Add CartoDB Voyager tiles (warm, colorful with labels)
           currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -6028,7 +6028,7 @@
       if (!homeMap) {
         try {
           // Default center (Altadena, CA - adjust as needed)
-          homeMap = L.map('homeMap').setView([34.19, -118.15], 12);
+          homeMap = L.map('homeMap', { attributionControl: false }).setView([34.19, -118.15], 12);
           
           // Add CartoDB Voyager tiles (warm, colorful with labels)
           homeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
