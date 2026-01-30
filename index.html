@@ -339,7 +339,7 @@
               <p>Find and connect with volunteer neighborhood captains across Altadena zones.</p>
             </div>
             <div style="margin-top: 16px;">
-              <a href="https://johntmayo.github.io/captain-directory/" target="_blank" rel="noopener noreferrer" class="tool-link-btn">
+              <a href="nc-directory.html" target="_blank" rel="noopener noreferrer" class="tool-link-btn">
                 👥 Open Captain Directory
               </a>
             </div>
@@ -980,8 +980,8 @@
       try {
         const tokenClient = google.accounts.oauth2.initTokenClient({
           client_id: OAUTH_CLIENT_ID,
-          scope: 'https://www.googleapis.com/auth/spreadsheets',
-          callback: (response) => {
+          scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email',
+          callback: async (response) => {
             if (response.error) {
               console.error('Sign in error:', response.error);
               alert('Sign in failed. Please try again.');
@@ -992,6 +992,15 @@
             const expiry = Date.now() + (50 * 60 * 1000);
             localStorage.setItem('googleOAuthToken', accessToken);
             localStorage.setItem('googleOAuthTokenExpiry', expiry.toString());
+            // Fetch and store signed-in user email (for NC Profile row matching)
+            try {
+              const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { 'Authorization': 'Bearer ' + accessToken } });
+              if (userRes.ok) {
+                const user = await userRes.json();
+                currentUserEmail = (user.email || '').trim().toLowerCase();
+                if (currentUserEmail) localStorage.setItem('ncProfileUserEmail', currentUserEmail);
+              }
+            } catch (e) { console.warn('Could not fetch user email:', e); }
             updateSignInUI();
             
             // Auto-load data after sign-in if we have a sheet URL
@@ -1008,7 +1017,7 @@
               // Fallback: refresh current address if one is selected
               loadAddressData(currentSheetUrl);
             }
-            
+            if (currentView === 'profile') loadProfileView();
           },
         });
         tokenClient.requestAccessToken({ prompt: 'consent' });
@@ -1069,11 +1078,20 @@
             const user = await userRes.json();
             currentUserEmail = (user.email || '').trim().toLowerCase();
             if (currentUserEmail) localStorage.setItem('ncProfileUserEmail', currentUserEmail);
+          } else {
+            console.warn('Userinfo response not ok:', userRes.status, await userRes.text().catch(() => ''));
           }
         } catch (e) { console.warn('Could not fetch user email:', e); }
       }
       if (!currentUserEmail) {
-        if (notFoundEl) { notFoundEl.querySelector('p:last-child').textContent = 'Could not determine your Google email.'; notFoundEl.classList.remove('hidden'); }
+        if (notFoundEl) {
+          notFoundEl.innerHTML = '<p><strong>Could not determine your Google email.</strong></p><p>Your sign-in may not include email access (for example if you signed in before we added profile support). Sign out and sign in again so we can link your account to your NC profile.</p><button type="button" class="btn-signin" id="profileSignOutAndInAgain" style="margin-top: 0.5rem;">Sign out and sign in again</button>';
+          notFoundEl.classList.remove('hidden');
+          document.getElementById('profileSignOutAndInAgain')?.addEventListener('click', () => {
+            signOut();
+            setTimeout(() => signIn(), 300);
+          });
+        }
         return;
       }
 
