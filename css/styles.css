@@ -3743,6 +3743,30 @@
       resize: vertical;
     }
 
+    .app-toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10000;
+      max-width: 90%;
+      padding: 14px 20px;
+      background: var(--mint, #c5d4a4);
+      color: var(--primary-dark, #214025);
+      border: 1px solid rgba(0, 0, 0, 0.15);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      font-size: 0.95rem;
+      cursor: pointer;
+      text-align: center;
+    }
+    .app-toast-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+      opacity: 0.9;
+    }
+
     .save-status {
       font-size: 0.8rem;
       margin-top: 6px;

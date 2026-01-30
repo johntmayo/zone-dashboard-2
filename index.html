@@ -2497,6 +2497,19 @@
       return { city, state, zip };
     }
 
+    // In-app success toast (avoids browser alert and "origin says" title)
+    function showAppToast(message) {
+      const existing = document.getElementById('appToast');
+      if (existing) existing.remove();
+      const toast = document.createElement('div');
+      toast.id = 'appToast';
+      toast.className = 'app-toast';
+      toast.innerHTML = `<span class="app-toast-title">Altagether Zone Dashboard</span><div>${escapeHtml(message)}</div>`;
+      toast.addEventListener('click', () => toast.remove());
+      document.body.appendChild(toast);
+      setTimeout(() => { if (toast.parentNode) toast.remove(); }, 4500);
+    }
+
     // Show Add Record modal (v2: flexible flow, geocode + minimap, no "spreadsheet" copy)
     function showAddRecordModal() {
       if (!sheetData || !sheetData.headers || !sheetData.addressMap) {
@@ -2791,7 +2804,7 @@
             await appendRowsToSheet([row]);
             removeModalAndMap();
             if (currentSheetUrl) loadAddressData(currentSheetUrl);
-            alert('Record successfully added to your zone.');
+            showAppToast('Record successfully added to your zone.');
           } catch (err) {
             alert('Could not add record: ' + (err.message || err));
           } finally {
@@ -2922,7 +2935,7 @@
           await appendRowsToSheet([row]);
           removeModalAndMap();
           if (currentSheetUrl) loadAddressData(currentSheetUrl);
-          alert('Record successfully added to your zone.');
+          showAppToast('Record successfully added to your zone.');
         } catch (err) {
           alert('Could not add record: ' + (err.message || err));
         } finally {
