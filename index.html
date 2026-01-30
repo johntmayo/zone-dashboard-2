@@ -87,6 +87,7 @@
         <button class="nav-item" data-view="tools" id="navTools">Tools</button>
         <button class="nav-item" data-view="resources" id="navResources">Resources</button>
         <button class="nav-item" data-view="help" id="navHelp">Help</button>
+        <button class="nav-item" data-view="profile" id="navProfile">My NC Profile</button>
         <button class="nav-item nav-item-beta" data-view="beta" id="navBetaTesters">
           <span class="beta-star">★</span> Beta Testers
         </button>
@@ -602,6 +603,39 @@
       </div>
     </div>
 
+    <!-- My NC Profile View (NC Directory) -->
+    <div class="content-view hidden" id="profileView">
+      <h2 class="page-title">My NC Profile</h2>
+      <p style="color: var(--text-secondary); margin-bottom: 1rem; max-width: 700px;">Update your Neighborhood Captain profile. Changes are saved to the NC Directory.</p>
+      <div id="profileSigninPrompt" class="hidden" style="padding: 1.5rem; background: var(--bg-card); border: 2px solid var(--border-color); border-radius: 8px; max-width: 500px;">
+        <p><strong>Sign in to edit your profile</strong></p>
+        <p>Use the &quot;Sign in with Google&quot; button above, then return here.</p>
+      </div>
+      <div id="profileNotFound" class="hidden" style="padding: 1.5rem; background: #FEF3C7; border: 2px solid var(--accent-gold); border-radius: 8px; max-width: 500px;">
+        <p><strong>No profile found</strong></p>
+        <p>We couldn&apos;t find a row in the NC Directory for your Google account. Contact an admin to be added.</p>
+      </div>
+      <div id="profileFormContainer" class="hidden" style="max-width: 700px;">
+        <form id="ncProfileForm" style="display: flex; flex-direction: column; gap: 1rem;">
+          <div><label for="ncName" style="font-weight: 600;">Name</label><br><input type="text" id="ncName" name="Name" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
+          <div><label for="ncZone" style="font-weight: 600;">Zone</label><br><input type="text" id="ncZone" name="Zone" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
+          <div><label for="ncCensusTract" style="font-weight: 600;">Predominant Census Tract of Zone</label><br><select id="ncCensusTract" name="Predominant Census Tract of Zone" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></select></div>
+          <div><label for="ncPhone" style="font-weight: 600;">Phone</label><br><input type="text" id="ncPhone" name="Phone" placeholder="(XXX) XXX-XXXX" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
+          <div><label for="ncPreferredEmail" style="font-weight: 600;">Preferred email</label><br><input type="email" id="ncPreferredEmail" name="Preferred email" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
+          <div><label style="font-weight: 600;">Working Group Participation</label><br><div id="ncWorkingGroups" style="display: flex; flex-wrap: wrap; gap: 0.5rem;"></div></div>
+          <div><label for="ncHousing" style="font-weight: 600;">Housing Arrangement</label><br><select id="ncHousing" name="Housing Arrangement" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></select></div>
+          <div><label for="ncDamage" style="font-weight: 600;">Damage to home</label><br><select id="ncDamage" name="Damage to home" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></select></div>
+          <div><label style="font-weight: 600;">Interest Areas</label><br><div id="ncInterestAreas" style="display: flex; flex-wrap: wrap; gap: 0.5rem;"></div></div>
+          <div><label for="ncSkills" style="font-weight: 600;">Skills &amp; Expertise</label><br><textarea id="ncSkills" name="Skills & Expertise" rows="4" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></textarea></div>
+          <div><label for="ncLanguages" style="font-weight: 600;">Languages Spoken</label><br><input type="text" id="ncLanguages" name="Languages Spoken" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
+          <div><label for="ncWaterDistrict" style="font-weight: 600;">Water District</label><br><select id="ncWaterDistrict" name="Water District" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></select></div>
+          <div id="ncBadgesReadOnly" class="hidden" style="font-size: 0.9rem; color: var(--text-secondary);"></div>
+          <button type="button" id="ncProfileSaveBtn" class="btn-save" style="align-self: flex-start;">Save profile</button>
+        </form>
+        <p id="profileSaveStatus" class="hidden" style="margin-top: 0.5rem; font-size: 0.9rem;"></p>
+      </div>
+    </div>
+
     <!-- Beta Testers View -->
     <div class="content-view hidden" id="betaView">
       <h2 class="page-title">🧪 Beta Testers Hub</h2>
@@ -681,6 +715,7 @@
     let selectedAddress = null; // Track currently selected address
     let savedScrollPosition = 0; // Track scroll position for refresh
     let accessToken = null; // OAuth2 access token
+    let currentUserEmail = null; // Signed-in Google account email (for NC Profile row match)
     let currentSheetId = null; // Current sheet ID for writing
     let currentStreetFilter = 'all'; // Current street filter
     let currentDamageFilter = 'all'; // Current damage filter
@@ -737,11 +772,12 @@
     };
     const MAPBOX_ENABLED = !!(MAPBOX_CONFIG.accessToken && MAPBOX_CONFIG.username && MAPBOX_CONFIG.datasetId);
 
-    // Load OAuth token from localStorage
+    // Load OAuth token and user email from localStorage
     const savedToken = localStorage.getItem('googleOAuthToken');
     const savedTokenExpiry = localStorage.getItem('googleOAuthTokenExpiry');
     if (savedToken && savedTokenExpiry && Date.now() < parseInt(savedTokenExpiry)) {
       accessToken = savedToken;
+      currentUserEmail = (localStorage.getItem('ncProfileUserEmail') || '').trim().toLowerCase() || null;
       updateSignInUI();
     }
 
@@ -948,13 +984,194 @@
     // Sign Out
     function signOut() {
       accessToken = null;
+      currentUserEmail = null;
       localStorage.removeItem('googleOAuthToken');
       localStorage.removeItem('googleOAuthTokenExpiry');
+      localStorage.removeItem('ncProfileUserEmail');
       updateSignInUI();
       if (selectedAddress && currentSheetUrl) {
         loadAddressData(currentSheetUrl);
       }
+      if (currentView === 'profile') loadProfileView();
     }
+
+    // ---- NC Directory / My NC Profile ----
+    const NC_PROFILE_HEADERS = ['Name', 'Zone', 'Predominant Census Tract of Zone', 'Phone', 'Preferred email', 'Working Group Participation', 'Housing Arrangement', 'Damage to home', 'Interest Areas', 'Skills & Expertise', 'Languages Spoken', 'Google email', 'Water District', 'Badges'];
+    const NC_PROFILE_OPTIONS = {
+      'Predominant Census Tract of Zone': ['CT 4601', 'CT 4602', 'CT 4603.01', 'CT 4603.02', 'CT 4610', 'CT 4611', 'CT 4612', 'CT 4613'],
+      'Housing Arrangement': ['Renter', 'Owner', 'RV', 'Other'],
+      'Damage to home': ['Standing home', 'Partial loss', 'Total loss'],
+      'Water District': ['Rubio Cañon', 'Lincoln Avenue', 'Las Flores', 'TBD'],
+      'Working Group Participation': ['Home Hardening & Fire-Resistant Neighborhoods', 'Bioremediation + Native Plants', 'Political Advocacy', 'Group Purchasing Power', 'Altagether Rebuilding Working Group', 'School Redevelopment'],
+      'Interest Areas': ['Standing homes', 'Trees & plants', 'Bioremediation', 'Mental health', 'Insurance', 'Community visioning', 'Modular, Prefab, and Factory-Built Homes', 'Community Land Trusts', 'Schools & Children', 'Crime & Safety', 'Renter issues', 'Landlord issues', 'Rebuilding', 'Group purchasing power', 'Disaster preparedness', 'Architectural heritage', 'Commercial redevelopment', 'Faith institutions', 'Town history & stories', 'New tech tools & platforms', 'Event planning', 'Owner/Builder', 'Alternative Building', 'Solar power', 'Utilities', 'Water issues', 'Electric issues', 'Gas issues', 'Telecom issues']
+    };
+    let ncProfileRowIndex = null;
+    let ncProfileRowData = null;
+
+    function splitPipe(val) {
+      if (!val || !String(val).trim()) return [];
+      return String(val).split('|').map(s => s.trim()).filter(Boolean);
+    }
+
+    async function loadProfileView() {
+      const signinEl = document.getElementById('profileSigninPrompt');
+      const notFoundEl = document.getElementById('profileNotFound');
+      const formEl = document.getElementById('profileFormContainer');
+      if (signinEl) signinEl.classList.add('hidden');
+      if (notFoundEl) notFoundEl.classList.add('hidden');
+      if (formEl) formEl.classList.add('hidden');
+
+      if (!accessToken) {
+        if (signinEl) signinEl.classList.remove('hidden');
+        return;
+      }
+      if (!currentUserEmail) {
+        try {
+          const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { 'Authorization': 'Bearer ' + accessToken } });
+          if (userRes.ok) {
+            const user = await userRes.json();
+            currentUserEmail = (user.email || '').trim().toLowerCase();
+            if (currentUserEmail) localStorage.setItem('ncProfileUserEmail', currentUserEmail);
+          }
+        } catch (e) { console.warn('Could not fetch user email:', e); }
+      }
+      if (!currentUserEmail) {
+        if (notFoundEl) { notFoundEl.querySelector('p:last-child').textContent = 'Could not determine your Google email.'; notFoundEl.classList.remove('hidden'); }
+        return;
+      }
+
+      try {
+        const values = await fetchViaOAuth(NC_DIRECTORY_SHEET_ID, 'A1:N500', 'Sheet1');
+        if (!values || values.length < 2) {
+          if (notFoundEl) { notFoundEl.querySelector('p:last-child').textContent = 'NC Directory is empty or unavailable.'; notFoundEl.classList.remove('hidden'); }
+          return;
+        }
+        const headers = values[0].map(h => (h || '').trim());
+        const rows = values.slice(1).map(rowArr => {
+          const obj = {};
+          headers.forEach((h, i) => { obj[h] = (rowArr[i] !== undefined && rowArr[i] !== null ? String(rowArr[i]).trim() : ''); });
+          return obj;
+        });
+        const googleEmailCol = headers.find(h => h === 'Google email') || 'Google email';
+        const matchIndex = rows.findIndex(r => (r[googleEmailCol] || '').trim().toLowerCase() === currentUserEmail);
+        if (matchIndex === -1) {
+          if (notFoundEl) notFoundEl.classList.remove('hidden');
+          return;
+        }
+        ncProfileRowIndex = matchIndex + 2;
+        ncProfileRowData = rows[matchIndex];
+        populateProfileForm(ncProfileRowData);
+        if (formEl) formEl.classList.remove('hidden');
+      } catch (err) {
+        console.error('NC Profile load error:', err);
+        if (notFoundEl) { notFoundEl.querySelector('p:last-child').textContent = 'Error loading directory: ' + (err.message || 'Please try again.'); notFoundEl.classList.remove('hidden'); }
+      }
+    }
+
+    function populateProfileForm(row) {
+      const opts = NC_PROFILE_OPTIONS;
+      const ncCensusTract = document.getElementById('ncCensusTract');
+      if (ncCensusTract) {
+        ncCensusTract.innerHTML = '<option value="">—</option>' + (opts['Predominant Census Tract of Zone'] || []).map(v => '<option value="' + escapeHtmlAttr(v) + '">' + escapeHtml(v) + '</option>').join('');
+        ncCensusTract.value = (row['Predominant Census Tract of Zone'] || '').trim();
+      }
+      const ncHousing = document.getElementById('ncHousing');
+      if (ncHousing) {
+        ncHousing.innerHTML = '<option value="">—</option>' + (opts['Housing Arrangement'] || []).map(v => '<option value="' + escapeHtmlAttr(v) + '">' + escapeHtml(v) + '</option>').join('');
+        ncHousing.value = (row['Housing Arrangement'] || '').trim();
+      }
+      const ncDamage = document.getElementById('ncDamage');
+      if (ncDamage) {
+        ncDamage.innerHTML = '<option value="">—</option>' + (opts['Damage to home'] || []).map(v => '<option value="' + escapeHtmlAttr(v) + '">' + escapeHtml(v) + '</option>').join('');
+        ncDamage.value = (row['Damage to home'] || '').trim();
+      }
+      const ncWaterDistrict = document.getElementById('ncWaterDistrict');
+      if (ncWaterDistrict) {
+        ncWaterDistrict.innerHTML = '<option value="">—</option>' + (opts['Water District'] || []).map(v => '<option value="' + escapeHtmlAttr(v) + '">' + escapeHtml(v) + '</option>').join('');
+        ncWaterDistrict.value = (row['Water District'] || '').trim();
+      }
+      document.getElementById('ncName').value = (row['Name'] || '').trim();
+      document.getElementById('ncZone').value = (row['Zone'] || '').trim();
+      document.getElementById('ncPhone').value = (row['Phone'] || '').trim();
+      document.getElementById('ncPreferredEmail').value = (row['Preferred email'] || '').trim();
+      document.getElementById('ncSkills').value = (row['Skills & Expertise'] || '').trim();
+      document.getElementById('ncLanguages').value = (row['Languages Spoken'] || '').trim();
+      const wgContainer = document.getElementById('ncWorkingGroups');
+      if (wgContainer) {
+        const selected = splitPipe(row['Working Group Participation']);
+        wgContainer.innerHTML = (opts['Working Group Participation'] || []).map(opt => {
+          const id = 'ncWg_' + opt.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+          const checked = selected.includes(opt) ? ' checked' : '';
+          return '<label style="display:inline-flex;align-items:center;gap:0.35rem;margin-right:0.5rem;"><input type="checkbox" name="Working Group Participation" value="' + escapeHtmlAttr(opt) + '" id="' + id + '"' + checked + '> ' + escapeHtml(opt) + '</label>';
+        }).join('');
+      }
+      const iaContainer = document.getElementById('ncInterestAreas');
+      if (iaContainer) {
+        const selected = splitPipe(row['Interest Areas']);
+        iaContainer.innerHTML = (opts['Interest Areas'] || []).map(opt => {
+          const id = 'ncIa_' + opt.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 30);
+          const checked = selected.includes(opt) ? ' checked' : '';
+          return '<label style="display:inline-flex;align-items:center;gap:0.35rem;margin-right:0.5rem;"><input type="checkbox" name="Interest Areas" value="' + escapeHtmlAttr(opt) + '" id="' + id + '"' + checked + '> ' + escapeHtml(opt) + '</label>';
+        }).join('');
+      }
+      const badgesEl = document.getElementById('ncBadgesReadOnly');
+      if (badgesEl) {
+        const badges = splitPipe(row['Badges'] || '');
+        if (badges.length) {
+          badgesEl.textContent = 'Badges (read-only): ' + badges.join(', ');
+          badgesEl.classList.remove('hidden');
+        } else {
+          badgesEl.classList.add('hidden');
+        }
+      }
+    }
+    function escapeHtmlAttr(s) {
+      if (s == null) return '';
+      return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    async function saveNcProfile() {
+      if (!accessToken || ncProfileRowIndex == null || !ncProfileRowData) return;
+      const row = {};
+      row['Name'] = (document.getElementById('ncName').value || '').trim();
+      row['Zone'] = (document.getElementById('ncZone').value || '').trim();
+      row['Predominant Census Tract of Zone'] = (document.getElementById('ncCensusTract').value || '').trim();
+      row['Phone'] = (document.getElementById('ncPhone').value || '').trim();
+      row['Preferred email'] = (document.getElementById('ncPreferredEmail').value || '').trim();
+      row['Working Group Participation'] = Array.from(document.querySelectorAll('#ncWorkingGroups input[type=checkbox]:checked')).map(cb => cb.value).join('|');
+      row['Housing Arrangement'] = (document.getElementById('ncHousing').value || '').trim();
+      row['Damage to home'] = (document.getElementById('ncDamage').value || '').trim();
+      row['Interest Areas'] = Array.from(document.querySelectorAll('#ncInterestAreas input[type=checkbox]:checked')).map(cb => cb.value).join('|');
+      row['Skills & Expertise'] = (document.getElementById('ncSkills').value || '').trim();
+      row['Languages Spoken'] = (document.getElementById('ncLanguages').value || '').trim();
+      row['Google email'] = (ncProfileRowData['Google email'] || '').trim();
+      row['Water District'] = (document.getElementById('ncWaterDistrict').value || '').trim();
+      row['Badges'] = (ncProfileRowData['Badges'] || '').trim();
+      const rowValues = NC_PROFILE_HEADERS.map(h => row[h] || '');
+      const range = 'Sheet1!A' + ncProfileRowIndex + ':N' + ncProfileRowIndex;
+      const statusEl = document.getElementById('profileSaveStatus');
+      const btn = document.getElementById('ncProfileSaveBtn');
+      if (btn) btn.disabled = true;
+      if (statusEl) { statusEl.textContent = 'Saving…'; statusEl.classList.remove('hidden'); }
+      try {
+        const res = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + NC_DIRECTORY_SHEET_ID + '/values:batchUpdate', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: [{ range: range, values: [rowValues] }] })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error?.message || 'Save failed');
+        }
+        if (statusEl) { statusEl.textContent = 'Saved.'; statusEl.style.color = 'var(--accent-altagether-green)'; }
+        ncProfileRowData = row;
+      } catch (e) {
+        if (statusEl) { statusEl.textContent = 'Error: ' + (e.message || 'Could not save'); statusEl.style.color = 'var(--accent-clay)'; }
+      }
+      if (btn) btn.disabled = false;
+    }
+
+    document.getElementById('ncProfileSaveBtn')?.addEventListener('click', saveNcProfile);
 
     // Update sign-in UI
     function updateSignInUI() {
@@ -4967,10 +5184,9 @@
     // Navigation System - Single Page Navigation
     function switchView(viewName) {
       // Prevent switching to non-home views if no spreadsheet is linked
-      // Exception: Beta view is always accessible
-      // Check both currentSheetUrl and localStorage for savedSheetUrl
+      // Exception: Beta and Profile views are always accessible
       const hasSheet = currentSheetUrl || localStorage.getItem('savedSheetUrl');
-      if (!hasSheet && viewName !== 'home' && viewName !== 'beta') {
+      if (!hasSheet && viewName !== 'home' && viewName !== 'beta' && viewName !== 'profile') {
         // Force back to home view
         viewName = 'home';
         currentView = 'home';
@@ -5155,6 +5371,8 @@
         setTimeout(() => {
           setupToolModuleExpansion();
         }, 100);
+      } else if (viewName === 'profile') {
+        loadProfileView();
       }
       // Map view doesn't need special content updates - it just shows the map with floating panel
     }
@@ -5164,8 +5382,8 @@
       item.addEventListener('click', (e) => {
         // Use currentTarget to get the button, not the clicked child element (like span)
         const viewName = e.currentTarget.getAttribute('data-view');
-        // Prevent navigation if no spreadsheet is linked (except Home and Beta)
-        if (!currentSheetUrl && viewName !== 'home' && viewName !== 'beta') {
+        // Prevent navigation if no spreadsheet is linked (except Home, Beta, Profile)
+        if (!currentSheetUrl && viewName !== 'home' && viewName !== 'beta' && viewName !== 'profile') {
           e.preventDefault();
           e.stopPropagation();
           return false;
@@ -9759,6 +9977,129 @@
     }
 
     // ============================================
+    // Batch Tagging Tool
+    // ============================================
+    function initializeBatchTagging() {
+      const errEl = document.getElementById('batchTaggingError');
+      const bodyEl = document.getElementById('batchTaggingBody');
+      const listEl = document.getElementById('batchTaggingAddressList');
+      const damageSelect = document.getElementById('batchTaggingDamage');
+      const statusSelect = document.getElementById('batchTaggingStatus');
+      const rebuildSelect = document.getElementById('batchTaggingRebuild');
+      const applyBtn = document.getElementById('batchTaggingApply');
+      const statusMsg = document.getElementById('batchTaggingStatusMsg');
+      const selectAllBtn = document.getElementById('batchTaggingSelectAll');
+      const selectNoneBtn = document.getElementById('batchTaggingSelectNone');
+      if (!listEl || !damageSelect || !statusSelect || !rebuildSelect || !applyBtn) return;
+      if (errEl) { errEl.classList.add('hidden'); errEl.textContent = ''; }
+      if (statusMsg) statusMsg.textContent = '';
+      if (!sheetData || !sheetData.addressMap) {
+        if (errEl) { errEl.textContent = 'Please load a spreadsheet first.'; errEl.classList.remove('hidden'); }
+        if (bodyEl) bodyEl.classList.add('hidden');
+        return;
+      }
+      if (!accessToken || !currentSheetId) {
+        if (errEl) { errEl.textContent = 'Please sign in with Google to use Batch Tagging.'; errEl.classList.remove('hidden'); }
+        if (bodyEl) bodyEl.classList.add('hidden');
+        return;
+      }
+      if (bodyEl) bodyEl.classList.remove('hidden');
+      const addresses = getFilteredAddresses();
+      const headers = sheetData.headers;
+      const damageCol = findColumn(headers, 'damage');
+      const statusCol = findColumn(headers, 'property status');
+      const rebuildCol = findColumn(headers, 'rebuild');
+      const damageOpts = getFullDamageOptions();
+      const statusOpts = getFullStatusOptions();
+      const rebuildOpts = getFullRebuildStatusOptions();
+      damageSelect.innerHTML = '<option value="">—</option>' + damageOpts.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+      statusSelect.innerHTML = '<option value="">—</option>' + statusOpts.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+      rebuildSelect.innerHTML = '<option value="">—</option>' + rebuildOpts.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+      listEl.innerHTML = '';
+      if (addresses.length === 0) {
+        listEl.innerHTML = '<p style="margin:0; color:var(--text-light);">No addresses match your current filters. Change filters on the Neighbors page to see addresses here.</p>';
+      } else {
+        addresses.forEach(addr => {
+          const label = document.createElement('label');
+          label.style.display = 'block';
+          label.style.marginBottom = '6px';
+          label.style.cursor = 'pointer';
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.className = 'batch-tag-address-cb';
+          cb.setAttribute('data-address', addr.replace(/"/g, '&quot;'));
+          label.appendChild(cb);
+          label.appendChild(document.createTextNode(' ' + addr));
+          listEl.appendChild(label);
+        });
+      }
+      if (selectAllBtn) selectAllBtn.onclick = () => listEl.querySelectorAll('.batch-tag-address-cb').forEach(cb => { cb.checked = true; });
+      if (selectNoneBtn) selectNoneBtn.onclick = () => listEl.querySelectorAll('.batch-tag-address-cb').forEach(cb => { cb.checked = false; });
+      applyBtn.onclick = async () => {
+        const selected = Array.from(listEl.querySelectorAll('.batch-tag-address-cb:checked')).map(cb => cb.getAttribute('data-address'));
+        if (selected.length === 0) {
+          if (statusMsg) statusMsg.textContent = 'Select at least one address.';
+          return;
+        }
+        const damageVal = (damageSelect.value || '').trim();
+        const statusVal = (statusSelect.value || '').trim();
+        const rebuildVal = (rebuildSelect.value || '').trim();
+        if (!damageVal && !statusVal && !rebuildVal) {
+          if (statusMsg) statusMsg.textContent = 'Choose at least one value (Damage, Property Status, or Rebuild Status).';
+          return;
+        }
+        const updates = [];
+        const damageColIndex = damageCol != null ? headers.indexOf(damageCol) : -1;
+        const statusColIndex = statusCol != null ? headers.indexOf(statusCol) : -1;
+        const rebuildColIndex = rebuildCol != null ? headers.indexOf(rebuildCol) : -1;
+        selected.forEach(addr => {
+          const rows = sheetData.addressMap.get(addr);
+          if (!rows) return;
+          rows.forEach(row => {
+            const rowIndex = row.__originalIndex;
+            if (rowIndex === undefined || rowIndex === -1) return;
+            const rowNum = rowIndex + 2;
+            if (damageVal && damageColIndex !== -1) {
+              updates.push({ range: 'Sheet1!' + indexToColumnLetter(damageColIndex) + rowNum, values: [[damageVal]] });
+            }
+            if (statusVal && statusColIndex !== -1) {
+              updates.push({ range: 'Sheet1!' + indexToColumnLetter(statusColIndex) + rowNum, values: [[statusVal]] });
+            }
+            if (rebuildVal && rebuildColIndex !== -1) {
+              updates.push({ range: 'Sheet1!' + indexToColumnLetter(rebuildColIndex) + rowNum, values: [[rebuildVal]] });
+            }
+          });
+        });
+        if (updates.length === 0) return;
+        applyBtn.disabled = true;
+        if (statusMsg) statusMsg.textContent = 'Saving…';
+        try {
+          const res = await fetch(
+            `https://sheets.googleapis.com/v4/spreadsheets/${currentSheetId}/values:batchUpdate`,
+            {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: updates })
+            }
+          );
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error?.message || 'Failed to save');
+          }
+          if (statusMsg) statusMsg.textContent = '';
+          showAppToast('Tags applied to ' + selected.length + ' address(es).');
+          setTimeout(() => {
+            if (currentSheetUrl) loadAddressData(currentSheetUrl);
+          }, 400);
+        } catch (e) {
+          if (statusMsg) statusMsg.textContent = 'Error: ' + (e.message || e);
+        } finally {
+          applyBtn.disabled = false;
+        }
+      };
+    }
+
+    // ============================================
     // Contact List Creator Functions
     // ============================================
     
@@ -11875,7 +12216,7 @@
       if (!module) return;
       
       // Only allow expansion for specific modules
-      const expandableModules = ['contactListCreator', 'zoneReportGenerator'];
+      const expandableModules = ['contactListCreator', 'zoneReportGenerator', 'batchTaggingTool'];
       if (!expandableModules.includes(moduleId)) return;
       
       // If clicking the header of an expanded module, collapse it back to compact size
@@ -11911,7 +12252,7 @@
     // Setup tool module expand functionality
     function setupToolModuleExpansion() {
       // Only these modules should be expandable
-      const expandableModules = ['contactListCreator', 'zoneReportGenerator'];
+      const expandableModules = ['contactListCreator', 'zoneReportGenerator', 'batchTaggingTool'];
       
       document.querySelectorAll('.tool-module').forEach(module => {
         const moduleId = module.id;

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>NC Directory | Altagether</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/x-icon" href="resources/images/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-paper: #FDFBF7;
+      --bg-card: #FFFFFF;
+      --brand-primary-dark: #314059;
+      --text-primary: #1F2937;
+      --text-secondary: #4B5563;
+      --accent-gold: #F59E0B;
+      --accent-clay: #BC5838;
+      --accent-green: #283618;
+      --border-color: #E5E7EB;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; min-height: 100%; font-family: 'Merriweather', serif; background: var(--bg-paper); color: var(--text-primary); }
+    h1, h2, h3, .nav-item, .btn { font-family: 'Chivo', sans-serif; font-weight: 700; }
+    .header {
+      background: var(--brand-primary-dark);
+      color: white;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      border-bottom: 3px solid var(--text-primary);
+    }
+    .header img { height: 40px; }
+    .header h1 { margin: 0; font-size: 1.5rem; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      align-items: center;
+    }
+    .search-wrap { flex: 1; min-width: 200px; }
+    .search-wrap input {
+      width: 100%;
+      padding: 0.6rem 1rem;
+      border: 2px solid var(--border-color);
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+    }
+    .filters label { font-size: 0.9rem; color: var(--text-secondary); }
+    .filters select {
+      padding: 0.5rem 0.75rem;
+      border: 2px solid var(--border-color);
+      border-radius: 4px;
+      font-size: 0.9rem;
+      background: white;
+    }
+    .filter-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .filter-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.5rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .filter-chip.active { background: var(--accent-gold); border-color: var(--brand-primary-dark); color: var(--text-primary); }
+    .count { font-size: 0.95rem; color: var(--text-secondary); margin-left: auto; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.25rem;
+      box-shadow: 4px 4px 0 var(--border-color);
+    }
+    .card h3 { margin: 0 0 0.5rem; font-size: 1.15rem; color: var(--brand-primary-dark); }
+    .card .zone { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
+    .card .contact { margin: 0.5rem 0; font-size: 0.95rem; }
+    .card .contact a { color: var(--accent-green); text-decoration: none; }
+    .card .contact a:hover { text-decoration: underline; }
+    .card .tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.75rem; }
+    .tag { background: #EEF2FF; color: var(--brand-primary-dark); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; }
+    .tag.badge { background: #FEF3C7; color: #92400E; }
+    .card .bio { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; }
+    .loading, .error { text-align: center; padding: 2rem; font-size: 1.1rem; }
+    .error { color: var(--accent-clay); }
+    .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <img src="resources/images/logo_white_transparent.png" alt="Altagether" />
+    <h1>Neighborhood Captain Directory</h1>
+  </header>
+  <main class="container">
+    <div class="toolbar">
+      <div class="search-wrap">
+        <input type="search" id="searchInput" placeholder="Search by name, zone, skills, interests…" aria-label="Search directory" />
+      </div>
+      <div class="filters">
+        <label>Zone:</label>
+        <select id="filterZone">
+          <option value="">All</option>
+        </select>
+        <label>Census tract:</label>
+        <select id="filterCensusTract">
+          <option value="">All</option>
+        </select>
+        <label>Water district:</label>
+        <select id="filterWaterDistrict">
+          <option value="">All</option>
+        </select>
+      </div>
+      <span class="count" id="resultCount">—</span>
+    </div>
+    <div class="filter-chips" id="workingGroupChips"></div>
+    <div class="filter-chips" id="interestChips"></div>
+    <div id="content">
+      <div class="loading" id="loading">Loading directory…</div>
+      <div class="cards hidden" id="cards"></div>
+      <div class="empty hidden" id="empty">No captains match your filters.</div>
+      <div class="error hidden" id="error"></div>
+    </div>
+  </main>
+  <script>
+    (function () {
+      const API_URL = '/api/nc-directory';
+      const GOOGLE_EMAIL_KEY = 'Google email';
+      const PREFERRED_EMAIL_KEY = 'Preferred email';
+      const NAME_KEY = 'Name';
+      const ZONE_KEY = 'Zone';
+      const PHONE_KEY = 'Phone';
+      const WORKING_GROUP_KEY = 'Working Group Participation';
+      const INTEREST_AREAS_KEY = 'Interest Areas';
+      const BADGES_KEY = 'Badges';
+      const CENSUS_TRACT_KEY = 'Predominant Census Tract of Zone';
+      const WATER_DISTRICT_KEY = 'Water District';
+      const SKILLS_KEY = 'Skills & Expertise';
+      const LANGUAGES_KEY = 'Languages Spoken';
+      const HOUSING_KEY = 'Housing Arrangement';
+      const DAMAGE_KEY = 'Damage to home';
+
+      let allCaptains = [];
+      let activeWorkingGroups = new Set();
+      let activeInterests = new Set();
+
+      function parseRow(headers, values) {
+        const row = {};
+        headers.forEach((h, i) => { row[h] = (values[i] || '').trim(); });
+        return row;
+      }
+
+      function splitPipe(val) {
+        if (!val || !String(val).trim()) return [];
+        return String(val).split('|').map(s => s.trim()).filter(Boolean);
+      }
+
+      function normalizePhone(val) {
+        if (!val || !String(val).trim()) return '';
+        const digits = String(val).replace(/\D/g, '');
+        if (digits.length === 10) return '(' + digits.slice(0,3) + ') ' + digits.slice(3,6) + '-' + digits.slice(6);
+        return String(val).trim();
+      }
+
+      function buildSearchableText(captain) {
+        const parts = [
+          captain[NAME_KEY],
+          captain[ZONE_KEY],
+          captain[SKILLS_KEY],
+          captain[LANGUAGES_KEY],
+          splitPipe(captain[WORKING_GROUP_KEY]).join(' '),
+          splitPipe(captain[INTEREST_AREAS_KEY]).join(' ')
+        ];
+        return parts.join(' ').toLowerCase();
+      }
+
+      function applyFilters() {
+        const query = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+        const zone = (document.getElementById('filterZone').value || '').trim();
+        const censusTract = (document.getElementById('filterCensusTract').value || '').trim();
+        const waterDistrict = (document.getElementById('filterWaterDistrict').value || '').trim();
+
+        let list = allCaptains.filter(c => {
+          if (query) {
+            if (!buildSearchableText(c).includes(query)) return false;
+          }
+          if (zone && (c[ZONE_KEY] || '').trim() !== zone) return false;
+          if (censusTract && (c[CENSUS_TRACT_KEY] || '').trim() !== censusTract) return false;
+          if (waterDistrict && (c[WATER_DISTRICT_KEY] || '').trim() !== waterDistrict) return false;
+          if (activeWorkingGroups.size) {
+            const wg = new Set(splitPipe(c[WORKING_GROUP_KEY]));
+            if (![...activeWorkingGroups].some(x => wg.has(x))) return false;
+          }
+          if (activeInterests.size) {
+            const ia = new Set(splitPipe(c[INTEREST_AREAS_KEY]));
+            if (![...activeInterests].some(x => ia.has(x))) return false;
+          }
+          return true;
+        });
+
+        renderCards(list);
+        document.getElementById('resultCount').textContent = list.length + ' captain' + (list.length !== 1 ? 's' : '');
+      }
+
+      function renderCards(list) {
+        const cardsEl = document.getElementById('cards');
+        const emptyEl = document.getElementById('empty');
+        cardsEl.classList.add('hidden');
+        emptyEl.classList.add('hidden');
+        if (list.length === 0) {
+          emptyEl.classList.remove('hidden');
+          return;
+        }
+        cardsEl.innerHTML = list.map(c => {
+          const email = (c[PREFERRED_EMAIL_KEY] || '').trim() || (c[GOOGLE_EMAIL_KEY] || '').trim();
+          const phone = normalizePhone(c[PHONE_KEY]);
+          const wg = splitPipe(c[WORKING_GROUP_KEY]);
+          const interests = splitPipe(c[INTEREST_AREAS_KEY]);
+          const badges = splitPipe(c[BADGES_KEY]);
+          const skills = (c[SKILLS_KEY] || '').trim();
+          const zoneLine = [c[ZONE_KEY], c[CENSUS_TRACT_KEY]].filter(Boolean).join(' · ');
+          return '<div class="card">' +
+            '<h3>' + escapeHtml(c[NAME_KEY] || '—') + '</h3>' +
+            (zoneLine ? '<div class="zone">' + escapeHtml(zoneLine) + '</div>' : '') +
+            (email ? '<div class="contact"><a href="mailto:' + escapeHtml(email) + '">' + escapeHtml(email) + '</a></div>' : '') +
+            (phone ? '<div class="contact">' + escapeHtml(phone) + '</div>' : '') +
+            (skills ? '<div class="bio">' + escapeHtml(skills.slice(0, 200)) + (skills.length > 200 ? '…' : '') + '</div>' : '') +
+            (wg.length ? '<div class="tags">' + wg.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
+            (interests.length ? '<div class="tags">' + interests.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
+            (badges.length ? '<div class="tags">' + badges.map(x => '<span class="tag badge">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
+            '</div>';
+        }).join('');
+        cardsEl.classList.remove('hidden');
+      }
+
+      function escapeHtml(s) {
+        if (s == null) return '';
+        const div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+      }
+
+      function collectOptions(key) {
+        const set = new Set();
+        allCaptains.forEach(c => {
+          const val = c[key];
+          if (key === WORKING_GROUP_KEY || key === INTEREST_AREAS_KEY) splitPipe(val).forEach(x => set.add(x));
+          else if (val && String(val).trim()) set.add(String(val).trim());
+        });
+        return [...set].sort();
+      }
+
+      function fillSelect(id, key) {
+        const sel = document.getElementById(id);
+        const options = collectOptions(key);
+        options.forEach(o => {
+          const opt = document.createElement('option');
+          opt.value = o;
+          opt.textContent = o;
+          sel.appendChild(opt);
+        });
+      }
+
+      function buildChips(containerId, key, activeSet) {
+        const container = document.getElementById(containerId);
+        const options = collectOptions(key);
+        if (!options.length) return;
+        const label = key === WORKING_GROUP_KEY ? 'Working groups' : 'Interest areas';
+        container.innerHTML = '<span style="font-size:0.9rem;color:var(--text-secondary);margin-right:0.5rem;">' + label + ':</span>';
+        options.forEach(o => {
+          const chip = document.createElement('span');
+          chip.className = 'filter-chip';
+          chip.textContent = o;
+          chip.dataset.value = o;
+          if (activeSet.has(o)) chip.classList.add('active');
+          chip.addEventListener('click', () => {
+            if (activeSet.has(o)) activeSet.delete(o);
+            else activeSet.add(o);
+            chip.classList.toggle('active', activeSet.has(o));
+            applyFilters();
+          });
+          container.appendChild(chip);
+        });
+      }
+
+      function showError(msg) {
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('cards').classList.add('hidden');
+        document.getElementById('empty').classList.add('hidden');
+        const err = document.getElementById('error');
+        err.textContent = msg;
+        err.classList.remove('hidden');
+      }
+
+      fetch(API_URL)
+        .then(r => {
+          if (!r.ok) throw new Error(r.statusText || 'Failed to load directory');
+          return r.json();
+        })
+        .then(data => {
+          document.getElementById('loading').classList.add('hidden');
+          const rows = data.rows || [];
+          allCaptains = rows.filter(c => (c[NAME_KEY] || '').trim() || (c[PREFERRED_EMAIL_KEY] || '').trim() || (c[GOOGLE_EMAIL_KEY] || '').trim());
+          fillSelect('filterZone', ZONE_KEY);
+          fillSelect('filterCensusTract', CENSUS_TRACT_KEY);
+          fillSelect('filterWaterDistrict', WATER_DISTRICT_KEY);
+          buildChips('workingGroupChips', WORKING_GROUP_KEY, activeWorkingGroups);
+          buildChips('interestChips', INTEREST_AREAS_KEY, activeInterests);
+          document.getElementById('searchInput').addEventListener('input', applyFilters);
+          document.getElementById('filterZone').addEventListener('change', applyFilters);
+          document.getElementById('filterCensusTract').addEventListener('change', applyFilters);
+          document.getElementById('filterWaterDistrict').addEventListener('change', applyFilters);
+          applyFilters();
+        })
+        .catch(e => showError('Could not load directory. Make sure the server is running and the NC Directory sheet is shared correctly. ' + (e.message || '')));
+    })();
+  </script>
+</body>
+</html>

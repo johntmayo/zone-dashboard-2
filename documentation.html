@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Documentation - Altagether Zone Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-paper: #FDFBF7;
+      --bg-card: #FFFFFF;
+      --text-primary: #1F2937;
+      --text-secondary: #4B5563;
+      --brand-primary-dark: #314059;
+      --primary: var(--brand-primary-dark);
+      --primary-dark: var(--brand-primary-dark);
+      --background: var(--bg-paper);
+      --text: var(--text-primary);
+      --text-light: var(--text-secondary);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      font-family: 'Merriweather', serif;
+      background: var(--bg-paper);
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+    h1, h2, h3 {
+      font-family: 'Chivo', sans-serif;
+      font-weight: 900;
+      color: var(--primary-dark);
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      display: flex;
+      gap: 40px;
+    }
+    .sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 20px;
+      height: fit-content;
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+    }
+    .sidebar-nav {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 12px rgba(40, 54, 24, 0.15);
+      border: 2px solid var(--primary);
+    }
+    .sidebar-nav h2 { font-size: 1.1rem; margin: 0 0 16px 0; }
+    .sidebar-nav ul { list-style: none; margin: 0; padding: 0; }
+    .sidebar-nav a {
+      display: block;
+      padding: 8px 0;
+      color: var(--text-primary);
+      text-decoration: none;
+      font-size: 0.95rem;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .sidebar-nav a:hover { color: var(--primary); }
+    .content {
+      flex: 1;
+      min-width: 0;
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 40px;
+      box-shadow: 0 4px 12px rgba(40, 54, 24, 0.08);
+    }
+    .content h2 { margin-top: 2em; margin-bottom: 0.5em; font-size: 1.5rem; }
+    .content h2:first-child { margin-top: 0; }
+    .content h3 { margin-top: 1.5em; margin-bottom: 0.4em; font-size: 1.2rem; }
+    .content p { margin: 0 0 1em 0; }
+    .content ul, .content ol { margin: 0 0 1em 0; padding-left: 1.5em; }
+    .content li { margin-bottom: 0.4em; }
+    .content code, .content kbd {
+      background: rgba(0,0,0,0.06);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: ui-monospace, monospace;
+      font-size: 0.9em;
+    }
+    .content pre {
+      background: rgba(0,0,0,0.06);
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.9rem;
+      margin: 1em 0;
+    }
+    .callout {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin: 1em 0;
+      border-left: 4px solid var(--primary);
+      background: rgba(49, 64, 89, 0.06);
+    }
+    .callout strong { display: block; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav class="sidebar">
+      <div class="sidebar-nav">
+        <h2>Documentation</h2>
+        <ul>
+          <li><a href="#add-record">Add Record</a></li>
+          <!-- Add more sections here as development continues -->
+        </ul>
+      </div>
+    </nav>
+    <main class="content">
+      <h1>Altagether Zone Dashboard — Documentation</h1>
+      <p>This file documents how key features work and how they can break. Add new sections as development continues.</p>
+
+      <h2 id="add-record">Add Record</h2>
+      <p>Add Record lets users add a new address or a new person to the zone spreadsheet from the dashboard. The new row is written to the same Google Sheet that is currently loaded, via the Google Sheets API.</p>
+
+      <h3>How it works</h3>
+      <ol>
+        <li><strong>Entry point:</strong> User clicks “➕ Add Record” (Neighbors tab). The app shows a modal with two choices: “An address” or “A person.”</li>
+        <li><strong>Form:</strong> Depending on the choice, the user fills in address fields (house number, street, city/state/zip), optional person name and details, and/or address details (Damage, Property Status, Rebuild Status, Address Notes). For “Add a person,” they can pick an existing address, enter a new address, or leave address blank.</li>
+        <li><strong>Geocoding (new addresses only):</strong> When the user adds a new address (or a person at a new address), the app can geocode via Mapbox and show a small map to confirm or adjust the pin. Submitting then goes to step 4.</li>
+        <li><strong>Build row:</strong> The app builds one row of values in the <em>exact order of the sheet’s header row</em>, using <code>buildRowForHeaders(headers, rowValuesByColumn)</code>. Missing or empty fields become empty strings. This preserves column alignment with the spreadsheet.</li>
+        <li><strong>Append to sheet:</strong> <code>appendRowsToSheet([row])</code> sends a POST to the Google Sheets API:
+          <pre>POST https://sheets.googleapis.com/v4/spreadsheets/{currentSheetId}/values/Sheet1!A1:ZZ:append
+Body: { values: [ [ cell1, cell2, ... ] ] }
+Query: valueInputOption=USER_ENTERED</pre>
+          <code>currentSheetId</code> is the spreadsheet ID from the URL of the currently loaded sheet (set when <code>loadAddressData</code> runs). The range <code>Sheet1!A1:ZZ</code> means “append to the tab <strong>named</strong> Sheet1.”</li>
+        <li><strong>Refresh:</strong> After a successful append, the app shows an in-app success toast, closes the modal, and then calls <code>loadAddressData(currentSheetUrl)</code> after a 400 ms delay. That re-fetches the sheet and repopulates the Neighbors list and map.</li>
+      </ol>
+
+      <h3>Which sheet is used</h3>
+      <ul>
+        <li><strong>Read (load):</strong> When loading data, the app calls the API with the range <code>Sheet1!A1:ZZ1000</code>. So it always reads from the tab <strong>named</strong> <code>Sheet1</code>.</li>
+        <li><strong>Write (append):</strong> Append uses <code>Sheet1!A1:ZZ</code>, so it always writes to the same tab.</li>
+        <li>Read and write both target the tab named <code>Sheet1</code>. Tab order (first tab, second tab, etc.) does not matter. If the main data tab has a different name, Add Record will not work correctly until the tab is renamed to <code>Sheet1</code> or the code is updated to use that name.</li>
+      </ul>
+
+      <h3>How it can break</h3>
+      <ul>
+        <li><strong>Main data tab not named Sheet1:</strong> If the spreadsheet’s main data tab is named something else (e.g. “Zone Data”), the app will still read and write using the name <code>Sheet1</code>. Either the read will fail (no sheet named Sheet1) or we’ll be reading/writing a different tab. Fix: Rename the main tab to <code>Sheet1</code>, or change the code to use the actual tab name in both <code>loadAddressData</code> (fetch) and <code>appendRowsToSheet</code> (range).</li>
+        <li><strong>More than 1000 rows:</strong> The app only fetches <code>Sheet1!A1:ZZ1000</code>. If the sheet has more than 1000 rows, new rows appended at 1001+ will never be loaded and will “disappear” from the UI after refresh. Fix: Increase the row limit in the fetch range (e.g. <code>A1:ZZ10000</code>) or make it dynamic.</li>
+        <li><strong>Not signed in or token expired:</strong> Append requires a valid Google OAuth token. If the user isn’t signed in or the token has expired, the append request fails and the user sees an error. No row is written.</li>
+        <li><strong>No sheet loaded:</strong> <code>currentSheetId</code> and <code>currentSheetUrl</code> are set when address data is successfully loaded. If the user opens Add Record without having loaded a sheet (or after an error), the append path will throw “Not signed in or no sheet loaded.”</li>
+        <li><strong>Column order mismatch:</strong> The row is built from <code>sheetData.headers</code> (the first row of the sheet as read at load time). If the sheet’s header row or column order is changed in the sheet after load, the next append might still use the old order and put values in the wrong columns. Refreshing the page reloads headers and fixes this.</li>
+        <li><strong>Google Sheets API errors:</strong> Quotas, network errors, or permission changes can cause the append or the subsequent read to fail. The user sees an error alert; the row may or may not have been written. Checking the sheet manually is the way to confirm.</li>
+      </ul>
+
+      <div class="callout">
+        <strong>Summary</strong>
+        Add Record appends one row to the tab named <code>Sheet1</code> in the currently loaded spreadsheet, then refreshes the data after a short delay. The main data tab must be named <code>Sheet1</code>, and the sheet must have under 1000 rows (or the fetch range increased) for new rows to appear after refresh.
+      </div>
+
+      <!-- Add more feature sections below -->
+    </main>
+  </div>
+</body>
+</html>

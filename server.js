@@ -16,6 +16,7 @@ app.use(express.static('.')); // Serve static files from current directory
 // To get the sheet ID from a Google Sheets URL: https://docs.google.com/spreadsheets/d/SHEET_ID_HERE/edit
 const CENTRAL_SHEET_ID = process.env.CENTRAL_SHEET_ID || '1PaqcX2BSypJjLBDMA3DnlAxCHK5y0TWMSbCIkTScIQU';
 const ACTIONS_SHEET_ID = process.env.ACTIONS_SHEET_ID || '1g6gmdXF1yjrejpmT3HTY7JI1Zzb7jErYZQ2pwiH37I0';
+const NC_DIRECTORY_SHEET_ID = process.env.NC_DIRECTORY_SHEET_ID || '1E77qmT4eGtyokaDvD2wlK3q2NeMcS4itmkbYp6Rz0qM';
 
 // Helper function to get sheet gid (grid ID) from sheet name for public sheets
 async function getSheetGid(sheetId, sheetName) {
@@ -378,6 +379,20 @@ app.get('/api/actions-feed', async (req, res) => {
   }
 });
 
+// API Route: NC Directory (Sheet1 only - for standalone directory site)
+app.get('/api/nc-directory', async (req, res) => {
+  try {
+    const { headers, rows } = await fetchPublicSheet(NC_DIRECTORY_SHEET_ID, 'A1:ZZ500', 'Sheet1');
+    res.json({ headers, rows });
+  } catch (error) {
+    console.error('Error fetching NC Directory:', error);
+    res.status(500).json({
+      error: 'Failed to fetch NC Directory',
+      message: error.message
+    });
+  }
+});
+
 // Serve index.html for all other routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
@@ -388,6 +403,7 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`Central sheet ID (announcements): ${CENTRAL_SHEET_ID}`);
   console.log(`Actions sheet ID: ${ACTIONS_SHEET_ID}`);
-  console.log(`To change sheets, update the IDs in server.js or set environment variables`);
+  console.log(`NC Directory sheet ID: ${NC_DIRECTORY_SHEET_ID}`);
+console.log(`To change sheets, update the IDs in server.js or set environment variables`);
 });
 
