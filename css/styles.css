@@ -3738,6 +3738,11 @@
       cursor: pointer;
     }
 
+    .add-record-notes {
+      min-height: 88px;
+      resize: vertical;
+    }
+
     .save-status {
       font-size: 0.8rem;
       margin-top: 6px;

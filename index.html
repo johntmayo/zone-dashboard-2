@@ -2542,6 +2542,7 @@
       const contactNotesCol = headers.find(h => /contact\s*note/i.test(h));
       const getUniqueValues = (col) => col ? [...new Set(sheetData.data.map(r => (r[col] || '').trim()).filter(Boolean))].sort() : [];
       const field = (label, id, type = 'text', opts = '') => `<p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p><input type="${type}" id="${id}" class="add-record-input" ${opts}>`;
+      const notesField = (label, id) => `<p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p><textarea id="${id}" class="add-record-input add-record-notes" rows="4" placeholder="Optional"></textarea>`;
       const selectField = (label, id, values) => `<p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p><select id="${id}" class="add-record-select"><option value="">—</option>${(values || []).map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}</select>`;
       const checkboxField = (label, id) => `<label class="add-record-checkbox-wrap"><input type="checkbox" id="${id}" class="add-record-checkbox"><span>${escapeHtml(label)}</span></label>`;
 
@@ -2554,16 +2555,19 @@
           field('Email address', prefix + 'Email', 'email'),
           checkboxField('Renter', prefix + 'Renter'),
           checkboxField('Needs Follow-Up', prefix + 'FollowUp'),
-          field('Person Notes', prefix + 'PersonNotes')
+          notesField('Person Notes', prefix + 'PersonNotes')
         ];
         return parts.join('');
       };
-      // Address details: Damage, Property Status, Rebuild Status, Address Notes only
+      // Address details: full option lists so all statuses appear (Damage, Property Status, Rebuild Status), then Address Notes
+      const addressDamageOptions = getFullDamageOptions();
+      const addressStatusOptions = getFullStatusOptions();
+      const addressRebuildOptions = getFullRebuildStatusOptions();
       const addressDetailsFields = [
-        selectField('Damage', 'addRecordDamage', getUniqueValues(damageCol)),
-        selectField('Property Status', 'addRecordStatus', getUniqueValues(statusCol)),
-        selectField('Rebuild Status', 'addRecordRebuild', getUniqueValues(rebuildCol)),
-        field('Address Notes', 'addRecordAddressNotes')
+        selectField('Damage', 'addRecordDamage', addressDamageOptions),
+        selectField('Property Status', 'addRecordStatus', addressStatusOptions),
+        selectField('Rebuild Status', 'addRecordRebuild', addressRebuildOptions),
+        notesField('Address Notes', 'addRecordAddressNotes')
       ].join('');
       const personDetailsFields = buildPersonDetailsHtml('addRecord');
       const personDetailsFieldsP = buildPersonDetailsHtml('addRecordP');
@@ -2787,7 +2791,7 @@
             await appendRowsToSheet([row]);
             removeModalAndMap();
             if (currentSheetUrl) loadAddressData(currentSheetUrl);
-            alert('Record added. Your list will refresh.');
+            alert('Record successfully added to your zone.');
           } catch (err) {
             alert('Could not add record: ' + (err.message || err));
           } finally {
@@ -2918,7 +2922,7 @@
           await appendRowsToSheet([row]);
           removeModalAndMap();
           if (currentSheetUrl) loadAddressData(currentSheetUrl);
-          alert('Record added. Your list will refresh.');
+          alert('Record successfully added to your zone.');
         } catch (err) {
           alert('Could not add record: ' + (err.message || err));
         } finally {
