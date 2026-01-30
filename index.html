@@ -1330,9 +1330,9 @@
       try {
         let headers, data;
         
-        // Use OAuth to fetch data
+        // Use OAuth to fetch data (explicit Sheet1 so read and append always use same tab)
         try {
-          const apiValues = await fetchViaOAuth(sheetInfo.sheetId);
+          const apiValues = await fetchViaOAuth(sheetInfo.sheetId, 'A1:ZZ1000', 'Sheet1');
           const parsed = parseApiData(apiValues);
           headers = parsed.headers;
           data = parsed.data;
@@ -2803,8 +2803,10 @@
           try {
             await appendRowsToSheet([row]);
             removeModalAndMap();
-            if (currentSheetUrl) loadAddressData(currentSheetUrl);
             showAppToast('Record successfully added to your zone.');
+            if (currentSheetUrl) {
+              setTimeout(() => loadAddressData(currentSheetUrl), 400);
+            }
           } catch (err) {
             alert('Could not add record: ' + (err.message || err));
           } finally {
@@ -2934,8 +2936,10 @@
         try {
           await appendRowsToSheet([row]);
           removeModalAndMap();
-          if (currentSheetUrl) loadAddressData(currentSheetUrl);
           showAppToast('Record successfully added to your zone.');
+          if (currentSheetUrl) {
+            setTimeout(() => loadAddressData(currentSheetUrl), 400);
+          }
         } catch (err) {
           alert('Could not add record: ' + (err.message || err));
         } finally {
