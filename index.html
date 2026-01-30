@@ -477,6 +477,43 @@
             </div>
           </div>
 
+          <!-- Batch Tagging Module -->
+          <div class="tool-module tool-module--featured" id="batchTaggingTool">
+            <div class="tool-module-header" style="cursor: pointer;">
+              <h3>Batch Tagging <span class="tool-module-toggle">▼</span></h3>
+              <p>Quickly set Damage, Property Status, and Rebuild Status for many addresses at once. Select addresses (optionally filter first in Neighbors), choose values, then Apply.</p>
+            </div>
+            <div class="tool-module-content">
+              <div id="batchTaggingError" class="hidden" style="padding:12px; margin-bottom:16px; background:rgba(200,0,0,0.1); border:1px solid #c00; border-radius:8px; color:#c00; font-weight:600;"></div>
+              <div id="batchTaggingBody">
+                <p style="margin:0 0 12px 0; color:var(--text-light);">Addresses shown match your current Neighbors filters. Check the ones you want to tag.</p>
+                <div style="margin-bottom:12px;">
+                  <button type="button" class="btn-copy-emails" id="batchTaggingSelectAll" style="margin-right:8px;">Select all</button>
+                  <button type="button" class="btn-copy-emails" id="batchTaggingSelectNone">Select none</button>
+                </div>
+                <div id="batchTaggingAddressList" style="max-height:280px; overflow-y:auto; border:1px solid var(--border-soft); border-radius:8px; padding:12px; margin-bottom:20px; background:rgba(255,255,255,0.5);">
+                  <!-- Populated by JS -->
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:20px; align-items:flex-end; margin-bottom:16px;">
+                  <div>
+                    <label style="display:block; margin-bottom:4px; font-weight:600;">Damage</label>
+                    <select id="batchTaggingDamage" class="add-record-select" style="min-width:160px;"></select>
+                  </div>
+                  <div>
+                    <label style="display:block; margin-bottom:4px; font-weight:600;">Property Status</label>
+                    <select id="batchTaggingStatus" class="add-record-select" style="min-width:160px;"></select>
+                  </div>
+                  <div>
+                    <label style="display:block; margin-bottom:4px; font-weight:600;">Rebuild Status</label>
+                    <select id="batchTaggingRebuild" class="add-record-select" style="min-width:200px;"></select>
+                  </div>
+                </div>
+                <button type="button" class="btn-generate-report" id="batchTaggingApply">Apply to selected addresses</button>
+                <div id="batchTaggingStatusMsg" style="margin-top:12px; font-size:0.9rem;"></div>
+              </div>
+            </div>
+          </div>
+
           <!-- Flyer Creator Link Module -->
           <div class="tool-module tool-module--featured" id="flyerCreatorLink" data-no-expand="true">
             <div class="tool-module-header">
@@ -5360,10 +5397,11 @@
       } else if (viewName === 'progress' && sheetData && sheetData.addressMap) {
         updateZoneProgressCharts();
       } else if (viewName === 'tools') {
-        // Initialize Contact List Creator and Zone Report Generator when Tools view is shown
+        // Initialize Contact List Creator, Zone Report Generator, and Batch Tagging when Tools view is shown
         setTimeout(() => {
           initializeContactListCreator();
           initializeZoneReportGenerator();
+          initializeBatchTagging();
           setupToolModuleExpansion();
         }, 100);
       } else if (viewName === 'resources') {
@@ -12236,6 +12274,11 @@
       // Add expanded class
       module.classList.add('expanded');
       module.classList.remove('collapsed');
+      
+      // Refresh Batch Tagging list when expanding so it reflects current filters
+      if (moduleId === 'batchTaggingTool' && typeof initializeBatchTagging === 'function') {
+        initializeBatchTagging();
+      }
       
       // Smoothly scroll to the expanded module after a brief delay to allow layout to update
       requestAnimationFrame(() => {
