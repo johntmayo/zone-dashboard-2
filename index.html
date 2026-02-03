@@ -6718,7 +6718,7 @@
       if (!zoneMap) {
         try {
           // Default center (Altadena, CA - adjust as needed)
-          zoneMap = L.map('zoneMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 12);
+          zoneMap = L.map('zoneMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 10);
           
           // Add CartoDB Voyager tiles (warm, colorful with labels)
           currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -7310,7 +7310,7 @@
         }
         kmlLayer = L.geoJSON(zoneFc, { style: ZONE_BOUNDARY_STYLE }).addTo(zoneMap);
         if (kmlLayer.getBounds && kmlLayer.getBounds().isValid()) {
-          zoneMap.fitBounds(kmlLayer.getBounds(), { padding: [20, 20], maxZoom: 22 });
+          zoneMap.fitBounds(kmlLayer.getBounds(), { padding: [20, 20], maxZoom: 15 });
         }
         return true;
       } catch (e) {
@@ -7496,7 +7496,7 @@
         
         // Fit map to boundary
         if (kmlLayer.getBounds && kmlLayer.getBounds().isValid()) {
-          zoneMap.fitBounds(kmlLayer.getBounds(), { padding: [20, 20], maxZoom: 22 });
+          zoneMap.fitBounds(kmlLayer.getBounds(), { padding: [20, 20], maxZoom: 15 });
         }
       } catch (error) {
         console.error('Error loading KML:', error);
@@ -7761,7 +7761,7 @@
             try {
               zoneMap.fitBounds(bounds, { 
                 padding: [20, 20],
-                maxZoom: 22 // Allow zooming in close so more address numbers appear on the map
+                maxZoom: 15 // Cap zoom so first-time view isn't too close
               });
             } catch (error) {
               console.error('Error fitting bounds:', error);
