@@ -2461,7 +2461,7 @@
         if (actions.followupPeople && actions.followupPeople.length > 0) {
           hasCalculatedActions = true;
           const peopleNames = actions.followupPeople.map((person, index) => {
-            return `<a href="#" class="action-card-link person-link-actions" data-address="${person.address.replace(/"/g, '&quot;')}">${person.name}</a>`;
+            return `<a href="#" class="quick-action-link person-link" data-address="${person.address.replace(/"/g, '&quot;')}">${person.name}</a>`;
           }).join(', ');
           
           calculatedActions.push(`
@@ -2536,8 +2536,8 @@
         });
       }
 
-      // Add event listeners for person name links
-      document.querySelectorAll('.person-link-actions').forEach(link => {
+      // Add event listeners for person name links (same class as Home Quick Actions for consistent styling)
+      document.querySelectorAll('#actionsPageContent .person-link').forEach(link => {
         link.addEventListener('click', (e) => {
           e.preventDefault();
           const address = link.getAttribute('data-address');
