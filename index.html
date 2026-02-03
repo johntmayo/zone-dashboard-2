@@ -2127,6 +2127,17 @@
       return null;
     }
 
+    // Get rebuild status value for an address
+    function getAddressRebuildStatus(address) {
+      const rebuildCol = findColumn(sheetData.headers, 'rebuild');
+      if (!rebuildCol) return null;
+      const rows = sheetData.addressMap.get(address);
+      if (rows && rows.length > 0) {
+        return rows[0][rebuildCol]?.trim() || null;
+      }
+      return null;
+    }
+
     // Calculate quick actions based on spreadsheet data
     function calculateQuickActions() {
       if (!sheetData || !sheetData.addressMap) {
@@ -5965,6 +5976,17 @@
       return mapping;
     }
 
+    // Get rebuild status -> color mapping (sequential stages + any custom values)
+    function getRebuildColorMapping() {
+      const stages = getFullRebuildStatusOptions();
+      const colorKeys = ['dusty-mauve', 'light-caramel', 'apricot-cream', 'sky-blue-light', 'dry-sage', 'soft-blush', 'ash-grey'];
+      const mapping = {};
+      stages.forEach((stage, index) => {
+        mapping[stage] = colorPalette[colorKeys[index % colorKeys.length]];
+      });
+      return mapping;
+    }
+
     // Get marker color based on current color mode and address data
     function getMarkerColor(address) {
       if (!currentColorMode || !sheetData) return null;
@@ -5979,6 +6001,11 @@
         if (damageLower.includes('partial')) return colorPalette['light-caramel'];
         if (damageLower.includes('standing')) return colorPalette['sky-blue-light'];
         return colorPalette['ash-grey'];
+      } else if (currentColorMode === 'rebuild') {
+        const rebuild = getAddressRebuildStatus(address);
+        if (!rebuild) return colorPalette['ash-grey'];
+        const rebuildColorMapping = getRebuildColorMapping();
+        return rebuildColorMapping[rebuild] || colorPalette['ash-grey'];
       } else if (currentColorMode === 'captain') {
         const captain = getAddressCaptainAssigned(address);
         if (!captain) return colorPalette['ash-grey'];
@@ -6002,6 +6029,11 @@
         if (damageLower.includes('partial')) return colorPalette['light-caramel'];
         if (damageLower.includes('standing')) return colorPalette['sky-blue-light'];
         return colorPalette['ash-grey'];
+      } else if (homeColorMode === 'rebuild') {
+        const rebuild = getAddressRebuildStatus(address);
+        if (!rebuild) return colorPalette['ash-grey'];
+        const rebuildColorMapping = getRebuildColorMapping();
+        return rebuildColorMapping[rebuild] || colorPalette['ash-grey'];
       } else if (homeColorMode === 'captain') {
         const captain = getAddressCaptainAssigned(address);
         if (!captain) return colorPalette['ash-grey'];
@@ -6078,6 +6110,22 @@
               <div style="display: flex; align-items: center;">
                 <div style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPalette['ash-grey']}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
                 <span style="font-size: 0.7rem;">Unknown</span>
+              </div>
+            `;
+          } else if (mode === 'rebuild') {
+            const rebuildColorMapping = getRebuildColorMapping();
+            const stages = Object.keys(rebuildColorMapping);
+            html = `
+              <div style="font-weight: 600; margin-bottom: 8px; color: #283618; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Rebuild Status</div>
+              ${stages.map(stage => `
+                <div style="display: flex; align-items: center; margin-bottom: 6px;">
+                  <div style="width: 16px; height: 16px; border-radius: 50%; background: ${rebuildColorMapping[stage]}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
+                  <span style="font-size: 0.7rem;">${escapeHtml(stage)}</span>
+                </div>
+              `).join('')}
+              <div style="display: flex; align-items: center;">
+                <div style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPalette['ash-grey']}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
+                <span style="font-size: 0.7rem;">Not set</span>
               </div>
             `;
           } else if (mode === 'captain') {
@@ -6160,6 +6208,22 @@
               <div style="display: flex; align-items: center;">
                 <div style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPalette['ash-grey']}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
                 <span style="font-size: 0.7rem;">Unknown</span>
+              </div>
+            `;
+          } else if (mode === 'rebuild') {
+            const rebuildColorMapping = getRebuildColorMapping();
+            const stages = Object.keys(rebuildColorMapping);
+            html = `
+              <div style="font-weight: 600; margin-bottom: 8px; color: #283618; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Rebuild Status</div>
+              ${stages.map(stage => `
+                <div style="display: flex; align-items: center; margin-bottom: 6px;">
+                  <div style="width: 16px; height: 16px; border-radius: 50%; background: ${rebuildColorMapping[stage]}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
+                  <span style="font-size: 0.7rem;">${escapeHtml(stage)}</span>
+                </div>
+              `).join('')}
+              <div style="display: flex; align-items: center;">
+                <div style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPalette['ash-grey']}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
+                <span style="font-size: 0.7rem;">Not set</span>
               </div>
             `;
           } else if (mode === 'captain') {
@@ -6251,6 +6315,15 @@
             if (homeColorMode !== 'damage') damageBtn.style.background = 'white';
           };
           
+          // Rebuild Status button
+          const rebuildBtn = L.DomUtil.create('button', 'color-filter-btn', container);
+          rebuildBtn.textContent = 'Rebuild Status';
+          rebuildBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
+          rebuildBtn.onmouseover = () => rebuildBtn.style.background = '#f5f5f5';
+          rebuildBtn.onmouseout = () => {
+            if (homeColorMode !== 'rebuild') rebuildBtn.style.background = 'white';
+          };
+          
           // Captain Assigned button (only if zone has multiple captains)
           let captainBtn = null;
           if (hasMultipleCaptains && captainAssignedCol) {
@@ -6269,6 +6342,8 @@
             contactBtn.style.fontWeight = 'normal';
             damageBtn.style.background = 'white';
             damageBtn.style.fontWeight = 'normal';
+            rebuildBtn.style.background = 'white';
+            rebuildBtn.style.fontWeight = 'normal';
             if (captainBtn) {
               captainBtn.style.background = 'white';
               captainBtn.style.fontWeight = 'normal';
@@ -6302,6 +6377,21 @@
               damageBtn.style.background = '#e8f4f8';
               damageBtn.style.fontWeight = '600';
               showHomeColorLegend('damage');
+            }
+            recolorHomeMapMarkers();
+          };
+          
+          rebuildBtn.onclick = () => {
+            if (homeColorMode === 'rebuild') {
+              homeColorMode = null;
+              resetButtons();
+              hideHomeColorLegend();
+            } else {
+              homeColorMode = 'rebuild';
+              resetButtons();
+              rebuildBtn.style.background = '#e8f4f8';
+              rebuildBtn.style.fontWeight = '600';
+              showHomeColorLegend('rebuild');
             }
             recolorHomeMapMarkers();
           };
@@ -6354,16 +6444,17 @@
         return;
       }
       
-      // Find the color filter control buttons
+      // Find the color filter control buttons (order: Contact, Damage, Rebuild, Captain optional)
       const controlContainer = document.querySelector('.color-filter-control');
       if (!controlContainer) return;
       
       const buttons = controlContainer.querySelectorAll('button');
-      if (buttons.length < 2) return;
+      if (buttons.length < 3) return;
       
       const contactBtn = buttons[0];
       const damageBtn = buttons[1];
-      const captainBtn = buttons.length > 2 ? buttons[2] : null;
+      const rebuildBtn = buttons[2];
+      const captainBtn = buttons.length > 3 ? buttons[3] : null;
       
       // Helper function to reset all buttons
       const resetButtons = () => {
@@ -6371,6 +6462,8 @@
         contactBtn.style.fontWeight = 'normal';
         damageBtn.style.background = 'white';
         damageBtn.style.fontWeight = 'normal';
+        rebuildBtn.style.background = 'white';
+        rebuildBtn.style.fontWeight = 'normal';
         if (captainBtn) {
           captainBtn.style.background = 'white';
           captainBtn.style.fontWeight = 'normal';
@@ -6389,6 +6482,12 @@
         damageBtn.style.background = '#e8f4f8';
         damageBtn.style.fontWeight = '600';
         showColorLegend('damage');
+      } else if (savedColorMode === 'rebuild') {
+        currentColorMode = 'rebuild';
+        resetButtons();
+        rebuildBtn.style.background = '#e8f4f8';
+        rebuildBtn.style.fontWeight = '600';
+        showColorLegend('rebuild');
       } else if (savedColorMode === 'captain' && captainBtn) {
         currentColorMode = 'captain';
         resetButtons();
@@ -6436,9 +6535,9 @@
           const controlContainer = existingControl.closest('.leaflet-control-container');
           
           if (controlContainer && mapContainer.contains(controlContainer)) {
-            // Check if control has the right number of buttons
+            // Check if control has the right number of buttons (Contact, Damage, Rebuild, + optional Captain)
             const buttons = existingControl.querySelectorAll('button');
-            const hasCaptainBtn = buttons.length > 2;
+            const hasCaptainBtn = buttons.length > 3;
             
             // If captain button state doesn't match, recreate the control
             if (shouldHaveCaptainBtn !== hasCaptainBtn) {
@@ -6488,8 +6587,8 @@
         setTimeout(() => {
           const newControl = document.querySelector('.color-filter-control');
           const buttons = newControl ? newControl.querySelectorAll('button') : [];
-          if (!newControl || buttons.length < 2) {
-            // Control creation failed or buttons missing, try again
+          if (!newControl || buttons.length < 3) {
+            // Control creation failed or buttons missing (need at least Contact, Damage, Rebuild), try again
             if (newControl && newControl.parentNode) {
               newControl.parentNode.removeChild(newControl);
             }
@@ -6600,6 +6699,15 @@
             if (currentColorMode !== 'damage') damageBtn.style.background = 'white';
           };
           
+          // Rebuild Status button
+          const rebuildBtn = L.DomUtil.create('button', 'color-filter-btn', container);
+          rebuildBtn.textContent = 'Rebuild Status';
+          rebuildBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
+          rebuildBtn.onmouseover = () => rebuildBtn.style.background = '#f5f5f5';
+          rebuildBtn.onmouseout = () => {
+            if (currentColorMode !== 'rebuild') rebuildBtn.style.background = 'white';
+          };
+          
           // Captain Assigned button (only if zone has multiple captains)
           let captainBtn = null;
           if (hasMultipleCaptains && captainAssignedCol) {
@@ -6618,6 +6726,8 @@
             contactBtn.style.fontWeight = 'normal';
             damageBtn.style.background = 'white';
             damageBtn.style.fontWeight = 'normal';
+            rebuildBtn.style.background = 'white';
+            rebuildBtn.style.fontWeight = 'normal';
             if (captainBtn) {
               captainBtn.style.background = 'white';
               captainBtn.style.fontWeight = 'normal';
@@ -6655,6 +6765,23 @@
               damageBtn.style.fontWeight = '600';
               showColorLegend('damage');
               localStorage.setItem('currentColorMode', 'damage');
+            }
+            recolorMarkers();
+          };
+          
+          rebuildBtn.onclick = () => {
+            if (currentColorMode === 'rebuild') {
+              currentColorMode = null;
+              resetButtons();
+              hideColorLegend();
+              localStorage.setItem('currentColorMode', '');
+            } else {
+              currentColorMode = 'rebuild';
+              resetButtons();
+              rebuildBtn.style.background = '#e8f4f8';
+              rebuildBtn.style.fontWeight = '600';
+              showColorLegend('rebuild');
+              localStorage.setItem('currentColorMode', 'rebuild');
             }
             recolorMarkers();
           };
