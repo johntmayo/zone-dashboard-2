@@ -767,7 +767,7 @@
       'Planning/Not Ready to Build Yet',
       'Permits & Pre-Construction',
       'Under Construction',
-      'Finishing / Preparing to Move Back',
+      'Finishing/Preparing to Move Back',
       'Moved Back In'
     ];
     let tableSortColumn = null; // Current sort column
@@ -1948,6 +1948,12 @@
       return [...DEFAULT_PROPERTY_STATUS_VALUES, ...custom];
     }
 
+    // Normalize rebuild status label (remove spaces around slashes) for consistent display
+    function normalizeRebuildStatusLabel(str) {
+      if (!str || typeof str !== 'string') return str || '';
+      return str.trim().replace(/\s*\/\s*/g, '/');
+    }
+
     // Get all rebuild status options for filter: full sequential list first, then any custom from data
     function getFullRebuildStatusOptions() {
       if (!sheetData || !sheetData.headers) return [...REBUILD_STAGES_SEQUENTIAL];
@@ -1957,7 +1963,7 @@
       sheetData.data.forEach(row => {
         if (row[rebuildCol] !== undefined && row[rebuildCol] !== null) {
           const v = String(row[rebuildCol]).trim();
-          if (v) fromData.add(v);
+          if (v) fromData.add(normalizeRebuildStatusLabel(v));
         }
       });
       const custom = Array.from(fromData).filter(s => !REBUILD_STAGES_SEQUENTIAL.some(stage => stage.toLowerCase().trim() === s.toLowerCase().trim())).sort();
@@ -2127,13 +2133,14 @@
       return null;
     }
 
-    // Get rebuild status value for an address
+    // Get rebuild status value for an address (normalized for display: no spaces around slashes)
     function getAddressRebuildStatus(address) {
       const rebuildCol = findColumn(sheetData.headers, 'rebuild');
       if (!rebuildCol) return null;
       const rows = sheetData.addressMap.get(address);
       if (rows && rows.length > 0) {
-        return rows[0][rebuildCol]?.trim() || null;
+        const raw = rows[0][rebuildCol]?.trim() || null;
+        return raw ? normalizeRebuildStatusLabel(raw) : null;
       }
       return null;
     }
@@ -3584,7 +3591,7 @@
         if (currentRebuildFilter !== 'all' && rebuildCol) {
           const rows = sheetData.addressMap.get(addr);
           if (rows && rows[0]) {
-            const rebuildValue = (rows[0][rebuildCol] || '').trim();
+            const rebuildValue = normalizeRebuildStatusLabel((rows[0][rebuildCol] || '').trim());
             if (rebuildValue !== currentRebuildFilter) return false;
           } else {
             return false;
@@ -3677,7 +3684,7 @@
                 }
                 const damage = damageCol && rows && rows[0] ? (rows[0][damageCol] || '').trim() : '';
                 const status = statusCol && rows && rows[0] ? (rows[0][statusCol] || '').trim() : '';
-                const rebuild = rebuildCol && rows && rows[0] ? (rows[0][rebuildCol] || '').trim() : '';
+                const rebuild = rebuildCol && rows && rows[0] ? normalizeRebuildStatusLabel((rows[0][rebuildCol] || '').trim()) : '';
                 const age = ageCol && rows && rows[0] ? (rows[0][ageCol] || '').trim() : '';
                 const phone = phoneCol && rows && rows[0] ? (rows[0][phoneCol] || '').trim() : '';
                 const email = emailCol && rows && rows[0] ? (rows[0][emailCol] || '').trim() : '';
@@ -3823,7 +3830,7 @@
         if (currentRebuildFilter !== 'all' && rebuildCol) {
           const rows = sheetData.addressMap.get(addr);
           if (rows && rows[0]) {
-            const rebuildValue = (rows[0][rebuildCol] || '').trim();
+            const rebuildValue = normalizeRebuildStatusLabel((rows[0][rebuildCol] || '').trim());
             if (rebuildValue !== currentRebuildFilter) return false;
           } else {
             return false;
@@ -4345,7 +4352,7 @@
         if (currentRebuildFilter !== 'all' && rebuildCol) {
           const rows = sheetData.addressMap.get(addr);
           if (rows && rows[0]) {
-            const rebuildValue = (rows[0][rebuildCol] || '').trim();
+            const rebuildValue = normalizeRebuildStatusLabel((rows[0][rebuildCol] || '').trim());
             if (rebuildValue !== currentRebuildFilter) return false;
           } else {
             return false;
@@ -4663,9 +4670,10 @@
                 'Planning/Not Ready to Build Yet',
                 'Permits & Pre-Construction',
                 'Under Construction',
-                'Finishing / Preparing to Move Back',
+                'Finishing/Preparing to Move Back',
                 'Moved Back In'
               ];
+              const normalizedFirst = normalizeRebuildStatusLabel(firstRowValue);
               const rebuildStageId = `rebuild-stage-${address.replace(/[^a-zA-Z0-9]/g, '-')}`;
               const rebuildStageStyle = showRebuildStage ? '' : 'style="display: none;"';
               html += `<div class="person-info rebuild-stage-field" id="${rebuildStageId}" ${rebuildStageStyle}>
@@ -4674,9 +4682,9 @@
                         data-address="${address.replace(/"/g, '&quot;')}" 
                         data-address-level="true"
                         data-column="${col}"
-                        data-original-value="${firstRowValue.replace(/"/g, '&quot;')}">
+                        data-original-value="${(firstRowValue || '').replace(/"/g, '&quot;')}">
                   <option value="">(not set)</option>
-                  ${rebuildStageOptions.map(opt => `<option value="${opt.replace(/"/g, '&quot;')}" ${opt === firstRowValue ? 'selected' : ''}>${opt}</option>`).join('')}
+                  ${rebuildStageOptions.map(opt => `<option value="${opt.replace(/"/g, '&quot;')}" ${opt === normalizedFirst ? 'selected' : ''}>${opt}</option>`).join('')}
                 </select>
               </div>`;
             } else if (isCaptainAssigned && hasMultipleCaptains && captains.length > 0) {
@@ -6845,7 +6853,7 @@
       if (!zoneMap) {
         try {
           // Default center (Altadena, CA - adjust as needed)
-          zoneMap = L.map('zoneMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 10);
+          zoneMap = L.map('zoneMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 12);
           
           // Add CartoDB Voyager tiles (warm, colorful with labels)
           currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -7724,7 +7732,7 @@
         if (currentRebuildFilter !== 'all' && rebuildCol) {
           const rows = sheetData.addressMap.get(address);
           if (rows && rows[0]) {
-            const rebuildValue = (rows[0][rebuildCol] || '').trim();
+            const rebuildValue = normalizeRebuildStatusLabel((rows[0][rebuildCol] || '').trim());
             if (rebuildValue !== currentRebuildFilter) return false;
           } else {
             return false;
@@ -8619,7 +8627,7 @@
         'Planning/Not Ready to Build Yet',
         'Permits & Pre-Construction',
         'Under Construction',
-        'Finishing / Preparing to Move Back',
+        'Finishing/Preparing to Move Back',
         'Moved Back In'
       ];
       
@@ -8790,7 +8798,7 @@
           'Planning/Not Ready to Build Yet',
           'Permits & Pre-Construction',
           'Under Construction',
-          'Finishing / Preparing to Move Back',
+          'Finishing/Preparing to Move Back',
           'Moved Back In'
         ];
         
@@ -12158,7 +12166,7 @@
           'Planning/Not Ready to Build Yet',
           'Permits & Pre-Construction',
           'Under Construction',
-          'Finishing / Preparing to Move Back',
+          'Finishing/Preparing to Move Back',
           'Moved Back In'
         ];
         
