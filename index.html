@@ -6063,14 +6063,14 @@
 
     // Color palette
     const colorPalette = {
-      'dry-sage': '#b4bd9b',
+      'dry-sage': '#afc892',
       'dusty-mauve': '#bc455a',
       'light-caramel': '#fdba77',
       'apricot-cream': '#f6cf98',
       'sky-blue-light': '#81bdc3',
       'floral-white': '#fdf8ec',
       'soft-blush': '#f9d6d3',
-      'ash-grey': '#ccd5c3'
+      'ash-grey': '#e5e5e5'
     };
 
     // Get captain color mapping (assigns colors to unique captain names)
@@ -8405,7 +8405,7 @@
             labels: [`Contacted (${peopleContactedPct}%)`, `Not Contacted (${peopleNotContactedPct}%)`],
             datasets: [{
               data: [peopleContacted, peopleNotContacted],
-              backgroundColor: ['#b4bd9b', '#bc455a'],
+              backgroundColor: ['#afc892', '#bc455a'],
               borderWidth: 2,
               borderColor: '#fff'
             }]
@@ -8474,7 +8474,7 @@
             labels: [`Contacted (${householdsContactedPct}%)`, `Not Contacted (${householdsNotContactedPct}%)`],
             datasets: [{
               data: [householdsContactedCount, householdsNotContactedCount],
-              backgroundColor: ['#b4bd9b', '#bc455a'],
+              backgroundColor: ['#afc892', '#bc455a'],
               borderWidth: 2,
               borderColor: '#fff'
             }]
@@ -8541,7 +8541,7 @@
         if (labelLower.includes('total')) return '#bc455a'; // Red - total loss
         if (labelLower.includes('partial')) return '#fdba77'; // Yellow - partial loss
         if (labelLower.includes('standing')) return '#81bdc3'; // Blue - standing
-        return '#ccd5c3'; // Pale green/gray - unknown
+        return '#e5e5e5'; // Pale green/gray - unknown
       };
       const damageColors = damageLabels.map(label => getDamageColor(label));
 
@@ -8615,7 +8615,7 @@
         return `${label} (${pct}%)`;
       });
       
-      const statusColors = ['#b4bd9b', '#81bdc3', '#fdba77', '#f6cf98', '#bc455a', '#ccd5c3', '#f9d6d3'];
+      const statusColors = ['#afc892', '#81bdc3', '#fdba77', '#f6cf98', '#bc455a', '#e5e5e5', '#f9d6d3'];
 
       const statusCtx = document.getElementById('householdStatusChart');
       if (householdStatusChart) householdStatusChart.destroy();
@@ -8697,7 +8697,7 @@
         statusData.push(statusUnknown);
       }
       
-      const statusColors = ['#b4bd9b', '#81bdc3', '#fdba77', '#f6cf98', '#bc455a', '#ccd5c3', '#f9d6d3'];
+      const statusColors = ['#afc892', '#81bdc3', '#fdba77', '#f6cf98', '#bc455a', '#e5e5e5', '#f9d6d3'];
       
       const statusCtx = document.getElementById('householdStatusChart');
       if (householdStatusChart) householdStatusChart.destroy();
@@ -8837,7 +8837,7 @@
       const rebuildData = allRebuildLabels.map(label => rebuildCounts[label] || 0);
       
       // Show all stages even if they're zero (as requested)
-      const rebuildColors = ['#9e9e9e', '#bc455a', '#fdba77', '#f6cf98', '#b4bd9b', '#81bdc3', '#ccd5c3', '#f9d6d3', '#e0e0e0', '#d4a574', '#c8a2c8', '#a8d8ea'];
+      const rebuildColors = ['#9e9e9e', '#bc455a', '#fdba77', '#f6cf98', '#afc892', '#81bdc3', '#e5e5e5', '#f9d6d3', '#e0e0e0', '#d4a574', '#c8a2c8', '#a8d8ea'];
       
       const rebuildCtx = document.getElementById('rebuildStatusChart');
       if (rebuildStatusChart) rebuildStatusChart.destroy();
@@ -9701,7 +9701,7 @@
               if (labelLower.includes('total')) return '#bc455a'; // Red - total loss
               if (labelLower.includes('partial')) return '#fdba77'; // Yellow - partial loss
               if (labelLower.includes('standing')) return '#81bdc3'; // Blue - standing
-              return '#ccd5c3'; // Pale green/gray - unknown
+              return '#e5e5e5'; // Pale green/gray - unknown
             };
             const damageColors = damageData.labels.map(label => getDamageColor(label));
             const labelsWithCount = damageData.labels.map((label, i) => `${label} (${damageData.data[i]})`);
@@ -9724,7 +9724,7 @@
           canvasId: 'zoneOverviewHouseholdChart',
           render: () => {
             const statusData = getHouseholdStatusData(headers, data, addressMap);
-            const statusColors = ['#b4bd9b', '#81bdc3', '#fdba77', '#f6cf98', '#bc455a', '#ccd5c3', '#f9d6d3'];
+            const statusColors = ['#afc892', '#81bdc3', '#fdba77', '#f6cf98', '#bc455a', '#e5e5e5', '#f9d6d3'];
             const labelsWithCount = statusData.labels.map((label, i) => `${label} (${statusData.data[i]})`);
             return {
               type: 'doughnut',
@@ -9784,7 +9784,7 @@
                 datasets: [{
                   label: 'Addresses',
                   data: peopleData.data,
-                  backgroundColor: '#b4bd9b',
+                  backgroundColor: '#afc892',
                   borderColor: '#606C38',
                   borderWidth: 1
                 }]
@@ -9805,7 +9805,7 @@
           render: () => {
             const rebuildData = getRebuildStatusData(headers, addressMap);
             if (rebuildData.labels.length === 0) return null;
-            const rebuildColors = ['#9e9e9e', '#bc455a', '#fdba77', '#f6cf98', '#b4bd9b', '#81bdc3', '#ccd5c3', '#f9d6d3'];
+            const rebuildColors = ['#9e9e9e', '#bc455a', '#fdba77', '#f6cf98', '#afc892', '#81bdc3', '#e5e5e5', '#f9d6d3'];
             const labelsWithCount = rebuildData.labels.map((label, i) => `${label} (${rebuildData.data[i]})`);
             return {
               type: 'doughnut',
@@ -12218,7 +12218,7 @@
           if (labelLower.includes('total')) return '#bc455a'; // Red - total loss
           if (labelLower.includes('partial')) return '#fdba77'; // Yellow - partial loss
           if (labelLower.includes('standing')) return '#81bdc3'; // Blue - standing
-          return '#ccd5c3'; // Pale green/gray - unknown
+          return '#e5e5e5'; // Pale green/gray - unknown
         };
         const damageColors = damageLabels.map(label => getDamageColor(label));
         
@@ -12277,7 +12277,7 @@
           const pct = statusTotal > 0 ? ((value / statusTotal) * 100).toFixed(1) : '0';
           return `${label || 'Not Set'} (${pct}%)`;
         });
-        const statusColors = ['#b4bd9b', '#81bdc3', '#fdba77', '#f6cf98', '#bc455a', '#ccd5c3', '#f9d6d3'];
+        const statusColors = ['#afc892', '#81bdc3', '#fdba77', '#f6cf98', '#bc455a', '#e5e5e5', '#f9d6d3'];
         
         new Chart(statusCtx, {
           type: 'pie',
@@ -12368,7 +12368,7 @@
         // Generate data array for all labels (use 0 if stage doesn't exist in rebuildCounts)
         const rebuildData = allRebuildLabels.map(label => rebuildCounts[label] || 0);
         
-        const rebuildColors = ['#9e9e9e', '#bc455a', '#fdba77', '#f6cf98', '#b4bd9b', '#81bdc3', '#ccd5c3', '#f9d6d3', '#e0e0e0', '#d4a574', '#c8a2c8', '#a8d8ea'];
+        const rebuildColors = ['#9e9e9e', '#bc455a', '#fdba77', '#f6cf98', '#afc892', '#81bdc3', '#e5e5e5', '#f9d6d3', '#e0e0e0', '#d4a574', '#c8a2c8', '#a8d8ea'];
         
         new Chart(rebuildCtx, {
           type: 'bar',
@@ -12464,7 +12464,7 @@
             labels: [`Contacted (${contactedPct}%)`, `Uncontacted (${uncontactedPct}%)`],
             datasets: [{
               data: [contacted, uncontacted],
-              backgroundColor: ['#b4bd9b', '#bc455a'],
+              backgroundColor: ['#afc892', '#bc455a'],
               borderWidth: 2,
               borderColor: '#fff'
             }]
@@ -12509,7 +12509,7 @@
         
         const streetLabels = streetEntries.map(([street]) => street || 'Unknown');
         const streetData = streetEntries.map(([, data]) => data.addresses);
-        const streetColors = ['#b4bd9b', '#81bdc3', '#fdba77', '#f6cf98', '#bc455a', '#ccd5c3', '#f9d6d3', '#d4a574', '#a8c090', '#e8c4a0'];
+        const streetColors = ['#afc892', '#81bdc3', '#fdba77', '#f6cf98', '#bc455a', '#e5e5e5', '#f9d6d3', '#d4a574', '#a8c090', '#e8c4a0'];
         
         new Chart(streetCtx, {
           type: 'bar',
