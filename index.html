@@ -4499,7 +4499,6 @@
         'rebuild status',
         'for sale',
         'recently sold',
-        'real estate notes',
         'unit type'
       ];
       
@@ -4731,54 +4730,51 @@
             }
           }
         });
-        
-        html += '</div>';
-      }
 
-      // Address Tags: expandable section (collapsed by default) - For Sale, Recently Sold, Real Estate Notes, Unit Type
-      const forSaleCol = findColumn(headers, ['for', 'sale']);
-      const recentlySoldCol = findColumn(headers, ['recently', 'sold']);
-      const realEstateNotesCol = findColumn(headers, ['real estate', 'notes']);
-      const unitTypeCol = findColumn(headers, ['unit', 'type']);
-      const hasAddressTagsCols = forSaleCol || recentlySoldCol || realEstateNotesCol || unitTypeCol;
-      if (hasAddressTagsCols) {
-        const firstRow = rows[0] || {};
-        const forSaleVal = forSaleCol ? (firstRow[forSaleCol] || '').trim() : '';
-        const recentlySoldVal = recentlySoldCol ? (firstRow[recentlySoldCol] || '').trim() : '';
-        const realEstateNotesVal = realEstateNotesCol ? (firstRow[realEstateNotesCol] || '').trim() : '';
-        const unitTypeVal = unitTypeCol ? (firstRow[unitTypeCol] || '').trim() : '';
-        const unitTypeOptions = ['Owner occupied', 'Rental', 'Commercial', 'Other'];
-        const forSaleLower = forSaleVal.toLowerCase();
-        const recentlySoldLower = recentlySoldVal.toLowerCase();
-        const forSaleChecked = forSaleLower === 'true' || forSaleVal === 'TRUE' || forSaleLower === 'yes' ||
-          (forSaleVal !== '' && forSaleLower !== 'false' && forSaleVal !== 'FALSE' && forSaleLower !== 'no');
-        const recentlySoldChecked = recentlySoldLower === 'true' || recentlySoldVal === 'TRUE' || recentlySoldLower === 'yes' ||
-          (recentlySoldVal !== '' && recentlySoldLower !== 'false' && recentlySoldVal !== 'FALSE' && recentlySoldLower !== 'no');
-        html += '<details class="address-tags-section" style="margin-top:12px; background: rgba(255,255,255,0.7); padding: 12px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 1px 3px rgba(0,0,0,0.04);">';
-        html += '<summary style="cursor:pointer; font-weight:700; font-family: Chivo, sans-serif;">Address Tags</summary>';
-        html += '<div style="margin-top:12px; padding-left:0;">';
-        if (forSaleCol) {
-          html += `<div class="person-info"><label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-            <input type="checkbox" class="editable-checkbox" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${forSaleCol}" data-original-value="${forSaleVal.replace(/"/g, '&quot;')}" ${forSaleChecked ? 'checked' : ''} style="width:18px; height:18px;">
-            <strong>For Sale</strong></label></div>`;
+        // Address Tags: expandable section (collapsed by default) - Unit Type, For Sale, Recently Sold
+        const unitTypeCol = findColumn(headers, ['unit', 'type']);
+        const forSaleCol = findColumn(headers, ['for', 'sale']);
+        const recentlySoldCol = findColumn(headers, ['recently', 'sold']);
+        const hasAddressTagsCols = unitTypeCol || forSaleCol || recentlySoldCol;
+        if (hasAddressTagsCols) {
+          const firstRow = rows[0] || {};
+          const unitTypeVal = unitTypeCol ? (firstRow[unitTypeCol] || '').trim() : '';
+          const forSaleVal = forSaleCol ? (firstRow[forSaleCol] || '').trim() : '';
+          const recentlySoldVal = recentlySoldCol ? (firstRow[recentlySoldCol] || '').trim() : '';
+          const unitTypeOptions = ['Owner Occupied', 'Rental', 'Commercial', 'Other'];
+          const forSaleLower = forSaleVal.toLowerCase();
+          const recentlySoldLower = recentlySoldVal.toLowerCase();
+          const forSaleChecked = forSaleLower === 'true' || forSaleVal === 'TRUE' || forSaleLower === 'yes' ||
+            (forSaleVal !== '' && forSaleLower !== 'false' && forSaleVal !== 'FALSE' && forSaleLower !== 'no');
+          const recentlySoldChecked = recentlySoldLower === 'true' || recentlySoldVal === 'TRUE' || recentlySoldLower === 'yes' ||
+            (recentlySoldVal !== '' && recentlySoldLower !== 'false' && recentlySoldVal !== 'FALSE' && recentlySoldLower !== 'no');
+          html += '<details class="address-tags-section" style="margin-top:12px;">';
+          html += '<summary style="cursor:pointer; font-weight:700; font-family: Chivo, sans-serif;">Address Tags</summary>';
+          html += '<div style="margin-top:12px; padding-left:0;">';
+          if (unitTypeCol) {
+            html += `<div class="person-info"><strong>Unit Type:</strong>
+              <select class="editable-dropdown" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${unitTypeCol}" data-original-value="${unitTypeVal.replace(/"/g, '&quot;')}" style="margin-top:4px;">
+                <option value="">(not set)</option>
+                ${unitTypeOptions.map(opt => {
+                  const isSelected = unitTypeVal && opt.toLowerCase() === unitTypeVal.toLowerCase();
+                  return `<option value="${opt.replace(/"/g, '&quot;')}" ${isSelected ? 'selected' : ''}>${opt}</option>`;
+                }).join('')}
+              </select></div>`;
+          }
+          if (forSaleCol) {
+            html += `<div class="person-info"><label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" class="editable-checkbox" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${forSaleCol}" data-original-value="${forSaleVal.replace(/"/g, '&quot;')}" ${forSaleChecked ? 'checked' : ''} style="width:18px; height:18px;">
+              <strong>For Sale</strong></label></div>`;
+          }
+          if (recentlySoldCol) {
+            html += `<div class="person-info"><label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" class="editable-checkbox" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${recentlySoldCol}" data-original-value="${recentlySoldVal.replace(/"/g, '&quot;')}" ${recentlySoldChecked ? 'checked' : ''} style="width:18px; height:18px;">
+              <strong>Recently Sold</strong></label></div>`;
+          }
+          html += '</div></details>';
         }
-        if (recentlySoldCol) {
-          html += `<div class="person-info"><label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-            <input type="checkbox" class="editable-checkbox" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${recentlySoldCol}" data-original-value="${recentlySoldVal.replace(/"/g, '&quot;')}" ${recentlySoldChecked ? 'checked' : ''} style="width:18px; height:18px;">
-            <strong>Recently Sold</strong></label></div>`;
-        }
-        if (realEstateNotesCol) {
-          html += `<div class="person-info"><strong>Real Estate Notes:</strong>
-            <textarea class="editable-notes" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${realEstateNotesCol}" data-original-value="${realEstateNotesVal.replace(/"/g, '&quot;')}" rows="4" style="width:100%; margin-top:4px; box-sizing:border-box;">${realEstateNotesVal}</textarea></div>`;
-        }
-        if (unitTypeCol) {
-          html += `<div class="person-info"><strong>Unit Type:</strong>
-            <select class="editable-dropdown" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${unitTypeCol}" data-original-value="${unitTypeVal.replace(/"/g, '&quot;')}" style="margin-top:4px;">
-              <option value="">(not set)</option>
-              ${unitTypeOptions.map(opt => `<option value="${opt.replace(/"/g, '&quot;')}" ${opt === unitTypeVal ? 'selected' : ''}>${opt}</option>`).join('')}
-            </select></div>`;
-        }
-        html += '</div></details>';
+
+        html += '</div>';
       }
 
       // Check if contact mode is active
