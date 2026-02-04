@@ -211,7 +211,7 @@
                       <canvas id="zoneOverviewRightRebuildChart"></canvas>
                     </div>
                     <div class="chart-container-small chart-carousel-slide" data-chart-index="2">
-                      <div class="chart-title">Real Estate Status</div>
+                      <div class="chart-title">Address Plan</div>
                       <canvas id="zoneOverviewRightHouseholdChart"></canvas>
                     </div>
                   </div>
@@ -275,7 +275,7 @@
             <div class="home-panel-content">
               <div class="charts-grid" id="homeChartsGrid">
                 <div class="chart-container">
-                  <div class="chart-title">Real Estate Status</div>
+                  <div class="chart-title">Address Plan</div>
                   <canvas id="householdStatusChart"></canvas>
                 </div>
                 <div class="chart-container">
@@ -481,7 +481,7 @@
           <div class="tool-module tool-module--featured" id="batchTaggingTool">
             <div class="tool-module-header" style="cursor: pointer;">
               <h3>Batch Tagging <span class="tool-module-toggle">▼</span></h3>
-              <p>Quickly set Damage, Intent to Rebuild, Real Estate Status, and Rebuild Status for many addresses at once. Select addresses (optionally filter first in Neighbors), choose values, then Apply.</p>
+              <p>Quickly set Damage, Address Plan, and Rebuild Status for many addresses at once. Select addresses (optionally filter first in Neighbors), choose values, then Apply.</p>
             </div>
             <div class="tool-module-content">
               <div id="batchTaggingError" class="hidden" style="padding:12px; margin-bottom:16px; background:rgba(200,0,0,0.1); border:1px solid #c00; border-radius:8px; color:#c00; font-weight:600;"></div>
@@ -500,12 +500,8 @@
                     <select id="batchTaggingDamage" class="add-record-select" style="min-width:160px;"></select>
                   </div>
                   <div>
-                    <label style="display:block; margin-bottom:4px; font-weight:600;">Intent to Rebuild</label>
-                    <select id="batchTaggingIntent" class="add-record-select" style="min-width:160px;"></select>
-                  </div>
-                  <div>
-                    <label style="display:block; margin-bottom:4px; font-weight:600;">Real Estate Status</label>
-                    <select id="batchTaggingRealEstate" class="add-record-select" style="min-width:160px;"></select>
+                    <label style="display:block; margin-bottom:4px; font-weight:600;">Address Plan</label>
+                    <select id="batchTaggingAddressPlan" class="add-record-select" style="min-width:160px;"></select>
                   </div>
                   <div>
                     <label style="display:block; margin-bottom:4px; font-weight:600;">Rebuild Status</label>
@@ -760,8 +756,7 @@
     let currentSheetId = null; // Current sheet ID for writing
     let currentStreetFilter = 'all'; // Current street filter
     let currentDamageFilter = 'all'; // Current damage filter
-    let currentIntentFilter = 'all'; // Current Intent to Rebuild filter
-    let currentRealEstateFilter = 'all'; // Current Real Estate Status filter
+    let currentAddressPlanFilter = 'all'; // Current Address Plan filter (only when Damage = Partial/Total Loss)
     let currentRebuildFilter = 'all'; // Current rebuild status filter
     let currentCaptainFilter = 'all'; // Current captain assigned filter
     let showContactedAddresses = true; // Show addresses with contacted people
@@ -1762,8 +1757,7 @@
         // Reset filters when loading new data
         currentStreetFilter = 'all';
         currentDamageFilter = 'all';
-        currentIntentFilter = 'all';
-        currentRealEstateFilter = 'all';
+        currentAddressPlanFilter = 'all';
         currentCaptainFilter = 'all';
         
         // Extract zone name from ZoneName column if available
@@ -1920,8 +1914,7 @@
 
     // Full option lists for filters (always show all options; empty result is user's problem)
     const DEFAULT_DAMAGE_VALUES = ['Total Loss', 'Partial Loss', 'Standing'];
-    const INTENT_TO_REBUILD_OPTIONS = ['Unknown', 'Undecided', 'Rebuilding'];
-    const REAL_ESTATE_STATUS_OPTIONS = ['For Sale', 'Sold'];
+    const ADDRESS_PLAN_OPTIONS = ['Undecided', 'Rebuilding', 'Selling'];
 
     // Get all damage options for filter: full list always, then any custom values from data
     function getFullDamageOptions() {
@@ -1939,36 +1932,20 @@
       return [...DEFAULT_DAMAGE_VALUES, ...custom];
     }
 
-    // Get all Intent to Rebuild options for filter (only shown when Damage = Partial/Total Loss)
-    function getFullIntentOptions() {
-      if (!sheetData || !sheetData.headers) return [...INTENT_TO_REBUILD_OPTIONS];
-      const intentCol = findColumn(sheetData.headers, ['intent', 'rebuild']);
-      if (!intentCol) return [...INTENT_TO_REBUILD_OPTIONS];
+    // Get all Address Plan options for filter (only shown when Damage = Partial/Total Loss)
+    function getFullAddressPlanOptions() {
+      if (!sheetData || !sheetData.headers) return [...ADDRESS_PLAN_OPTIONS];
+      const addressPlanCol = findColumn(sheetData.headers, ['address', 'plan'], ['note']);
+      if (!addressPlanCol) return [...ADDRESS_PLAN_OPTIONS];
       const fromData = new Set();
       sheetData.data.forEach(row => {
-        if (row[intentCol] !== undefined && row[intentCol] !== null) {
-          const v = String(row[intentCol]).trim();
+        if (row[addressPlanCol] !== undefined && row[addressPlanCol] !== null) {
+          const v = String(row[addressPlanCol]).trim();
           if (v) fromData.add(v);
         }
       });
-      const custom = Array.from(fromData).filter(s => !INTENT_TO_REBUILD_OPTIONS.some(def => def.toLowerCase() === s.toLowerCase())).sort();
-      return [...INTENT_TO_REBUILD_OPTIONS, ...custom];
-    }
-
-    // Get all Real Estate Status options for filter
-    function getFullRealEstateOptions() {
-      if (!sheetData || !sheetData.headers) return [...REAL_ESTATE_STATUS_OPTIONS];
-      const realEstateCol = findColumn(sheetData.headers, ['real estate', 'status']);
-      if (!realEstateCol) return [...REAL_ESTATE_STATUS_OPTIONS];
-      const fromData = new Set();
-      sheetData.data.forEach(row => {
-        if (row[realEstateCol] !== undefined && row[realEstateCol] !== null) {
-          const v = String(row[realEstateCol]).trim();
-          if (v) fromData.add(v);
-        }
-      });
-      const custom = Array.from(fromData).filter(s => !REAL_ESTATE_STATUS_OPTIONS.some(def => def.toLowerCase() === s.toLowerCase())).sort();
-      return [...REAL_ESTATE_STATUS_OPTIONS, ...custom];
+      const custom = Array.from(fromData).filter(s => !ADDRESS_PLAN_OPTIONS.some(def => def.toLowerCase() === s.toLowerCase())).sort();
+      return [...ADDRESS_PLAN_OPTIONS, ...custom];
     }
 
     // Normalize rebuild status label (remove spaces around slashes) for consistent display
@@ -2000,13 +1977,9 @@
       return getFullDamageOptions();
     }
 
-    // Get unique Intent to Rebuild values (legacy)
-    function getUniqueIntent(addresses) {
-      return getFullIntentOptions();
-    }
-    // Get unique Real Estate Status values (legacy)
-    function getUniqueRealEstate(addresses) {
-      return getFullRealEstateOptions();
+    // Get unique Address Plan values (legacy)
+    function getUniqueAddressPlan(addresses) {
+      return getFullAddressPlanOptions();
     }
 
     // Parse multiple captains from semicolon-separated values in NC Name, NC Phone, NC Email columns
@@ -2121,24 +2094,13 @@
       return null;
     }
 
-    // Get Intent to Rebuild value for an address (only applies when Damage = Partial/Total Loss)
-    function getAddressIntentToRebuild(address) {
-      const intentCol = findColumn(sheetData.headers, ['intent', 'rebuild']);
-      if (!intentCol) return null;
+    // Get Address Plan value for an address (only applies when Damage = Partial/Total Loss)
+    function getAddressPlan(address) {
+      const addressPlanCol = findColumn(sheetData.headers, ['address', 'plan'], ['note']);
+      if (!addressPlanCol) return null;
       const rows = sheetData.addressMap.get(address);
       if (rows && rows.length > 0) {
-        return rows[0][intentCol]?.trim() || null;
-      }
-      return null;
-    }
-
-    // Get Real Estate Status value for an address
-    function getAddressRealEstateStatus(address) {
-      const realEstateCol = findColumn(sheetData.headers, ['real estate', 'status']);
-      if (!realEstateCol) return null;
-      const rows = sheetData.addressMap.get(address);
-      if (rows && rows.length > 0) {
-        return rows[0][realEstateCol]?.trim() || null;
+        return rows[0][addressPlanCol]?.trim() || null;
       }
       return null;
     }
@@ -2266,8 +2228,7 @@
       // Reset all filters first
       currentStreetFilter = 'all';
       currentDamageFilter = 'all';
-      currentIntentFilter = 'all';
-        currentRealEstateFilter = 'all';
+      currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
       currentCaptainFilter = 'all';
       // Set contact filters
@@ -2283,8 +2244,7 @@
       // Reset all filters first
       currentStreetFilter = 'all';
       currentDamageFilter = ''; // Empty string for "(not set)"
-      currentIntentFilter = 'all';
-        currentRealEstateFilter = 'all';
+      currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
       currentCaptainFilter = 'all';
       // Reset contact filters to show all
@@ -2300,8 +2260,7 @@
       // Reset all filters
       currentStreetFilter = 'all';
       currentDamageFilter = 'all';
-      currentIntentFilter = 'all';
-        currentRealEstateFilter = 'all';
+      currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
       currentCaptainFilter = 'all';
       showUncontactedAddresses = true;
@@ -2849,8 +2808,7 @@
       let zoneCol = headers.find(h => /zone\s*name|zonename/i.test(h));
       if (!zoneCol) zoneCol = headers.find(h => h.toLowerCase().includes('zone'));
       const damageCol = findColumn(headers, 'damage');
-      const intentCol = findColumn(headers, ['intent', 'rebuild']);
-      const realEstateCol = findColumn(headers, ['real estate', 'status']);
+      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, 'rebuild', ['intent']);
       const addressNotesCol = headers.find(h => /address\s*note/i.test(h));
       const captainCol = findColumn(headers, ['captain', 'assign']) || headers.find(h => /captain/i.test(h));
@@ -2888,15 +2846,13 @@
         ];
         return parts.join('');
       };
-      // Address details: Damage, Intent to Rebuild (conditional on Damage=Partial/Total), Real Estate Status, Rebuild Status, Address Notes
+      // Address details: Damage, Address Plan (conditional on Damage=Partial/Total), Rebuild Status, Address Notes
       const addressDamageOptions = getFullDamageOptions();
-      const addressIntentOptions = ['Unknown', 'Undecided', 'Rebuilding'];
-      const addressRealEstateOptions = ['For Sale', 'Sold'];
+      const addressPlanOptions = ['Undecided', 'Rebuilding', 'Selling'];
       const addressRebuildOptions = getFullRebuildStatusOptions();
       const addressDetailsFields = [
         selectField('Damage', 'addRecordDamage', addressDamageOptions),
-        '<div id="addRecordIntentWrap" class="hidden">' + selectField('Intent to Rebuild', 'addRecordIntent', addressIntentOptions) + '</div>',
-        selectField('Real Estate Status', 'addRecordRealEstate', addressRealEstateOptions),
+        '<div id="addRecordAddressPlanWrap" class="hidden">' + selectField('Address Plan', 'addRecordAddressPlan', addressPlanOptions) + '</div>',
         selectField('Rebuild Status', 'addRecordRebuild', addressRebuildOptions),
         notesField('Address Notes', 'addRecordAddressNotes')
       ].join('');
@@ -3071,14 +3027,14 @@
       if (streetSelect.value === '__other__') streetOtherWrap.classList.remove('hidden');
 
       const addRecordDamageEl = document.getElementById('addRecordDamage');
-      const addRecordIntentWrap = document.getElementById('addRecordIntentWrap');
-      function toggleIntentField() {
+      const addRecordAddressPlanWrap = document.getElementById('addRecordAddressPlanWrap');
+      function toggleAddressPlanField() {
         const damageVal = addRecordDamageEl ? addRecordDamageEl.value.toLowerCase() : '';
-        const showIntent = damageVal.includes('partial') || damageVal.includes('total loss');
-        if (addRecordIntentWrap) addRecordIntentWrap.classList.toggle('hidden', !showIntent);
+        const showAddressPlan = damageVal.includes('partial') || damageVal.includes('total loss');
+        if (addRecordAddressPlanWrap) addRecordAddressPlanWrap.classList.toggle('hidden', !showAddressPlan);
       }
-      if (addRecordDamageEl) addRecordDamageEl.addEventListener('change', toggleIntentField);
-      toggleIntentField();
+      if (addRecordDamageEl) addRecordDamageEl.addEventListener('change', toggleAddressPlanField);
+      toggleAddressPlanField();
 
       const personAddressType = document.getElementById('addRecordPersonAddressType');
       const personExistingWrap = document.getElementById('addRecordPersonExistingWrap');
@@ -3115,8 +3071,7 @@
       function collectAddressDetails() {
         const out = {};
         if (damageCol) { const el = document.getElementById('addRecordDamage'); if (el && el.value) out[damageCol] = el.value; }
-        if (intentCol) { const el = document.getElementById('addRecordIntent'); if (el && el.value) out[intentCol] = el.value; }
-        if (realEstateCol) { const el = document.getElementById('addRecordRealEstate'); if (el && el.value) out[realEstateCol] = el.value; }
+        if (addressPlanCol) { const el = document.getElementById('addRecordAddressPlan'); if (el && el.value) out[addressPlanCol] = el.value; }
         if (rebuildCol) { const el = document.getElementById('addRecordRebuild'); if (el && el.value) out[rebuildCol] = el.value; }
         if (addressNotesCol) { const el = document.getElementById('addRecordAddressNotes'); if (el && el.value) out[addressNotesCol] = el.value.trim(); }
         return out;
@@ -3341,15 +3296,13 @@
       const addresses = Array.from(sheetData.addressMap.keys());
       const headers = sheetData.headers;
       const damageCol = findColumn(headers, 'damage');
-      const intentCol = findColumn(headers, ['intent', 'rebuild']);
-      const realEstateCol = findColumn(headers, ['real estate', 'status']);
+      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, 'rebuild', ['intent']);
       const contactDateCol = findColumn(headers, ['contact', 'date']);
 
       const streets = getUniqueStreets(addresses);
       const damages = getFullDamageOptions();
-      const intents = intentCol ? getFullIntentOptions() : [];
-      const realEstateStatuses = realEstateCol ? getFullRealEstateOptions() : [];
+      const addressPlans = addressPlanCol ? getFullAddressPlanOptions() : [];
       const rebuildStatusesArray = rebuildCol ? getFullRebuildStatusOptions() : [];
       
       // Check if zone has multiple captains and get captain names for filter
@@ -3383,15 +3336,10 @@
           <option value="" ${currentDamageFilter === '' ? 'selected' : ''}>(not set)</option>
           ${damages.map(damage => `<option value="${damage.replace(/"/g, '&quot;')}" ${currentDamageFilter === damage ? 'selected' : ''}>${damage}</option>`).join('')}
         </select>
-        ${intentCol ? `<select id="persistentIntentFilter" class="${currentIntentFilter !== 'all' ? 'filter-active' : ''}">
-          <option value="all" ${currentIntentFilter === 'all' ? 'selected' : ''}>All Intent to Rebuild</option>
-          <option value="" ${currentIntentFilter === '' ? 'selected' : ''}>(not set)</option>
-          ${intents.map(intent => `<option value="${intent.replace(/"/g, '&quot;')}" ${currentIntentFilter === intent ? 'selected' : ''}>${intent}</option>`).join('')}
-        </select>` : ''}
-        ${realEstateCol ? `<select id="persistentRealEstateFilter" class="${currentRealEstateFilter !== 'all' ? 'filter-active' : ''}">
-          <option value="all" ${currentRealEstateFilter === 'all' ? 'selected' : ''}>All Real Estate Status</option>
-          <option value="" ${currentRealEstateFilter === '' ? 'selected' : ''}>(not set)</option>
-          ${realEstateStatuses.map(rs => `<option value="${rs.replace(/"/g, '&quot;')}" ${currentRealEstateFilter === rs ? 'selected' : ''}>${rs}</option>`).join('')}
+        ${addressPlanCol ? `<select id="persistentAddressPlanFilter" class="${currentAddressPlanFilter !== 'all' ? 'filter-active' : ''}">
+          <option value="all" ${currentAddressPlanFilter === 'all' ? 'selected' : ''}>All Address Plan</option>
+          <option value="" ${currentAddressPlanFilter === '' ? 'selected' : ''}>(not set)</option>
+          ${addressPlans.map(ap => `<option value="${ap.replace(/"/g, '&quot;')}" ${currentAddressPlanFilter === ap ? 'selected' : ''}>${ap}</option>`).join('')}
         </select>` : ''}
         ${rebuildCol ? `<select id="persistentRebuildFilter" class="${currentRebuildFilter !== 'all' ? 'filter-active' : ''}">
           <option value="all" ${currentRebuildFilter === 'all' ? 'selected' : ''}>All Rebuild Status</option>
@@ -3444,13 +3392,9 @@
       if (oldDamageFilter) {
         oldDamageFilter.replaceWith(oldDamageFilter.cloneNode(true));
       }
-      const oldIntentFilter = document.getElementById('persistentIntentFilter');
-      if (oldIntentFilter) {
-        oldIntentFilter.replaceWith(oldIntentFilter.cloneNode(true));
-      }
-      const oldRealEstateFilter = document.getElementById('persistentRealEstateFilter');
-      if (oldRealEstateFilter) {
-        oldRealEstateFilter.replaceWith(oldRealEstateFilter.cloneNode(true));
+      const oldAddressPlanFilter = document.getElementById('persistentAddressPlanFilter');
+      if (oldAddressPlanFilter) {
+        oldAddressPlanFilter.replaceWith(oldAddressPlanFilter.cloneNode(true));
       }
       const oldRebuildFilter = document.getElementById('persistentRebuildFilter');
       if (oldRebuildFilter) {
@@ -3499,29 +3443,14 @@
         });
       }
 
-      const intentFilter = document.getElementById('persistentIntentFilter');
-      if (intentFilter) {
-        intentFilter.addEventListener('change', (e) => {
-          currentIntentFilter = e.target.value;
-          if (currentIntentFilter !== 'all') {
-            intentFilter.classList.add('filter-active');
+      const addressPlanFilter = document.getElementById('persistentAddressPlanFilter');
+      if (addressPlanFilter) {
+        addressPlanFilter.addEventListener('change', (e) => {
+          currentAddressPlanFilter = e.target.value;
+          if (currentAddressPlanFilter !== 'all') {
+            addressPlanFilter.classList.add('filter-active');
           } else {
-            intentFilter.classList.remove('filter-active');
-          }
-          displayAddressTable();
-          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
-          updateMapMarkers();
-        });
-      }
-
-      const realEstateFilter = document.getElementById('persistentRealEstateFilter');
-      if (realEstateFilter) {
-        realEstateFilter.addEventListener('change', (e) => {
-          currentRealEstateFilter = e.target.value;
-          if (currentRealEstateFilter !== 'all') {
-            realEstateFilter.classList.add('filter-active');
-          } else {
-            realEstateFilter.classList.remove('filter-active');
+            addressPlanFilter.classList.remove('filter-active');
           }
           displayAddressTable();
           displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
@@ -3602,8 +3531,7 @@
       
       const headers = sheetData.headers;
       const damageCol = findColumn(headers, 'damage');
-      const intentCol = findColumn(headers, ['intent', 'rebuild']);
-      const realEstateCol = findColumn(headers, ['real estate', 'status']);
+      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, 'rebuild', ['intent']);
       const residentNameCol = headers.find(h => {
         const lower = h.toLowerCase();
@@ -3643,19 +3571,11 @@
             if (getAddressDamage(addr) !== currentDamageFilter) return false;
           }
         }
-        if (currentIntentFilter !== 'all') {
-          const addrIntent = getAddressIntentToRebuild(addr);
-          if (currentIntentFilter === '') {
-            if (addrIntent !== null && addrIntent !== '') return false;
-          } else if (addrIntent !== currentIntentFilter) {
-            return false;
-          }
-        }
-        if (currentRealEstateFilter !== 'all') {
-          const addrRealEstate = getAddressRealEstateStatus(addr);
-          if (currentRealEstateFilter === '') {
-            if (addrRealEstate !== null && addrRealEstate !== '') return false;
-          } else if (addrRealEstate !== currentRealEstateFilter) {
+        if (currentAddressPlanFilter !== 'all') {
+          const addrPlan = getAddressPlan(addr);
+          if (currentAddressPlanFilter === '') {
+            if (addrPlan !== null && addrPlan !== '') return false;
+          } else if (addrPlan !== currentAddressPlanFilter) {
             return false;
           }
         }
@@ -3734,8 +3654,7 @@
                 <th class="sortable" data-sort="address" title="Click to sort">Address ${tableSortColumn === 'address' ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>
                 <th class="sortable" data-sort="residents" title="Click to sort">Residents ${tableSortColumn === 'residents' ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>
                 ${damageCol ? `<th class="sortable" data-sort="${damageCol.toLowerCase()}" title="Click to sort">Damage ${tableSortColumn === damageCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
-                ${intentCol ? `<th class="sortable" data-sort="${intentCol.toLowerCase()}" title="Click to sort">Intent to Rebuild ${tableSortColumn === intentCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
-                ${realEstateCol ? `<th class="sortable" data-sort="${realEstateCol.toLowerCase()}" title="Click to sort">Real Estate Status ${tableSortColumn === realEstateCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
+                ${addressPlanCol ? `<th class="sortable" data-sort="${addressPlanCol.toLowerCase()}" title="Click to sort">Address Plan ${tableSortColumn === addressPlanCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${rebuildCol ? `<th class="sortable" data-sort="${rebuildCol.toLowerCase()}" title="Click to sort">Rebuild Status ${tableSortColumn === rebuildCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${ageCol ? `<th class="sortable" data-sort="${ageCol.toLowerCase()}" title="Click to sort">Age ${tableSortColumn === ageCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${phoneCol ? `<th>Phone</th>` : ''}
@@ -3755,8 +3674,7 @@
                   });
                 }
                 const damage = damageCol && rows && rows[0] ? (rows[0][damageCol] || '').trim() : '';
-                const intent = intentCol && rows && rows[0] ? (rows[0][intentCol] || '').trim() : '';
-                const realEstate = realEstateCol && rows && rows[0] ? (rows[0][realEstateCol] || '').trim() : '';
+                const addressPlan = addressPlanCol && rows && rows[0] ? (rows[0][addressPlanCol] || '').trim() : '';
                 const rebuild = rebuildCol && rows && rows[0] ? normalizeRebuildStatusLabel((rows[0][rebuildCol] || '').trim()) : '';
                 const age = ageCol && rows && rows[0] ? (rows[0][ageCol] || '').trim() : '';
                 const phone = phoneCol && rows && rows[0] ? (rows[0][phoneCol] || '').trim() : '';
@@ -3784,8 +3702,7 @@
                     <td title="${addr}">${addr}</td>
                     <td title="${residents.length > 0 ? residents.join(', ') : '-'}">${residentsDisplay}</td>
                     ${damageCol ? `<td>${damage || '-'}</td>` : ''}
-                    ${intentCol ? `<td>${intent || '-'}</td>` : ''}
-                    ${realEstateCol ? `<td>${realEstate || '-'}</td>` : ''}
+                    ${addressPlanCol ? `<td>${addressPlan || '-'}</td>` : ''}
                     ${rebuildCol ? `<td>${rebuild || '-'}</td>` : ''}
                     ${ageCol ? `<td>${age || '-'}</td>` : ''}
                     ${phoneCol ? `<td>${phone || '-'}</td>` : ''}
@@ -3877,8 +3794,7 @@
       const addresses = Array.from(sheetData.addressMap.keys()).sort();
       const headers = sheetData.headers;
       const damageCol = findColumn(headers, 'damage');
-      const intentCol = findColumn(headers, ['intent', 'rebuild']);
-      const realEstateCol = findColumn(headers, ['real estate', 'status']);
+      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, 'rebuild', ['intent']);
       const contactDateCol = findColumn(headers, ['contact', 'date']);
       const captainAssignedCol = findColumn(headers, 'captain assigned');
@@ -3893,19 +3809,11 @@
             if (getAddressDamage(addr) !== currentDamageFilter) return false;
           }
         }
-        if (currentIntentFilter !== 'all') {
-          const addrIntent = getAddressIntentToRebuild(addr);
-          if (currentIntentFilter === '') {
-            if (addrIntent !== null && addrIntent !== '') return false;
-          } else if (addrIntent !== currentIntentFilter) {
-            return false;
-          }
-        }
-        if (currentRealEstateFilter !== 'all') {
-          const addrRealEstate = getAddressRealEstateStatus(addr);
-          if (currentRealEstateFilter === '') {
-            if (addrRealEstate !== null && addrRealEstate !== '') return false;
-          } else if (addrRealEstate !== currentRealEstateFilter) {
+        if (currentAddressPlanFilter !== 'all') {
+          const addrPlan = getAddressPlan(addr);
+          if (currentAddressPlanFilter === '') {
+            if (addrPlan !== null && addrPlan !== '') return false;
+          } else if (addrPlan !== currentAddressPlanFilter) {
             return false;
           }
         }
@@ -3981,8 +3889,7 @@
       
       // Address-level columns
       const damageCol = findColumn(headers, 'damage');
-      const intentCol = findColumn(headers, ['intent', 'rebuild']);
-      const realEstateCol = findColumn(headers, ['real estate', 'status']);
+      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildStageCol = findColumn(headers, ['rebuild', 'stage']);
       const rebuildStatusCol = findColumn(headers, ['rebuild', 'status']);
       const householdSizeCol = findColumn(headers, ['household', 'size']);
@@ -4024,8 +3931,7 @@
         // Get address-level data
         const addressData = {
           damage: damageCol && firstRow ? (firstRow[damageCol] || '').trim() : '',
-          intent: intentCol && firstRow ? (firstRow[intentCol] || '').trim() : '',
-          realEstate: realEstateCol && firstRow ? (firstRow[realEstateCol] || '').trim() : '',
+          addressPlan: addressPlanCol && firstRow ? (firstRow[addressPlanCol] || '').trim() : '',
           rebuildStage: rebuildStageCol && firstRow ? (firstRow[rebuildStageCol] || '').trim() : '',
           rebuildStatus: rebuildStatusCol && firstRow ? (firstRow[rebuildStatusCol] || '').trim() : '',
           householdSize: householdSizeCol && firstRow ? (firstRow[householdSizeCol] || '').trim() : '',
@@ -4311,8 +4217,7 @@
       const phoneCol = findColumn(headers, 'phone', ['nc']);
       const emailCol = findColumn(headers, 'email');
       const damageCol = findColumn(headers, 'damage');
-      const intentCol = findColumn(headers, ['intent', 'rebuild']);
-      const realEstateCol = findColumn(headers, ['real estate', 'status']);
+      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, 'rebuild', ['intent']);
       const contactDateCol = findColumn(headers, ['contact', 'date']);
       
@@ -4321,8 +4226,7 @@
       if (phoneCol) csvHeaders.push('Phone');
       if (emailCol) csvHeaders.push('Email');
       if (damageCol) csvHeaders.push('Damage Status');
-      if (intentCol) csvHeaders.push('Intent to Rebuild');
-      if (realEstateCol) csvHeaders.push('Real Estate Status');
+      if (addressPlanCol) csvHeaders.push('Address Plan');
       if (rebuildCol) csvHeaders.push('Rebuild Status');
       if (contactDateCol) csvHeaders.push('Last Contact');
       
@@ -4336,8 +4240,7 @@
           if (phoneCol) row.push('');
           if (emailCol) row.push('');
           if (damageCol) row.push('');
-          if (intentCol) row.push('');
-          if (realEstateCol) row.push('');
+          if (addressPlanCol) row.push('');
           if (rebuildCol) row.push('');
           if (contactDateCol) row.push('');
           csvRows.push(row);
@@ -4353,8 +4256,7 @@
             if (phoneCol) csvRow.push(row[phoneCol] || '');
             if (emailCol) csvRow.push(row[emailCol] || '');
             if (damageCol) csvRow.push(index === 0 ? (rows[0][damageCol] || '') : '');
-            if (intentCol) csvRow.push(index === 0 ? (rows[0][intentCol] || '') : '');
-            if (realEstateCol) csvRow.push(index === 0 ? (rows[0][realEstateCol] || '') : '');
+            if (addressPlanCol) csvRow.push(index === 0 ? (rows[0][addressPlanCol] || '') : '');
             if (rebuildCol) csvRow.push(index === 0 ? (rows[0][rebuildCol] || '') : '');
             if (contactDateCol) csvRow.push(row[contactDateCol] || '');
             csvRows.push(csvRow);
@@ -4426,19 +4328,11 @@
           }
         }
         // Status filter
-        if (currentIntentFilter !== 'all') {
-          const addrIntent = getAddressIntentToRebuild(addr);
-          if (currentIntentFilter === '') {
-            if (addrIntent !== null && addrIntent !== '') return false;
-          } else if (addrIntent !== currentIntentFilter) {
-            return false;
-          }
-        }
-        if (currentRealEstateFilter !== 'all') {
-          const addrRealEstate = getAddressRealEstateStatus(addr);
-          if (currentRealEstateFilter === '') {
-            if (addrRealEstate !== null && addrRealEstate !== '') return false;
-          } else if (addrRealEstate !== currentRealEstateFilter) {
+        if (currentAddressPlanFilter !== 'all') {
+          const addrPlan = getAddressPlan(addr);
+          if (currentAddressPlanFilter === '') {
+            if (addrPlan !== null && addrPlan !== '') return false;
+          } else if (addrPlan !== currentAddressPlanFilter) {
             return false;
           }
         }
@@ -4557,8 +4451,7 @@
       const addressLevelDisplayFields = [
         'household size',
         'damage',
-        'intent to rebuild',
-        'real estate status',
+        'address plan',
         'address notes',
         'rebuild stage',
         'rebuild status'
@@ -4594,8 +4487,7 @@
         'nc name',
         'nc email',
         'damage',
-        'intent to rebuild',
-        'real estate status',
+        'address plan',
         'household size',
         'latitude',
         'longitude',
@@ -4604,7 +4496,11 @@
         'middle name',
         'last name',
         'rebuild stage',
-        'rebuild status'
+        'rebuild status',
+        'for sale',
+        'recently sold',
+        'real estate notes',
+        'unit type'
       ];
       
       const personLevelCols = headers.filter(h => {
@@ -4660,34 +4556,26 @@
 
       // Collect unique values for dropdown fields from ALL data
       const damageValues = new Set();
-      const intentValues = new Set();
-      const realEstateValues = new Set();
+      const addressPlanValues = new Set();
       const damageCol = findColumn(headers, 'damage');
-      const intentCol = findColumn(headers, ['intent', 'rebuild']);
-      const realEstateCol = findColumn(headers, ['real estate', 'status']);
+      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       
       const defaultDamageValues = ['Total Loss', 'Partial Loss', 'Standing'];
-      const defaultIntentValues = ['Unknown', 'Undecided', 'Rebuilding'];
-      const defaultRealEstateValues = ['For Sale', 'Sold'];
+      const defaultAddressPlanValues = ['Undecided', 'Rebuilding', 'Selling'];
       
       sheetData.data.forEach(row => {
         if (damageCol && row[damageCol] !== undefined && row[damageCol] !== null) {
           const value = String(row[damageCol]).trim();
           if (value) damageValues.add(value);
         }
-        if (intentCol && row[intentCol] !== undefined && row[intentCol] !== null) {
-          const value = String(row[intentCol]).trim();
-          if (value) intentValues.add(value);
-        }
-        if (realEstateCol && row[realEstateCol] !== undefined && row[realEstateCol] !== null) {
-          const value = String(row[realEstateCol]).trim();
-          if (value) realEstateValues.add(value);
+        if (addressPlanCol && row[addressPlanCol] !== undefined && row[addressPlanCol] !== null) {
+          const value = String(row[addressPlanCol]).trim();
+          if (value) addressPlanValues.add(value);
         }
       });
       
       if (damageCol) defaultDamageValues.forEach(val => damageValues.add(val));
-      if (intentCol) defaultIntentValues.forEach(val => intentValues.add(val));
-      if (realEstateCol) defaultRealEstateValues.forEach(val => realEstateValues.add(val));
+      if (addressPlanCol) defaultAddressPlanValues.forEach(val => addressPlanValues.add(val));
       
       // Removed console.log statements to reduce noise
 
@@ -4696,9 +4584,10 @@
       const damageStatus = damageCol && rows[0] ? (rows[0][damageCol] || '').trim() : '';
       const showRemediationFields = damageStatus.toLowerCase() === 'standing' || damageStatus.toLowerCase() === 'partial loss';
       
-      // Get Intent to Rebuild to check if rebuild stage should be shown (only when Damage = Partial/Total)
-      const intentValue = intentCol && rows[0] ? (rows[0][intentCol] || '').trim() : '';
-      const showRebuildStage = intentValue.toLowerCase() === 'rebuilding';
+      // Get Address Plan to check if rebuild stage should be shown (only when Damage = Partial/Total and Address Plan = Rebuilding)
+      const addressPlanValue = addressPlanCol && rows[0] ? (rows[0][addressPlanCol] || '').trim() : '';
+      const showAddressPlanField = damageStatus.toLowerCase().includes('partial') || damageStatus.toLowerCase().includes('total loss');
+      const showRebuildStage = showAddressPlanField && addressPlanValue.toLowerCase() === 'rebuilding';
       
       // Show address-level fields once at the top (always show, not just when signed in)
       if (addressLevelCols.length > 0) {
@@ -4709,9 +4598,8 @@
           const lower = col.toLowerCase();
           const isNotes = lower.includes('note');
           const isDamage = lower.includes('damage');
-          const isIntentToRebuild = lower.includes('intent') && lower.includes('rebuild') && !lower.includes('rebuild status');
-          const isRealEstateStatus = lower.includes('real estate') && lower.includes('status');
-          const isStatus = isIntentToRebuild || isRealEstateStatus;
+          const isAddressPlan = lower.includes('address') && lower.includes('plan') && !lower.includes('note');
+          const isStatus = isAddressPlan;
           const isRebuildStage = lower.includes('rebuild stage') || lower.includes('rebuild status');
           const isIndoorsRemediated = lower.includes('indoors remediated');
           const isSoilRemediated = lower.includes('soil remediated');
@@ -4723,9 +4611,8 @@
             return;
           }
           
-          // Intent to Rebuild only shows when Damage = Partial Loss or Total Loss
-          const showIntentField = damageStatus.toLowerCase().includes('partial') || damageStatus.toLowerCase().includes('total loss');
-          if (isIntentToRebuild && !showIntentField) return;
+          // Address Plan only shows when Damage = Partial Loss or Total Loss
+          if (isAddressPlan && !showAddressPlanField) return;
           
           if (isEditable) {
             if (isNotes) {
@@ -4739,22 +4626,19 @@
                      data-original-value="${firstRowValue.replace(/"/g, '&quot;')}">${firstRowValue}</textarea>
               </div>`;
             } else if (isDamage || isStatus) {
-              // Damage / Intent to Rebuild / Real Estate Status: dropdown
+              // Damage / Address Plan: dropdown
               let options;
               if (isDamage) {
                 options = Array.from(damageValues).sort();
-              } else if (isIntentToRebuild) {
-                options = ['Unknown', 'Undecided', 'Rebuilding'].filter(opt => intentValues.has(opt));
-                options = options.concat(Array.from(intentValues).filter(opt => !options.includes(opt)).sort());
               } else {
-                options = ['For Sale', 'Sold'].filter(opt => realEstateValues.has(opt));
-                options = options.concat(Array.from(realEstateValues).filter(opt => !options.includes(opt)).sort());
+                options = ['Undecided', 'Rebuilding', 'Selling'].filter(opt => addressPlanValues.has(opt));
+                options = options.concat(Array.from(addressPlanValues).filter(opt => !options.includes(opt)).sort());
               }
-              const intentDropdownId = isIntentToRebuild ? `intent-to-rebuild-${address.replace(/[^a-zA-Z0-9]/g, '-')}` : '';
+              const addressPlanDropdownId = isAddressPlan ? `address-plan-${address.replace(/[^a-zA-Z0-9]/g, '-')}` : '';
               html += `<div class="person-info">
                 <strong>${col}:</strong>
-                <select class="editable-dropdown ${isIntentToRebuild ? 'intent-to-rebuild-dropdown' : ''}" 
-                        id="${intentDropdownId}"
+                <select class="editable-dropdown ${isAddressPlan ? 'address-plan-dropdown' : ''}" 
+                        id="${addressPlanDropdownId}"
                         data-address="${address.replace(/"/g, '&quot;')}" 
                         data-address-level="true"
                         data-column="${col}"
@@ -4849,6 +4733,52 @@
         });
         
         html += '</div>';
+      }
+
+      // Address Tags: expandable section (collapsed by default) - For Sale, Recently Sold, Real Estate Notes, Unit Type
+      const forSaleCol = findColumn(headers, ['for', 'sale']);
+      const recentlySoldCol = findColumn(headers, ['recently', 'sold']);
+      const realEstateNotesCol = findColumn(headers, ['real estate', 'notes']);
+      const unitTypeCol = findColumn(headers, ['unit', 'type']);
+      const hasAddressTagsCols = forSaleCol || recentlySoldCol || realEstateNotesCol || unitTypeCol;
+      if (hasAddressTagsCols) {
+        const firstRow = rows[0] || {};
+        const forSaleVal = forSaleCol ? (firstRow[forSaleCol] || '').trim() : '';
+        const recentlySoldVal = recentlySoldCol ? (firstRow[recentlySoldCol] || '').trim() : '';
+        const realEstateNotesVal = realEstateNotesCol ? (firstRow[realEstateNotesCol] || '').trim() : '';
+        const unitTypeVal = unitTypeCol ? (firstRow[unitTypeCol] || '').trim() : '';
+        const unitTypeOptions = ['Owner occupied', 'Rental', 'Commercial', 'Other'];
+        const forSaleLower = forSaleVal.toLowerCase();
+        const recentlySoldLower = recentlySoldVal.toLowerCase();
+        const forSaleChecked = forSaleLower === 'true' || forSaleVal === 'TRUE' || forSaleLower === 'yes' ||
+          (forSaleVal !== '' && forSaleLower !== 'false' && forSaleVal !== 'FALSE' && forSaleLower !== 'no');
+        const recentlySoldChecked = recentlySoldLower === 'true' || recentlySoldVal === 'TRUE' || recentlySoldLower === 'yes' ||
+          (recentlySoldVal !== '' && recentlySoldLower !== 'false' && recentlySoldVal !== 'FALSE' && recentlySoldLower !== 'no');
+        html += '<details class="address-tags-section" style="margin-top:12px; background: rgba(255,255,255,0.7); padding: 12px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 1px 3px rgba(0,0,0,0.04);">';
+        html += '<summary style="cursor:pointer; font-weight:700; font-family: Chivo, sans-serif;">Address Tags</summary>';
+        html += '<div style="margin-top:12px; padding-left:0;">';
+        if (forSaleCol) {
+          html += `<div class="person-info"><label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" class="editable-checkbox" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${forSaleCol}" data-original-value="${forSaleVal.replace(/"/g, '&quot;')}" ${forSaleChecked ? 'checked' : ''} style="width:18px; height:18px;">
+            <strong>For Sale</strong></label></div>`;
+        }
+        if (recentlySoldCol) {
+          html += `<div class="person-info"><label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" class="editable-checkbox" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${recentlySoldCol}" data-original-value="${recentlySoldVal.replace(/"/g, '&quot;')}" ${recentlySoldChecked ? 'checked' : ''} style="width:18px; height:18px;">
+            <strong>Recently Sold</strong></label></div>`;
+        }
+        if (realEstateNotesCol) {
+          html += `<div class="person-info"><strong>Real Estate Notes:</strong>
+            <textarea class="editable-notes" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${realEstateNotesCol}" data-original-value="${realEstateNotesVal.replace(/"/g, '&quot;')}" rows="4" style="width:100%; margin-top:4px; box-sizing:border-box;">${realEstateNotesVal}</textarea></div>`;
+        }
+        if (unitTypeCol) {
+          html += `<div class="person-info"><strong>Unit Type:</strong>
+            <select class="editable-dropdown" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${unitTypeCol}" data-original-value="${unitTypeVal.replace(/"/g, '&quot;')}" style="margin-top:4px;">
+              <option value="">(not set)</option>
+              ${unitTypeOptions.map(opt => `<option value="${opt.replace(/"/g, '&quot;')}" ${opt === unitTypeVal ? 'selected' : ''}>${opt}</option>`).join('')}
+            </select></div>`;
+        }
+        html += '</div></details>';
       }
 
       // Check if contact mode is active
@@ -5210,7 +5140,7 @@
           // Mark as changed for save
           dropdown.setAttribute('data-changed', 'true');
           
-          // If this is the Damage dropdown, update in-memory data and re-render Details panel so Intent to Rebuild appears/disappears
+          // If this is the Damage dropdown, update in-memory data and re-render Details panel so Address Plan appears/disappears
           const colName = dropdown.getAttribute('data-column');
           const colLower = (colName || '').toLowerCase();
           if (colLower.includes('damage') && !colLower.includes('to home')) {
@@ -5226,15 +5156,15 @@
             }
           }
           
-          // If this is an Intent to Rebuild dropdown, show/hide Rebuild Stage field
-          if (dropdown.classList.contains('intent-to-rebuild-dropdown')) {
+          // If this is an Address Plan dropdown, show/hide Rebuild Stage field
+          if (dropdown.classList.contains('address-plan-dropdown')) {
             const address = dropdown.getAttribute('data-address');
-            const intentValue = dropdown.value.trim().toLowerCase();
+            const addressPlanVal = dropdown.value.trim().toLowerCase();
             const rebuildStageId = `rebuild-stage-${address.replace(/[^a-zA-Z0-9]/g, '-')}`;
             const rebuildStageField = document.getElementById(rebuildStageId);
             
             if (rebuildStageField) {
-              if (intentValue === 'rebuilding') {
+              if (addressPlanVal === 'rebuilding') {
                 rebuildStageField.classList.remove('hidden');
               } else {
                 rebuildStageField.classList.add('hidden');
@@ -7281,17 +7211,13 @@
       // Get damage, intent to rebuild, real estate status
       const firstRow = rows[0];
       const damageCol = findColumn(sheetData.headers, 'damage');
-      const intentCol = findColumn(sheetData.headers, ['intent', 'rebuild']);
-      const realEstateCol = findColumn(sheetData.headers, ['real estate', 'status']);
+      const addressPlanCol = findColumn(sheetData.headers, ['address', 'plan'], ['note']);
       const info = [];
       if (damageCol && firstRow[damageCol] && firstRow[damageCol].trim()) {
         info.push(firstRow[damageCol].trim());
       }
-      if (intentCol && firstRow[intentCol] && firstRow[intentCol].trim()) {
-        info.push(firstRow[intentCol].trim());
-      }
-      if (realEstateCol && firstRow[realEstateCol] && firstRow[realEstateCol].trim()) {
-        info.push(firstRow[realEstateCol].trim());
+      if (addressPlanCol && firstRow[addressPlanCol] && firstRow[addressPlanCol].trim()) {
+        info.push(firstRow[addressPlanCol].trim());
       }
       if (info.length > 0) {
         popupContent += '<br><small>' + info.join(' • ') + '</small>';
@@ -7835,20 +7761,12 @@
           }
         }
         
-        // Intent filter
-        if (currentIntentFilter !== 'all') {
-          const addrIntent = getAddressIntentToRebuild(address);
-          if (currentIntentFilter === '') {
-            if (addrIntent !== null && addrIntent !== '') return false;
-          } else if (addrIntent !== currentIntentFilter) {
-            return false;
-          }
-        }
-        if (currentRealEstateFilter !== 'all') {
-          const addrRealEstate = getAddressRealEstateStatus(address);
-          if (currentRealEstateFilter === '') {
-            if (addrRealEstate !== null && addrRealEstate !== '') return false;
-          } else if (addrRealEstate !== currentRealEstateFilter) {
+        // Address Plan filter
+        if (currentAddressPlanFilter !== 'all') {
+          const addrPlan = getAddressPlan(address);
+          if (currentAddressPlanFilter === '') {
+            if (addrPlan !== null && addrPlan !== '') return false;
+          } else if (addrPlan !== currentAddressPlanFilter) {
             return false;
           }
         }
@@ -7978,17 +7896,13 @@
           
           // Get damage, intent to rebuild, real estate status
           const damageCol = findColumn(sheetData.headers, 'damage');
-          const intentCol = findColumn(sheetData.headers, ['intent', 'rebuild']);
-          const realEstateCol = findColumn(sheetData.headers, ['real estate', 'status']);
+          const addressPlanCol = findColumn(sheetData.headers, ['address', 'plan'], ['note']);
           const info = [];
           if (damageCol && firstRow[damageCol] && firstRow[damageCol].trim()) {
             info.push(firstRow[damageCol].trim());
           }
-          if (intentCol && firstRow[intentCol] && firstRow[intentCol].trim()) {
-            info.push(firstRow[intentCol].trim());
-          }
-          if (realEstateCol && firstRow[realEstateCol] && firstRow[realEstateCol].trim()) {
-            info.push(firstRow[realEstateCol].trim());
+          if (addressPlanCol && firstRow[addressPlanCol] && firstRow[addressPlanCol].trim()) {
+            info.push(firstRow[addressPlanCol].trim());
           }
           if (info.length > 0) {
             popupContent += '<br><small>' + info.join(' • ') + '</small>';
@@ -8377,8 +8291,7 @@
         h.toLowerCase().includes('contacted')
       );
       const damageCol = findColumn(headers, 'damage');
-      const intentCol = findColumn(headers, ['intent', 'rebuild']);
-      const realEstateCol = findColumn(headers, ['real estate', 'status']);
+      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
 
       // 1. People Contacted Chart
       let peopleContacted = 0;
@@ -8583,29 +8496,29 @@
         });
       }
 
-      // 4. Real Estate Status Chart (replaces Property Status)
-      const realEstateCounts = {};
-      let realEstateUnknown = 0;
-      if (realEstateCol) {
+      // 4. Address Plan Chart (conditional on Partial/Total Loss in data)
+      const addressPlanCounts = {};
+      let addressPlanUnknown = 0;
+      if (addressPlanCol) {
         data.forEach(row => {
-          const val = row[realEstateCol] ? String(row[realEstateCol]).trim() : '';
+          const val = row[addressPlanCol] ? String(row[addressPlanCol]).trim() : '';
           if (val) {
-            realEstateCounts[val] = (realEstateCounts[val] || 0) + 1;
+            addressPlanCounts[val] = (addressPlanCounts[val] || 0) + 1;
           } else {
-            realEstateUnknown++;
+            addressPlanUnknown++;
           }
         });
       } else {
-        realEstateUnknown = data.length;
+        addressPlanUnknown = data.length;
       }
 
-      const statusLabels = Object.keys(realEstateCounts);
-      const statusData = Object.values(realEstateCounts);
-      const statusTotal = statusData.reduce((a, b) => a + b, 0) + realEstateUnknown;
+      const statusLabels = Object.keys(addressPlanCounts);
+      const statusData = Object.values(addressPlanCounts);
+      const statusTotal = statusData.reduce((a, b) => a + b, 0) + addressPlanUnknown;
       
-      if (realEstateUnknown > 0) {
+      if (addressPlanUnknown > 0) {
         statusLabels.push('(not set)');
-        statusData.push(realEstateUnknown);
+        statusData.push(addressPlanUnknown);
       }
       
       // Calculate percentages for labels
@@ -8619,7 +8532,7 @@
 
       const statusCtx = document.getElementById('householdStatusChart');
       if (householdStatusChart) householdStatusChart.destroy();
-      if (statusCtx && (statusLabels.length > 0 || realEstateUnknown > 0)) {
+      if (statusCtx && (statusLabels.length > 0 || addressPlanUnknown > 0)) {
         householdStatusChart = new Chart(statusCtx, {
           type: 'pie',
           data: {
@@ -8667,19 +8580,18 @@
       const addressMap = sheetData.addressMap;
       
       // Find relevant columns
-      const intentCol = findColumn(headers, ['intent', 'rebuild']);
-      const realEstateCol = findColumn(headers, ['real estate', 'status']);
+      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = headers.find(h => {
         const lower = h.toLowerCase();
         return lower.includes('rebuild');
       });
       
-      // 1. Real Estate Status Bar Chart (replaces Property Status)
+      // 1. Address Plan Bar Chart (for Partial/Total Loss addresses)
       const statusCounts = {};
       let statusUnknown = 0;
-      if (realEstateCol) {
+      if (addressPlanCol) {
         data.forEach(row => {
-          const val = row[realEstateCol] ? String(row[realEstateCol]).trim() : '';
+          const val = row[addressPlanCol] ? String(row[addressPlanCol]).trim() : '';
           if (val) {
             statusCounts[val] = (statusCounts[val] || 0) + 1;
           } else {
@@ -9495,14 +9407,14 @@
     }
 
     function getHouseholdStatusData(headers, data, addressMap) {
-      const realEstateCol = findColumn(headers, ['real estate', 'status']);
+      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const statusCounts = {};
       let statusUnknown = 0;
       
-      if (realEstateCol) {
+      if (addressPlanCol) {
         addressMap.forEach((rows, address) => {
           const row = rows[0];
-          const val = row[realEstateCol] ? String(row[realEstateCol]).trim() : '';
+          const val = row[addressPlanCol] ? String(row[addressPlanCol]).trim() : '';
           if (val) {
             statusCounts[val] = (statusCounts[val] || 0) + 1;
           } else {
@@ -9828,10 +9740,10 @@
 
       // Map chart definitions to the correct canvas IDs for each carousel
       // LEFT: Addresses Contacted (0), Streets Distribution (3), People per Address (4)
-      // RIGHT: Damage Status (1), Rebuild Status (5), Real Estate Status (2)
+      // RIGHT: Damage Status (1), Rebuild Status (5), Address Plan (2)
       const chartIndexMap = {
         'left': [0, 3, 4],  // Addresses Contacted, Streets Distribution, People per Address
-        'right': [1, 5, 2]  // Damage Status, Rebuild Status, Real Estate Status
+        'right': [1, 5, 2]  // Damage Status, Rebuild Status, Address Plan
       };
       
       const canvasIdMap = {
@@ -10306,14 +10218,13 @@
       const bodyEl = document.getElementById('batchTaggingBody');
       const listEl = document.getElementById('batchTaggingAddressList');
       const damageSelect = document.getElementById('batchTaggingDamage');
-      const intentSelect = document.getElementById('batchTaggingIntent');
-      const realEstateSelect = document.getElementById('batchTaggingRealEstate');
+      const addressPlanSelect = document.getElementById('batchTaggingAddressPlan');
       const rebuildSelect = document.getElementById('batchTaggingRebuild');
       const applyBtn = document.getElementById('batchTaggingApply');
       const statusMsg = document.getElementById('batchTaggingStatusMsg');
       const selectAllBtn = document.getElementById('batchTaggingSelectAll');
       const selectNoneBtn = document.getElementById('batchTaggingSelectNone');
-      if (!listEl || !damageSelect || !intentSelect || !realEstateSelect || !rebuildSelect || !applyBtn) return;
+      if (!listEl || !damageSelect || !addressPlanSelect || !rebuildSelect || !applyBtn) return;
       if (errEl) { errEl.classList.add('hidden'); errEl.textContent = ''; }
       if (statusMsg) statusMsg.textContent = '';
       if (!sheetData || !sheetData.addressMap) {
@@ -10330,16 +10241,13 @@
       const addresses = getFilteredAddresses();
       const headers = sheetData.headers;
       const damageCol = findColumn(headers, 'damage');
-      const intentCol = findColumn(headers, ['intent', 'rebuild']);
-      const realEstateCol = findColumn(headers, ['real estate', 'status']);
+      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, 'rebuild', ['intent']);
       const damageOpts = getFullDamageOptions();
-      const intentOpts = getFullIntentOptions();
-      const realEstateOpts = getFullRealEstateOptions();
+      const addressPlanOpts = getFullAddressPlanOptions();
       const rebuildOpts = getFullRebuildStatusOptions();
       damageSelect.innerHTML = '<option value="">—</option>' + damageOpts.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
-      intentSelect.innerHTML = '<option value="">—</option>' + intentOpts.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
-      realEstateSelect.innerHTML = '<option value="">—</option>' + realEstateOpts.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+      addressPlanSelect.innerHTML = '<option value="">—</option>' + addressPlanOpts.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
       rebuildSelect.innerHTML = '<option value="">—</option>' + rebuildOpts.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
       listEl.innerHTML = '';
       if (addresses.length === 0) {
@@ -10368,17 +10276,15 @@
           return;
         }
         const damageVal = (damageSelect.value || '').trim();
-        const intentVal = (intentSelect.value || '').trim();
-        const realEstateVal = (realEstateSelect.value || '').trim();
+        const addressPlanVal = (addressPlanSelect.value || '').trim();
         const rebuildVal = (rebuildSelect.value || '').trim();
-        if (!damageVal && !intentVal && !realEstateVal && !rebuildVal) {
-          if (statusMsg) statusMsg.textContent = 'Choose at least one value (Damage, Intent to Rebuild, Real Estate Status, or Rebuild Status).';
+        if (!damageVal && !addressPlanVal && !rebuildVal) {
+          if (statusMsg) statusMsg.textContent = 'Choose at least one value (Damage, Address Plan, or Rebuild Status).';
           return;
         }
         const updates = [];
         const damageColIndex = damageCol != null ? headers.indexOf(damageCol) : -1;
-        const intentColIndex = intentCol != null ? headers.indexOf(intentCol) : -1;
-        const realEstateColIndex = realEstateCol != null ? headers.indexOf(realEstateCol) : -1;
+        const addressPlanColIndex = addressPlanCol != null ? headers.indexOf(addressPlanCol) : -1;
         const rebuildColIndex = rebuildCol != null ? headers.indexOf(rebuildCol) : -1;
         selected.forEach(addr => {
           const rows = sheetData.addressMap.get(addr);
@@ -10390,11 +10296,8 @@
             if (damageVal && damageColIndex !== -1) {
               updates.push({ range: 'Sheet1!' + indexToColumnLetter(damageColIndex) + rowNum, values: [[damageVal]] });
             }
-            if (intentVal && intentColIndex !== -1) {
-              updates.push({ range: 'Sheet1!' + indexToColumnLetter(intentColIndex) + rowNum, values: [[intentVal]] });
-            }
-            if (realEstateVal && realEstateColIndex !== -1) {
-              updates.push({ range: 'Sheet1!' + indexToColumnLetter(realEstateColIndex) + rowNum, values: [[realEstateVal]] });
+            if (addressPlanVal && addressPlanColIndex !== -1) {
+              updates.push({ range: 'Sheet1!' + indexToColumnLetter(addressPlanColIndex) + rowNum, values: [[addressPlanVal]] });
             }
             if (rebuildVal && rebuildColIndex !== -1) {
               updates.push({ range: 'Sheet1!' + indexToColumnLetter(rebuildColIndex) + rowNum, values: [[rebuildVal]] });
@@ -10518,7 +10421,7 @@
         });
       }
       
-      // Real Estate Status "All" checkbox (customFilterStatus)
+      // Address Plan "All" checkbox (customFilterStatus)
       const statusAll = document.getElementById('statusAll');
       const statusOptions = document.querySelectorAll('.status-option');
       
@@ -10738,11 +10641,11 @@
         filters.push(`Damage: ${damageChecked.join(', ')}`);
       }
       
-      // Real Estate Status (customFilterStatus)
-      const realEstateChecked = Array.from(document.querySelectorAll('#customFilterStatus input:checked:not([value="__all__"])'))
+      // Address Plan (customFilterStatus)
+      const addressPlanChecked = Array.from(document.querySelectorAll('#customFilterStatus input:checked:not([value="__all__"])'))
         .map(cb => cb.nextElementSibling.textContent.trim());
-      if (realEstateChecked.length > 0 && realEstateChecked.length < 6) {
-        filters.push(`Real Estate: ${realEstateChecked.join(', ')}`);
+      if (addressPlanChecked.length > 0 && addressPlanChecked.length < 6) {
+        filters.push(`Address Plan: ${addressPlanChecked.join(', ')}`);
       }
       
       // Contact status
@@ -10934,8 +10837,7 @@
       const damageFilter = Array.from(document.querySelectorAll('#customFilterDamage input[type="checkbox"]:checked'))
         .filter(cb => cb.value !== '__all__')
         .map(cb => cb.value);
-      const intentFilter = []; // Contact List Creator custom filter uses Real Estate Status (customFilterStatus)
-      const realEstateFilter = Array.from(document.querySelectorAll('#customFilterStatus input[type="checkbox"]:checked'))
+      const addressPlanFilter = Array.from(document.querySelectorAll('#customFilterStatus input[type="checkbox"]:checked'))
         .filter(cb => cb.value !== '__all__')
         .map(cb => cb.value);
       const contactFilter = document.getElementById('customFilterContact').value;
@@ -10963,8 +10865,7 @@
         h.toLowerCase().includes('note') && !h.toLowerCase().includes('contact')
       );
       const damageCol = findColumn(headers, 'damage');
-      const intentCol = findColumn(headers, ['intent', 'rebuild']);
-      const realEstateCol = findColumn(headers, ['real estate', 'status']);
+      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const contactDateCol = headers.find(h => 
         (h.toLowerCase().includes('contact') && h.toLowerCase().includes('date')) ||
         h.toLowerCase().includes('last contact')
@@ -10997,17 +10898,11 @@
             if (!damageFilter.includes(damageValue)) return;
           }
           
-          // Filter by intent to rebuild
-          if (intentFilter.length > 0 && intentCol) {
-            const val = (row[intentCol] || '').trim();
+          // Filter by address plan
+          if (addressPlanFilter.length > 0 && addressPlanCol) {
+            const val = (row[addressPlanCol] || '').trim();
             const valNorm = val === '' || val === '(not set)' ? '' : val;
-            if (!intentFilter.includes(valNorm)) return;
-          }
-          // Filter by real estate status
-          if (realEstateFilter.length > 0 && realEstateCol) {
-            const val = (row[realEstateCol] || '').trim();
-            const valNorm = val === '' || val === '(not set)' ? '' : val;
-            if (!realEstateFilter.includes(valNorm)) return;
+            if (!addressPlanFilter.includes(valNorm)) return;
           }
           
           // Filter by contact status
@@ -11442,8 +11337,7 @@
       );
       const emailCol = findColumn(headers, 'email');
       const damageCol = findColumn(headers, 'damage');
-      const intentCol = findColumn(headers, ['intent', 'rebuild']);
-      const realEstateCol = findColumn(headers, ['real estate', 'status']);
+      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const contactDateCol = headers.find(h => 
         (h.toLowerCase().includes('contact') && h.toLowerCase().includes('date')) ||
         h.toLowerCase().includes('last contact')
@@ -11592,13 +11486,13 @@
           </div>
         </div>
         
-        <!-- Real Estate Status Analysis -->
+        <!-- Address Plan Analysis -->
         <div class="zone-report-section">
-          <h2 class="zone-report-section-title">Real Estate Status Analysis</h2>
+          <h2 class="zone-report-section-title">Address Plan Analysis</h2>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 24px; align-items: start;">
             <div>
               <div class="zone-report-stats-grid">
-                ${Object.entries(stats.realEstateBreakdown || {}).map(([status, count]) => `
+                ${Object.entries(stats.addressPlanBreakdown || {}).map(([status, count]) => `
                   <div class="zone-report-stat-card">
                     <div class="zone-report-stat-value">${count}</div>
                     <div class="zone-report-stat-label">${status || 'Not Set'}</div>
@@ -11607,7 +11501,7 @@
               </div>
             </div>
             <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-              <h3 style="margin: 0 0 16px 0; color: var(--primary-dark); font-size: 1.2rem; text-align: center;">Property Status Distribution</h3>
+              <h3 style="margin: 0 0 16px 0; color: var(--primary-dark); font-size: 1.2rem; text-align: center;">Address Plan Distribution</h3>
               <canvas id="reportStatusChart" style="max-height: 600px; max-width: 100%; height: 600px !important;"></canvas>
             </div>
           </div>
@@ -11740,9 +11634,8 @@
           ${Array.from(addressMap.keys()).sort().map(address => {
             const rows = addressMap.get(address);
             const damage = getAddressDamage(address);
-            const intent = getAddressIntentToRebuild(address);
-            const realEstate = getAddressRealEstateStatus(address);
-            const statusDisplay = [intent, realEstate].filter(Boolean).join(' • ');
+            const addressPlan = getAddressPlan(address);
+            const statusDisplay = addressPlan || '';
             const isContacted = rows.some(row => {
               if (contactDateCol && row[contactDateCol]) {
                 return String(row[contactDateCol]).trim() !== '';
@@ -11804,8 +11697,7 @@
         followupCount: 0,
         followupPeople: [],
         damageBreakdown: {},
-        intentBreakdown: {},
-        realEstateBreakdown: {},
+        addressPlanBreakdown: {},
         rebuildBreakdown: {},
         contactTimeline: {
           'Last 7 days': 0,
@@ -11832,8 +11724,7 @@
       );
       const emailCol = findColumn(headers, 'email');
       const damageCol = findColumn(headers, 'damage');
-      const intentCol = findColumn(headers, ['intent', 'rebuild']);
-      const realEstateCol = findColumn(headers, ['real estate', 'status']);
+      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, 'rebuild', ['intent']);
       const contactDateCol = headers.find(h => 
         (h.toLowerCase().includes('contact') && h.toLowerCase().includes('date')) ||
@@ -11855,14 +11746,10 @@
         const damage = getAddressDamage(address);
         stats.damageBreakdown[damage || 'Not Set'] = (stats.damageBreakdown[damage || 'Not Set'] || 0) + 1;
         
-        // Intent to Rebuild breakdown (for Partial/Total Loss addresses)
-        const intent = getAddressIntentToRebuild(address);
-        stats.intentBreakdown = stats.intentBreakdown || {};
-        stats.intentBreakdown[intent || 'Not Set'] = (stats.intentBreakdown[intent || 'Not Set'] || 0) + 1;
-        // Real Estate Status breakdown
-        const realEstate = getAddressRealEstateStatus(address);
-        stats.realEstateBreakdown = stats.realEstateBreakdown || {};
-        stats.realEstateBreakdown[realEstate || 'Not Set'] = (stats.realEstateBreakdown[realEstate || 'Not Set'] || 0) + 1;
+        // Address Plan breakdown (for Partial/Total Loss addresses)
+        const addressPlan = getAddressPlan(address);
+        stats.addressPlanBreakdown = stats.addressPlanBreakdown || {};
+        stats.addressPlanBreakdown[addressPlan || 'Not Set'] = (stats.addressPlanBreakdown[addressPlan || 'Not Set'] || 0) + 1;
         
         // Rebuild status breakdown
         if (rebuildCol && rows.length > 0) {
@@ -11986,18 +11873,9 @@
         };
       }
       
-      if (intentCol) {
-        const complete = allRows.filter(r => r[intentCol] && String(r[intentCol]).trim()).length;
-        stats.dataCompleteness['Intent to Rebuild'] = {
-          complete,
-          missing: totalRows - complete,
-          rate: totalRows > 0 ? Math.round((complete / totalRows) * 100) : 0
-        };
-      }
-      
-      if (realEstateCol) {
-        const complete = allRows.filter(r => r[realEstateCol] && String(r[realEstateCol]).trim()).length;
-        stats.dataCompleteness['Real Estate Status'] = {
+      if (addressPlanCol) {
+        const complete = allRows.filter(r => r[addressPlanCol] && String(r[addressPlanCol]).trim()).length;
+        stats.dataCompleteness['Address Plan'] = {
           complete,
           missing: totalRows - complete,
           rate: totalRows > 0 ? Math.round((complete / totalRows) * 100) : 0
@@ -12085,7 +11963,7 @@
         });
       }
       
-      const rebuildingCount = stats.intentBreakdown?.['Rebuilding'] || 0;
+      const rebuildingCount = stats.addressPlanBreakdown?.['Rebuilding'] || 0;
       if (rebuildingCount > 0) {
         insights.push({
           title: 'Rebuilding Activity',
@@ -12268,9 +12146,9 @@
       
       // Status Chart
       const statusCtx = document.getElementById('reportStatusChart');
-      if (statusCtx && stats.realEstateBreakdown) {
-        const statusLabels = Object.keys(stats.realEstateBreakdown);
-        const statusData = Object.values(stats.realEstateBreakdown);
+      if (statusCtx && stats.addressPlanBreakdown) {
+        const statusLabels = Object.keys(stats.addressPlanBreakdown);
+        const statusData = Object.values(stats.addressPlanBreakdown);
         const statusTotal = statusData.reduce((a, b) => a + b, 0);
         const statusLabelsWithPct = statusLabels.map((label, index) => {
           const value = statusData[index];

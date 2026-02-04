@@ -129,7 +129,7 @@
       <h3>How it works</h3>
       <ol>
         <li><strong>Entry point:</strong> User clicks “➕ Add Record” (Neighbors tab). The app shows a modal with two choices: “An address” or “A person.”</li>
-        <li><strong>Form:</strong> Depending on the choice, the user fills in address fields (house number, street, city/state/zip), optional person name and details, and/or address details (Damage, Property Status, Rebuild Status, Address Notes). For “Add a person,” they can pick an existing address, enter a new address, or leave address blank.</li>
+        <li><strong>Form:</strong> Depending on the choice, the user fills in address fields (house number, street, city/state/zip), optional person name and details, and/or address details (Damage, Address Plan, Rebuild Status, Address Notes). For “Add a person,” they can pick an existing address, enter a new address, or leave address blank.</li>
         <li><strong>Geocoding (new addresses only):</strong> When the user adds a new address (or a person at a new address), the app can geocode via Mapbox and show a small map to confirm or adjust the pin. Submitting then goes to step 4.</li>
         <li><strong>Build row:</strong> The app builds one row of values in the <em>exact order of the sheet’s header row</em>, using <code>buildRowForHeaders(headers, rowValuesByColumn)</code>. Missing or empty fields become empty strings. This preserves column alignment with the spreadsheet.</li>
         <li><strong>Append to sheet:</strong> <code>appendRowsToSheet([row])</code> sends a POST to the Google Sheets API:
