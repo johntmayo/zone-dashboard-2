@@ -1914,7 +1914,7 @@
 
     // Full option lists for filters (always show all options; empty result is user's problem)
     const DEFAULT_DAMAGE_VALUES = ['Total Loss', 'Partial Loss', 'Standing'];
-    const ADDRESS_PLAN_OPTIONS = ['Undecided', 'Rebuilding', 'Selling'];
+    const ADDRESS_PLAN_OPTIONS = ['Undecided', 'Rebuilding', 'Selling', 'Other'];
 
     // Get all damage options for filter: full list always, then any custom values from data
     function getFullDamageOptions() {
@@ -2848,7 +2848,7 @@
       };
       // Address details: Damage, Address Plan (conditional on Damage=Partial/Total), Rebuild Status, Address Notes
       const addressDamageOptions = getFullDamageOptions();
-      const addressPlanOptions = ['Undecided', 'Rebuilding', 'Selling'];
+      const addressPlanOptions = ['Undecided', 'Rebuilding', 'Selling', 'Other'];
       const addressRebuildOptions = getFullRebuildStatusOptions();
       const addressDetailsFields = [
         selectField('Damage', 'addRecordDamage', addressDamageOptions),
@@ -4560,7 +4560,7 @@
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       
       const defaultDamageValues = ['Total Loss', 'Partial Loss', 'Standing'];
-      const defaultAddressPlanValues = ['Undecided', 'Rebuilding', 'Selling'];
+      const defaultAddressPlanValues = ['Undecided', 'Rebuilding', 'Selling', 'Other'];
       
       sheetData.data.forEach(row => {
         if (damageCol && row[damageCol] !== undefined && row[damageCol] !== null) {
@@ -4630,7 +4630,7 @@
               if (isDamage) {
                 options = Array.from(damageValues).sort();
               } else {
-                options = ['Undecided', 'Rebuilding', 'Selling'].filter(opt => addressPlanValues.has(opt));
+                options = ['Undecided', 'Rebuilding', 'Selling', 'Other'].filter(opt => addressPlanValues.has(opt));
                 options = options.concat(Array.from(addressPlanValues).filter(opt => !options.includes(opt)).sort());
               }
               const addressPlanDropdownId = isAddressPlan ? `address-plan-${address.replace(/[^a-zA-Z0-9]/g, '-')}` : '';
@@ -7842,6 +7842,10 @@
           lat = parseFloat(String(latVal).trim());
           lon = parseFloat(String(lonVal).trim());
           if (isNaN(lat) || isNaN(lon)) {
+            return;
+          }
+          // Skip placeholder coordinates that can zoom the map way out
+          if (Math.abs(lat) < 0.0001 && Math.abs(lon) < 0.0001) {
             return;
           }
         } else {
