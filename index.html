@@ -4497,6 +4497,8 @@
         'last name',
         'rebuild stage',
         'rebuild status',
+        'indoors remediated',
+        'soil remediated',
         'for sale',
         'recently sold',
         'unit type'
@@ -4605,8 +4607,8 @@
           const isCaptainAssigned = lower.includes('captain assigned');
           const isEditable = accessToken; // All fields editable when signed in
           
-          // Skip remediation fields if damage status doesn't match
-          if ((isIndoorsRemediated || isSoilRemediated) && !showRemediationFields) {
+          // Hide remediation fields for now
+          if (isIndoorsRemediated || isSoilRemediated) {
             return;
           }
           
@@ -4870,7 +4872,11 @@
           const lower = col.toLowerCase();
           if (lower.includes('home phone') || lower.includes('homephone') || 
               (lower.includes('phone') && lower.includes('home'))) {
-            return 'Home';
+            return '📞 Home';
+          }
+          if ((lower.includes('cell') || lower.includes('mobile')) && 
+              (lower.includes('phone') || lower.includes('cell') || lower.includes('mobile'))) {
+            return '📞 Cell';
           }
           // Remove "Person - " prefix from checkbox fields
           if (col.startsWith('Person - ')) {

@@ -2350,6 +2350,12 @@
       font-size: 0.85rem;
     }
 
+    /* Match header size for Property Sales Info card */
+    #propertySalesInfo .tool-module-header h3 {
+      font-size: 1.3rem;
+      margin: 0 0 8px 0;
+    }
+
 
     /* Mobile adjustments */
     @media (max-width: 700px) {
