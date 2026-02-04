@@ -3331,32 +3331,32 @@
           <option value="all" ${currentStreetFilter === 'all' ? 'selected' : ''}>All Streets</option>
           ${streets.map(street => `<option value="${street.replace(/"/g, '&quot;')}" ${currentStreetFilter === street ? 'selected' : ''}>${street}</option>`).join('')}
         </select>
-        <select id="persistentDamageFilter" class="${currentDamageFilter !== 'all' ? 'filter-active' : ''}">
+        <select id="persistentDamageFilter" class="${currentDamageFilter !== 'all' ? 'filter-active' : ''}" title="The highest level of damage to any structure on this property (e.g., mark 'Partial' if a garage or ADU was lost but the house stands).">
           <option value="all" ${currentDamageFilter === 'all' ? 'selected' : ''}>All Damage Status</option>
           <option value="" ${currentDamageFilter === '' ? 'selected' : ''}>(not set)</option>
           ${damages.map(damage => `<option value="${damage.replace(/"/g, '&quot;')}" ${currentDamageFilter === damage ? 'selected' : ''}>${damage}</option>`).join('')}
         </select>
-        ${addressPlanCol ? `<select id="persistentAddressPlanFilter" class="${currentAddressPlanFilter !== 'all' ? 'filter-active' : ''}">
+        ${addressPlanCol ? `<select id="persistentAddressPlanFilter" class="${currentAddressPlanFilter !== 'all' ? 'filter-active' : ''}" title="The owner's current intent for the property—whether they plan to rebuild, sell, or are still deciding.">
           <option value="all" ${currentAddressPlanFilter === 'all' ? 'selected' : ''}>All Address Plan</option>
           <option value="" ${currentAddressPlanFilter === '' ? 'selected' : ''}>(not set)</option>
           ${addressPlans.map(ap => `<option value="${ap.replace(/"/g, '&quot;')}" ${currentAddressPlanFilter === ap ? 'selected' : ''}>${ap}</option>`).join('')}
         </select>` : ''}
-        ${rebuildCol ? `<select id="persistentRebuildFilter" class="${currentRebuildFilter !== 'all' ? 'filter-active' : ''}">
+        ${rebuildCol ? `<select id="persistentRebuildFilter" class="${currentRebuildFilter !== 'all' ? 'filter-active' : ''}" title="For properties in recovery, this tracks the physical progress of construction.">
           <option value="all" ${currentRebuildFilter === 'all' ? 'selected' : ''}>All Rebuild Status</option>
           ${rebuildStatusesArray.map(status => `<option value="${status.replace(/"/g, '&quot;')}" ${currentRebuildFilter === status ? 'selected' : ''}>${status}</option>`).join('')}
         </select>` : ''}
-        ${hasMultipleCaptains && captainAssignedCol ? `<select id="persistentCaptainFilter" class="${currentCaptainFilter !== 'all' ? 'filter-active' : ''}">
+        ${hasMultipleCaptains && captainAssignedCol ? `<select id="persistentCaptainFilter" class="${currentCaptainFilter !== 'all' ? 'filter-active' : ''}" title="Filter to see addresses assigned to a specific Neighborhood Captain.">
           <option value="all" ${currentCaptainFilter === 'all' ? 'selected' : ''}>Any Captain</option>
           <option value="" ${currentCaptainFilter === '' ? 'selected' : ''}>(not specified)</option>
           ${captainNames.map(name => `<option value="${escapeHtml(name).replace(/"/g, '&quot;')}" ${currentCaptainFilter === name ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}
         </select>` : ''}
         ${contactDateCol ? `
         <div class="contact-filter-group">
-          <label class="contact-filter-checkbox">
+          <label class="contact-filter-checkbox" title="View only the addresses you have successfully reached.">
             <input type="checkbox" id="persistentShowContactedCheckbox" ${showContactedAddresses ? 'checked' : ''}>
             <span>Show contacted addresses</span>
           </label>
-          <label class="contact-filter-checkbox">
+          <label class="contact-filter-checkbox" title="View addresses where you haven't been able to reach anyone yet.">
             <input type="checkbox" id="persistentShowUncontactedCheckbox" ${showUncontactedAddresses ? 'checked' : ''}>
             <span>Show uncontacted addresses</span>
           </label>
@@ -7941,6 +7941,10 @@
           // Prefer zone boundary if available (home map loads it early)
           if (!kmlLayer && homeKmlLayer && homeKmlLayer.getBounds && homeKmlLayer.getBounds().isValid()) {
             zoneMap.fitBounds(homeKmlLayer.getBounds(), { padding: [20, 20], maxZoom: 15 });
+            return;
+          }
+          // If a boundary is expected but not loaded yet, avoid fitting to outlier markers
+          if (!kmlLayer && (MAPBOX_ENABLED || zoneKmlUrl) && currentZoneName) {
             return;
           }
           // Otherwise, fit to markers when no zone boundary is present

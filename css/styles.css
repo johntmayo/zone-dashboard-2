@@ -2328,7 +2328,7 @@
     /* Featured Tool Module - Primary tools with subtle emphasis */
     /* These are standard width by default, only span 2 columns on wide screens */
     .tool-module--featured {
-      border-width: 3px;
+      border-width: 2px;
       background: linear-gradient(135deg, #FDFBF7 0%, #F8F6F0 100%);
     }
 
