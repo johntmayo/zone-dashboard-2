@@ -8009,6 +8009,11 @@
           if (!kmlLayer && (MAPBOX_ENABLED || zoneKmlUrl) && currentZoneName) {
             return;
           }
+          // If no boundary is available, keep a sane default zoom/center
+          if (!kmlLayer && (!homeKmlLayer || !homeKmlLayer.getBounds || !homeKmlLayer.getBounds().isValid())) {
+            zoneMap.setView([34.19, -118.15], 12);
+            return;
+          }
           // Otherwise, fit to markers when no zone boundary is present
           if (bounds.length > 0 && !kmlLayer) {
             zoneMap.fitBounds(bounds, { 

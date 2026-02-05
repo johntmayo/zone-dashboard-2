@@ -2113,6 +2113,8 @@
       box-shadow: 0 4px 8px rgba(40, 54, 24, 0.3);
       letter-spacing: 0.3px;
       align-self: center;
+      flex: 0 0 auto;
+      white-space: nowrap;
     }
 
     .btn-back:hover {
