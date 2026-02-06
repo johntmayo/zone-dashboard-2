@@ -1116,6 +1116,43 @@
       return String(val).split('|').map(s => s.trim()).filter(Boolean);
     }
 
+    // Format multi-select values for sheet: comma-separated, quote any value containing a comma (matches Sheets native multi-select).
+    function formatMultiSelectForSheet(values) {
+      if (!Array.isArray(values) || values.length === 0) return '';
+      return values.map(v => {
+        const s = String(v).trim();
+        if (!s) return '';
+        return s.includes(',') ? '"' + s.replace(/"/g, '""') + '"' : s;
+      }).filter(Boolean).join(', ');
+    }
+
+    // Parse multi-select cell value: comma-separated (with optional quoted segments) or legacy pipe-separated.
+    function parseMultiSelect(val) {
+      if (!val || !String(val).trim()) return [];
+      const s = String(val).trim();
+      if (s.includes('|') && !s.includes('"')) {
+        return s.split('|').map(x => x.trim()).filter(Boolean);
+      }
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < s.length; i++) {
+        const c = s[i];
+        if (c === '"') {
+          if (inQuotes && s[i + 1] === '"') { current += '"'; i++; }
+          else inQuotes = !inQuotes;
+        } else if (c === ',' && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+          if (s[i + 1] === ' ') i++;
+        } else {
+          current += c;
+        }
+      }
+      result.push(current.trim());
+      return result.filter(Boolean);
+    }
+
     async function loadProfileView() {
       const signinEl = document.getElementById('profileSigninPrompt');
       const notFoundEl = document.getElementById('profileNotFound');
@@ -1210,7 +1247,7 @@
       document.getElementById('ncLanguages').value = (row['Languages Spoken'] || '').trim();
       const wgContainer = document.getElementById('ncWorkingGroups');
       if (wgContainer) {
-        const selected = splitPipe(row['Working Group Participation']);
+        const selected = parseMultiSelect(row['Working Group Participation']);
         wgContainer.innerHTML = (opts['Working Group Participation'] || []).map(opt => {
           const id = 'ncWg_' + opt.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
           const checked = selected.includes(opt) ? ' checked' : '';
@@ -1219,7 +1256,7 @@
       }
       const iaContainer = document.getElementById('ncInterestAreas');
       if (iaContainer) {
-        const selected = splitPipe(row['Interest Areas']);
+        const selected = parseMultiSelect(row['Interest Areas']);
         iaContainer.innerHTML = (opts['Interest Areas'] || []).map(opt => {
           const id = 'ncIa_' + opt.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 30);
           const checked = selected.includes(opt) ? ' checked' : '';
@@ -1228,7 +1265,7 @@
       }
       const badgesEl = document.getElementById('ncBadgesReadOnly');
       if (badgesEl) {
-        const badges = splitPipe(row['Badges'] || '');
+        const badges = parseMultiSelect(row['Badges'] || '');
         if (badges.length) {
           badgesEl.textContent = 'Badges (read-only): ' + badges.join(', ');
           badgesEl.classList.remove('hidden');
@@ -1250,10 +1287,10 @@
       row['Predominant Census Tract of Zone'] = (document.getElementById('ncCensusTract').value || '').trim();
       row['Phone'] = (document.getElementById('ncPhone').value || '').trim();
       row['Preferred email'] = (document.getElementById('ncPreferredEmail').value || '').trim();
-      row['Working Group Participation'] = Array.from(document.querySelectorAll('#ncWorkingGroups input[type=checkbox]:checked')).map(cb => cb.value).join('|');
+      row['Working Group Participation'] = formatMultiSelectForSheet(Array.from(document.querySelectorAll('#ncWorkingGroups input[type=checkbox]:checked')).map(cb => cb.value));
       row['Housing Arrangement'] = (document.getElementById('ncHousing').value || '').trim();
       row['Damage to home'] = (document.getElementById('ncDamage').value || '').trim();
-      row['Interest Areas'] = Array.from(document.querySelectorAll('#ncInterestAreas input[type=checkbox]:checked')).map(cb => cb.value).join('|');
+      row['Interest Areas'] = formatMultiSelectForSheet(Array.from(document.querySelectorAll('#ncInterestAreas input[type=checkbox]:checked')).map(cb => cb.value));
       row['Skills & Expertise'] = (document.getElementById('ncSkills').value || '').trim();
       row['Languages Spoken'] = (document.getElementById('ncLanguages').value || '').trim();
       row['Google email'] = (ncProfileRowData['Google email'] || '').trim();
