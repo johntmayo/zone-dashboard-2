@@ -207,7 +207,7 @@
                       <canvas id="zoneOverviewRightDamageChart"></canvas>
                     </div>
                     <div class="chart-container-small chart-carousel-slide" data-chart-index="1">
-                      <div class="chart-title">Rebuild Status</div>
+                      <div class="chart-title">Build Status</div>
                       <canvas id="zoneOverviewRightRebuildChart"></canvas>
                     </div>
                     <div class="chart-container-small chart-carousel-slide" data-chart-index="2">
@@ -267,10 +267,10 @@
             </div>
           </div>
           
-          <!-- Panel D: Rebuild Progress Charts -->
+          <!-- Panel D: Build Progress Charts -->
           <div class="home-panel home-panel-wide">
             <div class="home-panel-header">
-              <h2>Rebuild Progress</h2>
+              <h2>Build Progress</h2>
             </div>
             <div class="home-panel-content">
               <div class="charts-grid" id="homeChartsGrid">
@@ -279,13 +279,13 @@
                   <canvas id="householdStatusChart"></canvas>
                 </div>
                 <div class="chart-container">
-                  <div class="chart-title">Rebuild Status</div>
+                  <div class="chart-title">Build Status</div>
                   <canvas id="rebuildStatusChart"></canvas>
                 </div>
               </div>
               <div class="charts-grid charts-grid-wide hidden" id="homeChartsGridWide">
                 <div class="chart-container chart-container-fullwidth">
-                  <div class="chart-title">Rebuild Status (Funnel)</div>
+                  <div class="chart-title">Build Status (Funnel)</div>
                   <canvas id="rebuildStatusFunnelChart"></canvas>
                 </div>
               </div>
@@ -503,7 +503,7 @@
           <div class="tool-module tool-module--featured" id="batchTaggingTool">
             <div class="tool-module-header" style="cursor: pointer;">
               <h3>Batch Tagging <span class="tool-module-toggle">▼</span></h3>
-              <p>Quickly set Damage, Address Plan, and Rebuild Status for many addresses at once. Select addresses (optionally filter first in Neighbors), choose values, then Apply.</p>
+              <p>Quickly set Damage, Address Plan, and Build Status for many addresses at once. Select addresses (optionally filter first in Neighbors), choose values, then Apply.</p>
             </div>
             <div class="tool-module-content">
               <div id="batchTaggingError" class="hidden" style="padding:12px; margin-bottom:16px; background:rgba(200,0,0,0.1); border:1px solid #c00; border-radius:8px; color:#c00; font-weight:600;"></div>
@@ -526,7 +526,7 @@
                     <select id="batchTaggingAddressPlan" class="add-record-select" style="min-width:160px;"></select>
                   </div>
                   <div>
-                    <label style="display:block; margin-bottom:4px; font-weight:600;">Rebuild Status</label>
+                    <label style="display:block; margin-bottom:4px; font-weight:600;">Build Status</label>
                     <select id="batchTaggingRebuild" class="add-record-select" style="min-width:200px;"></select>
                   </div>
                 </div>
@@ -1970,7 +1970,7 @@
 
     // Full option lists for filters (always show all options; empty result is user's problem)
     const DEFAULT_DAMAGE_VALUES = ['Total Loss', 'Partial Loss', 'Standing'];
-    const ADDRESS_PLAN_OPTIONS = ['Undecided', 'Rebuilding', 'Selling', 'Other'];
+    const ADDRESS_PLAN_OPTIONS = ['Undecided', 'Building', 'Selling', 'Other', 'Unknown'];
 
     // Get all damage options for filter: full list always, then any custom values from data
     function getFullDamageOptions() {
@@ -2902,14 +2902,14 @@
         ];
         return parts.join('');
       };
-      // Address details: Damage, Address Plan (conditional on Damage=Partial/Total), Rebuild Status, Address Notes
+      // Address details: Damage, Address Plan, Build Status, Address Notes
       const addressDamageOptions = getFullDamageOptions();
-      const addressPlanOptions = ['Undecided', 'Rebuilding', 'Selling', 'Other'];
+      const addressPlanOptions = ['Undecided', 'Building', 'Selling', 'Other', 'Unknown'];
       const addressRebuildOptions = getFullRebuildStatusOptions();
       const addressDetailsFields = [
         selectField('Damage', 'addRecordDamage', addressDamageOptions),
-        '<div id="addRecordAddressPlanWrap" class="hidden">' + selectField('Address Plan', 'addRecordAddressPlan', addressPlanOptions) + '</div>',
-        selectField('Rebuild Status', 'addRecordRebuild', addressRebuildOptions),
+        selectField('Address Plan', 'addRecordAddressPlan', addressPlanOptions),
+        selectField('Build Status', 'addRecordRebuild', addressRebuildOptions),
         notesField('Address Notes', 'addRecordAddressNotes')
       ].join('');
       const personDetailsFields = buildPersonDetailsHtml('addRecord');
@@ -3083,14 +3083,6 @@
       if (streetSelect.value === '__other__') streetOtherWrap.classList.remove('hidden');
 
       const addRecordDamageEl = document.getElementById('addRecordDamage');
-      const addRecordAddressPlanWrap = document.getElementById('addRecordAddressPlanWrap');
-      function toggleAddressPlanField() {
-        const damageVal = addRecordDamageEl ? addRecordDamageEl.value.toLowerCase() : '';
-        const showAddressPlan = damageVal.includes('partial') || damageVal.includes('total loss');
-        if (addRecordAddressPlanWrap) addRecordAddressPlanWrap.classList.toggle('hidden', !showAddressPlan);
-      }
-      if (addRecordDamageEl) addRecordDamageEl.addEventListener('change', toggleAddressPlanField);
-      toggleAddressPlanField();
 
       const personAddressType = document.getElementById('addRecordPersonAddressType');
       const personExistingWrap = document.getElementById('addRecordPersonExistingWrap');
@@ -3398,7 +3390,7 @@
           ${addressPlans.map(ap => `<option value="${ap.replace(/"/g, '&quot;')}" ${currentAddressPlanFilter === ap ? 'selected' : ''}>${ap}</option>`).join('')}
         </select>` : ''}
         ${rebuildCol ? `<select id="persistentRebuildFilter" class="${currentRebuildFilter !== 'all' ? 'filter-active' : ''}" title="For properties in recovery, this tracks the physical progress of construction.">
-          <option value="all" ${currentRebuildFilter === 'all' ? 'selected' : ''}>All Rebuild Status</option>
+          <option value="all" ${currentRebuildFilter === 'all' ? 'selected' : ''}>All Build Status</option>
           ${rebuildStatusesArray.map(status => `<option value="${status.replace(/"/g, '&quot;')}" ${currentRebuildFilter === status ? 'selected' : ''}>${status}</option>`).join('')}
         </select>` : ''}
         ${hasMultipleCaptains && captainAssignedCol ? `<select id="persistentCaptainFilter" class="${currentCaptainFilter !== 'all' ? 'filter-active' : ''}" title="Filter to see addresses assigned to a specific Neighborhood Captain.">
@@ -3711,7 +3703,7 @@
                 <th class="sortable" data-sort="residents" title="Click to sort">Residents ${tableSortColumn === 'residents' ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>
                 ${damageCol ? `<th class="sortable" data-sort="${damageCol.toLowerCase()}" title="Click to sort">Damage ${tableSortColumn === damageCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${addressPlanCol ? `<th class="sortable" data-sort="${addressPlanCol.toLowerCase()}" title="Click to sort">Address Plan ${tableSortColumn === addressPlanCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
-                ${rebuildCol ? `<th class="sortable" data-sort="${rebuildCol.toLowerCase()}" title="Click to sort">Rebuild Status ${tableSortColumn === rebuildCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
+                ${rebuildCol ? `<th class="sortable" data-sort="${rebuildCol.toLowerCase()}" title="Click to sort">Build Status ${tableSortColumn === rebuildCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${ageCol ? `<th class="sortable" data-sort="${ageCol.toLowerCase()}" title="Click to sort">Age ${tableSortColumn === ageCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${phoneCol ? `<th>Phone</th>` : ''}
                 ${emailCol ? `<th>Email</th>` : ''}
@@ -4174,8 +4166,8 @@
             <div class="address-info">
               ${data.damage ? `<span class="address-info-item"><strong>Damage:</strong>${escapeHtml(data.damage)}</span>` : ''}
               ${data.status ? `<span class="address-info-item"><strong>Status:</strong>${escapeHtml(data.status)}</span>` : ''}
-              ${data.rebuildStage ? `<span class="address-info-item"><strong>Rebuild Stage:</strong>${escapeHtml(data.rebuildStage)}</span>` : ''}
-              ${data.rebuildStatus ? `<span class="address-info-item"><strong>Rebuild:</strong>${escapeHtml(data.rebuildStatus)}</span>` : ''}
+              ${data.rebuildStage ? `<span class="address-info-item"><strong>Build Stage:</strong>${escapeHtml(data.rebuildStage)}</span>` : ''}
+              ${data.rebuildStatus ? `<span class="address-info-item"><strong>Build:</strong>${escapeHtml(data.rebuildStatus)}</span>` : ''}
               ${data.householdSize ? `<span class="address-info-item"><strong>HH Size:</strong>${escapeHtml(data.householdSize)}</span>` : ''}
               ${data.indoorsRemediated ? `<span class="address-info-item"><strong>Indoors Remed:</strong>${formatCheckbox(data.indoorsRemediated)}</span>` : ''}
               ${data.soilRemediated ? `<span class="address-info-item"><strong>Soil Remed:</strong>${formatCheckbox(data.soilRemediated)}</span>` : ''}
@@ -4283,7 +4275,7 @@
       if (emailCol) csvHeaders.push('Email');
       if (damageCol) csvHeaders.push('Damage Status');
       if (addressPlanCol) csvHeaders.push('Address Plan');
-      if (rebuildCol) csvHeaders.push('Rebuild Status');
+      if (rebuildCol) csvHeaders.push('Build Status');
       if (contactDateCol) csvHeaders.push('Last Contact');
       
       // Build CSV rows
@@ -4557,6 +4549,7 @@
         'soil remediated',
         'for sale',
         'recently sold',
+        'sold since fire',
         'unit type'
       ];
       
@@ -4618,7 +4611,7 @@
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       
       const defaultDamageValues = ['Total Loss', 'Partial Loss', 'Standing'];
-      const defaultAddressPlanValues = ['Undecided', 'Rebuilding', 'Selling', 'Other'];
+      const defaultAddressPlanValues = ['Undecided', 'Building', 'Selling', 'Other', 'Unknown'];
       
       sheetData.data.forEach(row => {
         if (damageCol && row[damageCol] !== undefined && row[damageCol] !== null) {
@@ -4641,10 +4634,9 @@
       const damageStatus = damageCol && rows[0] ? (rows[0][damageCol] || '').trim() : '';
       const showRemediationFields = damageStatus.toLowerCase() === 'standing' || damageStatus.toLowerCase() === 'partial loss';
       
-      // Get Address Plan to check if rebuild stage should be shown (only when Damage = Partial/Total and Address Plan = Rebuilding)
+      // Get Address Plan to check if build stage should be shown (only when Damage = Partial/Total and Address Plan = Building)
       const addressPlanValue = addressPlanCol && rows[0] ? (rows[0][addressPlanCol] || '').trim() : '';
-      const showAddressPlanField = damageStatus.toLowerCase().includes('partial') || damageStatus.toLowerCase().includes('total loss');
-      const showRebuildStage = showAddressPlanField && addressPlanValue.toLowerCase() === 'rebuilding';
+      const showRebuildStage = addressPlanValue.toLowerCase() === 'building';
       
       // Show address-level fields once at the top (always show, not just when signed in)
       if (addressLevelCols.length > 0) {
@@ -4668,9 +4660,6 @@
             return;
           }
           
-          // Address Plan only shows when Damage = Partial Loss or Total Loss
-          if (isAddressPlan && !showAddressPlanField) return;
-          
           if (isEditable) {
             if (isNotes) {
               // Notes: expandable textarea
@@ -4688,7 +4677,7 @@
               if (isDamage) {
                 options = Array.from(damageValues).sort();
               } else {
-                options = ['Undecided', 'Rebuilding', 'Selling', 'Other'].filter(opt => addressPlanValues.has(opt));
+                options = ['Undecided', 'Building', 'Selling', 'Other', 'Unknown'].filter(opt => addressPlanValues.has(opt));
                 options = options.concat(Array.from(addressPlanValues).filter(opt => !options.includes(opt)).sort());
               }
               const addressPlanDropdownId = isAddressPlan ? `address-plan-${address.replace(/[^a-zA-Z0-9]/g, '-')}` : '';
@@ -4705,7 +4694,7 @@
                 </select>
               </div>`;
             } else if (isRebuildStage) {
-              // Rebuild Status: dropdown with specific options - always render but hide if not Rebuilding
+              // Build Status: dropdown with specific options - always render but hide if not Building
               const rebuildStageOptions = [
                 'Planning/Not Ready to Build Yet',
                 'Permits & Pre-Construction',
@@ -4789,17 +4778,17 @@
           }
         });
 
-        // Address Tags: expandable section (collapsed by default) - Unit Type, For Sale, Recently Sold
+        // Address Tags: expandable section (collapsed by default) - Unit Type, For Sale, Sold Since Fire
         const unitTypeCol = findColumn(headers, ['unit', 'type']);
         const forSaleCol = findColumn(headers, ['for', 'sale']);
-        const recentlySoldCol = findColumn(headers, ['recently', 'sold']);
+        const recentlySoldCol = findColumn(headers, ['recently', 'sold']) || findColumn(headers, ['sold', 'since', 'fire']);
         const hasAddressTagsCols = unitTypeCol || forSaleCol || recentlySoldCol;
         if (hasAddressTagsCols) {
           const firstRow = rows[0] || {};
           const unitTypeVal = unitTypeCol ? (firstRow[unitTypeCol] || '').trim() : '';
           const forSaleVal = forSaleCol ? (firstRow[forSaleCol] || '').trim() : '';
           const recentlySoldVal = recentlySoldCol ? (firstRow[recentlySoldCol] || '').trim() : '';
-          const unitTypeOptions = ['Owner Occupied', 'Rental', 'Commercial', 'Other'];
+          const unitTypeOptions = ['Owner Occupied', 'Rental', 'Owner Occupied Plus Rental', 'Commercial', 'Other'];
           const forSaleLower = forSaleVal.toLowerCase();
           const recentlySoldLower = recentlySoldVal.toLowerCase();
           const forSaleChecked = forSaleLower === 'true' || forSaleVal === 'TRUE' || forSaleLower === 'yes' ||
@@ -4827,7 +4816,7 @@
           if (recentlySoldCol) {
             html += `<div class="person-info"><label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
               <input type="checkbox" class="editable-checkbox" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${recentlySoldCol}" data-original-value="${recentlySoldVal.replace(/"/g, '&quot;')}" ${recentlySoldChecked ? 'checked' : ''} style="width:18px; height:18px;">
-              <strong>Recently Sold</strong></label></div>`;
+              <strong>Sold Since Fire</strong></label></div>`;
           }
           html += '</div></details>';
         }
@@ -5222,7 +5211,7 @@
             const rebuildStageField = document.getElementById(rebuildStageId);
             
             if (rebuildStageField) {
-              if (addressPlanVal === 'rebuilding') {
+              if (addressPlanVal === 'building') {
                 rebuildStageField.classList.remove('hidden');
               } else {
                 rebuildStageField.classList.add('hidden');
@@ -6227,7 +6216,7 @@
             const rebuildColorMapping = getRebuildColorMapping();
             const stages = Object.keys(rebuildColorMapping);
             html = `
-              <div style="font-weight: 600; margin-bottom: 8px; color: #283618; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Rebuild Status</div>
+              <div style="font-weight: 600; margin-bottom: 8px; color: #283618; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Build Status</div>
               ${stages.map(stage => `
                 <div style="display: flex; align-items: center; margin-bottom: 6px;">
                   <div style="width: 16px; height: 16px; border-radius: 50%; background: ${rebuildColorMapping[stage]}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
@@ -6325,7 +6314,7 @@
             const rebuildColorMapping = getRebuildColorMapping();
             const stages = Object.keys(rebuildColorMapping);
             html = `
-              <div style="font-weight: 600; margin-bottom: 8px; color: #283618; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Rebuild Status</div>
+              <div style="font-weight: 600; margin-bottom: 8px; color: #283618; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Build Status</div>
               ${stages.map(stage => `
                 <div style="display: flex; align-items: center; margin-bottom: 6px;">
                   <div style="width: 16px; height: 16px; border-radius: 50%; background: ${rebuildColorMapping[stage]}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
@@ -6426,9 +6415,9 @@
             if (homeColorMode !== 'damage') damageBtn.style.background = 'white';
           };
           
-          // Rebuild Status button
+          // Build Status button
           const rebuildBtn = L.DomUtil.create('button', 'color-filter-btn', container);
-          rebuildBtn.textContent = 'Rebuild Status';
+          rebuildBtn.textContent = 'Build Status';
           rebuildBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
           rebuildBtn.onmouseover = () => rebuildBtn.style.background = '#f5f5f5';
           rebuildBtn.onmouseout = () => {
@@ -6810,9 +6799,9 @@
             if (currentColorMode !== 'damage') damageBtn.style.background = 'white';
           };
           
-          // Rebuild Status button
+          // Build Status button
           const rebuildBtn = L.DomUtil.create('button', 'color-filter-btn', container);
-          rebuildBtn.textContent = 'Rebuild Status';
+          rebuildBtn.textContent = 'Build Status';
           rebuildBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
           rebuildBtn.onmouseover = () => rebuildBtn.style.background = '#f5f5f5';
           rebuildBtn.onmouseout = () => {
@@ -8741,7 +8730,7 @@
         });
       }
       
-      // 2. Rebuild Status Bar Chart
+      // 2. Build Status Bar Chart
       const rebuildStages = [
         'Planning/Not Ready to Build Yet',
         'Permits & Pre-Construction',
@@ -8908,7 +8897,7 @@
         });
       }
       
-      // 3. Rebuild Status Funnel Chart (Sequential Left-to-Right, All Stages)
+      // 3. Build Status Funnel Chart (Sequential Left-to-Right, All Stages)
       const rebuildFunnelCtx = document.getElementById('rebuildStatusFunnelChart');
       if (rebuildStatusFunnelChart) rebuildStatusFunnelChart.destroy();
       if (rebuildFunnelCtx) {
@@ -9817,10 +9806,10 @@
 
       // Map chart definitions to the correct canvas IDs for each carousel
       // LEFT: Addresses Contacted (0), Streets Distribution (3), People per Address (4)
-      // RIGHT: Damage Status (1), Rebuild Status (5), Address Plan (2)
+      // RIGHT: Damage Status (1), Build Status (5), Address Plan (2)
       const chartIndexMap = {
         'left': [0, 3, 4],  // Addresses Contacted, Streets Distribution, People per Address
-        'right': [1, 5, 2]  // Damage Status, Rebuild Status, Address Plan
+        'right': [1, 5, 2]  // Damage Status, Build Status, Address Plan
       };
       
       const canvasIdMap = {
@@ -9928,7 +9917,7 @@
       }
     }
     
-    // Panel B: Rebuild Progress Snapshot
+    // Panel B: Build Progress Snapshot
     function updateRebuildProgress() {
       if (!sheetData || !sheetData.addressMap || !sheetData.headers) {
         return;
@@ -10356,7 +10345,7 @@
         const addressPlanVal = (addressPlanSelect.value || '').trim();
         const rebuildVal = (rebuildSelect.value || '').trim();
         if (!damageVal && !addressPlanVal && !rebuildVal) {
-          if (statusMsg) statusMsg.textContent = 'Choose at least one value (Damage, Address Plan, or Rebuild Status).';
+          if (statusMsg) statusMsg.textContent = 'Choose at least one value (Damage, Address Plan, or Build Status).';
           return;
         }
         const updates = [];
@@ -11584,9 +11573,9 @@
           </div>
         </div>
         
-        <!-- Rebuild Status Analysis -->
+        <!-- Build Status Analysis -->
         <div class="zone-report-section">
-          <h2 class="zone-report-section-title">Rebuild Status</h2>
+          <h2 class="zone-report-section-title">Build Status</h2>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 24px; align-items: start;">
             <div>
               <div class="zone-report-stats-grid">
@@ -11599,7 +11588,7 @@
               </div>
             </div>
             <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-              <h3 style="margin: 0 0 16px 0; color: var(--primary-dark); font-size: 1.2rem; text-align: center;">Rebuild Status Distribution</h3>
+              <h3 style="margin: 0 0 16px 0; color: var(--primary-dark); font-size: 1.2rem; text-align: center;">Build Status Distribution</h3>
               <canvas id="reportRebuildChart" style="max-height: 800px; max-width: 100%; height: 800px !important;"></canvas>
             </div>
           </div>
@@ -12040,11 +12029,11 @@
         });
       }
       
-      const rebuildingCount = stats.addressPlanBreakdown?.['Rebuilding'] || 0;
-      if (rebuildingCount > 0) {
+      const buildingCount = stats.addressPlanBreakdown?.['Building'] || stats.addressPlanBreakdown?.['Rebuilding'] || 0;
+      if (buildingCount > 0) {
         insights.push({
-          title: 'Rebuilding Activity',
-          text: `${rebuildingCount} households are rebuilding. These may need ongoing support and resources.`
+          title: 'Building Activity',
+          text: `${buildingCount} households are building. These may need ongoing support and resources.`
         });
       }
       
@@ -12278,7 +12267,7 @@
         });
       }
       
-      // Rebuild Status Chart (horizontal bar chart like homepage)
+      // Build Status Chart (horizontal bar chart like homepage)
       const rebuildCtx = document.getElementById('reportRebuildChart');
       if (rebuildCtx && stats.rebuildBreakdown) {
         // Define rebuild stages in the same order as homepage
