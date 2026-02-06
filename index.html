@@ -2013,7 +2013,7 @@
     // Get all rebuild status options for filter: full sequential list first, then any custom from data
     function getFullRebuildStatusOptions() {
       if (!sheetData || !sheetData.headers) return [...REBUILD_STAGES_SEQUENTIAL];
-      const rebuildCol = findColumn(sheetData.headers, 'rebuild', ['intent']);
+    const rebuildCol = findColumn(sheetData.headers, ['build', 'status'], ['intent']);
       if (!rebuildCol) return [...REBUILD_STAGES_SEQUENTIAL];
       const fromData = new Set();
       sheetData.data.forEach(row => {
@@ -2174,7 +2174,7 @@
 
     // Get rebuild status value for an address (normalized for display: no spaces around slashes)
     function getAddressRebuildStatus(address) {
-      const rebuildCol = findColumn(sheetData.headers, 'rebuild', ['intent']);
+    const rebuildCol = findColumn(sheetData.headers, ['build', 'status'], ['intent']);
       if (!rebuildCol) return null;
       const rows = sheetData.addressMap.get(address);
       if (rows && rows.length > 0) {
@@ -2865,7 +2865,7 @@
       if (!zoneCol) zoneCol = headers.find(h => h.toLowerCase().includes('zone'));
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
-      const rebuildCol = findColumn(headers, 'rebuild', ['intent']);
+    const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const addressNotesCol = headers.find(h => /address\s*note/i.test(h));
       const captainCol = findColumn(headers, ['captain', 'assign']) || headers.find(h => /captain/i.test(h));
       const saleDateCol = headers.find(h => /sale\s*date/i.test(h));
@@ -3345,7 +3345,7 @@
       const headers = sheetData.headers;
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
-      const rebuildCol = findColumn(headers, 'rebuild', ['intent']);
+      const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const contactDateCol = findColumn(headers, ['contact', 'date']);
 
       const streets = getUniqueStreets(addresses);
@@ -3580,7 +3580,7 @@
       const headers = sheetData.headers;
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
-      const rebuildCol = findColumn(headers, 'rebuild', ['intent']);
+      const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const residentNameCol = headers.find(h => {
         const lower = h.toLowerCase();
         return lower.includes('resident name') || (lower.includes('name') && !lower.includes('first') && !lower.includes('last') && !lower.includes('nc'));
@@ -3843,7 +3843,7 @@
       const headers = sheetData.headers;
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
-      const rebuildCol = findColumn(headers, 'rebuild', ['intent']);
+      const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const contactDateCol = findColumn(headers, ['contact', 'date']);
       const captainAssignedCol = findColumn(headers, 'captain assigned');
       
@@ -4266,7 +4266,7 @@
       const emailCol = findColumn(headers, 'email');
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
-      const rebuildCol = findColumn(headers, 'rebuild', ['intent']);
+      const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const contactDateCol = findColumn(headers, ['contact', 'date']);
       
       // Build CSV headers
@@ -4353,7 +4353,7 @@
       
       // Filter addresses by all selected filters (same logic as displayAddressTable)
       const headers = sheetData.headers;
-      const rebuildCol = findColumn(headers, 'rebuild', ['intent']);
+      const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const contactDateCol = findColumn(headers, ['contact', 'date']);
       
       const filteredAddresses = addresses.filter(addr => {
@@ -4502,7 +4502,9 @@
         'address plan',
         'address notes',
         'rebuild stage',
-        'rebuild status'
+        'rebuild status',
+        'build stage',
+        'build status'
       ];
       
       // Add Captain Assigned if zone has multiple captains and column exists
@@ -4520,7 +4522,20 @@
         // But only include if they're in the display list
         const isSameForAll = rows.length > 0 && rows.every(r => (r[h] || '').trim() === (rows[0][h] || '').trim());
         const shouldDisplay = addressLevelDisplayFields.some(field => lower.includes(field));
-        return isSameForAll && shouldDisplay;
+        if (!shouldDisplay) return false;
+        // Force key address-level fields to display even if rows vary
+        const forceAddressLevelFields = [
+          'damage',
+          'address plan',
+          'build status',
+          'build stage',
+          'rebuild status',
+          'rebuild stage',
+          'address notes',
+          'household size'
+        ];
+        const forceAddressLevel = forceAddressLevelFields.some(field => lower.includes(field));
+        return isSameForAll || forceAddressLevel;
       });
       
       // Fields to hide from person view
@@ -4545,6 +4560,8 @@
         'last name',
         'rebuild stage',
         'rebuild status',
+        'build stage',
+        'build status',
         'indoors remediated',
         'soil remediated',
         'for sale',
@@ -4649,7 +4666,10 @@
           const isDamage = lower.includes('damage');
           const isAddressPlan = lower.includes('address') && lower.includes('plan') && !lower.includes('note');
           const isStatus = isAddressPlan;
-          const isRebuildStage = lower.includes('rebuild stage') || lower.includes('rebuild status');
+          const isRebuildStage = lower.includes('rebuild stage') ||
+            lower.includes('rebuild status') ||
+            lower.includes('build stage') ||
+            lower.includes('build status');
           const isIndoorsRemediated = lower.includes('indoors remediated');
           const isSoilRemediated = lower.includes('soil remediated');
           const isCaptainAssigned = lower.includes('captain assigned');
@@ -7819,7 +7839,7 @@
         }
         
         // Rebuild filter
-        const rebuildCol = findColumn(sheetData.headers, 'rebuild', ['intent']);
+        const rebuildCol = findColumn(sheetData.headers, ['build', 'status'], ['intent']);
         if (currentRebuildFilter !== 'all' && rebuildCol) {
           const rows = sheetData.addressMap.get(address);
           if (rows && rows[0]) {
@@ -9555,7 +9575,7 @@
     }
 
     function getRebuildStatusData(headers, addressMap) {
-      const rebuildCol = findColumn(headers, 'rebuild', ['intent']);
+      const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const rebuildCounts = {};
       let rebuildUnknown = 0;
       
@@ -9929,11 +9949,13 @@
       const headers = sheetData.headers;
       const addressMap = sheetData.addressMap;
       
-      // Find Rebuild Stage column
+      // Find Build/Rebuild Stage column
       const rebuildCol = headers.find(h => {
         const lower = h.toLowerCase();
         return lower.includes('rebuild stage') ||
-               (lower.includes('rebuild') && lower.includes('stage'));
+               (lower.includes('rebuild') && lower.includes('stage')) ||
+               lower.includes('build stage') ||
+               (lower.includes('build') && lower.includes('stage'));
       });
       
       const rebuildCounts = {};
@@ -10308,7 +10330,7 @@
       const headers = sheetData.headers;
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
-      const rebuildCol = findColumn(headers, 'rebuild', ['intent']);
+      const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const damageOpts = getFullDamageOptions();
       const addressPlanOpts = getFullAddressPlanOptions();
       const rebuildOpts = getFullRebuildStatusOptions();
@@ -11791,7 +11813,7 @@
       const emailCol = findColumn(headers, 'email');
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
-      const rebuildCol = findColumn(headers, 'rebuild', ['intent']);
+      const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const contactDateCol = headers.find(h => 
         (h.toLowerCase().includes('contact') && h.toLowerCase().includes('date')) ||
         h.toLowerCase().includes('last contact')
