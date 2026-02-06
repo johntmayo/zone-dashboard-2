@@ -5207,21 +5207,8 @@
           // Mark as changed for save
           dropdown.setAttribute('data-changed', 'true');
           
-          // If this is the Damage dropdown, update in-memory data and re-render Details panel so Address Plan appears/disappears
           const colName = dropdown.getAttribute('data-column');
           const colLower = (colName || '').toLowerCase();
-          if (colLower.includes('damage') && !colLower.includes('to home')) {
-            const addr = dropdown.getAttribute('data-address');
-            const newVal = dropdown.value.trim();
-            if (addr && selectedAddress === addr && sheetData && sheetData.addressMap) {
-              const rows = sheetData.addressMap.get(addr);
-              if (colName && rows) {
-                rows.forEach(r => { r[colName] = newVal; });
-                displayAddressDetails(addr, true);
-                return; // displayAddressDetails re-attaches handlers
-              }
-            }
-          }
           
           // If this is an Address Plan dropdown, show/hide Rebuild Stage field
           if (dropdown.classList.contains('address-plan-dropdown')) {
