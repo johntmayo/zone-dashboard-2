@@ -8,7 +8,8 @@ const PORT = process.env.PORT || 8000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('.')); // Serve static files from current directory
+app.use('/public', express.static(path.join(__dirname, 'public'))); // Static assets at /public (css, js, images)
+app.use(express.static('.')); // Serve other static files from current directory (index.html, .html pages)
 
 // Google Sheets API setup
 // Using public sheet access (no auth needed if sheet is set to "Anyone with link can view")
