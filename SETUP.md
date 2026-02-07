@@ -34,14 +34,22 @@ Or for development with auto-reload:
 npm run dev
 ```
 
-The server will start on `http://localhost:3000` (or the port specified in the PORT environment variable).
+The server will start on `http://localhost:8000` (or the port specified in the PORT environment variable).
 
 ### Backend Configuration
 
-The backend API route `/api/homepage-feed` reads from a central Google Sheet:
+**Google Sheets (service account)**  
+All Sheets read/write (zone data, NC Profile, Zone Notes, append, batch updates) go through the server using a single **Google Cloud Service Account**. You must:
+
+1. Create a service account and set `GOOGLE_SERVICE_ACCOUNT_JSON` (or `GOOGLE_APPLICATION_CREDENTIALS`) in the server environment.
+2. Share every spreadsheet the app uses (central feed, actions feed, NC directory, and each zone spreadsheet) with the service account email as **Editor**.
+
+See **[SERVICE_ACCOUNT_SETUP.md](SERVICE_ACCOUNT_SETUP.md)** for step-by-step creation, credential storage, sheet sharing, deploy, and testing.
+
+**Homepage feed (public CSV fallback)**  
+The route `/api/homepage-feed` can still read from a central Google Sheet via public CSV if the sheet is "Anyone with link can view":
 - **Sheet ID**: `1PaqcX2BSypJjLBDMA3DnlAxCHK5y0TWMSbCIkTScIQU`
 - **Sheet Name**: "Zone Dashboard Homepage Backend"
-- **Access**: Set to "Anyone with link can view"
 
 The backend expects the sheet to have this structure:
 - Column A: Labels (Announcements, Next Meeting, Newsletter, Volunteer Asks, Partner Items)
@@ -72,7 +80,7 @@ The backend expects the sheet to have this structure:
 ## Testing
 
 1. Start the backend server: `npm start`
-2. Open `index.html` in a browser (or serve via the backend at `http://localhost:3000`)
+2. Open `index.html` in a browser (or serve via the backend at `http://localhost:8000`)
 3. Load a captain's spreadsheet
 4. Verify the Home Dashboard displays:
    - Zone stats in Panel A
@@ -85,8 +93,10 @@ The backend expects the sheet to have this structure:
 
 ### Backend Issues
 
-- **Port already in use**: Change the PORT environment variable or stop other services on port 3000
-- **Sheet access denied**: Ensure the central Google Sheet is set to "Anyone with link can view"
+- **Port already in use**: Change the PORT environment variable or stop other services (default 8000)
+- **Sheet access denied / 403 on `/api/sheets/*`**: Ensure each spreadsheet is shared with the service account email (see [SERVICE_ACCOUNT_SETUP.md](SERVICE_ACCOUNT_SETUP.md)).
+- **Missing credentials**: Set `GOOGLE_SERVICE_ACCOUNT_JSON` or `GOOGLE_APPLICATION_CREDENTIALS` so the server can call the Sheets API.
+- **Central feed / CSV**: For the homepage feed, the central sheet can be "Anyone with link can view" for unauthenticated CSV; otherwise use the service account and share that sheet too.
 - **CSV parsing errors**: Check the sheet structure matches the expected format
 
 ### Frontend Issues

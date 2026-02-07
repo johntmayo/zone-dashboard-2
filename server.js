@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const { google } = require('googleapis');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -10,6 +11,23 @@ app.use(cors());
 app.use(express.json());
 app.use('/public', express.static(path.join(__dirname, 'public'))); // Static assets at /public (css, js, images)
 app.use(express.static('.')); // Serve other static files from current directory (index.html, .html pages)
+
+// Service account auth for Sheets API (single server-side identity)
+let sheetsClientCache = null;
+function getSheetsClient() {
+  if (sheetsClientCache) return Promise.resolve(sheetsClientCache);
+  const json = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (!json && !keyPath) {
+    return Promise.reject(new Error('Missing GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS'));
+  }
+  const auth = json
+    ? new google.auth.GoogleAuth({ credentials: JSON.parse(json) })
+    : new google.auth.GoogleAuth({ keyFile: keyPath });
+  const sheets = google.sheets({ version: 'v4', auth });
+  sheetsClientCache = sheets;
+  return Promise.resolve(sheets);
+}
 
 // Google Sheets API setup
 // Using public sheet access (no auth needed if sheet is set to "Anyone with link can view")
@@ -391,6 +409,105 @@ app.get('/api/nc-directory', async (req, res) => {
       error: 'Failed to fetch NC Directory',
       message: error.message
     });
+  }
+});
+
+// --- Sheets proxy (service account) ---
+function sheetsErrorStatus(err) {
+  const code = err.code || (err.response && err.response.status);
+  if (code === 403) return 403;
+  if (code === 404) return 404;
+  if (code === 400) return 400;
+  return 500;
+}
+
+// GET/POST /api/sheets/values - read range
+app.get('/api/sheets/values', async (req, res) => {
+  const sheetId = req.query.sheetId;
+  const range = req.query.range || 'A1:ZZ1000';
+  const sheetName = req.query.sheetName || null;
+  if (!sheetId) {
+    return res.status(400).json({ error: 'sheetId required' });
+  }
+  try {
+    const sheets = await getSheetsClient();
+    const rangeStr = sheetName ? `${sheetName}!${range}` : range;
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: rangeStr
+    });
+    res.json(result.data);
+  } catch (err) {
+    const status = sheetsErrorStatus(err);
+    const message = err.message || (err.response && err.response.data && err.response.data.error && err.response.data.error.message) || 'Sheets API error';
+    console.error('Sheets values get error:', message);
+    res.status(status).json({ error: 'Failed to fetch sheet values', message });
+  }
+});
+
+app.post('/api/sheets/values', async (req, res) => {
+  const { sheetId, range = 'A1:ZZ1000', sheetName } = req.body || {};
+  if (!sheetId) {
+    return res.status(400).json({ error: 'sheetId required' });
+  }
+  try {
+    const sheets = await getSheetsClient();
+    const rangeStr = sheetName ? `${sheetName}!${range}` : range;
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: rangeStr
+    });
+    res.json(result.data);
+  } catch (err) {
+    const status = sheetsErrorStatus(err);
+    const message = err.message || (err.response && err.response.data && err.response.data.error && err.response.data.error.message) || 'Sheets API error';
+    console.error('Sheets values get error:', message);
+    res.status(status).json({ error: 'Failed to fetch sheet values', message });
+  }
+});
+
+// POST /api/sheets/append - append rows
+app.post('/api/sheets/append', async (req, res) => {
+  const { sheetId, values, sheetName = 'Sheet1' } = req.body || {};
+  if (!sheetId || !values || !Array.isArray(values)) {
+    return res.status(400).json({ error: 'sheetId and values (array) required' });
+  }
+  try {
+    const sheets = await getSheetsClient();
+    const range = `${sheetName}!A1:ZZ`;
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: sheetId,
+      range,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values }
+    });
+    res.json({ success: true });
+  } catch (err) {
+    const status = sheetsErrorStatus(err);
+    const message = err.message || (err.response && err.response.data && err.response.data.error && err.response.data.error.message) || 'Sheets API error';
+    console.error('Sheets append error:', message);
+    res.status(status).json({ error: 'Failed to append rows', message });
+  }
+});
+
+// POST /api/sheets/batch-update - batchUpdate
+app.post('/api/sheets/batch-update', async (req, res) => {
+  const { sheetId, valueInputOption = 'USER_ENTERED', data } = req.body || {};
+  if (!sheetId || !data || !Array.isArray(data)) {
+    return res.status(400).json({ error: 'sheetId and data (array of { range, values }) required' });
+  }
+  try {
+    const sheets = await getSheetsClient();
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: sheetId,
+      requestBody: { valueInputOption, data }
+    });
+    res.json({ success: true });
+  } catch (err) {
+    const status = sheetsErrorStatus(err);
+    const message = err.message || (err.response && err.response.data && err.response.data.error && err.response.data.error.message) || 'Sheets API error';
+    console.error('Sheets batch-update error:', message);
+    res.status(status).json({ error: 'Failed to batch update', message });
   }
 });
 
