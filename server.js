@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 8000;
 app.use(cors());
 app.use(express.json());
 app.use('/public', express.static(path.join(__dirname, 'public'))); // Static assets at /public (css, js, images)
-app.use(express.static('.')); // Serve other static files from current directory (index.html, .html pages)
+app.use(express.static(path.join(__dirname))); // Serve HTML and other static files from app directory (index.html, flyer_tool.html, nc-directory.html, etc.)
 
 // Service account auth for Sheets API (single server-side identity)
 let sheetsClientCache = null;
