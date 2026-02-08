@@ -26,12 +26,18 @@ function getSheetsClient() {
   if (b64) {
     try {
       credentials = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
+      if (credentials && credentials.client_email) {
+        console.log('Sheets auth: using GOOGLE_SERVICE_ACCOUNT_JSON_B64, client_email=', credentials.client_email);
+      }
     } catch (e) {
       return Promise.reject(new Error('Invalid GOOGLE_SERVICE_ACCOUNT_JSON_B64'));
     }
   } else if (json) {
     try {
       credentials = JSON.parse(json);
+      if (credentials && credentials.client_email) {
+        console.log('Sheets auth: using GOOGLE_SERVICE_ACCOUNT_JSON, client_email=', credentials.client_email);
+      }
     } catch (e) {
       return Promise.reject(new Error('Invalid GOOGLE_SERVICE_ACCOUNT_JSON'));
     }
@@ -455,7 +461,7 @@ app.get('/api/sheets/values', async (req, res) => {
   } catch (err) {
     const status = sheetsErrorStatus(err);
     const message = err.message || (err.response && err.response.data && err.response.data.error && err.response.data.error.message) || 'Sheets API error';
-    console.error('Sheets values get error:', message);
+    console.error('Sheets values get error:', message, 'code=', err.code, 'response=', err.response && err.response.data ? JSON.stringify(err.response.data) : 'none');
     res.status(status).json({ error: 'Failed to fetch sheet values', message });
   }
 });
@@ -476,7 +482,7 @@ app.post('/api/sheets/values', async (req, res) => {
   } catch (err) {
     const status = sheetsErrorStatus(err);
     const message = err.message || (err.response && err.response.data && err.response.data.error && err.response.data.error.message) || 'Sheets API error';
-    console.error('Sheets values get error:', message);
+    console.error('Sheets values get error:', message, 'code=', err.code, 'response=', err.response && err.response.data ? JSON.stringify(err.response.data) : 'none');
     res.status(status).json({ error: 'Failed to fetch sheet values', message });
   }
 });
