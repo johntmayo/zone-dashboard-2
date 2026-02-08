@@ -461,7 +461,8 @@ app.get('/api/sheets/values', async (req, res) => {
   } catch (err) {
     const status = sheetsErrorStatus(err);
     const message = err.message || (err.response && err.response.data && err.response.data.error && err.response.data.error.message) || 'Sheets API error';
-    console.error('Sheets values get error:', message, 'code=', err.code, 'response=', err.response && err.response.data ? JSON.stringify(err.response.data) : 'none');
+    console.error('Sheets values get error:', message);
+    console.error('Sheets error details: code=', err.code, 'response=', err.response && err.response.data ? JSON.stringify(err.response.data) : 'none');
     res.status(status).json({ error: 'Failed to fetch sheet values', message });
   }
 });
@@ -482,7 +483,8 @@ app.post('/api/sheets/values', async (req, res) => {
   } catch (err) {
     const status = sheetsErrorStatus(err);
     const message = err.message || (err.response && err.response.data && err.response.data.error && err.response.data.error.message) || 'Sheets API error';
-    console.error('Sheets values get error:', message, 'code=', err.code, 'response=', err.response && err.response.data ? JSON.stringify(err.response.data) : 'none');
+    console.error('Sheets values get error:', message);
+    console.error('Sheets error details: code=', err.code, 'response=', err.response && err.response.data ? JSON.stringify(err.response.data) : 'none');
     res.status(status).json({ error: 'Failed to fetch sheet values', message });
   }
 });
