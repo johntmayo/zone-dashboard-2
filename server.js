@@ -42,9 +42,15 @@ function getSheetsClient() {
       return Promise.reject(new Error('Invalid GOOGLE_SERVICE_ACCOUNT_JSON'));
     }
   }
-  const auth = credentials
-    ? new google.auth.GoogleAuth({ credentials })
-    : new google.auth.GoogleAuth({ keyFile: keyPath });
+  const authOptions = {
+    scopes: ['https://www.googleapis.com/auth/spreadsheets']
+  };
+  if (credentials) {
+    authOptions.credentials = credentials;
+  } else {
+    authOptions.keyFile = keyPath;
+  }
+  const auth = new google.auth.GoogleAuth(authOptions);
   const sheets = google.sheets({ version: 'v4', auth });
   sheetsClientCache = sheets;
   return Promise.resolve(sheets);
