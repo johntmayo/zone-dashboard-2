@@ -17,12 +17,27 @@ let sheetsClientCache = null;
 function getSheetsClient() {
   if (sheetsClientCache) return Promise.resolve(sheetsClientCache);
   const json = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  const b64 = process.env.GOOGLE_SERVICE_ACCOUNT_JSON_B64;
   const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  if (!json && !keyPath) {
-    return Promise.reject(new Error('Missing GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS'));
+  if (!json && !b64 && !keyPath) {
+    return Promise.reject(new Error('Missing GOOGLE_SERVICE_ACCOUNT_JSON, GOOGLE_SERVICE_ACCOUNT_JSON_B64, or GOOGLE_APPLICATION_CREDENTIALS'));
   }
-  const auth = json
-    ? new google.auth.GoogleAuth({ credentials: JSON.parse(json) })
+  let credentials = null;
+  if (b64) {
+    try {
+      credentials = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
+    } catch (e) {
+      return Promise.reject(new Error('Invalid GOOGLE_SERVICE_ACCOUNT_JSON_B64'));
+    }
+  } else if (json) {
+    try {
+      credentials = JSON.parse(json);
+    } catch (e) {
+      return Promise.reject(new Error('Invalid GOOGLE_SERVICE_ACCOUNT_JSON'));
+    }
+  }
+  const auth = credentials
+    ? new google.auth.GoogleAuth({ credentials })
     : new google.auth.GoogleAuth({ keyFile: keyPath });
   const sheets = google.sheets({ version: 'v4', auth });
   sheetsClientCache = sheets;
