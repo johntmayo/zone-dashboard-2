@@ -124,6 +124,70 @@
     .accordion-inner { padding: 0.5rem 0.75rem 1rem; border-top: 1px solid var(--border-color); }
     .accordion-inner label { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; font-size: 0.9rem; cursor: pointer; }
     .accordion-inner input[type="checkbox"] { margin: 0; }
+    .results-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.75rem 0;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .results-bar .view-toggle {
+      display: flex;
+      gap: 0;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 2px solid var(--border-color);
+    }
+    .results-bar .view-toggle button {
+      padding: 0.4rem 0.75rem;
+      font-size: 0.9rem;
+      font-family: 'Chivo', sans-serif;
+      font-weight: 600;
+      border: none;
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    .results-bar .view-toggle button:hover { background: #F9FAFB; color: var(--text-primary); }
+    .results-bar .view-toggle button.active { background: var(--accent-gold); color: var(--text-primary); }
+    .results-bar .copy-btn {
+      padding: 0.4rem 0.75rem;
+      font-size: 0.9rem;
+      font-family: 'Chivo', sans-serif;
+      font-weight: 600;
+      border: 2px solid var(--accent-green);
+      background: var(--bg-card);
+      color: var(--accent-green);
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .results-bar .copy-btn:hover { background: var(--accent-green); color: white; }
+    .results-bar .copy-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .results-bar .copy-btn.copied { background: var(--accent-green); color: white; }
+    .results-bar .copy-feedback { font-size: 0.9rem; color: var(--accent-green); margin-left: 0.25rem; }
+    .list-table-wrap { overflow-x: auto; }
+    .list-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--bg-card);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .list-table th, .list-table td { padding: 0.6rem 1rem; text-align: left; }
+    .list-table th {
+      background: var(--brand-primary-dark);
+      color: white;
+      font-family: 'Chivo', sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+    .list-table tbody tr:nth-child(even) { background: #F9FAFB; }
+    .list-table tbody tr:hover { background: #F3F4F6; }
+    .list-table .email-cell a { color: var(--accent-green); text-decoration: none; }
+    .list-table .email-cell a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -160,9 +224,23 @@
         <div class="accordion-inner" id="interestCheckboxes"></div>
       </div>
     </div>
+    <div class="results-bar hidden" id="resultsBar">
+      <span class="view-toggle" role="group" aria-label="View mode">
+        <button type="button" id="viewCards" aria-pressed="true">Cards</button>
+        <button type="button" id="viewList" aria-pressed="false">List</button>
+      </span>
+      <button type="button" class="copy-btn" id="copyEmailsBtn" title="Copy email addresses of all captains matching your filters">Copy emails</button>
+      <span class="copy-feedback hidden" id="copyFeedback">Copied!</span>
+    </div>
     <div id="content">
       <div class="loading" id="loading">Loading directory…</div>
       <div class="cards hidden" id="cards"></div>
+      <div class="list-table-wrap hidden" id="listWrap">
+        <table class="list-table" id="listTable" aria-label="Filtered captain list">
+          <thead><tr><th>Name</th><th>Zone</th><th>Water district</th><th>Email</th></tr></thead>
+          <tbody id="listBody"></tbody>
+        </table>
+      </div>
       <div class="empty hidden" id="empty">No captains match your filters.</div>
       <div class="error hidden" id="error"></div>
     </div>
@@ -189,6 +267,8 @@
       const DAMAGE_KEY = 'Damage to home';
 
       let allCaptains = [];
+      let filteredList = [];
+      let viewMode = 'cards';
       let activeWorkingGroups = new Set();
       let activeInterests = new Set();
 
@@ -257,7 +337,7 @@
         const censusTract = (document.getElementById('filterCensusTract').value || '').trim();
         const waterDistrict = (document.getElementById('filterWaterDistrict').value || '').trim();
 
-        let list = allCaptains.filter(c => {
+        filteredList = allCaptains.filter(c => {
           if (query) {
             if (!buildSearchableText(c).includes(query)) return false;
           }
@@ -275,8 +355,86 @@
           return true;
         });
 
-        renderCards(list);
-        document.getElementById('resultCount').textContent = list.length + ' captain' + (list.length !== 1 ? 's' : '');
+        document.getElementById('resultCount').textContent = filteredList.length + ' captain' + (filteredList.length !== 1 ? 's' : '');
+        updateResultsBar();
+        renderView();
+      }
+
+      function getEmailsFromList(list) {
+        return list.map(c => {
+          const e = (c[PREFERRED_EMAIL_KEY] || '').trim() || (c[GOOGLE_EMAIL_KEY] || '').trim();
+          return e;
+        }).filter(Boolean);
+      }
+
+      function updateResultsBar() {
+        const bar = document.getElementById('resultsBar');
+        const copyBtn = document.getElementById('copyEmailsBtn');
+        const emails = getEmailsFromList(filteredList);
+        const hasResults = filteredList.length > 0;
+        bar.classList.toggle('hidden', !hasResults);
+        if (hasResults) {
+          copyBtn.textContent = emails.length > 0 ? 'Copy ' + emails.length + ' email' + (emails.length !== 1 ? 's' : '') : 'Copy emails';
+          copyBtn.disabled = emails.length === 0;
+        }
+      }
+
+      function renderView() {
+        const cardsEl = document.getElementById('cards');
+        const listWrap = document.getElementById('listWrap');
+        if (viewMode === 'cards') {
+          renderCards(filteredList);
+          cardsEl.classList.remove('hidden');
+          listWrap.classList.add('hidden');
+        } else {
+          renderList(filteredList);
+          cardsEl.classList.add('hidden');
+          listWrap.classList.remove('hidden');
+        }
+      }
+
+      function renderList(list) {
+        const tbody = document.getElementById('listBody');
+        const emptyEl = document.getElementById('empty');
+        const listWrap = document.getElementById('listWrap');
+        if (list.length === 0) {
+          listWrap.classList.add('hidden');
+          emptyEl.classList.remove('hidden');
+          return;
+        }
+        emptyEl.classList.add('hidden');
+        tbody.innerHTML = list.map(c => {
+          const email = (c[PREFERRED_EMAIL_KEY] || '').trim() || (c[GOOGLE_EMAIL_KEY] || '').trim();
+          const zone = (c[ZONE_KEY] || '').trim();
+          const waterDistrict = (c[WATER_DISTRICT_KEY] || '').trim();
+          const emailCell = email
+            ? '<a href="mailto:' + escapeHtml(email) + '">' + escapeHtml(email) + '</a>'
+            : '<span style="color:var(--text-secondary);">—</span>';
+          return '<tr><td>' + escapeHtml(c[NAME_KEY] || '—') + '</td><td>' + escapeHtml(zone) + '</td><td>' + escapeHtml(waterDistrict) + '</td><td class="email-cell">' + emailCell + '</td></tr>';
+        }).join('');
+        listWrap.classList.remove('hidden');
+      }
+
+      function copyEmailsToClipboard() {
+        const emails = getEmailsFromList(filteredList);
+        if (emails.length === 0) return;
+        const blob = emails.join(', ');
+        const feedback = document.getElementById('copyFeedback');
+        navigator.clipboard.writeText(blob).then(() => {
+          feedback.classList.remove('hidden');
+          const btn = document.getElementById('copyEmailsBtn');
+          btn.classList.add('copied');
+          btn.textContent = 'Copied!';
+          setTimeout(() => {
+            feedback.classList.add('hidden');
+            btn.classList.remove('copied');
+            updateResultsBar();
+          }, 2000);
+        }).catch(() => {
+          feedback.textContent = 'Copy failed';
+          feedback.classList.remove('hidden');
+          setTimeout(() => feedback.classList.add('hidden'), 3000);
+        });
       }
 
       function renderCards(list) {
@@ -428,6 +586,24 @@
           document.getElementById('filterZone').addEventListener('change', applyFilters);
           document.getElementById('filterCensusTract').addEventListener('change', applyFilters);
           document.getElementById('filterWaterDistrict').addEventListener('change', applyFilters);
+          document.getElementById('viewCards').addEventListener('click', () => {
+            viewMode = 'cards';
+            document.getElementById('viewCards').setAttribute('aria-pressed', 'true');
+            document.getElementById('viewList').setAttribute('aria-pressed', 'false');
+            document.getElementById('viewCards').classList.add('active');
+            document.getElementById('viewList').classList.remove('active');
+            renderView();
+          });
+          document.getElementById('viewList').addEventListener('click', () => {
+            viewMode = 'list';
+            document.getElementById('viewList').setAttribute('aria-pressed', 'true');
+            document.getElementById('viewCards').setAttribute('aria-pressed', 'false');
+            document.getElementById('viewList').classList.add('active');
+            document.getElementById('viewCards').classList.remove('active');
+            renderView();
+          });
+          document.getElementById('viewCards').classList.add('active');
+          document.getElementById('copyEmailsBtn').addEventListener('click', copyEmailsToClipboard);
           applyFilters();
         })
         .catch(e => showError('Could not load directory. Make sure the server is running and the NC Directory sheet is shared correctly. ' + (e.message || '')));
