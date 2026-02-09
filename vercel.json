@@ -1,0 +1,11 @@
+{
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/nc-directory.html",
+      "has": [
+        { "type": "host", "value": "directory.altagether.org" }
+      ]
+    }
+  ]
+}

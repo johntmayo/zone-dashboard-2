@@ -62,6 +62,61 @@ The dashboard has been successfully redesigned with:
 
 ---
 
+### 1b. Auto-Add Columns to User Spreadsheets (Future)
+
+**Purpose:** When you add new data/columns to the platform, allow users to update their own zone spreadsheets automatically so you don’t have to edit each sheet manually.
+
+**Feasibility:** Yes. Zone sheets are already shared with the service account (Editor), and the app uses the Sheets API for append/batch-update. The same access supports **structure** changes via `spreadsheets.batchUpdate` with `InsertDimension` requests (add columns), then `values.update` to set the new header and optional default values.
+
+**Ways to expose it:**
+
+1. **Homepage prompt** – When a user has a sheet loaded, show a small notice when “new columns are available” (e.g. compare their sheet’s row-1 headers to a server-defined “required columns” list). One click runs the sync.
+2. **New Action** – Add an action card (in the Actions feed or a fixed “Sheet update” action) that says “Update my sheet with latest columns” and calls the backend.
+3. **New Tool** – Under Tools, add e.g. “Update sheet columns” or “Sync new columns”: user opens it, sees which columns would be added, and clicks “Apply” to run the sync.
+
+**Backend (minimal design):**
+
+- **Config:** Maintain a list of “required” columns somewhere (e.g. in `server.js`, a JSON file, or env). Each entry: `{ name: "Column Name", position?: number }` (position = 0-based index, or “append” if omitted).
+- **New API:** e.g. `POST /api/sheets/ensure-columns`  
+  - Body: `{ sheetId, sheetName?: "Sheet1", columns?: [...] }`  
+  - If `columns` omitted, use the server’s default “required columns” list.  
+  - Server: (1) GET row 1 of the sheet (headers), (2) find missing columns and their desired positions, (3) `spreadsheets.batchUpdate` with `InsertDimension` (COLUMNS) for each insertion (insert at index), (4) `spreadsheets.values.update` to write the new header cell(s) in row 1 and optionally default values for new cells in that column.
+- **Idempotent:** If the sheet already has all required columns, the endpoint does nothing and returns e.g. `{ updated: false, message: "Sheet already has all columns" }`.
+
+**User requirement:** The sheet must be shared with the service account (already required for Add Record, Batch Tagging, Zone Notes). No extra setup.
+
+---
+
+### 1c. Merge External Data (e.g. Property Sales) Into Captain Spreadsheets (Future)
+
+**Purpose:** You have a list of new intel (e.g. 100 houses sold, with addresses and sale info). You want the dashboard to match those records to addresses in each captain’s spreadsheet and write the relevant data only into the rows that belong to that captain’s zone.
+
+**Feasibility:** Yes. Flow: (1) You maintain a **master dataset** (e.g. sale records: address + sale date, price, etc.) in a sheet you own or a file/API. (2) When a captain runs “Update my sheet” (or a dedicated “Sync property data” action/tool), the server loads their sheet’s rows, loads the master dataset, **matches by address (and optionally by record locator)**, then writes new column values only for matched rows. Only rows that exist in the captain’s sheet get updated; captains only see data for addresses in their zone.
+
+**AI vs rules-based:** **Rules-based is enough.** Property/sale data is usually structured (address strings). Normalize both sides (trim, lowercase, standardize street suffixes like St/Street, Ave/Avenue, remove optional punctuation), then match. The app already has `normalizeStreet()` and address handling in `utils.js`. Optional: fuzzy string match (e.g. Levenshtein) to catch typos. AI would only be useful for very messy free-text addresses (e.g. “the house next to the big tree on Main”), which is uncommon for sale feeds.
+
+**Matching: address string vs record locator:**
+
+- **Address string (normalized)** is usually **enough** for a first version. Many zone sheets and sale lists use the same or similar formats (e.g. “123 Main St”). Normalize both and do exact match; optionally add fuzzy match for near-misses. Risk: same street address in different cities (if you ever have multi-city data), or “123 Main St” vs “123 Main Street” if normalization is incomplete—so normalization must be consistent and thorough.
+- **Record locator** (a stable ID that refers to the same property everywhere) makes matching **more reliable and unambiguous**. Examples:
+  - **Parcel ID / APN** (Assessor’s Parcel Number): if your sale data and the zone sheets both have APN, match on APN first; then fall back to address for rows that don’t have it.
+  - **Lat/lon**: if both datasets have coordinates, match by “nearest point” or rounded lat/lon. Good for disambiguating addresses.
+  - **Internal ID**: if you ever assign a stable “property ID” to each address (e.g. when creating zone sheets), that could be used as the primary key for merges.
+
+**Recommendation:** Start with **normalized address matching**; add an optional **record locator** (e.g. APN or parcel ID column) in both the master dataset and the zone sheet template if you want to make matching robust and avoid edge cases (duplicates, different spellings, multi-city).
+
+**Backend (minimal design):**
+
+- **Master data source:** e.g. a Google Sheet you own (sale list: Address, Sale Date, Sale Price, optional APN, etc.), or CSV upload, or API. Server reads it (with service account or admin upload).
+- **New API:** e.g. `POST /api/sheets/merge-data`  
+  - Body: `{ sheetId, sheetName?, dataSourceId? }` (dataSourceId = which master list to use, if you have more than one).  
+  - Server: (1) Load captain’s sheet (headers + all rows). (2) Identify “address” column (same logic as app: dedicated Address column or House# + Street). (3) Load master dataset. (4) Normalize addresses on both sides. (5) For each row in captain’s sheet, find a matching record in master (by address, or by record locator if present). (6) Ensure required columns exist in captain’s sheet (reuse ensure-columns logic); then write matched values into the correct cells (batchUpdate). (7) Return e.g. `{ matched: 12, updated: 12, unmatchedInMaster: 88 }` so you can see how many captain rows got updated.
+- **Scoping:** Only update rows that exist in the captain’s sheet. You don’t need to know “which captain owns which address” in advance—each captain’s sheet defines their set of addresses; the merge only fills in data for those.
+
+**User-facing:** Same entry points as 1b: homepage prompt (“New property data available”), Action (“Update my sheet with latest property sales”), or Tool (“Sync property data”) that shows a preview (e.g. “12 addresses in your sheet will be updated”) and then runs the merge.
+
+---
+
 ### 2. Map Library Decision: Leaflet vs. Mapbox
 
 **Priority:** Medium  
