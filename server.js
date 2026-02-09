@@ -221,8 +221,8 @@ async function fetchPublicSheet(sheetId, range = 'A1:ZZ1000', sheetName = null) 
             return;
           }
           
-          // Parse CSV
-          const lines = csvText.split('\n').filter(line => line.trim());
+          // Parse CSV (split into rows respecting quoted fields - newlines inside quotes are part of the cell)
+          const lines = splitCSVRows(csvText);
           if (lines.length === 0) {
             resolve({ headers: [], rows: [] });
             return;
@@ -254,6 +254,33 @@ async function fetchPublicSheet(sheetId, range = 'A1:ZZ1000', sheetName = null) 
     console.error('Error fetching sheet:', error);
     throw error;
   }
+}
+
+// Split CSV text into rows, respecting quoted fields (newlines inside quotes stay in the cell)
+function splitCSVRows(csvText) {
+  const rows = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < csvText.length; i++) {
+    const c = csvText[i];
+    if (c === '"') {
+      if (inQuotes && csvText[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+        current += c;
+      }
+    } else if ((c === '\n' || c === '\r') && !inQuotes) {
+      if (c === '\r' && csvText[i + 1] === '\n') i++;
+      if (current.trim()) rows.push(current);
+      current = '';
+    } else {
+      current += c;
+    }
+  }
+  if (current.trim()) rows.push(current);
+  return rows;
 }
 
 // Simple CSV parser (handles quoted fields)

@@ -6870,7 +6870,7 @@
       if (!zoneMap) {
         try {
           // Default center (Altadena, CA - adjust as needed)
-          zoneMap = L.map('zoneMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 12);
+          zoneMap = L.map('zoneMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 15);
           
           // Add CartoDB Voyager tiles (warm, colorful with labels)
           currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -6993,7 +6993,7 @@
       if (!homeMap) {
         try {
           // Default center (Altadena, CA - adjust as needed)
-          homeMap = L.map('homeMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 12);
+          homeMap = L.map('homeMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 15);
           
           // Add CartoDB Voyager tiles (warm, colorful with labels)
           homeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -7462,7 +7462,7 @@
         }
         kmlLayer = L.geoJSON(zoneFc, { style: ZONE_BOUNDARY_STYLE }).addTo(zoneMap);
         if (kmlLayer.getBounds && kmlLayer.getBounds().isValid()) {
-          zoneMap.fitBounds(kmlLayer.getBounds(), { padding: [20, 20], maxZoom: 15 });
+          zoneMap.fitBounds(kmlLayer.getBounds(), { padding: [20, 20], maxZoom: 17 });
         }
         return true;
       } catch (e) {
@@ -7648,7 +7648,7 @@
         
         // Fit map to boundary
         if (kmlLayer.getBounds && kmlLayer.getBounds().isValid()) {
-          zoneMap.fitBounds(kmlLayer.getBounds(), { padding: [20, 20], maxZoom: 15 });
+          zoneMap.fitBounds(kmlLayer.getBounds(), { padding: [20, 20], maxZoom: 17 });
         }
       } catch (error) {
         console.error('Error loading KML:', error);
@@ -7916,7 +7916,7 @@
         try {
           // Prefer zone boundary if available (home map loads it early)
           if (!kmlLayer && homeKmlLayer && homeKmlLayer.getBounds && homeKmlLayer.getBounds().isValid()) {
-            zoneMap.fitBounds(homeKmlLayer.getBounds(), { padding: [20, 20], maxZoom: 15 });
+            zoneMap.fitBounds(homeKmlLayer.getBounds(), { padding: [20, 20], maxZoom: 17 });
             return;
           }
           // If a boundary is expected but not loaded yet, avoid fitting to outlier markers
@@ -7925,14 +7925,14 @@
           }
           // If no boundary is available, keep a sane default zoom/center
           if (!kmlLayer && (!homeKmlLayer || !homeKmlLayer.getBounds || !homeKmlLayer.getBounds().isValid())) {
-            zoneMap.setView([34.19, -118.15], 12);
+            zoneMap.setView([34.19, -118.15], 15);
             return;
           }
           // Otherwise, fit to markers when no zone boundary is present
           if (bounds.length > 0 && !kmlLayer) {
             zoneMap.fitBounds(bounds, { 
               padding: [20, 20],
-              maxZoom: 15 // Cap zoom so first-time view isn't too close
+              maxZoom: 17
             });
           }
         } catch (error) {

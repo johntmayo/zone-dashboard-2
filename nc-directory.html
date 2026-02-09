@@ -100,8 +100,8 @@
     .card .contact { margin: 0.5rem 0; font-size: 0.95rem; }
     .card .contact a { color: var(--accent-green); text-decoration: none; }
     .card .contact a:hover { text-decoration: underline; }
-    .card .tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.75rem; }
-    .card .tags-label { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem; font-weight: 600; }
+    .card .tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; }
+    .card .tags-label { font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.75rem; margin-bottom: 0.25rem; font-weight: 600; }
     .tag { background: #EEF2FF; color: var(--brand-primary-dark); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; }
     .tag.badge { background: #FEF3C7; color: #92400E; }
     .card .bio { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; }
@@ -299,7 +299,7 @@
             (phone ? '<div class="contact">' + escapeHtml(phone) + '</div>' : '') +
             (skills ? '<div class="bio">' + escapeHtml(skills.slice(0, 200)) + (skills.length > 200 ? '…' : '') + '</div>' : '') +
             (notesBio ? '<div class="notes-bio">' + escapeHtml(notesBio) + '</div>' : '') +
-            (wg.length ? '<div class="tags-label">Working Groups</div><div class="tags">' + wg.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
+            (wg.length ? '<div class="tags-label">Working groups:</div><div class="tags">' + wg.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
             (interests.length ? '<div class="tags">' + interests.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
             (badges.length ? '<div class="tags">' + badges.map(x => '<span class="tag badge">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
             '</div>';
@@ -363,12 +363,18 @@
         const header = document.getElementById('interestAccordionHeader');
         const options = collectOptions(INTEREST_AREAS_KEY);
         container.innerHTML = '';
-        if (!options.length) {
-          accordion.style.display = 'none';
-          return;
-        }
         accordion.style.display = 'block';
         header.addEventListener('click', () => accordion.classList.toggle('open'));
+        if (!options.length) {
+          const msg = document.createElement('p');
+          msg.className = 'accordion-empty';
+          msg.textContent = 'No interest areas in the directory yet.';
+          msg.style.fontSize = '0.9rem';
+          msg.style.color = 'var(--text-secondary)';
+          msg.style.margin = '0.5rem 0';
+          container.appendChild(msg);
+          return;
+        }
         options.forEach(o => {
           const label = document.createElement('label');
           const cb = document.createElement('input');
