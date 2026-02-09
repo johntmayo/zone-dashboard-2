@@ -9,6 +9,16 @@ const PORT = process.env.PORT || 8000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Serve NC Directory at root when host is directory.altagether.org (works on Vercel and local)
+app.get('/', (req, res, next) => {
+  const host = (req.get('host') || req.hostname || '').toLowerCase();
+  if (host.startsWith('directory.altagether.org')) {
+    return res.sendFile(path.join(__dirname, 'nc-directory.html'));
+  }
+  next();
+});
+
 app.use('/public', express.static(path.join(__dirname, 'public'))); // Static assets at /public (css, js, images)
 app.use(express.static(path.join(__dirname))); // Serve HTML and other static files from app directory (index.html, flyer_tool.html, nc-directory.html, etc.)
 
