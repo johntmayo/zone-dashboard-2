@@ -257,7 +257,8 @@
       const INTEREST_AREAS_KEY = 'Interest Areas';
       const BADGES_KEY = 'Badges';
       const CENSUS_TRACT_KEY = 'Predominant Census Tract of Zone';
-      const WATER_DISTRICT_KEY = 'Water Districts in Zone';
+      const WATER_DISTRICT_CANDIDATES = ['Water Districts in Zone', 'Water District', 'Water districts in zone', 'Water District in Zone'];
+      let WATER_DISTRICT_KEY = 'Water Districts in Zone';
       const LOCATION_KEY = 'Location';
       const NOTES_BIO_KEY = 'Notes/Bio';
       const EXPERTISE_ASK_ME_KEY = 'Expertise (Ask Me About...)';
@@ -481,6 +482,18 @@
         return div.innerHTML;
       }
 
+      function resolveColumnKey(headers, candidates) {
+        if (!headers || !Array.isArray(headers)) return candidates[0];
+        const norm = (s) => (s || '').trim().toLowerCase();
+        for (const c of candidates) {
+          const found = headers.find(h => norm(h) === norm(c));
+          if (found) return found;
+        }
+        const waterLike = headers.find(h => norm(h).includes('water') && (norm(h).includes('district') || norm(h).includes('districts')));
+        if (waterLike) return waterLike;
+        return candidates[0];
+      }
+
       function collectOptions(key) {
         const set = new Set();
         allCaptains.forEach(c => {
@@ -575,7 +588,9 @@
         })
         .then(data => {
           document.getElementById('loading').classList.add('hidden');
+          const headers = data.headers || [];
           const rows = data.rows || [];
+          WATER_DISTRICT_KEY = resolveColumnKey(headers, WATER_DISTRICT_CANDIDATES);
           allCaptains = rows.filter(c => (c[NAME_KEY] || '').trim() || (c[PREFERRED_EMAIL_KEY] || '').trim() || (c[GOOGLE_EMAIL_KEY] || '').trim());
           fillSelect('filterZone', ZONE_KEY);
           fillSelect('filterCensusTract', CENSUS_TRACT_KEY);
