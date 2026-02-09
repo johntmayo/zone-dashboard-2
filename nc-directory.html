@@ -70,8 +70,8 @@
     .filter-section { margin-top: 1rem; }
     .filter-section-label { font-size: 0.9rem; color: var(--text-secondary); font-weight: 600; margin-bottom: 0.5rem; display: block; }
     .filter-cta { font-size: 0.9rem; color: var(--text-secondary); margin: 0.5rem 0 0; }
-    .filter-cta a { color: var(--accent-green); text-decoration: none; }
-    .filter-cta a:hover { text-decoration: underline; }
+    .filter-cta a, .intro-blurb a { color: var(--accent-green); text-decoration: underline; font-weight: 700; }
+    .filter-cta a:hover, .intro-blurb a:hover { opacity: 0.85; }
     .filter-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
     .filter-chip {
       display: inline-flex;
@@ -198,7 +198,7 @@
     <h1>Neighborhood Captain Directory</h1>
   </header>
   <main class="container">
-    <p class="intro-blurb">This directory is intended for Neighborhood Captains only, so you can find each other to coordinate and collaborate. Search by name, zone, skills, or interests, and use the filters below to narrow your results. If you are not a Neighborhood Captain, we ask that you do not share this link with others to protect the privacy of your fellow captains.</p>
+    <p class="intro-blurb"><strong>Dear neighborhood captains,</strong> This directory is intended for your use only so that you can find each other to coordinate and collaborate. To protect the privacy of your fellow captains, please do not share this directory outside of Altagether.<br><br>To use: Search by name, zone, skills, or interests, and use the filters below to narrow your results.<br><br>To update your profile: make changes in the zone dashboard under My NC Profile, or the old fashioned way in <a href="#" id="spreadsheetLink" target="_blank" rel="noopener noreferrer">this spreadsheet</a>.</p>
     <div class="toolbar">
       <div class="search-wrap">
         <input type="search" id="searchInput" placeholder="Search by name, zone, skills, interests…" aria-label="Search directory" />
@@ -222,7 +222,7 @@
     <div class="filter-section">
       <span class="filter-section-label">Working groups</span>
       <div class="filter-chips" id="workingGroupChips"></div>
-      <p class="filter-cta">To contact or join a working group, <a href="#" id="workingGroupsFormLink">go here</a>.</p>
+      <p class="filter-cta">To contact or join a working group, <a href="#" id="workingGroupsFormLink" target="_blank" rel="noopener noreferrer">go here</a>.</p>
     </div>
     <div class="filter-section">
       <div class="accordion" id="interestAccordion">
@@ -256,7 +256,8 @@
   <script>
     (function () {
       const API_URL = '/api/nc-directory';
-      const WORKING_GROUPS_FORM_URL = 'https://forms.google.com/'; // Replace with your Google Form URL
+      const WORKING_GROUPS_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdvEGTteFPiOmV3FRRwdumpAQCJt-g-eyxPon4q5n7ZF1HY7Q/viewform?usp=dialog';
+      const NC_DIRECTORY_SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1E77qmT4eGtyokaDvD2wlK3q2NeMcS4itmkbYp6Rz0qM/edit?gid=0#gid=0';
       const GOOGLE_EMAIL_KEY = 'Google email';
       const PREFERRED_EMAIL_KEY = 'Preferred email';
       const NAME_KEY = 'Name';
@@ -491,7 +492,9 @@
         return div.innerHTML;
       }
 
-      function resolveColumnKey(headers, candidates) {
+      const KNOWN_WATER_DISTRICTS = ['Rubio Cañon', 'Rubio Canon', 'Lincoln Avenue', 'Las Flores', 'TBD'];
+
+      function resolveColumnKey(headers, candidates, sampleRows) {
         if (!headers || !Array.isArray(headers)) return candidates[0];
         const norm = (s) => (s || '').trim().toLowerCase();
         for (const c of candidates) {
@@ -500,6 +503,13 @@
         }
         const waterLike = headers.find(h => norm(h).includes('water') && (norm(h).includes('district') || norm(h).includes('districts')));
         if (waterLike) return waterLike;
+        if (sampleRows && sampleRows.length > 0) {
+          for (const h of headers) {
+            const vals = sampleRows.map(r => (r[h] || '').trim()).filter(Boolean);
+            const matches = vals.filter(v => KNOWN_WATER_DISTRICTS.some(k => norm(v) === norm(k) || v.includes('Rubio') || v.includes('Lincoln') || v.includes('Las Flores')));
+            if (matches.length > 0) return h;
+          }
+        }
         return candidates[0];
       }
 
@@ -598,7 +608,7 @@
           document.getElementById('loading').classList.add('hidden');
           const headers = data.headers || [];
           const rows = data.rows || [];
-          WATER_DISTRICT_KEY = resolveColumnKey(headers, WATER_DISTRICT_CANDIDATES);
+          WATER_DISTRICT_KEY = resolveColumnKey(headers, WATER_DISTRICT_CANDIDATES, rows.slice(0, 50));
           allCaptains = rows.filter(c => (c[NAME_KEY] || '').trim() || (c[PREFERRED_EMAIL_KEY] || '').trim() || (c[GOOGLE_EMAIL_KEY] || '').trim());
           fillSelect('filterZone', ZONE_KEY);
           fillSelect('filterCensusTract', CENSUS_TRACT_KEY);
@@ -606,6 +616,8 @@
           buildChips('workingGroupChips', WORKING_GROUP_KEY, activeWorkingGroups);
           const wgFormLink = document.getElementById('workingGroupsFormLink');
           if (wgFormLink) wgFormLink.href = WORKING_GROUPS_FORM_URL;
+          const spreadsheetLink = document.getElementById('spreadsheetLink');
+          if (spreadsheetLink) spreadsheetLink.href = NC_DIRECTORY_SPREADSHEET_URL;
           buildInterestAccordion();
           document.getElementById('searchInput').addEventListener('input', applyFilters);
           document.getElementById('filterZone').addEventListener('change', applyFilters);
