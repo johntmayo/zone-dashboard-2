@@ -111,7 +111,8 @@
     .loading, .error { text-align: center; padding: 2rem; font-size: 1.1rem; }
     .error { color: var(--accent-clay); }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
-    .accordion { border: 2px solid var(--border-color); border-radius: 4px; background: var(--bg-card); margin-bottom: 0.5rem; }
+    .intro-blurb { font-size: 1rem; color: var(--text-secondary); line-height: 1.5; margin: 0 0 1.25rem; max-width: 48rem; }
+    .accordion { border: 2px solid var(--border-color); border-radius: 4px; background: var(--bg-card); margin-top: 1rem; margin-bottom: 0.5rem; }
     .accordion-header { padding: 0.5rem 0.75rem; cursor: pointer; font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; justify-content: space-between; }
     .accordion-header:hover { background: #F9FAFB; }
     .accordion-header::after { content: '▼'; font-size: 0.7rem; transition: transform 0.2s; }
@@ -129,6 +130,7 @@
     <h1>Neighborhood Captain Directory</h1>
   </header>
   <main class="container">
+    <p class="intro-blurb">Use this directory to find neighborhood captains. Search by name, zone, skills, or interests, and use the filters below to narrow your results.</p>
     <div class="toolbar">
       <div class="search-wrap">
         <input type="search" id="searchInput" placeholder="Search by name, zone, skills, interests…" aria-label="Search directory" />
@@ -175,7 +177,7 @@
       const INTEREST_AREAS_KEY = 'Interest Areas';
       const BADGES_KEY = 'Badges';
       const CENSUS_TRACT_KEY = 'Predominant Census Tract of Zone';
-      const WATER_DISTRICT_KEY = 'Water District';
+      const WATER_DISTRICT_KEY = 'Water Districts in Zone';
       const LOCATION_KEY = 'Location';
       const NOTES_BIO_KEY = 'Notes/Bio';
       const EXPERTISE_ASK_ME_KEY = 'Expertise (Ask Me About...)';

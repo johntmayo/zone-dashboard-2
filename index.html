@@ -713,7 +713,7 @@
           <div><label style="font-weight: 600;">Interest Areas</label><br><div id="ncInterestAreas" style="display: flex; flex-wrap: wrap; gap: 0.5rem;"></div></div>
           <div><label for="ncSkills" style="font-weight: 600;">Skills &amp; Expertise</label><br><textarea id="ncSkills" name="Skills & Expertise" rows="4" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></textarea></div>
           <div><label for="ncLanguages" style="font-weight: 600;">Languages Spoken</label><br><input type="text" id="ncLanguages" name="Languages Spoken" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
-          <div><label for="ncWaterDistrict" style="font-weight: 600;">Water District</label><br><select id="ncWaterDistrict" name="Water District" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></select></div>
+          <div><label for="ncWaterDistrict" style="font-weight: 600;">Water Districts in Zone</label><br><select id="ncWaterDistrict" name="Water Districts in Zone" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></select></div>
           <div id="ncBadgesReadOnly" class="hidden" style="font-size: 0.9rem; color: var(--text-secondary);"></div>
           <button type="button" id="ncProfileSaveBtn" class="btn-save" style="align-self: flex-start;">Save profile</button>
         </form>
@@ -999,12 +999,12 @@
     }
 
     // ---- NC Directory / My NC Profile ----
-    const NC_PROFILE_HEADERS = ['Name', 'Zone', 'Predominant Census Tract of Zone', 'Phone', 'Preferred email', 'Working Group Participation', 'Housing Arrangement', 'Damage to home', 'Interest Areas', 'Skills & Expertise', 'Languages Spoken', 'Google email', 'Water District', 'Badges'];
+    const NC_PROFILE_HEADERS = ['Name', 'Zone', 'Predominant Census Tract of Zone', 'Phone', 'Preferred email', 'Working Group Participation', 'Housing Arrangement', 'Damage to home', 'Interest Areas', 'Skills & Expertise', 'Languages Spoken', 'Google email', 'Water Districts in Zone', 'Badges'];
     const NC_PROFILE_OPTIONS = {
       'Predominant Census Tract of Zone': ['CT 4601', 'CT 4602', 'CT 4603.01', 'CT 4603.02', 'CT 4610', 'CT 4611', 'CT 4612', 'CT 4613'],
       'Housing Arrangement': ['Renter', 'Owner', 'RV', 'Other'],
       'Damage to home': ['Standing home', 'Partial loss', 'Total loss'],
-      'Water District': ['Rubio Cañon', 'Lincoln Avenue', 'Las Flores', 'TBD'],
+      'Water Districts in Zone': ['Rubio Cañon', 'Lincoln Avenue', 'Las Flores', 'TBD'],
       'Working Group Participation': ['Home Hardening & Fire-Resistant Neighborhoods', 'Bioremediation + Native Plants', 'Political Advocacy', 'Group Purchasing Power', 'Altagether Rebuilding Working Group', 'School Redevelopment'],
       'Interest Areas': ['Standing homes', 'Trees & plants', 'Bioremediation', 'Mental health', 'Insurance', 'Community visioning', 'Modular, Prefab, and Factory-Built Homes', 'Community Land Trusts', 'Schools & Children', 'Crime & Safety', 'Renter issues', 'Landlord issues', 'Rebuilding', 'Group purchasing power', 'Disaster preparedness', 'Architectural heritage', 'Commercial redevelopment', 'Faith institutions', 'Town history & stories', 'New tech tools & platforms', 'Event planning', 'Owner/Builder', 'Alternative Building', 'Solar power', 'Utilities', 'Water issues', 'Electric issues', 'Gas issues', 'Telecom issues']
     };
@@ -1136,8 +1136,8 @@
       }
       const ncWaterDistrict = document.getElementById('ncWaterDistrict');
       if (ncWaterDistrict) {
-        ncWaterDistrict.innerHTML = '<option value="">—</option>' + (opts['Water District'] || []).map(v => '<option value="' + escapeHtmlAttr(v) + '">' + escapeHtml(v) + '</option>').join('');
-        ncWaterDistrict.value = (row['Water District'] || '').trim();
+        ncWaterDistrict.innerHTML = '<option value="">—</option>' + (opts['Water Districts in Zone'] || []).map(v => '<option value="' + escapeHtmlAttr(v) + '">' + escapeHtml(v) + '</option>').join('');
+        ncWaterDistrict.value = (row['Water Districts in Zone'] || '').trim();
       }
       document.getElementById('ncName').value = (row['Name'] || '').trim();
       document.getElementById('ncZone').value = (row['Zone'] || '').trim();
@@ -1194,7 +1194,7 @@
       row['Skills & Expertise'] = (document.getElementById('ncSkills').value || '').trim();
       row['Languages Spoken'] = (document.getElementById('ncLanguages').value || '').trim();
       row['Google email'] = (ncProfileRowData['Google email'] || '').trim();
-      row['Water District'] = (document.getElementById('ncWaterDistrict').value || '').trim();
+      row['Water Districts in Zone'] = (document.getElementById('ncWaterDistrict').value || '').trim();
       row['Badges'] = (ncProfileRowData['Badges'] || '').trim();
       const rowValues = NC_PROFILE_HEADERS.map(h => row[h] || '');
       const range = 'Sheet1!A' + ncProfileRowIndex + ':N' + ncProfileRowIndex;
