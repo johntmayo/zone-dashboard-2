@@ -57,32 +57,34 @@
       gap: 0.75rem;
       align-items: center;
     }
-    .filters label { font-size: 0.9rem; color: var(--text-secondary); }
+    .filters label { font-size: 0.9rem; color: var(--text-secondary); font-weight: 400; }
+    .count { font-size: 0.9rem; color: var(--text-secondary); font-weight: 400; margin-left: auto; }
     .filters select {
       padding: 0.5rem 0.75rem;
       border: 2px solid var(--border-color);
       border-radius: 4px;
       font-size: 0.9rem;
+      font-family: 'Merriweather', serif;
       background: white;
     }
-    .filter-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-top: 0.5rem;
-    }
+    .filter-section { margin-top: 1rem; }
+    .filter-section-label { font-size: 0.9rem; color: var(--text-secondary); font-weight: 600; margin-bottom: 0.5rem; display: block; }
+    .filter-cta { font-size: 0.9rem; color: var(--text-secondary); margin: 0.5rem 0 0; }
+    .filter-cta a { color: var(--accent-green); text-decoration: none; }
+    .filter-cta a:hover { text-decoration: underline; }
+    .filter-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
     .filter-chip {
       display: inline-flex;
       align-items: center;
-      padding: 0.25rem 0.5rem;
+      padding: 0.3rem 0.6rem;
       background: var(--bg-card);
       border: 1px solid var(--border-color);
       border-radius: 4px;
-      font-size: 0.85rem;
+      font-size: 0.9rem;
+      font-family: 'Merriweather', serif;
       cursor: pointer;
     }
     .filter-chip.active { background: var(--accent-gold); border-color: var(--brand-primary-dark); color: var(--text-primary); }
-    .count { font-size: 0.95rem; color: var(--text-secondary); margin-left: auto; }
     .cards {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -113,16 +115,16 @@
     .loading, .error { text-align: center; padding: 2rem; font-size: 1.1rem; }
     .error { color: var(--accent-clay); }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
-    .intro-blurb { font-size: 1rem; color: var(--text-secondary); line-height: 1.5; margin: 0 0 1.25rem; max-width: 48rem; }
+    .intro-blurb { font-size: 0.95rem; color: var(--text-secondary); line-height: 1.6; margin: 0 0 1.5rem; max-width: 48rem; }
     .accordion { border: 2px solid var(--border-color); border-radius: 4px; background: var(--bg-card); margin-top: 1rem; margin-bottom: 0.5rem; }
-    .accordion-header { padding: 0.5rem 0.75rem; cursor: pointer; font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; justify-content: space-between; }
+    .accordion-header { padding: 0.5rem 0.75rem; cursor: pointer; font-weight: 600; font-size: 0.9rem; font-family: 'Merriweather', serif; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between; }
     .accordion-header:hover { background: #F9FAFB; }
     .accordion-header::after { content: '▼'; font-size: 0.7rem; transition: transform 0.2s; }
     .accordion.open .accordion-header::after { transform: rotate(-180deg); }
     .accordion-body { max-height: 0; overflow: hidden; transition: max-height 0.2s ease-out; }
     .accordion.open .accordion-body { max-height: 500px; overflow-y: auto; }
     .accordion-inner { padding: 0.5rem 0.75rem 1rem; border-top: 1px solid var(--border-color); }
-    .accordion-inner label { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; font-size: 0.9rem; cursor: pointer; }
+    .accordion-inner label { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; font-size: 0.9rem; font-family: 'Merriweather', serif; cursor: pointer; }
     .accordion-inner input[type="checkbox"] { margin: 0; }
     .results-bar {
       display: flex;
@@ -143,7 +145,7 @@
     .results-bar .view-toggle button {
       padding: 0.4rem 0.75rem;
       font-size: 0.9rem;
-      font-family: 'Chivo', sans-serif;
+      font-family: 'Merriweather', serif;
       font-weight: 600;
       border: none;
       background: var(--bg-card);
@@ -155,7 +157,7 @@
     .results-bar .copy-btn {
       padding: 0.4rem 0.75rem;
       font-size: 0.9rem;
-      font-family: 'Chivo', sans-serif;
+      font-family: 'Merriweather', serif;
       font-weight: 600;
       border: 2px solid var(--accent-green);
       background: var(--bg-card);
@@ -196,7 +198,7 @@
     <h1>Neighborhood Captain Directory</h1>
   </header>
   <main class="container">
-    <p class="intro-blurb">Use this directory to find neighborhood captains. Search by name, zone, skills, or interests, and use the filters below to narrow your results.</p>
+    <p class="intro-blurb">This directory is intended for Neighborhood Captains only, so you can find each other to coordinate and collaborate. Search by name, zone, skills, or interests, and use the filters below to narrow your results. If you are not a Neighborhood Captain, we ask that you do not share this link with others to protect the privacy of your fellow captains.</p>
     <div class="toolbar">
       <div class="search-wrap">
         <input type="search" id="searchInput" placeholder="Search by name, zone, skills, interests…" aria-label="Search directory" />
@@ -217,11 +219,17 @@
       </div>
       <span class="count" id="resultCount">—</span>
     </div>
-    <div class="filter-chips" id="workingGroupChips"></div>
-    <div class="accordion" id="interestAccordion">
-      <div class="accordion-header" id="interestAccordionHeader">Interest Areas</div>
-      <div class="accordion-body">
-        <div class="accordion-inner" id="interestCheckboxes"></div>
+    <div class="filter-section">
+      <span class="filter-section-label">Working groups</span>
+      <div class="filter-chips" id="workingGroupChips"></div>
+      <p class="filter-cta">To contact or join a working group, <a href="#" id="workingGroupsFormLink">go here</a>.</p>
+    </div>
+    <div class="filter-section">
+      <div class="accordion" id="interestAccordion">
+        <div class="accordion-header filter-section-label" id="interestAccordionHeader">Interest areas</div>
+        <div class="accordion-body">
+          <div class="accordion-inner" id="interestCheckboxes"></div>
+        </div>
       </div>
     </div>
     <div class="results-bar hidden" id="resultsBar">
@@ -248,6 +256,7 @@
   <script>
     (function () {
       const API_URL = '/api/nc-directory';
+      const WORKING_GROUPS_FORM_URL = 'https://forms.google.com/'; // Replace with your Google Form URL
       const GOOGLE_EMAIL_KEY = 'Google email';
       const PREFERRED_EMAIL_KEY = 'Preferred email';
       const NAME_KEY = 'Name';
@@ -519,8 +528,7 @@
         const container = document.getElementById(containerId);
         const options = collectOptions(key);
         if (!options.length) return;
-        const label = key === WORKING_GROUP_KEY ? 'Working groups' : 'Interest areas';
-        container.innerHTML = '<span style="font-size:0.9rem;color:var(--text-secondary);margin-right:0.5rem;">' + label + ':</span>';
+        container.innerHTML = '';
         options.forEach(o => {
           const chip = document.createElement('span');
           chip.className = 'filter-chip';
@@ -596,6 +604,8 @@
           fillSelect('filterCensusTract', CENSUS_TRACT_KEY);
           fillSelect('filterWaterDistrict', WATER_DISTRICT_KEY);
           buildChips('workingGroupChips', WORKING_GROUP_KEY, activeWorkingGroups);
+          const wgFormLink = document.getElementById('workingGroupsFormLink');
+          if (wgFormLink) wgFormLink.href = WORKING_GROUPS_FORM_URL;
           buildInterestAccordion();
           document.getElementById('searchInput').addEventListener('input', applyFilters);
           document.getElementById('filterZone').addEventListener('change', applyFilters);
