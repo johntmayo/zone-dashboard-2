@@ -5,7 +5,7 @@
 - **Product:** Altagether Zone Dashboard
 - **Purpose:** Neighborhood Captain (NC) tool for viewing and managing zone/neighbor data, maps, and resources.
 - **Data source:** Google Sheets (zone spreadsheet); optional backend for homepage/actions feeds.
-- **Auth:** Google Sign-In for viewing/editing; spreadsheet link required for most features.
+- **Auth:** Google Sign-In for identity (any Google account); spreadsheet access is via the server’s service account—see [AUTH_AND_SPREADSHEET_ACCESS.md](AUTH_AND_SPREADSHEET_ACCESS.md). Spreadsheet link (URL) required for most features.
 
 ---
 
@@ -128,4 +128,4 @@
 
 - **Standalone pages:** `help.html`, `discord-help.html`, `flyer_tool.html`, `nc-directory.html`, `documentation.html`.
 - **Backend:** `server.js` (e.g. `/api/homepage-feed`, `/api/actions-feed`).
-- **Docs:** `SETUP.md`, `ALTAGETHER_FEED_SETUP.md`, `NC_DIRECTORY_SETUP.md`, `DEV_PLAN.md`, `CHANGELOG.md`.
+- **Docs:** `SETUP.md`, `SERVICE_ACCOUNT_SETUP.md`, `AUTH_AND_SPREADSHEET_ACCESS.md`, `ALTAGETHER_FEED_SETUP.md`, `NC_DIRECTORY_SETUP.md`, `DEV_PLAN.md`, `CHANGELOG.md`.

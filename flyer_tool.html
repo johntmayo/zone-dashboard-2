@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
   <style>
+    /* Design tokens: flyer OUTPUT uses --accent, --accent-light, --text-main, --text-muted — do not change. */
     :root {
       --bg: #FDFBF7;
       --accent: #314059;
@@ -16,6 +17,16 @@
       --border-soft: #ddd;
       --font-header: 'Chivo', sans-serif;
       --font-body: 'Merriweather', serif;
+      /* UI-only tokens (match dashboard design language) */
+      --ui-bg-paper: #FDFBF7;
+      --ui-bg-card: #FFFFFF;
+      --ui-text-primary: #1F2937;
+      --ui-text-secondary: #4B5563;
+      --ui-accent: #F59E0B;
+      --ui-accent-clay: #BC5838;
+      --ui-border: 2px solid var(--ui-text-primary);
+      --ui-border-light: 1px solid var(--ui-text-primary);
+      --ui-shadow: 2px 2px 0px var(--ui-text-primary);
     }
 
     * {
@@ -26,8 +37,8 @@
       margin: 0;
       padding: 0;
       font-family: var(--font-body);
-      background: var(--bg);
-      color: var(--text-main);
+      background: var(--ui-bg-paper);
+      color: var(--ui-text-primary);
     }
 
     .page {
@@ -37,11 +48,18 @@
     }
 
     h1 {
-      margin: 0 0 1rem;
-      font-family: 'Chivo', sans-serif;
+      margin: 0 0 0.5rem;
+      font-family: var(--font-header);
       font-weight: 900;
       font-size: 1.8rem;
       letter-spacing: 0.5px;
+    }
+
+    .page-instruction {
+      margin: 0 0 1.25rem;
+      font-size: 0.9rem;
+      color: var(--ui-text-secondary);
+      line-height: 1.5;
     }
 
     .layout {
@@ -57,61 +75,92 @@
       }
     }
 
-    /* Form styles */
+    /* Form card — dashboard-style card */
     .card {
-      background: #fff;
-      border-radius: 10px;
-      padding: 1rem 1.25rem;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.08);
-      border: 1px solid #eee;
+      background: var(--ui-bg-card);
+      border: var(--ui-border);
+      border-radius: 0;
+      padding: 0;
+      box-shadow: var(--ui-shadow);
     }
 
     .card h2 {
-      font-size: 1.1rem;
-      margin: 0 0 0.75rem;
+      font-family: var(--font-header);
+      font-size: 1.25rem;
+      font-weight: 900;
+      margin: 0;
+      padding: 1rem 1.25rem;
+      border-bottom: var(--ui-border);
+      background: var(--ui-bg-paper);
+      color: var(--ui-text-primary);
     }
 
     .form-grid {
       display: grid;
       grid-template-columns: 1fr;
       gap: 0;
+      padding: 0 1.25rem 1.25rem;
     }
 
     .form-section {
-      margin-bottom: 1.5rem;
-      padding-bottom: 1.5rem;
-      border-bottom: 2px solid #f0f0f0;
+      margin-bottom: 1.75rem;
+      padding: 1.25rem 0 0;
+      border-top: 2px dotted var(--ui-accent-clay);
+    }
+
+    .form-section:first-of-type {
+      border-top: none;
+      padding-top: 1rem;
     }
 
     .form-section:last-of-type {
-      border-bottom: none;
       margin-bottom: 0;
-      padding-bottom: 0;
+    }
+
+    .form-section.form-actions .form-section-header {
+      margin-bottom: 0.75rem;
     }
 
     .form-section-header {
-      font-size: 0.85rem;
+      font-family: var(--font-header);
+      font-size: 0.95rem;
       font-weight: 700;
-      color: var(--text-muted);
+      color: var(--ui-text-primary);
       text-transform: uppercase;
       letter-spacing: 0.08em;
       margin-bottom: 1rem;
       padding-bottom: 0.5rem;
-      border-bottom: 1px solid #e8e8e8;
+      border-bottom: 2px dotted var(--ui-accent-clay);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .form-section-header .section-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.5rem;
+      height: 1.5rem;
+      background: var(--ui-accent);
+      color: var(--ui-text-primary);
+      font-size: 0.8rem;
+      line-height: 1;
     }
 
     .form-section-content {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 0.75rem;
+      gap: 1rem;
     }
 
     label {
       display: block;
       font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      margin-bottom: 0.2rem;
+      font-weight: 700;
+      color: var(--ui-text-primary);
+      margin-bottom: 0.35rem;
+      font-family: var(--font-header);
     }
 
     input[type="text"],
@@ -120,20 +169,29 @@
     select,
     textarea {
       width: 100%;
-      padding: 0.45rem 0.6rem;
-      border-radius: 6px;
-      border: 1px solid var(--border-soft);
+      padding: 0.5rem 0.65rem;
+      border: var(--ui-border-light);
+      border-radius: 0;
       font-size: 0.9rem;
       font-family: var(--font-body);
+      background: var(--ui-bg-card);
+      box-shadow: 1px 1px 0 rgba(31, 41, 55, 0.15);
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--ui-accent);
+      box-shadow: 1px 1px 0 rgba(245, 158, 11, 0.3);
     }
 
     select {
-      background-color: #fff;
       cursor: pointer;
       appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23555' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%231F2937' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
-      background-position: right 0.6rem center;
+      background-position: right 0.65rem center;
       padding-right: 2rem;
     }
 
@@ -148,76 +206,111 @@
       gap: 0.75rem;
     }
 
+    .form-actions {
+      margin-top: 0.5rem;
+    }
+
     .button-row {
       display: flex;
       gap: 0.5rem;
-      margin-top: 0.75rem;
       flex-wrap: wrap;
     }
 
     button {
       cursor: pointer;
-      border-radius: 999px;
-      border: none;
-      padding: 0.45rem 0.9rem;
+      border-radius: 0;
+      border: var(--ui-border);
+      padding: 0.5rem 1rem;
       font-size: 0.9rem;
-      font-weight: 600;
-      font-family: var(--font-body);
+      font-weight: 700;
+      font-family: var(--font-header);
       display: inline-flex;
       align-items: center;
-      gap: 0.25rem;
-      transition: opacity 0.2s;
+      gap: 0.35rem;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
     }
 
     button:hover {
-      opacity: 0.85;
+      transform: translate(-2px, -2px);
+      box-shadow: 4px 4px 0px var(--ui-text-primary);
     }
 
     button:active {
-      opacity: 0.7;
+      transform: translate(0, 0);
+      box-shadow: var(--ui-shadow);
     }
 
     .btn-primary {
-      background: var(--accent);
-      color: #fff;
+      background: var(--ui-accent);
+      color: var(--ui-text-primary);
+      box-shadow: var(--ui-shadow);
     }
 
     .btn-secondary {
-      background: #fff;
-      color: var(--accent);
-      border: 1px solid var(--accent);
+      background: var(--ui-bg-card);
+      color: var(--ui-text-primary);
+      box-shadow: var(--ui-shadow);
     }
 
     .help-text {
       font-size: 0.75rem;
-      color: var(--text-muted);
-      margin-top: 0.3rem;
+      color: var(--ui-text-secondary);
+      margin-top: 0.35rem;
     }
 
-    /* Flyer Preview */
+    .event-type-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: stretch;
+      flex-wrap: wrap;
+    }
+
+    .event-type-row select {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .event-type-row .btn-secondary {
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .help-text a {
+      color: var(--ui-accent-clay);
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .help-text a:hover {
+      color: var(--ui-text-primary);
+    }
+
+    /* Flyer Preview — container only; .flyer content unchanged */
     .preview-wrapper {
       display: flex;
       flex-direction: column;
     }
 
     .flyer-container {
-      background: #fdfdfd;
-      border-radius: 10px;
-      padding: 1rem 1rem 0.5rem 1rem; /* Reduce bottom padding */
-      border: 1px solid var(--border-soft);
-      box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+      background: var(--ui-bg-card);
+      border: var(--ui-border);
+      border-radius: 0;
+      padding: 1rem 1rem 0.5rem 1rem;
+      box-shadow: var(--ui-shadow);
       overflow: visible;
       max-width: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
       height: fit-content;
-      overflow: visible;
     }
 
     .preview-header {
-      font-size: 0.85rem;
-      color: var(--text-muted);
+      font-family: var(--font-header);
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--ui-text-secondary);
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -357,13 +450,13 @@
     }
 
 
-    /* Social Media Square Preview */
+    /* Social Media Square Preview — container only */
     .social-preview-container {
-      background: #fdfdfd;
-      border-radius: 10px;
+      background: var(--ui-bg-card);
+      border: var(--ui-border);
+      border-radius: 0;
       padding: 1rem;
-      border: 1px solid var(--border-soft);
-      box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+      box-shadow: var(--ui-shadow);
       overflow: visible;
       max-width: 100%;
       display: flex;
@@ -1550,6 +1643,7 @@
 
       /* Hide everything except the flyer */
       .page > h1,
+      .page > .page-instruction,
       .layout > .card,
       .preview-wrapper > *:not(.flyer-container),
       .preview-header {
@@ -1870,6 +1964,9 @@
 <body>
   <div class="page">
     <h1>Altagether Flyer Generator</h1>
+    <p class="page-instruction">
+      Fill out the information on the left, then use the buttons at the bottom to print or download your flyer.
+    </p>
     <div class="layout">
       <!-- Form -->
       <div class="card">
@@ -1878,8 +1975,26 @@
           <div class="form-grid">
             <!-- Setup Section -->
             <div class="form-section">
-              <div class="form-section-header">Setup</div>
+              <div class="form-section-header"><span class="section-num" aria-hidden="true">1</span> Setup</div>
               <div class="form-section-content">
+                <div>
+                  <label for="eventType">Event Type (Optional Template)</label>
+                  <div class="event-type-row">
+                    <select id="eventType">
+                      <option value="">-- Select an event type --</option>
+                      <option value="healing-walk">Healing Walk</option>
+                      <option value="coffee-driveway">Coffee in the Driveway</option>
+                      <option value="byo-picnic">Bring-Your-Own-Blanket Picnic</option>
+                      <option value="chalk-art">Kids' Chalk Art Hour</option>
+                      <option value="qa-circle">Neighborhood Q&A Circle</option>
+                      <option value="sunset-gratitude">Sunset Gratitude Gathering</option>
+                    </select>
+                    <button type="button" class="btn-secondary" onclick="clearTemplate()">Clear Template</button>
+                  </div>
+                  <div class="help-text">
+                    Select an event type to auto-fill suggested content, then customize as needed. Event templates here were derived from the planning document <a href="https://docs.google.com/document/d/1vA-Ex3lbujg210K2eNkPOuWtODzbW0w9PADA-E7eGRc/edit?tab=t.0" target="_blank" rel="noopener noreferrer">Neighborhood Block Captain Event Guide</a> created by neighborhood captains.
+                  </div>
+                </div>
                 <div>
                   <label for="flyerDesign">Flyer Design</label>
                   <select id="flyerDesign">
@@ -1892,30 +2007,8 @@
                     Choose a design style for your flyer.
                   </div>
                 </div>
-                <div>
-                  <label for="eventType">Event Type (Optional Template)</label>
-                  <div style="display: flex; gap: 0.5rem; align-items: stretch; flex-wrap: wrap;">
-                    <select id="eventType" style="flex: 1; min-width: 200px;">
-                      <option value="">-- Select an event type --</option>
-                      <option value="healing-walk">Healing Walk</option>
-                      <option value="coffee-driveway">Coffee in the Driveway</option>
-                      <option value="byo-picnic">Bring-Your-Own-Blanket Picnic</option>
-                      <option value="chalk-art">Kids' Chalk Art Hour</option>
-                      <option value="qa-circle">Neighborhood Q&A Circle</option>
-                      <option value="sunset-gratitude">Sunset Gratitude Gathering</option>
-                    </select>
-                    <button type="button" class="btn-secondary" onclick="clearTemplate()" style="white-space: nowrap; flex-shrink: 0;">
-                      Clear Template
-                    </button>
-                  </div>
-                  <div class="help-text">
-                    Select an event type to auto-fill suggested content, then customize as needed.
-                  </div>
-                </div>
                 <div id="purposeContainer" style="display: none;">
-                  <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.3rem;">
-                    Event Purpose — Not shown on flyer
-                  </div>
+                  <label for="purpose" style="margin-bottom: 0.3rem;">Event Purpose — Not shown on flyer</label>
                   <textarea id="purpose" readonly style="background-color: #f9f9f9; cursor: not-allowed; resize: none;"></textarea>
                 </div>
               </div>
@@ -1923,7 +2016,7 @@
 
             <!-- Event Details Section -->
             <div class="form-section">
-              <div class="form-section-header">Event Details</div>
+              <div class="form-section-header"><span class="section-num" aria-hidden="true">2</span> Event details</div>
               <div class="form-section-content">
                 <div>
                   <label for="zoneName">Your Zone</label>
@@ -1985,16 +2078,19 @@
             </div>
 
             <!-- Actions -->
-            <div class="button-row" style="margin-top: 1.5rem;">
-              <button type="button" class="btn-primary" onclick="updateFlyer()">
-                Generate Flyer
-              </button>
-              <button type="button" class="btn-secondary" onclick="window.print()">
-                Print / Save as PDF
-              </button>
-              <button type="button" class="btn-secondary" onclick="downloadAsHTML()">
-                Download as HTML
-              </button>
+            <div class="form-section form-actions">
+              <div class="form-section-header"><span class="section-num" aria-hidden="true">3</span> Actions</div>
+              <div class="button-row">
+                <button type="button" class="btn-primary" onclick="updateFlyer()">
+                  Generate Flyer
+                </button>
+                <button type="button" class="btn-secondary" onclick="window.print()">
+                  Print / Save as PDF
+                </button>
+                <button type="button" class="btn-secondary" onclick="downloadAsHTML()">
+                  Download as HTML
+                </button>
+              </div>
             </div>
           </div>
         </form>

@@ -21,6 +21,7 @@
       --border-color: #E5E7EB;
     }
     * { box-sizing: border-box; }
+    .hidden { display: none !important; }
     html, body { margin: 0; padding: 0; min-height: 100%; font-family: 'Merriweather', serif; background: var(--bg-paper); color: var(--text-primary); }
     h1, h2, h3, .nav-item, .btn { font-family: 'Chivo', sans-serif; font-weight: 700; }
     .header {
@@ -100,12 +101,25 @@
     .card .contact a { color: var(--accent-green); text-decoration: none; }
     .card .contact a:hover { text-decoration: underline; }
     .card .tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.75rem; }
+    .card .tags-label { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem; font-weight: 600; }
     .tag { background: #EEF2FF; color: var(--brand-primary-dark); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; }
     .tag.badge { background: #FEF3C7; color: #92400E; }
     .card .bio { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; }
+    .card .location { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; }
+    .card .notes-bio { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; font-style: italic; }
     .loading, .error { text-align: center; padding: 2rem; font-size: 1.1rem; }
     .error { color: var(--accent-clay); }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
+    .accordion { border: 2px solid var(--border-color); border-radius: 4px; background: var(--bg-card); margin-bottom: 0.5rem; }
+    .accordion-header { padding: 0.5rem 0.75rem; cursor: pointer; font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; justify-content: space-between; }
+    .accordion-header:hover { background: #F9FAFB; }
+    .accordion-header::after { content: '▼'; font-size: 0.7rem; transition: transform 0.2s; }
+    .accordion.open .accordion-header::after { transform: rotate(-180deg); }
+    .accordion-body { max-height: 0; overflow: hidden; transition: max-height 0.2s ease-out; }
+    .accordion.open .accordion-body { max-height: 500px; overflow-y: auto; }
+    .accordion-inner { padding: 0.5rem 0.75rem 1rem; border-top: 1px solid var(--border-color); }
+    .accordion-inner label { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; font-size: 0.9rem; cursor: pointer; }
+    .accordion-inner input[type="checkbox"] { margin: 0; }
   </style>
 </head>
 <body>
@@ -135,7 +149,12 @@
       <span class="count" id="resultCount">—</span>
     </div>
     <div class="filter-chips" id="workingGroupChips"></div>
-    <div class="filter-chips" id="interestChips"></div>
+    <div class="accordion" id="interestAccordion">
+      <div class="accordion-header" id="interestAccordionHeader">Interest Areas</div>
+      <div class="accordion-body">
+        <div class="accordion-inner" id="interestCheckboxes"></div>
+      </div>
+    </div>
     <div id="content">
       <div class="loading" id="loading">Loading directory…</div>
       <div class="cards hidden" id="cards"></div>
@@ -156,6 +175,8 @@
       const BADGES_KEY = 'Badges';
       const CENSUS_TRACT_KEY = 'Predominant Census Tract of Zone';
       const WATER_DISTRICT_KEY = 'Water District';
+      const LOCATION_KEY = 'Location';
+      const NOTES_BIO_KEY = 'Notes/Bio';
       const SKILLS_KEY = 'Skills & Expertise';
       const LANGUAGES_KEY = 'Languages Spoken';
       const HOUSING_KEY = 'Housing Arrangement';
@@ -215,6 +236,8 @@
           captain[ZONE_KEY],
           captain[SKILLS_KEY],
           captain[LANGUAGES_KEY],
+          captain[LOCATION_KEY],
+          captain[NOTES_BIO_KEY],
           parseMultiSelect(captain[WORKING_GROUP_KEY]).join(' '),
           parseMultiSelect(captain[INTEREST_AREAS_KEY]).join(' ')
         ];
@@ -265,14 +288,18 @@
           const interests = parseMultiSelect(c[INTEREST_AREAS_KEY]);
           const badges = parseMultiSelect(c[BADGES_KEY]);
           const skills = (c[SKILLS_KEY] || '').trim();
+          const location = (c[LOCATION_KEY] || '').trim();
+          const notesBio = (c[NOTES_BIO_KEY] || '').trim();
           const zoneLine = [c[ZONE_KEY], c[CENSUS_TRACT_KEY]].filter(Boolean).join(' · ');
           return '<div class="card">' +
             '<h3>' + escapeHtml(c[NAME_KEY] || '—') + '</h3>' +
             (zoneLine ? '<div class="zone">' + escapeHtml(zoneLine) + '</div>' : '') +
+            (location ? '<div class="location">' + escapeHtml(location) + '</div>' : '') +
             (email ? '<div class="contact"><a href="mailto:' + escapeHtml(email) + '">' + escapeHtml(email) + '</a></div>' : '') +
             (phone ? '<div class="contact">' + escapeHtml(phone) + '</div>' : '') +
             (skills ? '<div class="bio">' + escapeHtml(skills.slice(0, 200)) + (skills.length > 200 ? '…' : '') + '</div>' : '') +
-            (wg.length ? '<div class="tags">' + wg.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
+            (notesBio ? '<div class="notes-bio">' + escapeHtml(notesBio) + '</div>' : '') +
+            (wg.length ? '<div class="tags-label">Working Groups</div><div class="tags">' + wg.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
             (interests.length ? '<div class="tags">' + interests.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
             (badges.length ? '<div class="tags">' + badges.map(x => '<span class="tag badge">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
             '</div>';
@@ -330,6 +357,35 @@
         });
       }
 
+      function buildInterestAccordion() {
+        const container = document.getElementById('interestCheckboxes');
+        const accordion = document.getElementById('interestAccordion');
+        const header = document.getElementById('interestAccordionHeader');
+        const options = collectOptions(INTEREST_AREAS_KEY);
+        container.innerHTML = '';
+        if (!options.length) {
+          accordion.style.display = 'none';
+          return;
+        }
+        accordion.style.display = 'block';
+        header.addEventListener('click', () => accordion.classList.toggle('open'));
+        options.forEach(o => {
+          const label = document.createElement('label');
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.value = o;
+          if (activeInterests.has(o)) cb.checked = true;
+          cb.addEventListener('change', () => {
+            if (cb.checked) activeInterests.add(o);
+            else activeInterests.delete(o);
+            applyFilters();
+          });
+          label.appendChild(cb);
+          label.appendChild(document.createTextNode(o));
+          container.appendChild(label);
+        });
+      }
+
       function showError(msg) {
         document.getElementById('loading').classList.add('hidden');
         document.getElementById('cards').classList.add('hidden');
@@ -352,7 +408,7 @@
           fillSelect('filterCensusTract', CENSUS_TRACT_KEY);
           fillSelect('filterWaterDistrict', WATER_DISTRICT_KEY);
           buildChips('workingGroupChips', WORKING_GROUP_KEY, activeWorkingGroups);
-          buildChips('interestChips', INTEREST_AREAS_KEY, activeInterests);
+          buildInterestAccordion();
           document.getElementById('searchInput').addEventListener('input', applyFilters);
           document.getElementById('filterZone').addEventListener('change', applyFilters);
           document.getElementById('filterCensusTract').addEventListener('change', applyFilters);
