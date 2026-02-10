@@ -501,12 +501,28 @@
               <div id="batchTaggingError" class="hidden" style="padding:12px; margin-bottom:16px; background:rgba(200,0,0,0.1); border:1px solid #c00; border-radius:8px; color:#c00; font-weight:600;"></div>
               <div id="batchTaggingBody">
                 <p style="margin:0 0 12px 0; color:var(--text-light);">Addresses shown match your current Neighbors filters. Check the ones you want to tag.</p>
-                <div style="margin-bottom:12px;">
-                  <button type="button" class="btn-copy-emails" id="batchTaggingSelectAll" style="margin-right:8px;">Select all</button>
-                  <button type="button" class="btn-copy-emails" id="batchTaggingSelectNone">Select none</button>
+                <!-- List view: checkboxes -->
+                <div id="batchTaggingListView">
+                  <div style="margin-bottom:12px;">
+                    <button type="button" class="btn-copy-emails" id="batchTaggingSelectAll" style="margin-right:8px;">Select all</button>
+                    <button type="button" class="btn-copy-emails" id="batchTaggingSelectNone">Select none</button>
+                    <button type="button" class="btn-copy-emails" id="batchTaggingDrawOnMap" style="margin-left:8px;">Draw on map</button>
+                  </div>
+                  <p id="batchTaggingNoCoordsNote" class="hidden" style="margin:0 0 8px 0; font-size:0.85rem; color:var(--text-light);"></p>
+                  <div id="batchTaggingAddressList" style="max-height:280px; overflow-y:auto; border:1px solid var(--border-soft); border-radius:8px; padding:12px; margin-bottom:20px; background:rgba(255,255,255,0.5);">
+                    <!-- Populated by JS -->
+                  </div>
                 </div>
-                <div id="batchTaggingAddressList" style="max-height:280px; overflow-y:auto; border:1px solid var(--border-soft); border-radius:8px; padding:12px; margin-bottom:20px; background:rgba(255,255,255,0.5);">
-                  <!-- Populated by JS -->
+                <!-- Map view: polygon drawing -->
+                <div id="batchTaggingMapView" class="hidden" style="margin-bottom:20px;">
+                  <p style="margin:0 0 8px 0; font-size:0.9rem; color:var(--text-light);">Click on the map to add polygon points. Close the shape to select addresses inside it.</p>
+                  <div style="margin-bottom:8px;">
+                    <button type="button" class="btn-copy-emails" id="batchTaggingMapBackToList" style="margin-right:8px;">Back to list</button>
+                    <button type="button" class="btn-copy-emails" id="batchTaggingMapClosePolygon" style="margin-right:8px;">Close polygon &amp; select</button>
+                    <button type="button" class="btn-copy-emails" id="batchTaggingMapClear">Clear shape</button>
+                  </div>
+                  <div id="batchTaggingMapContainer" style="height:420px; border:1px solid var(--border-soft); border-radius:8px; overflow:hidden;"></div>
+                  <p id="batchTaggingMapStatus" style="margin:8px 0 0 0; font-size:0.9rem; color:var(--text-light);"></p>
                 </div>
                 <div style="display:flex; flex-wrap:wrap; gap:20px; align-items:flex-end; margin-bottom:16px;">
                   <div>
@@ -10238,12 +10254,28 @@
       }
     }
 
+    // Point-in-polygon (ray casting) for Batch Tagging map. Ring = array of L.LatLng; x=lon, y=lat.
+    function pointInPolygon(lat, lng, ring) {
+      const n = ring.length;
+      if (n < 3) return false;
+      const x = lng, y = lat;
+      let inside = false;
+      for (let i = 0, j = n - 1; i < n; j = i++) {
+        const xi = ring[i].lng, yi = ring[i].lat;
+        const xj = ring[j].lng, yj = ring[j].lat;
+        if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+      }
+      return inside;
+    }
+
     // ============================================
     // Batch Tagging Tool
     // ============================================
     function initializeBatchTagging() {
       const errEl = document.getElementById('batchTaggingError');
       const bodyEl = document.getElementById('batchTaggingBody');
+      const listView = document.getElementById('batchTaggingListView');
+      const mapView = document.getElementById('batchTaggingMapView');
       const listEl = document.getElementById('batchTaggingAddressList');
       const damageSelect = document.getElementById('batchTaggingDamage');
       const addressPlanSelect = document.getElementById('batchTaggingAddressPlan');
@@ -10252,6 +10284,13 @@
       const statusMsg = document.getElementById('batchTaggingStatusMsg');
       const selectAllBtn = document.getElementById('batchTaggingSelectAll');
       const selectNoneBtn = document.getElementById('batchTaggingSelectNone');
+      const drawOnMapBtn = document.getElementById('batchTaggingDrawOnMap');
+      const noCoordsNote = document.getElementById('batchTaggingNoCoordsNote');
+      const mapBackBtn = document.getElementById('batchTaggingMapBackToList');
+      const mapCloseBtn = document.getElementById('batchTaggingMapClosePolygon');
+      const mapClearBtn = document.getElementById('batchTaggingMapClear');
+      const mapContainer = document.getElementById('batchTaggingMapContainer');
+      const mapStatusEl = document.getElementById('batchTaggingMapStatus');
       if (!listEl || !damageSelect || !addressPlanSelect || !rebuildSelect || !applyBtn) return;
       if (errEl) { errEl.classList.add('hidden'); errEl.textContent = ''; }
       if (statusMsg) statusMsg.textContent = '';
@@ -10268,6 +10307,43 @@
       if (bodyEl) bodyEl.classList.remove('hidden');
       const addresses = getFilteredAddresses();
       const headers = sheetData.headers;
+      const latCol = headers.find(h => { const l = h.toLowerCase().trim(); return l.includes('lat') || l === 'latitude'; });
+      const lonCol = headers.find(h => { const l = h.toLowerCase().trim(); return l.includes('lon') || l.includes('lng') || l === 'longitude'; });
+      const hasLatLon = !!(latCol && lonCol);
+      if (drawOnMapBtn) {
+        drawOnMapBtn.disabled = !hasLatLon;
+        drawOnMapBtn.title = hasLatLon ? 'Select addresses by drawing a shape on the map' : 'Draw on map requires Latitude and Longitude columns in your sheet';
+      }
+      if (noCoordsNote) {
+        if (hasLatLon && addresses.length > 0) {
+          const withCoords = addresses.filter(addr => {
+            const rows = sheetData.addressMap.get(addr);
+            if (!rows || !rows[0]) return false;
+            const latVal = rows[0][latCol], lonVal = rows[0][lonCol];
+            if (latVal == null || latVal === '' || lonVal == null || lonVal === '') return false;
+            const lat = parseFloat(String(latVal).trim()), lon = parseFloat(String(lonVal).trim());
+            if (isNaN(lat) || isNaN(lon) || (Math.abs(lat) < 0.0001 && Math.abs(lon) < 0.0001)) return false;
+            return true;
+          });
+          const without = addresses.length - withCoords.length;
+          if (without > 0) {
+            noCoordsNote.textContent = withCoords.length + ' address(es) with coordinates (shown on map). ' + without + ' without coordinates.';
+            noCoordsNote.classList.remove('hidden');
+          } else {
+            noCoordsNote.classList.add('hidden');
+          }
+        } else {
+          noCoordsNote.classList.add('hidden');
+        }
+      }
+      if (window._batchTaggingMapState && window._batchTaggingMapState.map) {
+        window._batchTaggingMapState.map.remove();
+        window._batchTaggingMapState = null;
+      }
+      if (listView && mapView) {
+        listView.classList.remove('hidden');
+        mapView.classList.add('hidden');
+      }
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
@@ -10297,6 +10373,88 @@
       }
       if (selectAllBtn) selectAllBtn.onclick = () => listEl.querySelectorAll('.batch-tag-address-cb').forEach(cb => { cb.checked = true; });
       if (selectNoneBtn) selectNoneBtn.onclick = () => listEl.querySelectorAll('.batch-tag-address-cb').forEach(cb => { cb.checked = false; });
+
+      function buildAddressToCoords() {
+        const out = {};
+        if (!hasLatLon || !sheetData || !sheetData.addressMap) return out;
+        addresses.forEach(addr => {
+          const rows = sheetData.addressMap.get(addr);
+          if (!rows || !rows[0]) return;
+          const latVal = rows[0][latCol], lonVal = rows[0][lonCol];
+          if (latVal == null || latVal === '' || lonVal == null || lonVal === '') return;
+          const lat = parseFloat(String(latVal).trim()), lon = parseFloat(String(lonVal).trim());
+          if (isNaN(lat) || isNaN(lon) || (Math.abs(lat) < 0.0001 && Math.abs(lon) < 0.0001)) return;
+          out[addr] = { lat, lon };
+        });
+        return out;
+      }
+
+      function showMapView() {
+        if (!mapContainer || typeof L === 'undefined') return;
+        listView.classList.add('hidden');
+        mapView.classList.remove('hidden');
+        const addressToCoords = buildAddressToCoords();
+        if (!window._batchTaggingMapState) {
+          const defaultCenter = [34.19, -118.15];
+          const bounds = Object.values(addressToCoords).map(({ lat, lon }) => [lat, lon]);
+          const center = bounds.length ? bounds.reduce((a, b) => [a[0] + b[0], a[1] + b[1]], [0, 0]).map((v, i) => v / bounds.length) : defaultCenter;
+          const map = L.map(mapContainer, { attributionControl: false }).setView(center, bounds.length ? 15 : 11);
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+          if (bounds.length > 1) map.fitBounds(bounds, { padding: [20, 20], maxZoom: 17 });
+          Object.entries(addressToCoords).forEach(([addr, { lat, lon }]) => {
+            L.circleMarker([lat, lon], { radius: 6, fillColor: '#0d9488', color: '#0f766e', weight: 1, fillOpacity: 0.8 })
+              .addTo(map).bindTooltip(addr, { permanent: false, direction: 'top' });
+          });
+          const polygonLayer = L.layerGroup().addTo(map);
+          const latlngs = [];
+          function updatePolygonDisplay() {
+            polygonLayer.clearLayers();
+            if (latlngs.length === 1) {
+              L.circleMarker(latlngs[0], { radius: 8, fillColor: '#2563eb', color: '#1d4ed8', weight: 2, fillOpacity: 0.9 }).addTo(polygonLayer);
+            } else if (latlngs.length >= 2) {
+              L.polyline(latlngs, { color: '#2563eb', weight: 2, dashArray: '5,5' }).addTo(polygonLayer);
+            }
+            if (mapStatusEl) mapStatusEl.textContent = latlngs.length < 3 ? 'Click to add points (need at least 3 to close).' : 'Click "Close polygon & select" to select addresses inside the shape.';
+          }
+          map.on('click', (e) => {
+            latlngs.push(e.latlng);
+            updatePolygonDisplay();
+          });
+          window._batchTaggingMapState = { map, polygonLayer, latlngs, addressToCoords, updatePolygonDisplay };
+        }
+        window._batchTaggingMapState.latlngs.length = 0;
+        window._batchTaggingMapState.updatePolygonDisplay();
+      }
+
+      function closePolygonAndSelect() {
+        const state = window._batchTaggingMapState;
+        if (!state || state.latlngs.length < 3) {
+          if (mapStatusEl) mapStatusEl.textContent = 'Add at least 3 points, then click "Close polygon & select".';
+          return;
+        }
+        const ring = state.latlngs.slice();
+        ring.push(ring[0]);
+        const addressesInPolygon = Object.entries(state.addressToCoords)
+          .filter(([_, { lat, lon }]) => pointInPolygon(lat, lon, ring))
+          .map(([addr]) => addr);
+        const encodedSet = new Set(addressesInPolygon.map(a => a.replace(/"/g, '&quot;')));
+        listEl.querySelectorAll('.batch-tag-address-cb').forEach(cb => { cb.checked = encodedSet.has(cb.getAttribute('data-address')); });
+        listView.classList.remove('hidden');
+        mapView.classList.add('hidden');
+        state.latlngs.length = 0;
+        state.polygonLayer.clearLayers();
+        if (mapStatusEl) mapStatusEl.textContent = '';
+        showAppToast('Selected ' + addressesInPolygon.length + ' address(es) from polygon.');
+      }
+
+      if (drawOnMapBtn && hasLatLon) drawOnMapBtn.onclick = showMapView;
+      if (mapBackBtn) mapBackBtn.onclick = () => { if (listView) listView.classList.remove('hidden'); if (mapView) mapView.classList.add('hidden'); if (mapStatusEl) mapStatusEl.textContent = ''; };
+      if (mapCloseBtn) mapCloseBtn.onclick = closePolygonAndSelect;
+      if (mapClearBtn) mapClearBtn.onclick = () => {
+        const state = window._batchTaggingMapState;
+        if (state) { state.latlngs.length = 0; state.polygonLayer.clearLayers(); state.updatePolygonDisplay(); }
+      };
+
       applyBtn.onclick = async () => {
         const selected = Array.from(listEl.querySelectorAll('.batch-tag-address-cb:checked')).map(cb => cb.getAttribute('data-address'));
         if (selected.length === 0) {
