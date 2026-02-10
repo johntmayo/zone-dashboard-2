@@ -290,7 +290,7 @@
       <div class="cards hidden" id="cards"></div>
       <div class="list-table-wrap hidden" id="listWrap">
         <table class="list-table" id="listTable" aria-label="Filtered captain list">
-          <thead><tr><th>Name</th><th>Zone</th><th>Water district</th><th>Email</th></tr></thead>
+          <thead><tr><th>Name</th><th>Zone</th><th>Phone</th><th>Email</th></tr></thead>
           <tbody id="listBody"></tbody>
         </table>
       </div>
@@ -463,11 +463,11 @@
         tbody.innerHTML = list.map(c => {
           const email = (c[PREFERRED_EMAIL_KEY] || '').trim() || (c[GOOGLE_EMAIL_KEY] || '').trim();
           const zone = (c[ZONE_KEY] || '').trim();
-          const waterDistrict = (c[WATER_DISTRICT_KEY] || '').trim();
+          const phone = normalizePhone(c[PHONE_KEY]);
           const emailCell = email
             ? '<a href="mailto:' + escapeHtml(email) + '">' + escapeHtml(email) + '</a>'
             : '<span style="color:var(--text-secondary);">—</span>';
-          return '<tr><td>' + escapeHtml(c[NAME_KEY] || '—') + '</td><td>' + escapeHtml(zone) + '</td><td>' + escapeHtml(waterDistrict) + '</td><td class="email-cell">' + emailCell + '</td></tr>';
+          return '<tr><td>' + escapeHtml(c[NAME_KEY] || '—') + '</td><td>' + escapeHtml(zone) + '</td><td>' + escapeHtml(phone || '—') + '</td><td class="email-cell">' + emailCell + '</td></tr>';
         }).join('');
         listWrap.classList.remove('hidden');
       }
@@ -518,13 +518,13 @@
 
       function downloadCsv() {
         const emails = getEmailsFromList(filteredList);
-        const headers = ['Name', 'Zone', 'Water district', 'Email'];
+        const headers = ['Name', 'Zone', 'Phone', 'Email'];
         const rows = filteredList.map(c => {
           const email = (c[PREFERRED_EMAIL_KEY] || '').trim() || (c[GOOGLE_EMAIL_KEY] || '').trim();
           const zone = (c[ZONE_KEY] || '').trim();
-          const wd = (c[WATER_DISTRICT_KEY] || '').trim();
+          const phone = normalizePhone(c[PHONE_KEY]);
           const esc = v => '"' + String(v || '').replace(/"/g, '""') + '"';
-          return [esc(c[NAME_KEY] || ''), esc(zone), esc(wd), esc(email)].join(',');
+          return [esc(c[NAME_KEY] || ''), esc(zone), esc(phone), esc(email)].join(',');
         });
         const csv = [headers.join(','), ...rows].join('\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
