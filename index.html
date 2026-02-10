@@ -9428,12 +9428,22 @@
       };
     }
 
-    function getDamageStatusData(headers, data) {
+    function getDamageStatusData(headers, data, addressMap) {
       const damageCol = findColumn(headers, 'damage');
       const damageCounts = {};
       let damageUnknown = 0;
-      
-      if (damageCol) {
+
+      if (damageCol && addressMap && addressMap.size > 0) {
+        addressMap.forEach((rows, address) => {
+          const row = rows[0];
+          const damage = row && row[damageCol] ? String(row[damageCol]).trim() : '';
+          if (damage) {
+            damageCounts[damage] = (damageCounts[damage] || 0) + 1;
+          } else {
+            damageUnknown++;
+          }
+        });
+      } else if (damageCol) {
         data.forEach(row => {
           const damage = row[damageCol] ? String(row[damageCol]).trim() : '';
           if (damage) {
@@ -9443,12 +9453,12 @@
           }
         });
       } else {
-        damageUnknown = data.length;
+        damageUnknown = addressMap ? addressMap.size : (data ? data.length : 0);
       }
 
       const labels = Object.keys(damageCounts);
       const dataValues = Object.values(damageCounts);
-      
+
       if (damageUnknown > 0) {
         labels.push('Unknown');
         dataValues.push(damageUnknown);
@@ -9657,7 +9667,7 @@
         {
           canvasId: 'zoneOverviewDamageChart',
           render: () => {
-            const damageData = getDamageStatusData(headers, data);
+            const damageData = getDamageStatusData(headers, data, addressMap);
             // Map damage status to map pin colors
             const getDamageColor = (label) => {
               const labelLower = (label || '').toLowerCase();
