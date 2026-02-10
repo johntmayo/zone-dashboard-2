@@ -10398,6 +10398,8 @@
       const CLOSE_POLYGON_CLICK_METERS = 25;
       const ADDRESS_DOT_DEFAULT = '#e5e5e5';
       const ADDRESS_DOT_SELECTED = '#bc455a';
+      const ADDRESS_DOT_STROKE = '#1F2937';
+      const ADDRESS_DOT_STROKE_WEIGHT = 1.5;
 
       function showMapView() {
         if (!mapContainer || typeof L === 'undefined') return;
@@ -10444,9 +10446,9 @@
             const marker = L.circleMarker([lat, lon], {
               radius: 6,
               fillColor: ADDRESS_DOT_DEFAULT,
-              color: '#d4d4d4',
-              weight: 1,
-              fillOpacity: 0.9
+              color: ADDRESS_DOT_STROKE,
+              weight: ADDRESS_DOT_STROKE_WEIGHT,
+              fillOpacity: 1
             }).addTo(addressMarkersLayer).bindTooltip(addr, { permanent: false, direction: 'top' });
             addressMarkers[addr] = marker;
           });
@@ -10466,7 +10468,11 @@
           function updateAddressMarkerColors(selectedAddressSet) {
             Object.entries(addressMarkers).forEach(([addr, marker]) => {
               const selected = selectedAddressSet.has(addr);
-              marker.setStyle({ fillColor: selected ? ADDRESS_DOT_SELECTED : ADDRESS_DOT_DEFAULT, color: selected ? '#9e3846' : '#d4d4d4' });
+              marker.setStyle({
+                fillColor: selected ? ADDRESS_DOT_SELECTED : ADDRESS_DOT_DEFAULT,
+                color: ADDRESS_DOT_STROKE,
+                weight: ADDRESS_DOT_STROKE_WEIGHT
+              });
             });
           }
           map.on('click', (e) => {
