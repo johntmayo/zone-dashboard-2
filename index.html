@@ -515,7 +515,7 @@
                 </div>
                 <!-- Map view: polygon drawing -->
                 <div id="batchTaggingMapView" class="hidden" style="margin-bottom:20px;">
-                  <p style="margin:0 0 8px 0; font-size:0.9rem; color:var(--text-light);">Click on the map to add polygon points. Close the shape to select addresses inside it.</p>
+                  <p style="margin:0 0 8px 0; font-size:0.9rem; color:var(--text-light);">Click on the map to add polygon points. Click the first point again to close the shape (or use the button). Selected addresses turn red; choose values below and click Apply when ready.</p>
                   <div style="margin-bottom:8px;">
                     <button type="button" class="btn-copy-emails" id="batchTaggingMapBackToList" style="margin-right:8px;">Back to list</button>
                     <button type="button" class="btn-copy-emails" id="batchTaggingMapClosePolygon" style="margin-right:8px;">Close polygon &amp; select</button>
@@ -773,7 +773,7 @@
       'Permits & Pre-Construction',
       'Under Construction',
       'Finishing/Preparing to Move Back',
-      'Moved Back In'
+      'Moved In'
     ];
     let tableSortColumn = null; // Current sort column
     let tableSortDirection = 'asc'; // Sort direction: 'asc' or 'desc'
@@ -4709,7 +4709,7 @@
                 'Permits & Pre-Construction',
                 'Under Construction',
                 'Finishing/Preparing to Move Back',
-                'Moved Back In'
+                'Moved In'
               ];
               const normalizedFirst = normalizeRebuildStatusLabel(firstRowValue);
               const rebuildStageId = `rebuild-stage-${address.replace(/[^a-zA-Z0-9]/g, '-')}`;
@@ -4926,17 +4926,23 @@
           const lower = col.toLowerCase();
           if (lower.includes('home phone') || lower.includes('homephone') || 
               (lower.includes('phone') && lower.includes('home'))) {
-            return '📞 Home';
+            return 'Home 📞';
           }
           if ((lower.includes('cell') || lower.includes('mobile')) && 
               (lower.includes('phone') || lower.includes('cell') || lower.includes('mobile'))) {
-            return '📞 Cell';
+            return 'Cell 📞';
           }
           // Remove "Person - " prefix from checkbox fields
           if (col.startsWith('Person - ')) {
             return col.substring(9); // Remove "Person - " (9 characters)
           }
           return col;
+        };
+        
+        // Omit colon for phone labels (Home 📞, Cell 📞)
+        const formatLabelForDisplay = (label) => {
+          if (label === 'Home 📞' || label === 'Cell 📞') return label;
+          return label + ':';
         };
         
         // Helper function to render a single field
@@ -4967,7 +4973,7 @@
           if (isEditable) {
             if (isNotes) {
               return `<div class="person-info${isInline ? '-item' : ''}">
-                <strong>${displayLabel}:</strong>
+                <strong>${formatLabelForDisplay(displayLabel)}</strong>
                 <textarea class="editable-notes" 
                      data-address="${address.replace(/"/g, '&quot;')}" 
                      data-original-row-index="${originalRowIndex}" 
@@ -4993,12 +4999,12 @@
                          data-original-value="${value.replace(/"/g, '&quot;')}"
                          ${isChecked ? 'checked' : ''}
                          style="width: 18px; height: 18px; cursor: pointer;">
-                  <strong>${displayLabel}:</strong>
+                  <strong>${formatLabelForDisplay(displayLabel)}</strong>
                 </label>
               </div>`;
             } else {
               return `<div class="person-info${isInline ? '-item' : ''}">
-                <strong>${displayLabel}:</strong>
+                <strong>${formatLabelForDisplay(displayLabel)}</strong>
                 <span class="editable-inline" contenteditable="true" 
                       data-address="${address.replace(/"/g, '&quot;')}" 
                       data-original-row-index="${originalRowIndex}" 
@@ -5016,10 +5022,10 @@
               const isChecked = valueStrLower === 'true' || valueStr === 'TRUE' || 
                                valueStrLower === 'yes' || 
                                (valueStr !== '' && valueStrLower !== 'false' && valueStr !== 'FALSE' && valueStrLower !== 'no');
-              return `<div class="person-info${isInline ? '-item' : ''}"><strong>${displayLabel}:</strong> ${isChecked ? 'Yes' : 'No'}</div>`;
+              return `<div class="person-info${isInline ? '-item' : ''}"><strong>${formatLabelForDisplay(displayLabel)}</strong> ${isChecked ? 'Yes' : 'No'}</div>`;
             } else {
               return `<div class="person-info${isInline ? '-item' : ''}">
-                <strong>${displayLabel}:</strong> ${value || '(not set)'}
+                <strong>${formatLabelForDisplay(displayLabel)}</strong> ${value || '(not set)'}
                 ${copyButton}
               </div>`;
             }
@@ -5085,7 +5091,7 @@
           if (isEditable) {
             if (isNotes) {
               html += `<div class="person-info">
-                <strong>${displayLabel}:</strong>
+                <strong>${formatLabelForDisplay(displayLabel)}</strong>
                 <textarea class="editable-notes" 
                      data-address="${address.replace(/"/g, '&quot;')}" 
                      data-original-row-index="${originalRowIndex}" 
@@ -5111,12 +5117,12 @@
                          data-original-value="${value.replace(/"/g, '&quot;')}"
                          ${isChecked ? 'checked' : ''}
                          style="width: 18px; height: 18px; cursor: pointer;">
-                  <strong>${displayLabel}:</strong>
+                  <strong>${formatLabelForDisplay(displayLabel)}</strong>
                 </label>
               </div>`;
             } else {
               html += `<div class="person-info">
-                <strong>${displayLabel}:</strong>
+                <strong>${formatLabelForDisplay(displayLabel)}</strong>
                 <span class="editable-inline" contenteditable="true" 
                       data-address="${address.replace(/"/g, '&quot;')}" 
                       data-original-row-index="${originalRowIndex}" 
@@ -5134,10 +5140,10 @@
               const isChecked = valueStrLower === 'true' || valueStr === 'TRUE' || 
                                valueStrLower === 'yes' || 
                                (valueStr !== '' && valueStrLower !== 'false' && valueStr !== 'FALSE' && valueStrLower !== 'no');
-              html += `<div class="person-info"><strong>${displayLabel}:</strong> ${isChecked ? 'Yes' : 'No'}</div>`;
+              html += `<div class="person-info"><strong>${formatLabelForDisplay(displayLabel)}</strong> ${isChecked ? 'Yes' : 'No'}</div>`;
             } else {
               html += `<div class="person-info">
-                <strong>${displayLabel}:</strong> ${value || '(not set)'}
+                <strong>${formatLabelForDisplay(displayLabel)}</strong> ${value || '(not set)'}
                 ${copyButton}
               </div>`;
             }
@@ -8712,7 +8718,7 @@
         'Permits & Pre-Construction',
         'Under Construction',
         'Finishing/Preparing to Move Back',
-        'Moved Back In'
+        'Moved In'
       ];
       
       const rebuildCounts = {};
@@ -8883,7 +8889,7 @@
           'Permits & Pre-Construction',
           'Under Construction',
           'Finishing/Preparing to Move Back',
-          'Moved Back In'
+          'Moved In'
         ];
         
         // Build funnel data in sequential order (left to right) - include ALL stages
@@ -10389,6 +10395,10 @@
         return out;
       }
 
+      const CLOSE_POLYGON_CLICK_METERS = 25;
+      const ADDRESS_DOT_DEFAULT = '#e5e5e5';
+      const ADDRESS_DOT_SELECTED = '#bc455a';
+
       function showMapView() {
         if (!mapContainer || typeof L === 'undefined') return;
         listView.classList.add('hidden');
@@ -10399,37 +10409,86 @@
           const bounds = Object.values(addressToCoords).map(({ lat, lon }) => [lat, lon]);
           const center = bounds.length ? bounds.reduce((a, b) => [a[0] + b[0], a[1] + b[1]], [0, 0]).map((v, i) => v / bounds.length) : defaultCenter;
           const map = L.map(mapContainer, { attributionControl: false }).setView(center, bounds.length ? 15 : 11);
-          L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+          let batchTaggingTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© OpenStreetMap contributors, © CARTO', maxZoom: 22 }).addTo(map);
+          let isBatchTaggingSatellite = false;
+          const SatelliteToggleControl = L.Control.extend({
+            onAdd: function(m) {
+              const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+              const button = L.DomUtil.create('a', 'satellite-toggle-btn', container);
+              button.href = '#';
+              button.title = 'Switch to satellite view';
+              button.innerHTML = '🛰️';
+              button.style.cssText = 'width: 30px; height: 30px; line-height: 30px; text-align: center; text-decoration: none; display: block; font-size: 18px;';
+              L.DomEvent.on(button, 'click', (ev) => {
+                L.DomEvent.preventDefault(ev);
+                map.removeLayer(batchTaggingTileLayer);
+                if (isBatchTaggingSatellite) {
+                  batchTaggingTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© OpenStreetMap contributors, © CARTO', maxZoom: 22 });
+                  button.title = 'Switch to satellite view';
+                  isBatchTaggingSatellite = false;
+                } else {
+                  batchTaggingTileLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { subdomains: ['0', '1', '2', '3'], attribution: '© Google', maxZoom: 22 });
+                  button.title = 'Switch to street map';
+                  isBatchTaggingSatellite = true;
+                }
+                batchTaggingTileLayer.addTo(map);
+              });
+              return container;
+            }
+          });
+          new SatelliteToggleControl({ position: 'topleft' }).addTo(map);
           if (bounds.length > 1) map.fitBounds(bounds, { padding: [20, 20], maxZoom: 17 });
+          const addressMarkersLayer = L.layerGroup().addTo(map);
+          const addressMarkers = {};
           Object.entries(addressToCoords).forEach(([addr, { lat, lon }]) => {
-            L.circleMarker([lat, lon], { radius: 6, fillColor: '#0d9488', color: '#0f766e', weight: 1, fillOpacity: 0.8 })
-              .addTo(map).bindTooltip(addr, { permanent: false, direction: 'top' });
+            const marker = L.circleMarker([lat, lon], {
+              radius: 6,
+              fillColor: ADDRESS_DOT_DEFAULT,
+              color: '#d4d4d4',
+              weight: 1,
+              fillOpacity: 0.9
+            }).addTo(addressMarkersLayer).bindTooltip(addr, { permanent: false, direction: 'top' });
+            addressMarkers[addr] = marker;
           });
           const polygonLayer = L.layerGroup().addTo(map);
           const latlngs = [];
           function updatePolygonDisplay() {
             polygonLayer.clearLayers();
-            if (latlngs.length === 1) {
-              L.circleMarker(latlngs[0], { radius: 8, fillColor: '#2563eb', color: '#1d4ed8', weight: 2, fillOpacity: 0.9 }).addTo(polygonLayer);
-            } else if (latlngs.length >= 2) {
-              L.polyline(latlngs, { color: '#2563eb', weight: 2, dashArray: '5,5' }).addTo(polygonLayer);
+            latlngs.forEach((ll) => {
+              L.circleMarker(ll, { radius: 8, fillColor: '#2563eb', color: '#1d4ed8', weight: 2, fillOpacity: 0.9 }).addTo(polygonLayer);
+            });
+            if (latlngs.length >= 2) {
+              const lineLatlngs = latlngs.concat([latlngs[0]]);
+              L.polyline(lineLatlngs, { color: '#2563eb', weight: 2, dashArray: '5,5' }).addTo(polygonLayer);
             }
-            if (mapStatusEl) mapStatusEl.textContent = latlngs.length < 3 ? 'Click to add points (need at least 3 to close).' : 'Click "Close polygon & select" to select addresses inside the shape.';
+            if (mapStatusEl) mapStatusEl.textContent = latlngs.length < 3 ? 'Click to add points (need at least 3). Click the first point again to close the shape.' : 'Click the first point again to close the shape, or add more points.';
+          }
+          function updateAddressMarkerColors(selectedAddressSet) {
+            Object.entries(addressMarkers).forEach(([addr, marker]) => {
+              const selected = selectedAddressSet.has(addr);
+              marker.setStyle({ fillColor: selected ? ADDRESS_DOT_SELECTED : ADDRESS_DOT_DEFAULT, color: selected ? '#9e3846' : '#d4d4d4' });
+            });
           }
           map.on('click', (e) => {
+            if (latlngs.length >= 3 && L.latLng(e.latlng).distanceTo(L.latLng(latlngs[0])) < CLOSE_POLYGON_CLICK_METERS) {
+              closePolygonAndSelect();
+              return;
+            }
             latlngs.push(e.latlng);
             updatePolygonDisplay();
           });
-          window._batchTaggingMapState = { map, polygonLayer, latlngs, addressToCoords, updatePolygonDisplay };
+          window._batchTaggingMapState = { map, polygonLayer, latlngs, addressToCoords, addressMarkers, updatePolygonDisplay, updateAddressMarkerColors };
         }
         window._batchTaggingMapState.latlngs.length = 0;
+        window._batchTaggingMapState.polygonLayer.clearLayers();
+        window._batchTaggingMapState.updateAddressMarkerColors(new Set());
         window._batchTaggingMapState.updatePolygonDisplay();
       }
 
       function closePolygonAndSelect() {
         const state = window._batchTaggingMapState;
         if (!state || state.latlngs.length < 3) {
-          if (mapStatusEl) mapStatusEl.textContent = 'Add at least 3 points, then click "Close polygon & select".';
+          if (mapStatusEl) mapStatusEl.textContent = 'Add at least 3 points, then click the first point again to close, or use "Close polygon & select".';
           return;
         }
         const ring = state.latlngs.slice();
@@ -10439,12 +10498,12 @@
           .map(([addr]) => addr);
         const encodedSet = new Set(addressesInPolygon.map(a => a.replace(/"/g, '&quot;')));
         listEl.querySelectorAll('.batch-tag-address-cb').forEach(cb => { cb.checked = encodedSet.has(cb.getAttribute('data-address')); });
-        listView.classList.remove('hidden');
-        mapView.classList.add('hidden');
-        state.latlngs.length = 0;
+        state.updateAddressMarkerColors(new Set(addressesInPolygon));
         state.polygonLayer.clearLayers();
-        if (mapStatusEl) mapStatusEl.textContent = '';
-        showAppToast('Selected ' + addressesInPolygon.length + ' address(es) from polygon.');
+        L.polygon(ring, { color: '#2563eb', weight: 2, fillColor: '#2563eb', fillOpacity: 0.2 }).addTo(state.polygonLayer);
+        state.latlngs.length = 0;
+        if (mapStatusEl) mapStatusEl.textContent = addressesInPolygon.length + ' address(es) selected. Choose values below and click Apply to selected addresses when ready.';
+        showAppToast('Selected ' + addressesInPolygon.length + ' address(es). Choose values and click Apply when ready.');
       }
 
       if (drawOnMapBtn && hasLatLon) drawOnMapBtn.onclick = showMapView;
@@ -10452,7 +10511,14 @@
       if (mapCloseBtn) mapCloseBtn.onclick = closePolygonAndSelect;
       if (mapClearBtn) mapClearBtn.onclick = () => {
         const state = window._batchTaggingMapState;
-        if (state) { state.latlngs.length = 0; state.polygonLayer.clearLayers(); state.updatePolygonDisplay(); }
+        if (state) {
+          state.latlngs.length = 0;
+          state.polygonLayer.clearLayers();
+          state.updateAddressMarkerColors(new Set());
+          state.updatePolygonDisplay();
+          listEl.querySelectorAll('.batch-tag-address-cb').forEach(cb => { cb.checked = false; });
+        }
+        if (mapStatusEl) mapStatusEl.textContent = '';
       };
 
       applyBtn.onclick = async () => {
@@ -12397,7 +12463,7 @@
           'Permits & Pre-Construction',
           'Under Construction',
           'Finishing/Preparing to Move Back',
-          'Moved Back In'
+          'Moved In'
         ];
         
         // Process rebuild breakdown to include all stages in order
