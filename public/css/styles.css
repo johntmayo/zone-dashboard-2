@@ -152,6 +152,23 @@
       padding: 20px;
     }
 
+    .nav-feedback-wrap {
+      margin-top: 12px;
+      text-align: center;
+    }
+
+    .nav-feedback-link {
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.6);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .nav-feedback-link:hover {
+      color: rgba(255, 255, 255, 0.9);
+      text-decoration: underline;
+    }
+
     /* Beta Feedback Button - distinct styling for beta testers */
     .nav-beta-feedback {
       display: block;
