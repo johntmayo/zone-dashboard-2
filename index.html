@@ -704,14 +704,16 @@
         <form id="ncProfileForm" style="display: flex; flex-direction: column; gap: 1rem;">
           <div><label for="ncName" style="font-weight: 600;">Name</label><br><input type="text" id="ncName" name="Name" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
           <div><label for="ncZone" style="font-weight: 600;">Zone</label><br><input type="text" id="ncZone" name="Zone" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
+          <div><label for="ncLocation" style="font-weight: 600;">Location</label><br><input type="text" id="ncLocation" name="Location" placeholder="Describe your location" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
           <div><label for="ncCensusTract" style="font-weight: 600;">Predominant Census Tract of Zone</label><br><select id="ncCensusTract" name="Predominant Census Tract of Zone" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></select></div>
           <div><label for="ncPhone" style="font-weight: 600;">Phone</label><br><input type="text" id="ncPhone" name="Phone" placeholder="(XXX) XXX-XXXX" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
           <div><label for="ncPreferredEmail" style="font-weight: 600;">Preferred email</label><br><input type="email" id="ncPreferredEmail" name="Preferred email" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
           <div><label style="font-weight: 600;">Working Group Participation</label><br><div id="ncWorkingGroups" style="display: flex; flex-wrap: wrap; gap: 0.5rem;"></div></div>
           <div><label for="ncHousing" style="font-weight: 600;">Housing Arrangement</label><br><select id="ncHousing" name="Housing Arrangement" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></select></div>
           <div><label for="ncDamage" style="font-weight: 600;">Damage to home</label><br><select id="ncDamage" name="Damage to home" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></select></div>
+          <div><label for="ncNotesBio" style="font-weight: 600;">Notes/Bio</label><br><textarea id="ncNotesBio" name="Notes/Bio" rows="3" placeholder="A little about your background or interests" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></textarea></div>
           <div><label style="font-weight: 600;">Interest Areas</label><br><div id="ncInterestAreas" style="display: flex; flex-wrap: wrap; gap: 0.5rem;"></div></div>
-          <div><label for="ncSkills" style="font-weight: 600;">Skills &amp; Expertise</label><br><textarea id="ncSkills" name="Skills & Expertise" rows="4" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></textarea></div>
+          <div><label for="ncExpertiseAskMe" style="font-weight: 600;">Expertise (Ask Me About...)</label><br><input type="text" id="ncExpertiseAskMe" name="Expertise (Ask Me About...)" placeholder="Things you're knowledgeable about" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
           <div><label for="ncLanguages" style="font-weight: 600;">Languages Spoken</label><br><input type="text" id="ncLanguages" name="Languages Spoken" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
           <div><label for="ncWaterDistrict" style="font-weight: 600;">Water Districts in Zone</label><br><select id="ncWaterDistrict" name="Water Districts in Zone" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></select></div>
           <div id="ncBadgesReadOnly" class="hidden" style="font-size: 0.9rem; color: var(--text-secondary);"></div>
@@ -999,7 +1001,7 @@
     }
 
     // ---- NC Directory / My NC Profile ----
-    const NC_PROFILE_HEADERS = ['Name', 'Zone', 'Predominant Census Tract of Zone', 'Phone', 'Preferred email', 'Working Group Participation', 'Housing Arrangement', 'Damage to home', 'Interest Areas', 'Skills & Expertise', 'Languages Spoken', 'Google email', 'Water Districts in Zone', 'Badges'];
+    const NC_PROFILE_HEADERS = ['Name', 'Zone', 'Location', 'Predominant Census Tract of Zone', 'Phone', 'Preferred email', 'Working Group Participation', 'Housing Arrangement', 'Damage to home', 'Notes/Bio', 'Interest Areas', 'Expertise (Ask Me About...)', 'Languages Spoken', 'Google email', 'Water Districts in Zone', 'Badges'];
     const NC_PROFILE_OPTIONS = {
       'Predominant Census Tract of Zone': ['CT 4601', 'CT 4602', 'CT 4603.01', 'CT 4603.02', 'CT 4610', 'CT 4611', 'CT 4612', 'CT 4613'],
       'Housing Arrangement': ['Renter', 'Owner', 'RV', 'Other'],
@@ -1090,7 +1092,7 @@
       }
 
       try {
-        const values = await fetchViaOAuth(NC_DIRECTORY_SHEET_ID, 'A1:N500', 'Sheet1');
+        const values = await fetchViaOAuth(NC_DIRECTORY_SHEET_ID, 'A1:P500', 'Sheet1');
         if (!values || values.length < 2) {
           if (notFoundEl) { notFoundEl.querySelector('p:last-child').textContent = 'NC Directory is empty or unavailable.'; notFoundEl.classList.remove('hidden'); }
           return;
@@ -1141,9 +1143,14 @@
       }
       document.getElementById('ncName').value = (row['Name'] || '').trim();
       document.getElementById('ncZone').value = (row['Zone'] || '').trim();
+      const ncLocation = document.getElementById('ncLocation');
+      if (ncLocation) ncLocation.value = (row['Location'] || '').trim();
       document.getElementById('ncPhone').value = (row['Phone'] || '').trim();
       document.getElementById('ncPreferredEmail').value = (row['Preferred email'] || '').trim();
-      document.getElementById('ncSkills').value = (row['Skills & Expertise'] || '').trim();
+      const ncNotesBio = document.getElementById('ncNotesBio');
+      if (ncNotesBio) ncNotesBio.value = (row['Notes/Bio'] || '').trim();
+      const ncExpertiseAskMe = document.getElementById('ncExpertiseAskMe');
+      if (ncExpertiseAskMe) ncExpertiseAskMe.value = (row['Expertise (Ask Me About...)'] || '').trim();
       document.getElementById('ncLanguages').value = (row['Languages Spoken'] || '').trim();
       const wgContainer = document.getElementById('ncWorkingGroups');
       if (wgContainer) {
@@ -1184,20 +1191,22 @@
       const row = {};
       row['Name'] = (document.getElementById('ncName').value || '').trim();
       row['Zone'] = (document.getElementById('ncZone').value || '').trim();
+      row['Location'] = (document.getElementById('ncLocation')?.value || '').trim();
       row['Predominant Census Tract of Zone'] = (document.getElementById('ncCensusTract').value || '').trim();
       row['Phone'] = (document.getElementById('ncPhone').value || '').trim();
       row['Preferred email'] = (document.getElementById('ncPreferredEmail').value || '').trim();
       row['Working Group Participation'] = formatMultiSelectForSheet(Array.from(document.querySelectorAll('#ncWorkingGroups input[type=checkbox]:checked')).map(cb => cb.value));
       row['Housing Arrangement'] = (document.getElementById('ncHousing').value || '').trim();
       row['Damage to home'] = (document.getElementById('ncDamage').value || '').trim();
+      row['Notes/Bio'] = (document.getElementById('ncNotesBio')?.value || '').trim();
       row['Interest Areas'] = formatMultiSelectForSheet(Array.from(document.querySelectorAll('#ncInterestAreas input[type=checkbox]:checked')).map(cb => cb.value));
-      row['Skills & Expertise'] = (document.getElementById('ncSkills').value || '').trim();
+      row['Expertise (Ask Me About...)'] = (document.getElementById('ncExpertiseAskMe')?.value || '').trim();
       row['Languages Spoken'] = (document.getElementById('ncLanguages').value || '').trim();
       row['Google email'] = (ncProfileRowData['Google email'] || '').trim();
       row['Water Districts in Zone'] = (document.getElementById('ncWaterDistrict').value || '').trim();
       row['Badges'] = (ncProfileRowData['Badges'] || '').trim();
       const rowValues = NC_PROFILE_HEADERS.map(h => row[h] || '');
-      const range = 'Sheet1!A' + ncProfileRowIndex + ':N' + ncProfileRowIndex;
+      const range = 'Sheet1!A' + ncProfileRowIndex + ':P' + ncProfileRowIndex;
       const statusEl = document.getElementById('profileSaveStatus');
       const btn = document.getElementById('ncProfileSaveBtn');
       if (btn) btn.disabled = true;

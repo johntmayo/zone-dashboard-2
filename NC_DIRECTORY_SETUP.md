@@ -4,8 +4,8 @@
 
 - **Sheet ID:** `1E77qmT4eGtyokaDvD2wlK3q2NeMcS4itmkbYp6Rz0qM`
 - **Tab used:** `Sheet1` (leftmost sheet). Other tabs are ignored.
-- **Row 1:** Headers. Cell A1 = **Name**. Columns A–N: Name, Zone, Predominant Census Tract of Zone, Phone, Preferred email, Working Group Participation, Housing Arrangement, Damage to home, Interest Areas, Skills & Expertise, Languages Spoken, Google email, Water District, Badges.
-- **Multi-value columns** (Working Group Participation, Interest Areas, Badges): store multiple values in one cell separated by a pipe `|` (e.g. `Trees | Housing | Outreach`).
+- **Row 1:** Headers. Columns A–P: Name, Zone, Location, Predominant Census Tract of Zone, Phone, Preferred email, Working Group Participation, Housing Arrangement, Damage to home, Notes/Bio, Interest Areas, Expertise (Ask Me About...), Languages Spoken, Google email, Water Districts in Zone, Badges.
+- **Multi-value columns** (Working Group Participation, Interest Areas, Badges): store multiple values comma-separated; values that contain commas are quoted (e.g. `Standing homes, "Modular, Prefab, and Factory-Built Homes"`). The nc-directory also accepts legacy pipe-separated format for reading.
 
 ## Sharing settings for the NC Directory Google Sheet
 

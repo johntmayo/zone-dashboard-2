@@ -99,15 +99,23 @@
     }
     .card h3 { margin: 0 0 0.5rem; font-size: 1.15rem; color: var(--brand-primary-dark); }
     .card .zone { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
-    .card .contact { margin: 0.5rem 0; font-size: 0.95rem; }
+    .card .contact { margin: 0.5rem 0; font-size: 0.95rem; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
     .card .contact a { color: var(--accent-green); text-decoration: none; }
     .card .contact a:hover { text-decoration: underline; }
+    .card .contact .email-wrap { display: inline-flex; align-items: center; gap: 0.25rem; }
+    .card .contact .copy-email-btn { display: inline-flex; align-items: center; justify-content: center; padding: 0.2rem; border: none; background: transparent; cursor: pointer; border-radius: 4px; color: var(--text-secondary); opacity: 0.6; }
+    .card .contact .email-wrap:hover .copy-email-btn { opacity: 1; }
+    .card .contact .copy-email-btn:hover { background: #E5E7EB; color: var(--text-primary); }
     .card .tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; }
     .card .tags-label { font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.75rem; margin-bottom: 0.25rem; font-weight: 600; }
     .tag { background: #EEF2FF; color: var(--brand-primary-dark); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; }
     .tag.badge { background: #FEF3C7; color: #92400E; }
     .tag.badge.badge-1year { background: linear-gradient(135deg, #FDE68A 0%, #FCD34D 100%); color: #78350F; font-weight: 700; padding: 0.35rem 0.6rem; font-size: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
     .tag.badge.badge-1year::before { content: '★ '; }
+    .tag.badge.badge-chair { background: linear-gradient(135deg, #DBEAFE 0%, #93C5FD 100%); color: #1E3A8A; font-weight: 700; padding: 0.35rem 0.6rem; font-size: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+    .tag.badge.badge-chair::before { content: '◆ '; }
+    .tag.badge.badge-newsletter { background: linear-gradient(135deg, #D1FAE5 0%, #6EE7B7 100%); color: #065F46; font-weight: 700; padding: 0.35rem 0.6rem; font-size: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+    .tag.badge.badge-newsletter::before { content: '✉ '; }
     .card .bio { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; }
     .card .location { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; }
     .card .notes-bio { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; font-style: italic; }
@@ -115,7 +123,14 @@
     .loading, .error { text-align: center; padding: 2rem; font-size: 1.1rem; }
     .error { color: var(--accent-clay); }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
-    .intro-blurb { font-size: 0.95rem; color: var(--text-secondary); line-height: 1.6; margin: 0 0 1.5rem; max-width: 48rem; }
+    .intro-blurb {
+      font-size: 0.95rem; line-height: 1.6; margin: 0 0 1.5rem; max-width: 48rem;
+      padding: 1.25rem 1.5rem; border-radius: 8px;
+      background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 40%, #FEF9E7 100%);
+      border: 2px solid var(--accent-gold);
+      color: var(--text-primary);
+    }
+    .intro-blurb strong { color: var(--brand-primary-dark); }
     .accordion { border: 2px solid var(--border-color); border-radius: 4px; background: var(--bg-card); margin-top: 1rem; margin-bottom: 0.5rem; }
     .accordion-header { padding: 0.5rem 0.75rem; cursor: pointer; font-weight: 600; font-size: 0.9rem; font-family: 'Merriweather', serif; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between; }
     .accordion-header:hover { background: #F9FAFB; }
@@ -154,21 +169,6 @@
     }
     .results-bar .view-toggle button:hover { background: #F9FAFB; color: var(--text-primary); }
     .results-bar .view-toggle button.active { background: var(--accent-gold); color: var(--text-primary); }
-    .results-bar .copy-btn {
-      padding: 0.4rem 0.75rem;
-      font-size: 0.9rem;
-      font-family: 'Merriweather', serif;
-      font-weight: 600;
-      border: 2px solid var(--accent-green);
-      background: var(--bg-card);
-      color: var(--accent-green);
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .results-bar .copy-btn:hover { background: var(--accent-green); color: white; }
-    .results-bar .copy-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .results-bar .copy-btn.copied { background: var(--accent-green); color: white; }
-    .results-bar .copy-feedback { font-size: 0.9rem; color: var(--accent-green); margin-left: 0.25rem; }
     .list-table-wrap { overflow-x: auto; }
     .list-table {
       width: 100%;
@@ -190,6 +190,36 @@
     .list-table tbody tr:hover { background: #F3F4F6; }
     .list-table .email-cell a { color: var(--accent-green); text-decoration: none; }
     .list-table .email-cell a:hover { text-decoration: underline; }
+    .results-bar .export-btn { padding: 0.4rem 0.75rem; font-size: 0.9rem; font-family: 'Merriweather', serif; font-weight: 600; border: 2px solid var(--accent-green); background: var(--bg-card); color: var(--accent-green); border-radius: 4px; cursor: pointer; }
+    .results-bar .export-btn:hover { background: var(--accent-green); color: white; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
+    .modal-overlay.hidden { display: none; }
+    .modal { background: var(--bg-card); border-radius: 8px; max-width: 480px; width: 100%; padding: 1.5rem; box-shadow: 0 4px 20px rgba(0,0,0,0.2); border: 2px solid var(--border-color); }
+    .modal h3 { margin: 0 0 1rem; font-size: 1.15rem; }
+    .modal-filters { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem; padding: 0.75rem; background: #F9FAFB; border-radius: 4px; }
+    .modal-actions { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; }
+    .modal-actions button { padding: 0.6rem 1rem; font-size: 0.95rem; font-weight: 600; border-radius: 4px; cursor: pointer; border: 2px solid; }
+    .modal-copy-btn { background: var(--accent-green); color: white; border-color: var(--accent-green); }
+    .modal-copy-btn:hover { opacity: 0.9; }
+    .modal-copy-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .modal-download-btn { background: white; color: var(--brand-primary-dark); border-color: var(--brand-primary-dark); }
+    .modal-download-btn:hover { background: var(--brand-primary-dark); color: white; }
+    .modal-close-btn { margin-top: 1rem; padding: 0.4rem; background: transparent; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.9rem; }
+    .modal-close-btn:hover { color: var(--text-primary); }
+    @media (max-width: 640px) {
+      .container { padding: 1rem; }
+      .toolbar { flex-direction: column; align-items: stretch; gap: 0.75rem; }
+      .search-wrap { min-width: 100%; }
+      .filters { flex-direction: column; align-items: stretch; }
+      .filters select { flex: 1; min-width: 0; }
+      .count { margin-left: 0; margin-top: 0.25rem; }
+      .cards { grid-template-columns: 1fr; gap: 0.75rem; }
+      .card { padding: 1rem; }
+      .intro-blurb { padding: 1rem; font-size: 0.9rem; }
+      .filter-chips { flex-direction: column; align-items: flex-start; }
+      .results-bar { flex-direction: column; align-items: stretch; }
+      .card .contact .copy-email-btn { opacity: 1; }
+    }
   </style>
 </head>
 <body>
@@ -198,7 +228,7 @@
     <h1>Neighborhood Captain Directory</h1>
   </header>
   <main class="container">
-    <p class="intro-blurb"><strong>Dear neighborhood captains,</strong> This directory is intended for your use only so that you can find each other to coordinate and collaborate. To protect the privacy of your fellow captains, please do not share this directory outside of Altagether.<br><br>To use: Search by name, zone, skills, or interests, and use the filters below to narrow your results.<br><br>To update your profile: make changes in the zone dashboard under My NC Profile, or the old fashioned way in <a href="#" id="spreadsheetLink" target="_blank" rel="noopener noreferrer">this spreadsheet</a>.</p>
+    <div class="intro-blurb"><strong>Dear Neighborhood Captains,</strong> this directory is intended for your use only so that you can find each other to coordinate and collaborate. To protect the privacy of your fellow captains, please do not share this directory outside of Altagether.<br><br><strong>To use:</strong> Search by name, zone, skills, or interests, and use the filters below to narrow your results.<br><br><strong>TO UPDATE YOUR PROFILE:</strong> Make changes in the zone dashboard under My NC Profile, or the old fashioned way in <a href="#" id="spreadsheetLink" target="_blank" rel="noopener noreferrer">this spreadsheet</a>.</div>
     <div class="toolbar">
       <div class="search-wrap">
         <input type="search" id="searchInput" placeholder="Search by name, zone, skills, interests…" aria-label="Search directory" />
@@ -237,8 +267,19 @@
         <button type="button" id="viewCards" aria-pressed="true">Cards</button>
         <button type="button" id="viewList" aria-pressed="false">List</button>
       </span>
-      <button type="button" class="copy-btn" id="copyEmailsBtn" title="Copy email addresses of all captains matching your filters">Copy emails</button>
-      <span class="copy-feedback hidden" id="copyFeedback">Copied!</span>
+      <button type="button" class="export-btn hidden" id="exportBtn" title="Export filtered results">Export</button>
+    </div>
+    <div class="modal-overlay hidden" id="exportModal">
+      <div class="modal">
+        <h3>Export filtered captains</h3>
+        <div class="modal-filters" id="modalFiltersSummary"></div>
+        <p class="modal-count" id="modalCount" style="font-size:0.85rem;color:var(--text-secondary);margin:0 0 1rem;"></p>
+        <div class="modal-actions">
+          <button type="button" class="modal-copy-btn" id="modalCopyEmails">Copy email addresses</button>
+          <button type="button" class="modal-download-btn" id="modalDownloadCsv">Download as CSV</button>
+          <button type="button" class="modal-close-btn" id="modalClose">Close</button>
+        </div>
+      </div>
     </div>
     <div id="content">
       <div class="loading" id="loading">Loading directory…</div>
@@ -277,6 +318,7 @@
       const HOUSING_KEY = 'Housing Arrangement';
       const DAMAGE_KEY = 'Damage to home';
 
+      const copyIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
       let allCaptains = [];
       let filteredList = [];
       let viewMode = 'cards';
@@ -380,13 +422,11 @@
 
       function updateResultsBar() {
         const bar = document.getElementById('resultsBar');
-        const copyBtn = document.getElementById('copyEmailsBtn');
-        const emails = getEmailsFromList(filteredList);
+        const exportBtn = document.getElementById('exportBtn');
         const hasResults = filteredList.length > 0;
         bar.classList.toggle('hidden', !hasResults);
         if (hasResults) {
-          copyBtn.textContent = emails.length > 0 ? 'Copy ' + emails.length + ' email' + (emails.length !== 1 ? 's' : '') : 'Copy emails';
-          copyBtn.disabled = emails.length === 0;
+          exportBtn.classList.toggle('hidden', viewMode !== 'list');
         }
       }
 
@@ -402,6 +442,8 @@
           cardsEl.classList.add('hidden');
           listWrap.classList.remove('hidden');
         }
+        updateResultsBar();
+        bindCopyEmailButtons();
       }
 
       function renderList(list) {
@@ -426,25 +468,83 @@
         listWrap.classList.remove('hidden');
       }
 
+      function getActiveFiltersSummary() {
+        const parts = [];
+        const q = (document.getElementById('searchInput').value || '').trim();
+        if (q) parts.push('Search: "' + q + '"');
+        const z = (document.getElementById('filterZone').value || '').trim();
+        if (z) parts.push('Zone: ' + z);
+        const ct = (document.getElementById('filterCensusTract').value || '').trim();
+        if (ct) parts.push('Census tract: ' + ct);
+        const wd = (document.getElementById('filterWaterDistrict').value || '').trim();
+        if (wd) parts.push('Water district: ' + wd);
+        if (activeWorkingGroups.size) parts.push('Working groups: ' + [...activeWorkingGroups].join(', '));
+        if (activeInterests.size) parts.push('Interest areas: ' + [...activeInterests].join(', '));
+        return parts.length ? parts.join(' · ') : 'No filters applied (showing all captains)';
+      }
+
+      function openExportModal() {
+        const emails = getEmailsFromList(filteredList);
+        document.getElementById('modalFiltersSummary').textContent = getActiveFiltersSummary();
+        document.getElementById('modalCount').textContent = filteredList.length + ' captain' + (filteredList.length !== 1 ? 's' : '') + (emails.length ? ' · ' + emails.length + ' with email' : '');
+        document.getElementById('modalCopyEmails').disabled = emails.length === 0;
+        document.getElementById('exportModal').classList.remove('hidden');
+      }
+
+      function closeExportModal() {
+        document.getElementById('exportModal').classList.add('hidden');
+      }
+
       function copyEmailsToClipboard() {
         const emails = getEmailsFromList(filteredList);
         if (emails.length === 0) return;
         const blob = emails.join(', ');
-        const feedback = document.getElementById('copyFeedback');
         navigator.clipboard.writeText(blob).then(() => {
-          feedback.classList.remove('hidden');
-          const btn = document.getElementById('copyEmailsBtn');
-          btn.classList.add('copied');
+          const btn = document.getElementById('modalCopyEmails');
+          const orig = btn.textContent;
           btn.textContent = 'Copied!';
-          setTimeout(() => {
-            feedback.classList.add('hidden');
-            btn.classList.remove('copied');
-            updateResultsBar();
-          }, 2000);
+          setTimeout(() => { btn.textContent = orig; }, 2000);
         }).catch(() => {
-          feedback.textContent = 'Copy failed';
-          feedback.classList.remove('hidden');
-          setTimeout(() => feedback.classList.add('hidden'), 3000);
+          const btn = document.getElementById('modalCopyEmails');
+          const orig = btn.textContent;
+          btn.textContent = 'Copy failed';
+          setTimeout(() => { btn.textContent = orig; }, 2000);
+        });
+      }
+
+      function downloadCsv() {
+        const emails = getEmailsFromList(filteredList);
+        const headers = ['Name', 'Zone', 'Water district', 'Email'];
+        const rows = filteredList.map(c => {
+          const email = (c[PREFERRED_EMAIL_KEY] || '').trim() || (c[GOOGLE_EMAIL_KEY] || '').trim();
+          const zone = (c[ZONE_KEY] || '').trim();
+          const wd = (c[WATER_DISTRICT_KEY] || '').trim();
+          const esc = v => '"' + String(v || '').replace(/"/g, '""') + '"';
+          return [esc(c[NAME_KEY] || ''), esc(zone), esc(wd), esc(email)].join(',');
+        });
+        const csv = [headers.join(','), ...rows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'nc-directory-export.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+
+      function bindCopyEmailButtons() {
+        document.querySelectorAll('.copy-email-btn').forEach(btn => {
+          btn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const email = this.getAttribute('data-email');
+            if (email) {
+              navigator.clipboard.writeText(email).then(() => {
+                const orig = this.innerHTML;
+                this.innerHTML = '<span style="color:var(--accent-green);">✓</span>';
+                setTimeout(() => { this.innerHTML = orig; }, 1500);
+              });
+            }
+          };
         });
       }
 
@@ -472,14 +572,14 @@
             '<h3>' + escapeHtml(c[NAME_KEY] || '—') + '</h3>' +
             (zoneLine ? '<div class="zone">' + escapeHtml(zoneLine) + '</div>' : '') +
             (location ? '<div class="location">' + escapeHtml(location) + '</div>' : '') +
-            (email ? '<div class="contact"><a href="mailto:' + escapeHtml(email) + '">' + escapeHtml(email) + '</a></div>' : '') +
+            (email ? '<div class="contact"><span class="email-wrap"><a href="mailto:' + escapeHtml(email) + '">' + escapeHtml(email) + '</a><button type="button" class="copy-email-btn" title="Copy email" data-email="' + escapeHtml(email) + '" aria-label="Copy email">' + copyIconSvg + '</button></span></div>' : '') +
             (phone ? '<div class="contact">' + escapeHtml(phone) + '</div>' : '') +
             (skills ? '<div class="bio">' + escapeHtml(skills.slice(0, 200)) + (skills.length > 200 ? '…' : '') + '</div>' : '') +
             (notesBio ? '<div class="notes-bio">' + escapeHtml(notesBio) + '</div>' : '') +
             (askMeAbout ? '<div class="ask-me-about">Ask me about… ' + escapeHtml(askMeAbout) + '</div>' : '') +
             (wg.length ? '<div class="tags-label">Working groups:</div><div class="tags">' + wg.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
             (interests.length ? '<div class="tags">' + interests.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
-            (badges.length ? '<div class="tags">' + badges.map(x => { const is1Year = (x || '').trim() === '1 Year of Service'; return '<span class="tag badge' + (is1Year ? ' badge-1year' : '') + '">' + escapeHtml(x) + '</span>'; }).join('') + '</div>' : '') +
+            (badges.length ? '<div class="tags">' + badges.map(x => { const t = (x || '').trim(); const special = t === '1 Year of Service' ? ' badge-1year' : (t === 'Working Group Chair' ? ' badge-chair' : (t === 'Newsletter' ? ' badge-newsletter' : '')); return '<span class="tag badge' + special + '">' + escapeHtml(x) + '</span>'; }).join('') + '</div>' : '') +
             '</div>';
         }).join('');
         cardsEl.classList.remove('hidden');
@@ -640,7 +740,13 @@
             renderView();
           });
           document.getElementById('viewCards').classList.add('active');
-          document.getElementById('copyEmailsBtn').addEventListener('click', copyEmailsToClipboard);
+          document.getElementById('exportBtn').addEventListener('click', openExportModal);
+          document.getElementById('modalCopyEmails').addEventListener('click', copyEmailsToClipboard);
+          document.getElementById('modalDownloadCsv').addEventListener('click', downloadCsv);
+          document.getElementById('modalClose').addEventListener('click', closeExportModal);
+          document.getElementById('exportModal').addEventListener('click', function(e) {
+            if (e.target === this) closeExportModal();
+          });
           applyFilters();
         })
         .catch(e => showError('Could not load directory. Make sure the server is running and the NC Directory sheet is shared correctly. ' + (e.message || '')));
