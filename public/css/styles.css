@@ -95,7 +95,7 @@
       opacity: 0.6;
     }
 
-    .left-nav.disabled .nav-item[data-view]:not([data-view="home"]) {
+    .left-nav.disabled .nav-item[data-view]:not([data-view="home"]):not([data-view="help"]) {
       pointer-events: none;
       cursor: not-allowed;
       opacity: 0.5;
@@ -421,6 +421,114 @@
       display: inline-block;
     }
 
+    /* === ABOUT THIS TOOL PAGE === */
+    .about-tool-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      margin-top: 24px;
+    }
+
+    .about-section {
+      margin-bottom: 40px;
+      scroll-margin-top: 20px;
+    }
+
+    .about-section:last-of-type {
+      margin-bottom: 0;
+    }
+
+    .about-section-title {
+      margin: 0 0 16px 0;
+      color: var(--brand-primary-dark);
+      font-size: 1.5rem;
+      font-family: 'Chivo', sans-serif;
+      font-weight: 900;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--accent-gold);
+    }
+
+    .about-section p,
+    .about-section-intro {
+      margin: 0 0 12px 0;
+      color: var(--text-primary);
+      line-height: 1.6;
+      font-family: 'Merriweather', serif;
+    }
+
+    .about-promise-list,
+    .about-flow-list {
+      margin: 12px 0;
+      padding-left: 24px;
+    }
+
+    .about-promise-list li,
+    .about-flow-list li {
+      margin-bottom: 12px;
+      line-height: 1.6;
+    }
+
+    .about-flow-list {
+      list-style: decimal;
+    }
+
+    .about-accordion {
+      margin-bottom: 8px;
+      border: 2px solid var(--border-color);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .about-accordion summary {
+      padding: 14px 18px;
+      font-family: 'Chivo', sans-serif;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--bg-card);
+      color: var(--brand-primary-dark);
+      user-select: none;
+    }
+
+    .about-accordion summary:hover {
+      background: rgba(49, 64, 89, 0.05);
+    }
+
+    .about-accordion-content {
+      padding: 16px 18px;
+      background: var(--bg-paper);
+      border-top: 2px solid var(--border-color);
+    }
+
+    .about-accordion-content p,
+    .about-accordion-content ul {
+      margin: 0 0 10px 0;
+    }
+
+    .about-accordion-content ul {
+      padding-left: 24px;
+    }
+
+    .about-troubleshoot-list {
+      margin: 12px 0;
+    }
+
+    .about-troubleshoot-list dt {
+      font-family: 'Chivo', sans-serif;
+      font-weight: 700;
+      color: var(--brand-primary-dark);
+      margin-top: 16px;
+      margin-bottom: 4px;
+    }
+
+    .about-troubleshoot-list dt:first-child {
+      margin-top: 0;
+    }
+
+    .about-troubleshoot-list dd {
+      margin: 0 0 0 16px;
+      padding-bottom: 8px;
+      line-height: 1.6;
+    }
+
     /* === HELP PAGE CARDS === */
     /* Focus: Support & Documentation - Clay CTAs, Green accents */
     .help-container {
@@ -439,16 +547,21 @@
       box-shadow: 6px 6px 0px #D9DBDB;
     }
 
-    .help-card h3 {
+    .help-card h3,
+    .help-card h4 {
       margin-top: 0;
       margin-bottom: 12px;
       color: var(--brand-primary-dark);
       font-size: 1.3rem;
       font-family: 'Chivo', sans-serif;
       font-weight: 900;
-      text-transform: uppercase;
       padding-bottom: 8px;
       border-bottom: 2px dotted var(--accent-clay);
+    }
+
+    .help-card h4 {
+      font-size: 1.1rem;
+      text-transform: none;
     }
 
     .help-card p {

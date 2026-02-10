@@ -20,7 +20,7 @@
 
 ## 3. Navigation & Views
 
-- **Left nav:** Home, Map, Neighbors, Actions, Tools, Resources, Help, My NC Profile, ★ Beta Testers.
+- **Left nav:** Home, Map, Neighbors, Actions, Tools, Resources, About This Tool, My NC Profile, ★ Beta Testers.
 - **Content views:** One active at a time; others hidden.
 - **Floating right panel:** Details (address list / selection), Zone Notes tab, Contact Mode button; sign-in prompt when not signed in.
 
@@ -88,11 +88,15 @@
 
 ---
 
-## 10. Help
+## 10. About This Tool
 
-- **Zone Dashboard Documentation:** Link to `help.html`.
-- **Discord:** Quick Start (in-app modal: join link, message @altagether_org, training video); Discord Tutorial link to `discord-help.html`.
-- **Altagether Calendar:** Placeholder “Coming Soon”.
+- **What This Tool Is:** Short explanation of purpose and audience.
+- **Your Data Promise:** Where data lives (user-owned Google Sheets), who owns it, who has access, no hidden databases.
+- **Our Intentions Around Data:** Values and guardrails; power stays with NCs.
+- **How the App Works:** Sign in → Link sheet → Read/write → Session-based access.
+- **Tutorials:** Collapsible walkthroughs (Getting started, Loading sheet, Map, Common mistakes).
+- **Common Issues:** Troubleshooting (session expired, sheet not loading, permissions, re-linking).
+- **More Help & Community:** Zone Dashboard Documentation (link to `help.html`), Discord Quick Start modal, Discord Tutorial link to `discord-help.html`.
 
 ---
 
