@@ -4565,8 +4565,9 @@
         if (hiddenFromPersonView.some(field => lower.includes(field))) return false;
         // Skip Contact Notes - it's shown separately in contact mode
         if (lower.includes('contact') && lower.includes('note')) return false;
-        // Person-level: Person Notes, Person Notes 2, Person Notes 3, or person-specific fields
-        return lower.includes('person note') ||
+        // Person-level: Person - X checkboxes (Renter, Needs Follow-Up, Unable to reach, etc.), Person Notes, phones, etc.
+        return lower.startsWith('person - ') ||
+               lower.includes('person note') ||
                lower.includes('home phone') ||
                lower.includes('cell') ||
                lower.includes('email address') ||
@@ -4924,24 +4925,25 @@
         // Helper function to format column name for display
         const formatColumnLabel = (col) => {
           const lower = col.toLowerCase();
-          if (lower.includes('home phone') || lower.includes('homephone') || 
+          if (lower.includes('home phone') || lower.includes('homephone') ||
               (lower.includes('phone') && lower.includes('home'))) {
-            return 'Home 📞';
+            return '📞 Home';
           }
-          if ((lower.includes('cell') || lower.includes('mobile')) && 
+          if ((lower.includes('cell') || lower.includes('mobile')) &&
               (lower.includes('phone') || lower.includes('cell') || lower.includes('mobile'))) {
-            return 'Cell 📞';
+            return '📞 Cell';
           }
-          // Remove "Person - " prefix from checkbox fields
+          // Remove "Person - " prefix from checkbox fields; use friendly label for specific columns
           if (col.startsWith('Person - ')) {
-            return col.substring(9); // Remove "Person - " (9 characters)
+            const suffix = col.substring(9);
+            if (suffix.toLowerCase() === 'unable to reach') return 'Unable to reach';
+            return suffix;
           }
           return col;
         };
-        
-        // Omit colon for phone labels (Home 📞, Cell 📞)
+
+        // Add colon after label for display (e.g. "📞 Home:", "Unable to reach:")
         const formatLabelForDisplay = (label) => {
-          if (label === 'Home 📞' || label === 'Cell 📞') return label;
           return label + ':';
         };
         
