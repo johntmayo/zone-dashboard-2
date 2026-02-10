@@ -4623,10 +4623,13 @@
         return isSameForAll || forceAddressLevel;
       });
       
-      // Fields to hide from person view
+      // Fields to hide from person view (address-level; address is shown as header)
       const hiddenFromPersonView = [
         'house #',
+        'house number',
+        'house num',
         'street',
+        'zip',
         'city',
         'state',
         'zip_code',
@@ -5160,8 +5163,19 @@
           html += '</div>';
         }
         
-        // Person Tags accordion (same style as Address Tags): Renter, Needs Follow-Up, Unable to reach, etc.
-        const personTagCols = personLevelCols.filter(col => col.startsWith('Person - '));
+        // Email (above Person Tags)
+        const emailCol = personLevelCols.find(col => col.toLowerCase().includes('email address'));
+        if (emailCol) {
+          html += renderField(emailCol);
+        }
+        
+        // Person Tags accordion: only Renter, Needs Follow-Up, Unable to reach (same style as Address Tags)
+        const personTagSuffixes = ['renter', 'needs follow-up', 'unable to reach'];
+        const personTagCols = personLevelCols.filter(col => {
+          if (!col.startsWith('Person - ')) return false;
+          const suffix = col.substring(9).trim().toLowerCase();
+          return personTagSuffixes.includes(suffix);
+        });
         if (personTagCols.length > 0) {
           html += '<details class="address-tags-section" style="margin-top:12px;">';
           html += '<summary style="cursor:pointer; font-weight:700; font-family: Chivo, sans-serif;">Person Tags</summary>';
@@ -5172,20 +5186,24 @@
           html += '</div></details>';
         }
         
-        // Render remaining person-level fields individually
+        // Remaining person-level fields (non-notes first), then Person Notes last
+        const deferredNotesCols = [];
         personLevelCols.forEach(col => {
           // Skip fields already rendered or that should be skipped
           if (renderedFields.has(col)) return;
           if (col.toLowerCase().includes('resident name')) return;
           if (isContactMode && (col.toLowerCase().includes('contact') && col.toLowerCase().includes('note'))) return;
-          
+          // Defer notes to render last (after Person Tags)
           const isNotes = col.toLowerCase().includes('note');
+          if (isNotes) {
+            deferredNotesCols.push(col);
+            return;
+          }
           const isPersonCheckbox = col.startsWith('Person - ');
           const isEmail = col.toLowerCase().includes('email address');
           const isEditable = accessToken;
           const displayLabel = formatColumnLabel(col);
           const value = row[col] || '';
-          
           // Copy button HTML for email addresses
           const copyButton = isEmail && value.trim() ? `
             <button class="copy-email-btn" 
@@ -5200,17 +5218,7 @@
           ` : '';
           
           if (isEditable) {
-            if (isNotes) {
-              html += `<div class="person-info">
-                <strong>${formatLabelForDisplay(displayLabel)}</strong>
-                <textarea class="editable-notes" 
-                     data-address="${address.replace(/"/g, '&quot;')}" 
-                     data-original-row-index="${originalRowIndex}" 
-                     data-column="${col}"
-                     data-address-level="false"
-                     data-original-value="${(row[col] || '').replace(/"/g, '&quot;')}">${row[col] || ''}</textarea>
-              </div>`;
-            } else if (isPersonCheckbox) {
+            if (isPersonCheckbox) {
               // Person-level checkbox fields
               const valueStr = (value || '').trim();
               const valueStrLower = valueStr.toLowerCase();
@@ -5258,6 +5266,26 @@
                 ${copyButton}
               </div>`;
             }
+          }
+        });
+        // Person Notes last
+        deferredNotesCols.forEach(col => {
+          const value = row[col] || '';
+          const displayLabel = formatColumnLabel(col);
+          if (accessToken) {
+            html += `<div class="person-info">
+                <strong>${formatLabelForDisplay(displayLabel)}</strong>
+                <textarea class="editable-notes" 
+                     data-address="${address.replace(/"/g, '&quot;')}" 
+                     data-original-row-index="${originalRowIndex}" 
+                     data-column="${col}"
+                     data-address-level="false"
+                     data-original-value="${(row[col] || '').replace(/"/g, '&quot;')}">${row[col] || ''}</textarea>
+              </div>`;
+          } else {
+            html += `<div class="person-info">
+                <strong>${formatLabelForDisplay(displayLabel)}</strong> ${value || '(not set)'}
+              </div>`;
           }
         });
         
