@@ -583,7 +583,7 @@
             (askMeAbout ? '<div class="ask-me-about">Ask me about… ' + escapeHtml(askMeAbout) + '</div>' : '') +
             (wg.length ? '<div class="tags-label">Working groups:</div><div class="tags">' + wg.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
             (interests.length ? '<div class="tags-label">Interest areas:</div><div class="tags">' + interests.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
-            (badges.length ? '<div class="tags">' + badges.map(x => { const t = (x || '').trim(); const special = t === '1 Year of Service' ? ' badge-1year' : (t === 'Working Group Chair' ? ' badge-chair' : (t === 'Newsletter' ? ' badge-newsletter' : (t === 'Dena Native' ? ' badge-dena-native' : ''))); return '<span class="tag badge' + special + '">' + escapeHtml(x) + '</span>'; }).join('') + '</div>' : '') +
+            (badges.length ? '<div class="tags">' + badges.map(x => { const t = (x || '').trim(); const special = t === '1 Year of Service' ? ' badge-1year' : (t === 'Working Group Chair' ? ' badge-chair' : (t === 'Newsletter' ? ' badge-newsletter' : (t.toLowerCase() === 'dena native' ? ' badge-dena-native' : ''))); return '<span class="tag badge' + special + '">' + escapeHtml(x) + '</span>'; }).join('') + '</div>' : '') +
             '</div>';
         }).join('');
         cardsEl.classList.remove('hidden');

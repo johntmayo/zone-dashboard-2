@@ -716,7 +716,7 @@
           <div><label for="ncExpertiseAskMe" style="font-weight: 600;">Expertise (Ask Me About...)</label><br><input type="text" id="ncExpertiseAskMe" name="Expertise (Ask Me About...)" placeholder="Things you're knowledgeable about" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
           <div><label for="ncLanguages" style="font-weight: 600;">Languages Spoken</label><br><input type="text" id="ncLanguages" name="Languages Spoken" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
           <div><label for="ncWaterDistrict" style="font-weight: 600;">Water Districts in Zone</label><br><select id="ncWaterDistrict" name="Water Districts in Zone" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></select></div>
-          <div><label style="display:inline-flex;align-items:center;gap:0.5rem;cursor:pointer;"><input type="checkbox" id="ncDenaNative" name="Dena Native"> I'm a Dena Native</label></div>
+          <div><label style="display:inline-flex;align-items:center;gap:0.5rem;cursor:pointer;"><input type="checkbox" id="ncDenaNative" name="dena native"> I'm a dena native</label></div>
           <div id="ncBadgesReadOnly" class="hidden" style="font-size: 0.9rem; color: var(--text-secondary);"></div>
           <button type="button" id="ncProfileSaveBtn" class="btn-save" style="align-self: flex-start;">Save profile</button>
         </form>
@@ -1005,7 +1005,7 @@
     const NC_PROFILE_HEADERS = ['Name', 'Zone', 'Location', 'Predominant Census Tract of Zone', 'Phone', 'Preferred email', 'Working Group Participation', 'Housing Arrangement', 'Damage to home', 'Notes/Bio', 'Interest Areas', 'Expertise (Ask Me About...)', 'Languages Spoken', 'Google email', 'Water Districts in Zone', 'Badges'];
     const NC_PROFILE_OPTIONS = {
       'Predominant Census Tract of Zone': ['CT 4601', 'CT 4602', 'CT 4603.01', 'CT 4603.02', 'CT 4610', 'CT 4611', 'CT 4612', 'CT 4613'],
-      'Housing Arrangement': ['Renter', 'Owner', 'RV', 'Other'],
+      'Housing Arrangement': ['Renter', 'Homeowner', 'RV', 'Other'],
       'Damage to home': ['Standing home', 'Partial loss', 'Total loss'],
       'Water Districts in Zone': ['Rubio Cañon', 'Lincoln Avenue', 'Las Flores', 'TBD'],
       'Working Group Participation': ['Home Hardening & Fire-Resistant Neighborhoods', 'Bioremediation + Native Plants', 'Political Advocacy', 'Group Purchasing Power', 'Altagether Rebuilding Working Group', 'School Redevelopment'],
@@ -1136,7 +1136,8 @@
       const ncHousing = document.getElementById('ncHousing');
       if (ncHousing) {
         ncHousing.innerHTML = '<option value="">—</option>' + (opts['Housing Arrangement'] || []).map(v => '<option value="' + escapeHtmlAttr(v) + '">' + escapeHtml(v) + '</option>').join('');
-        ncHousing.value = (row['Housing Arrangement'] || '').trim();
+        const housingVal = (row['Housing Arrangement'] || '').trim();
+        ncHousing.value = housingVal === 'Owner' ? 'Homeowner' : housingVal;
       }
       const ncDamage = document.getElementById('ncDamage');
       if (ncDamage) {
@@ -1180,11 +1181,11 @@
       const ncDenaNative = document.getElementById('ncDenaNative');
       if (ncDenaNative) {
         const badges = parseMultiSelect(row['Badges'] || '');
-        ncDenaNative.checked = badges.some(b => (b || '').trim() === 'Dena Native');
+        ncDenaNative.checked = badges.some(b => (b || '').trim().toLowerCase() === 'dena native');
       }
       const badgesEl = document.getElementById('ncBadgesReadOnly');
       if (badgesEl) {
-        const badges = parseMultiSelect(row['Badges'] || '').filter(b => (b || '').trim() !== 'Dena Native');
+        const badges = parseMultiSelect(row['Badges'] || '').filter(b => (b || '').trim().toLowerCase() !== 'dena native');
         if (badges.length) {
           badgesEl.textContent = 'Other badges (read-only): ' + badges.join(', ');
           badgesEl.classList.remove('hidden');
@@ -1216,8 +1217,8 @@
       row['Languages Spoken'] = (document.getElementById('ncLanguages').value || '').trim();
       row['Google email'] = (ncProfileRowData['Google email'] || '').trim();
       row['Water Districts in Zone'] = (document.getElementById('ncWaterDistrict').value || '').trim();
-      const existingBadges = parseMultiSelect(ncProfileRowData['Badges'] || '').filter(b => (b || '').trim() !== 'Dena Native');
-      if (document.getElementById('ncDenaNative')?.checked) existingBadges.push('Dena Native');
+      const existingBadges = parseMultiSelect(ncProfileRowData['Badges'] || '').filter(b => (b || '').trim().toLowerCase() !== 'dena native');
+      if (document.getElementById('ncDenaNative')?.checked) existingBadges.push('dena native');
       row['Badges'] = formatMultiSelectForSheet(existingBadges);
       const colLetter = (i) => (i < 26 ? String.fromCharCode(65 + i) : String.fromCharCode(64 + Math.floor(i / 26)) + String.fromCharCode(65 + (i % 26)));
       const norm = (s) => (s || '').trim().toLowerCase();
