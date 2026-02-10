@@ -1013,6 +1013,7 @@
     };
     let ncProfileRowIndex = null;
     let ncProfileRowData = null;
+    let ncProfileHeaders = null;
 
     function splitPipe(val) {
       if (!val || !String(val).trim()) return [];
@@ -1112,6 +1113,7 @@
         }
         ncProfileRowIndex = matchIndex + 2;
         ncProfileRowData = rows[matchIndex];
+        ncProfileHeaders = headers;
         populateProfileForm(ncProfileRowData);
         if (formEl) formEl.classList.remove('hidden');
       } catch (err) {
@@ -1120,12 +1122,16 @@
       }
     }
 
+    function getRowVal(row, ...keys) {
+      for (const k of keys) { const v = (row[k] || '').trim(); if (v) return v; }
+      return '';
+    }
     function populateProfileForm(row) {
       const opts = NC_PROFILE_OPTIONS;
       const ncCensusTract = document.getElementById('ncCensusTract');
       if (ncCensusTract) {
         ncCensusTract.innerHTML = '<option value="">—</option>' + (opts['Predominant Census Tract of Zone'] || []).map(v => '<option value="' + escapeHtmlAttr(v) + '">' + escapeHtml(v) + '</option>').join('');
-        ncCensusTract.value = (row['Predominant Census Tract of Zone'] || '').trim();
+        ncCensusTract.value = getRowVal(row, 'Predominant Census Tract of Zone', 'Census Tract');
       }
       const ncHousing = document.getElementById('ncHousing');
       if (ncHousing) {
@@ -1142,11 +1148,11 @@
         ncWaterDistrict.innerHTML = '<option value="">—</option>' + (opts['Water Districts in Zone'] || []).map(v => '<option value="' + escapeHtmlAttr(v) + '">' + escapeHtml(v) + '</option>').join('');
         ncWaterDistrict.value = (row['Water Districts in Zone'] || '').trim();
       }
-      document.getElementById('ncName').value = (row['Name'] || '').trim();
-      document.getElementById('ncZone').value = (row['Zone'] || '').trim();
+      document.getElementById('ncName').value = getRowVal(row, 'Name');
+      document.getElementById('ncZone').value = getRowVal(row, 'Zone');
       const ncLocation = document.getElementById('ncLocation');
-      if (ncLocation) ncLocation.value = (row['Location'] || '').trim();
-      document.getElementById('ncPhone').value = (row['Phone'] || '').trim();
+      if (ncLocation) ncLocation.value = getRowVal(row, 'Location');
+      document.getElementById('ncPhone').value = getRowVal(row, 'Phone');
       document.getElementById('ncPreferredEmail').value = (row['Preferred email'] || '').trim();
       const ncNotesBio = document.getElementById('ncNotesBio');
       if (ncNotesBio) ncNotesBio.value = (row['Notes/Bio'] || '').trim();
@@ -1213,8 +1219,32 @@
       const existingBadges = parseMultiSelect(ncProfileRowData['Badges'] || '').filter(b => (b || '').trim() !== 'Dena Native');
       if (document.getElementById('ncDenaNative')?.checked) existingBadges.push('Dena Native');
       row['Badges'] = formatMultiSelectForSheet(existingBadges);
-      const rowValues = NC_PROFILE_HEADERS.map(h => row[h] || '');
-      const range = 'Sheet1!A' + ncProfileRowIndex + ':P' + ncProfileRowIndex;
+      const colLetter = (i) => (i < 26 ? String.fromCharCode(65 + i) : String.fromCharCode(64 + Math.floor(i / 26)) + String.fromCharCode(65 + (i % 26)));
+      const norm = (s) => (s || '').trim().toLowerCase();
+      const findCol = (key) => {
+        if (!ncProfileHeaders) return -1;
+        const nk = norm(key);
+        const idx = ncProfileHeaders.findIndex(h => norm(h) === nk);
+        if (idx >= 0) return idx;
+        const aliases = { 'predominant census tract of zone': ['census tract', 'predominant census tract'], 'notes/bio': ['notes', 'bio'] };
+        for (const alt of (aliases[nk] || [])) {
+          const i = ncProfileHeaders.findIndex(h => norm(h) === alt);
+          if (i >= 0) return i;
+        }
+        return -1;
+      };
+      const data = [];
+      for (const key of NC_PROFILE_HEADERS) {
+        const colIdx = findCol(key);
+        if (colIdx >= 0) {
+          const range = 'Sheet1!' + colLetter(colIdx) + ncProfileRowIndex;
+          data.push({ range: range, values: [[row[key] || '']] });
+        }
+      }
+      if (data.length === 0 && ncProfileHeaders) {
+        const rowValues = NC_PROFILE_HEADERS.map(h => row[h] || '');
+        data.push({ range: 'Sheet1!A' + ncProfileRowIndex + ':P' + ncProfileRowIndex, values: [rowValues] });
+      }
       const statusEl = document.getElementById('profileSaveStatus');
       const btn = document.getElementById('ncProfileSaveBtn');
       if (btn) btn.disabled = true;
@@ -1226,7 +1256,7 @@
           body: JSON.stringify({
             sheetId: NC_DIRECTORY_SHEET_ID,
             valueInputOption: 'USER_ENTERED',
-            data: [{ range: range, values: [rowValues] }]
+            data: data
           })
         });
         if (!res.ok) {
