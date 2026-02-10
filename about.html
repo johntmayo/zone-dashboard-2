@@ -336,12 +336,13 @@
         <h2>Navigation</h2>
         <ul class="nav-list">
           <li><a href="#about-what">What This Tool Is</a></li>
-          <li><a href="#about-data-promise">Your Data Promise</a></li>
+          <li><a href="#about-data-promise">The Data</a></li>
           <li><a href="#about-intentions">Our Intentions</a></li>
           <li><a href="#about-how-it-works">How the App Works</a></li>
-          <li><a href="#about-tutorials">Tutorials</a></li>
+       <!--   <li><a href="#about-tutorials">Tutorials</a></li>
           <li><a href="#about-troubleshooting">Common Issues</a></li>
-          <li><a href="#about-more-help">More Help & Community</a></li>
+          <li><a href="#about-more-help">More Help & Community</a></li> -->
+		  <li><a href="#more-questions">More Questions</a></li>
         </ul>
       </nav>
     </aside>
@@ -356,15 +357,15 @@
       <div class="help-content">
         <section id="about-what">
           <h2>What This Tool Is</h2>
-          <p>The Altagether Zone Dashboard is a Neighborhood Captain (NC) tool for viewing and managing zone data, maps, and resources. It helps you coordinate with neighbors in your zone—tracking who you've contacted, damage status, rebuild progress, and more—all from a single place.</p>
-          <p>This tool is built for people on the ground: volunteers who are connecting with their communities and need a simple, reliable way to see what's happening in their zone without wrestling with spreadsheets.</p>
+          <p>The Altagether Zone Dashboard is a tool for Neighborhood Captains to visualize and track what's happening in their zones. It's also a hub for resources and tools to aid in recovery, some created by Altagether, many from other sources. Keep track of who you've contacted, the progress of recovery in your area, and more—all from a single place.</p>
+		  <p>The Zone Dashboard acts as a front-end visual interface for the data we've provided to you in spreadsheet format. Changes made in the dashboard will be reflected in your zone spreadsheet, and vice versa.</p>
         </section>
 
         <section id="about-data-promise">
-          <h2>Your Data Promise</h2>
+          <h2>The Data</h2>
           <ul>
-            <li><strong>Your data lives in your Google Sheet.</strong> The dashboard reads and writes directly to the spreadsheet you link. There is no separate database holding your data.</li>
-            <li><strong>You own the data.</strong> The spreadsheet belongs to you (or your zone admin). You control who has access to it through Google's sharing settings.</li>
+            <li><strong>Your data lives in your Google Sheet.</strong> The dashboard reads and writes directly to the spreadsheet you link. Each zone has a standalone spreadsheet that is shared only with the Neighborhood Captains in that zone.</li>
+            <li><strong>Altagether holds these Google Sheets in a secure folder.</strong> You (and any co-captains) have full edit access to the sheet and can control who else has access to it through Google's sharing settings.</li>
             <li><strong>Access is limited to people you share with.</strong> Only people who have the spreadsheet URL—and whose spreadsheet is properly set up—can use the dashboard to view or edit that data.</li>
             <li><strong>No hidden syncing, no silent aggregation.</strong> The app does not extract, centralize, or aggregate your data beyond what's needed to display and edit it in the dashboard.</li>
           </ul>
@@ -372,7 +373,11 @@
 
         <section id="about-intentions">
           <h2>Our Intentions Around Data</h2>
-          <p>This tool is not designed to extract or centralize data from Neighborhood Captains. We avoid surveillance-style defaults. Sharing upward or outward is intentional, limited, and opt-in. Power stays with Neighborhood Captains by default—you decide what to share and with whom.</p>
+          <p>This tool is not designed to extract or centralize data from Neighborhood Captains. We avoid surveillance-style defaults. Currently, sharing upward or outward is not part of this platform. If in the future we incorporate such things, it will be intentional, limited, and opt-in—and we will be transparent about these decisions and invite discussion.</p>
+		  <ul>
+		  <li><strong>We will never share your data with any person or organization without your express permission.</strong></li>
+		  <li><strong>Our intention is not to collect data. It is to give you a tool to make your volunteer work easier.</strong></li>
+		</ul>
         </section>
 
         <section id="about-how-it-works">
@@ -384,8 +389,13 @@
             <li><strong>Session-based access.</strong> Once you sign out or your session expires, the app has no background access to your data. You're in control.</li>
           </ol>
         </section>
+		
+		<section id="more-questions">
+          <h2>If You Still Have Questions</h2>
+          <p>We are happy to have a conversation with you about data security and privacy and what might make you more or less likely to use this tool. Please reach out to John Mayo at <a href="mailto:john@altagether.org">john@altagether.org</a>.</p>
+		  </section>
 
-        <section id="about-tutorials">
+<!--        <section id="about-tutorials">
           <h2>Tutorials</h2>
           <p>Short, focused walkthroughs to get you oriented. Expand any section below.</p>
 
@@ -451,9 +461,10 @@
             </div>
           </div>
         </section>
-      </div>
+      </div>  -->
     </main>
   </div>
+ 
 
   <!-- Discord Quick Start Modal -->
   <div id="discordQuickStartModal" class="discord-modal-overlay hidden">
