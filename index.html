@@ -5213,11 +5213,7 @@
             const rebuildStageField = document.getElementById(rebuildStageId);
             
             if (rebuildStageField) {
-              if (addressPlanVal === 'building') {
-                rebuildStageField.classList.remove('hidden');
-              } else {
-                rebuildStageField.classList.add('hidden');
-              }
+              rebuildStageField.style.display = addressPlanVal === 'building' ? '' : 'none';
             }
           }
           
@@ -8330,6 +8326,7 @@
 
       const headers = sheetData.headers;
       const data = sheetData.data;
+      const addressMap = sheetData.addressMap || new Map();
 
       // Find relevant columns
       const lastContactCol = headers.find(h => 
@@ -8462,10 +8459,20 @@
         });
       }
 
-      // 3. Damage Chart
+      // 3. Damage Chart (by address, like Addresses Contacted and Address Plan)
       const damageCounts = {};
       let damageUnknown = 0;
-      if (damageCol) {
+      if (damageCol && addressMap && addressMap.size > 0) {
+        addressMap.forEach((rows, address) => {
+          const row = rows[0];
+          const damage = row && row[damageCol] ? String(row[damageCol]).trim() : '';
+          if (damage) {
+            damageCounts[damage] = (damageCounts[damage] || 0) + 1;
+          } else {
+            damageUnknown++;
+          }
+        });
+      } else if (damageCol) {
         data.forEach(row => {
           const damage = row[damageCol] ? String(row[damageCol]).trim() : '';
           if (damage) {
@@ -8475,8 +8482,7 @@
           }
         });
       } else {
-        // If no damage column, all are unknown
-        damageUnknown = data.length;
+        damageUnknown = addressMap ? addressMap.size : data.length;
       }
 
       const damageLabels = Object.keys(damageCounts);
@@ -8629,10 +8635,7 @@
       
       // Find relevant columns
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
-      const rebuildCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return lower.includes('rebuild');
-      });
+      const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       
       // 1. Address Plan Bar Chart (for Partial/Total Loss addresses)
       const statusCounts = {};
