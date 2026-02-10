@@ -716,6 +716,7 @@
           <div><label for="ncExpertiseAskMe" style="font-weight: 600;">Expertise (Ask Me About...)</label><br><input type="text" id="ncExpertiseAskMe" name="Expertise (Ask Me About...)" placeholder="Things you're knowledgeable about" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
           <div><label for="ncLanguages" style="font-weight: 600;">Languages Spoken</label><br><input type="text" id="ncLanguages" name="Languages Spoken" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
           <div><label for="ncWaterDistrict" style="font-weight: 600;">Water Districts in Zone</label><br><select id="ncWaterDistrict" name="Water Districts in Zone" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></select></div>
+          <div><label style="display:inline-flex;align-items:center;gap:0.5rem;cursor:pointer;"><input type="checkbox" id="ncDenaNative" name="Dena Native"> I'm a Dena Native</label></div>
           <div id="ncBadgesReadOnly" class="hidden" style="font-size: 0.9rem; color: var(--text-secondary);"></div>
           <button type="button" id="ncProfileSaveBtn" class="btn-save" style="align-self: flex-start;">Save profile</button>
         </form>
@@ -1170,11 +1171,16 @@
           return '<label style="display:inline-flex;align-items:center;gap:0.35rem;margin-right:0.5rem;"><input type="checkbox" name="Interest Areas" value="' + escapeHtmlAttr(opt) + '" id="' + id + '"' + checked + '> ' + escapeHtml(opt) + '</label>';
         }).join('');
       }
+      const ncDenaNative = document.getElementById('ncDenaNative');
+      if (ncDenaNative) {
+        const badges = parseMultiSelect(row['Badges'] || '');
+        ncDenaNative.checked = badges.some(b => (b || '').trim() === 'Dena Native');
+      }
       const badgesEl = document.getElementById('ncBadgesReadOnly');
       if (badgesEl) {
-        const badges = parseMultiSelect(row['Badges'] || '');
+        const badges = parseMultiSelect(row['Badges'] || '').filter(b => (b || '').trim() !== 'Dena Native');
         if (badges.length) {
-          badgesEl.textContent = 'Badges (read-only): ' + badges.join(', ');
+          badgesEl.textContent = 'Other badges (read-only): ' + badges.join(', ');
           badgesEl.classList.remove('hidden');
         } else {
           badgesEl.classList.add('hidden');
@@ -1204,7 +1210,9 @@
       row['Languages Spoken'] = (document.getElementById('ncLanguages').value || '').trim();
       row['Google email'] = (ncProfileRowData['Google email'] || '').trim();
       row['Water Districts in Zone'] = (document.getElementById('ncWaterDistrict').value || '').trim();
-      row['Badges'] = (ncProfileRowData['Badges'] || '').trim();
+      const existingBadges = parseMultiSelect(ncProfileRowData['Badges'] || '').filter(b => (b || '').trim() !== 'Dena Native');
+      if (document.getElementById('ncDenaNative')?.checked) existingBadges.push('Dena Native');
+      row['Badges'] = formatMultiSelectForSheet(existingBadges);
       const rowValues = NC_PROFILE_HEADERS.map(h => row[h] || '');
       const range = 'Sheet1!A' + ncProfileRowIndex + ':P' + ncProfileRowIndex;
       const statusEl = document.getElementById('profileSaveStatus');

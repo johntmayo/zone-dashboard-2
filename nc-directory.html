@@ -70,8 +70,8 @@
     .filter-section { margin-top: 1rem; }
     .filter-section-label { font-size: 0.9rem; color: var(--text-secondary); font-weight: 600; margin-bottom: 0.5rem; display: block; }
     .filter-cta { font-size: 0.9rem; color: var(--text-secondary); margin: 0.5rem 0 0; }
-    .filter-cta a, .intro-blurb a { color: var(--accent-green); text-decoration: underline; font-weight: 700; }
-    .filter-cta a:hover, .intro-blurb a:hover { opacity: 0.85; }
+    .filter-cta a, .intro-blurb a, .intro-instructions a { color: var(--accent-green); text-decoration: underline; font-weight: 700; }
+    .filter-cta a:hover, .intro-blurb a:hover, .intro-instructions a:hover { opacity: 0.85; }
     .filter-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
     .filter-chip {
       display: inline-flex;
@@ -116,6 +116,8 @@
     .tag.badge.badge-chair::before { content: '◆ '; }
     .tag.badge.badge-newsletter { background: linear-gradient(135deg, #D1FAE5 0%, #6EE7B7 100%); color: #065F46; font-weight: 700; padding: 0.35rem 0.6rem; font-size: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
     .tag.badge.badge-newsletter::before { content: '✉ '; }
+    .tag.badge.badge-dena-native { background: linear-gradient(135deg, #86EFAC 0%, #4ADE80 60%, #65A30D 100%); color: #752206; font-weight: 700; padding: 0.35rem 0.6rem; font-size: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+    .tag.badge.badge-dena-native::before { content: '⛰ '; }
     .card .bio { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; }
     .card .location { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; }
     .card .notes-bio { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; font-style: italic; }
@@ -131,6 +133,7 @@
       color: var(--text-primary);
     }
     .intro-blurb strong { color: var(--brand-primary-dark); }
+    .intro-instructions { font-size: 0.95rem; color: var(--text-secondary); line-height: 1.6; margin: 0 0 1.5rem; max-width: 48rem; }
     .accordion { border: 2px solid var(--border-color); border-radius: 4px; background: var(--bg-card); margin-top: 1rem; margin-bottom: 0.5rem; }
     .accordion-header { padding: 0.5rem 0.75rem; cursor: pointer; font-weight: 600; font-size: 0.9rem; font-family: 'Merriweather', serif; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between; }
     .accordion-header:hover { background: #F9FAFB; }
@@ -228,7 +231,8 @@
     <h1>Neighborhood Captain Directory</h1>
   </header>
   <main class="container">
-    <div class="intro-blurb"><strong>Dear Neighborhood Captains,</strong> this directory is intended for your use only so that you can find each other to coordinate and collaborate. To protect the privacy of your fellow captains, please do not share this directory outside of Altagether.<br><br><strong>To use:</strong> Search by name, zone, skills, or interests, and use the filters below to narrow your results.<br><br><strong>TO UPDATE YOUR PROFILE:</strong> Make changes in the zone dashboard under My NC Profile, or the old fashioned way in <a href="#" id="spreadsheetLink" target="_blank" rel="noopener noreferrer">this spreadsheet</a>.</div>
+    <div class="intro-blurb"><strong>Dear Neighborhood Captains,</strong> this directory is intended for your use only so that you can find each other to coordinate and collaborate. To protect the privacy of your fellow captains, please do not share this directory outside of Altagether.</div>
+    <p class="intro-instructions"><strong>To use:</strong> Search by name, zone, skills, or interests, and use the filters below to narrow your results.<br><br><strong>To update your profile:</strong> Make changes in the zone dashboard under My NC Profile, or the old fashioned way in <a href="#" id="spreadsheetLink" target="_blank" rel="noopener noreferrer">this spreadsheet</a>.</p>
     <div class="toolbar">
       <div class="search-wrap">
         <input type="search" id="searchInput" placeholder="Search by name, zone, skills, interests…" aria-label="Search directory" />
@@ -579,7 +583,7 @@
             (askMeAbout ? '<div class="ask-me-about">Ask me about… ' + escapeHtml(askMeAbout) + '</div>' : '') +
             (wg.length ? '<div class="tags-label">Working groups:</div><div class="tags">' + wg.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
             (interests.length ? '<div class="tags">' + interests.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
-            (badges.length ? '<div class="tags">' + badges.map(x => { const t = (x || '').trim(); const special = t === '1 Year of Service' ? ' badge-1year' : (t === 'Working Group Chair' ? ' badge-chair' : (t === 'Newsletter' ? ' badge-newsletter' : '')); return '<span class="tag badge' + special + '">' + escapeHtml(x) + '</span>'; }).join('') + '</div>' : '') +
+            (badges.length ? '<div class="tags">' + badges.map(x => { const t = (x || '').trim(); const special = t === '1 Year of Service' ? ' badge-1year' : (t === 'Working Group Chair' ? ' badge-chair' : (t === 'Newsletter' ? ' badge-newsletter' : (t === 'Dena Native' ? ' badge-dena-native' : ''))); return '<span class="tag badge' + special + '">' + escapeHtml(x) + '</span>'; }).join('') + '</div>' : '') +
             '</div>';
         }).join('');
         cardsEl.classList.remove('hidden');
