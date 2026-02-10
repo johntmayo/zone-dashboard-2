@@ -4480,11 +4480,36 @@
         'sold since fire',
         'unit type'
       ];
+
+      const isHouseOrZipField = (lower) => {
+        const normalized = lower.trim();
+        const isHouseField =
+          (normalized === 'house' ||
+           normalized === 'house #' ||
+           normalized === 'house#' ||
+           normalized === 'house number' ||
+           normalized === 'house num' ||
+           normalized.includes('house #') ||
+           normalized.includes('house#')) &&
+          !normalized.includes('household') &&
+          !normalized.includes('housing');
+        const isZipField =
+          normalized === 'zip' ||
+          normalized.includes('zip code') ||
+          normalized.includes('zip_code') ||
+          normalized.includes('postal');
+        return isHouseField || isZipField;
+      };
+
+      const isPersonEmailCol = (colName) => {
+        const lower = colName.toLowerCase();
+        return lower.includes('email') && !lower.includes('nc email');
+      };
       
       const personLevelCols = headers.filter(h => {
         const lower = h.toLowerCase();
         // Skip hidden fields
-        if (hiddenFromPersonView.some(field => lower.includes(field))) return false;
+        if (hiddenFromPersonView.some(field => lower.includes(field)) || isHouseOrZipField(lower)) return false;
         // Skip Contact Notes - it's shown separately in contact mode
         if (lower.includes('contact') && lower.includes('note')) return false;
         // Person-level: Person - X checkboxes (Renter, Needs Follow-Up, Unable to reach, etc.), Person Notes, phones, etc.
@@ -4492,7 +4517,7 @@
                lower.includes('person note') ||
                lower.includes('home phone') ||
                lower.includes('cell') ||
-               lower.includes('email address') ||
+               isPersonEmailCol(h) ||
                lower.includes('gender') ||
                lower.includes('age') ||
                (!addressLevelCols.includes(h) && detailCols.includes(h));
@@ -4877,7 +4902,7 @@
           
           const isNotes = col.toLowerCase().includes('note');
           const isPersonCheckbox = col.startsWith('Person - ');
-          const isEmail = col.toLowerCase().includes('email address');
+          const isEmail = isPersonEmailCol(col);
           const isEditable = accessToken;
           const value = row[col] || '';
           const displayLabel = formatColumnLabel(col);
@@ -4987,7 +5012,7 @@
         }
         
         // Email (above Person Tags)
-        const emailCol = personLevelCols.find(col => col.toLowerCase().includes('email address'));
+        const emailCol = personLevelCols.find(col => isPersonEmailCol(col));
         if (emailCol) {
           html += renderField(emailCol);
         }
@@ -5023,7 +5048,7 @@
             return;
           }
           const isPersonCheckbox = col.startsWith('Person - ');
-          const isEmail = col.toLowerCase().includes('email address');
+          const isEmail = isPersonEmailCol(col);
           const isEditable = accessToken;
           const displayLabel = formatColumnLabel(col);
           const value = row[col] || '';
@@ -5115,7 +5140,7 @@
         // Display other non-notes fields that aren't address-level (but exclude hidden fields)
         detailCols.forEach(col => {
           const lower = col.toLowerCase();
-          const isHidden = hiddenFromPersonView.some(field => lower.includes(field));
+          const isHidden = hiddenFromPersonView.some(field => lower.includes(field)) || isHouseOrZipField(lower);
           if (!addressLevelCols.includes(col) && !personLevelCols.includes(col) && 
               !col.toLowerCase().includes('note') && !isHidden) {
             if (row[col] && row[col].trim()) {
