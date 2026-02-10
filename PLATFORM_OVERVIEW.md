@@ -20,7 +20,7 @@
 
 ## 3. Navigation & Views
 
-- **Left nav:** Home, Map, Neighbors, Actions, Tools, Resources, About This Tool, My NC Profile, ★ Beta Testers.
+- **Left nav:** Home, Map, Neighbors, Actions, Tools, Resources, About the Dashboard, My NC Profile, ★ Beta Testers.
 - **Content views:** One active at a time; others hidden.
 - **Floating right panel:** Details (address list / selection), Zone Notes tab, Contact Mode button; sign-in prompt when not signed in.
 
@@ -88,7 +88,7 @@
 
 ---
 
-## 10. About This Tool
+## 10. About the Dashboard
 
 - **What This Tool Is:** Short explanation of purpose and audience.
 - **Your Data Promise:** Where data lives (user-owned Google Sheets), who owns it, who has access, no hidden databases.
