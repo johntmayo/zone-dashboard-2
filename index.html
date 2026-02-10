@@ -84,7 +84,7 @@
         <button class="nav-item" data-view="meetups" id="navMeetups">Actions</button>
         <button class="nav-item" data-view="tools" id="navTools">Tools</button>
         <button class="nav-item" data-view="resources" id="navResources">Resources</button>
-        <button class="nav-item" data-view="help" id="navHelp">About This Tool</button>
+        <a href="about.html" target="_blank" rel="noopener noreferrer" class="nav-item nav-item-link">About This Tool</a>
         <button class="nav-item" data-view="profile" id="navProfile">My NC Profile</button>
       </div>
       <div class="nav-section nav-section-bottom">
@@ -634,157 +634,6 @@
       </div>
     </div>
 
-    <!-- About This Tool View (formerly Help) -->
-    <div class="content-view hidden" id="helpView">
-      <h2 class="page-title">About This Tool</h2>
-      
-      <div class="about-tool-inner">
-        
-        <!-- 1. What This Tool Is -->
-        <section class="about-section" id="about-what">
-          <h3 class="about-section-title">What This Tool Is</h3>
-          <p>The Altagether Zone Dashboard is a Neighborhood Captain (NC) tool for viewing and managing zone data, maps, and resources. It helps you coordinate with neighbors in your zone—tracking who you've contacted, damage status, rebuild progress, and more—all from a single place.</p>
-          <p>This tool is built for people on the ground: volunteers who are connecting with their communities and need a simple, reliable way to see what's happening in their zone without wrestling with spreadsheets.</p>
-        </section>
-
-        <!-- 2. Your Data Promise -->
-        <section class="about-section" id="about-data-promise">
-          <h3 class="about-section-title">Your Data Promise</h3>
-          <ul class="about-promise-list">
-            <li><strong>Your data lives in your Google Sheet.</strong> The dashboard reads and writes directly to the spreadsheet you link. There is no separate database holding your data.</li>
-            <li><strong>You own the data.</strong> The spreadsheet belongs to you (or your zone admin). You control who has access to it through Google's sharing settings.</li>
-            <li><strong>Access is limited to people you share with.</strong> Only people who have the spreadsheet URL—and whose spreadsheet is properly set up—can use the dashboard to view or edit that data.</li>
-            <li><strong>No hidden syncing, no silent aggregation.</strong> The app does not extract, centralize, or aggregate your data beyond what's needed to display and edit it in the dashboard.</li>
-          </ul>
-        </section>
-
-        <!-- 3. Our Intentions Around Data -->
-        <section class="about-section" id="about-intentions">
-          <h3 class="about-section-title">Our Intentions Around Data</h3>
-          <p>This tool is not designed to extract or centralize data from Neighborhood Captains. We avoid surveillance-style defaults. Sharing upward or outward is intentional, limited, and opt-in. Power stays with Neighborhood Captains by default—you decide what to share and with whom.</p>
-        </section>
-
-        <!-- 4. How the App Works -->
-        <section class="about-section" id="about-how-it-works">
-          <h3 class="about-section-title">How the App Works</h3>
-          <ol class="about-flow-list">
-            <li><strong>Sign in with Google.</strong> This identifies who you are (for things like editing and NC Profile). The app does not store your password or gain access to your Google Drive beyond what you authorize.</li>
-            <li><strong>Point the app at your zone spreadsheet.</strong> Paste the Google Sheets URL into the input in the left nav (or in the welcome flow) and click Load.</li>
-            <li><strong>The app reads and writes directly to that sheet.</strong> All data operations go through our server, which uses a service account to talk to Google Sheets. Your Google account does not need to be added as an editor on the spreadsheet—as long as the sheet is shared with our service account and you have the URL, you can use the dashboard.</li>
-            <li><strong>Session-based access.</strong> Once you sign out or your session expires, the app has no background access to your data. You're in control.</li>
-          </ol>
-        </section>
-
-        <!-- 5. Tutorials (Collapsible) -->
-        <section class="about-section" id="about-tutorials">
-          <h3 class="about-section-title">Tutorials</h3>
-          <p class="about-section-intro">Short, focused walkthroughs to get you oriented. Expand any section below.</p>
-          
-          <details class="about-accordion">
-            <summary>Getting started</summary>
-            <div class="about-accordion-content">
-              <p><strong>Step 1:</strong> Sign in with Google using the button in the welcome message or in the right panel.</p>
-              <p><strong>Step 2:</strong> Open your zone spreadsheet in Google Sheets, copy the URL from the browser address bar, and paste it into the dashboard. Click Load.</p>
-              <p>Once loaded, you'll see Home, Map, Neighbors, and other views in the left nav.</p>
-            </div>
-          </details>
-          <details class="about-accordion">
-            <summary>Loading your sheet</summary>
-            <div class="about-accordion-content">
-              <p>You can load a sheet from the welcome overlay (when no sheet is linked) or from the sheet input at the bottom of the left nav. Paste any valid Google Sheets URL—standard format or published—and click Load. The sheet must be shared with our service account (your zone admin typically does this once).</p>
-            </div>
-          </details>
-          <details class="about-accordion">
-            <summary>Navigating the map</summary>
-            <div class="about-accordion-content">
-              <p>On the Map view, each address appears as a marker. Use the "Color by" control (top-left) to color markers by Contact Status, Damage, Rebuild Status, or Captain. Click a marker or address in the right panel to see details. The filter bar at the top narrows which addresses are shown on both the map and the Neighbors table.</p>
-            </div>
-          </details>
-          <details class="about-accordion">
-            <summary>Common first-time mistakes</summary>
-            <div class="about-accordion-content">
-              <ul>
-                <li>Forgetting to sign in before editing—sign in first to enable Add Record, Batch Tagging, Zone Notes, etc.</li>
-                <li>Using a sheet that isn't shared with the service account—ask your admin to share the sheet with the app.</li>
-                <li>Pasting the wrong URL—make sure it's the full Google Sheets URL, not a shortened or Drive folder link.</li>
-              </ul>
-            </div>
-          </details>
-        </section>
-
-        <!-- 6. Common Issues / Troubleshooting -->
-        <section class="about-section" id="about-troubleshooting">
-          <h3 class="about-section-title">Common Issues</h3>
-          <dl class="about-troubleshoot-list">
-            <dt>Session expired</dt>
-            <dd>Sign out and sign back in with Google. If you were editing, your last save may have gone through—check the sheet.</dd>
-            <dt>Sheet not loading</dt>
-            <dd>Check that the URL is correct and that the sheet is shared with our service account. Try refreshing the page and pasting the URL again.</dd>
-            <dt>Permissions issues</dt>
-            <dd>You don't need to be added as an editor on the spreadsheet in Drive—you only need the URL and for the sheet to be shared with the app's service account. If you still can't load it, contact your zone admin.</dd>
-            <dt>Refreshing or re-linking sheets</dt>
-            <dd>Change the URL in the sheet input and click Load to switch to a different spreadsheet. The app will reload data from the new sheet.</dd>
-          </dl>
-        </section>
-
-        <!-- Documentation & Discord (kept from original Help) -->
-        <section class="about-section" id="about-more-help">
-          <h3 class="about-section-title">More Help & Community</h3>
-          <div class="help-card">
-            <h4>Zone Dashboard Documentation</h4>
-            <p>View the complete help documentation with detailed instructions and guides.</p>
-            <a href="help.html" target="_blank" rel="noopener noreferrer" class="help-link-btn">
-              📖 Open Full Documentation
-            </a>
-          </div>
-          <div class="help-card" style="margin-top: 16px;">
-            <h4>Discord</h4>
-            <p>Join our Discord community for support, updates, and discussions.</p>
-            <div class="help-card-buttons">
-              <button id="discordQuickStartBtn" class="help-link-btn">
-                🚀 Discord Quick Start
-              </button>
-              <a href="discord-help.html" target="_blank" rel="noopener noreferrer" class="help-link-btn">
-                📚 Discord Tutorial
-              </a>
-            </div>
-          </div>
-        </section>
-
-        <!-- Discord Quick Start Modal -->
-        <div id="discordQuickStartModal" class="discord-modal-overlay hidden">
-          <div class="discord-modal">
-            <button class="discord-modal-close" id="discordModalClose">&times;</button>
-            <div class="discord-modal-content">
-              <h2 style="margin-top: 0; margin-bottom: 16px; color: var(--primary-dark); font-size: 1.5rem;">🚀 First Thing to Do: Join the Discord</h2>
-              <p style="margin-bottom: 12px; font-size: 1.05rem;"><strong>This is the first thing a new captain should do on Discord.</strong></p>
-              <p style="margin-bottom: 16px;">
-                Hosted within the broader <a href="https://www.efsurvivors.net/" target="_blank" rel="noopener noreferrer" style="color: var(--primary-dark); text-decoration: underline; font-weight: 600;">Eaton Fire Survivors Network</a>, Altagether's Discord channel is our shared space for chatting, trading ideas, and finding quick answers.
-              </p>
-              <div style="margin: 16px 0;">
-                <div class="step-item">
-                  <span class="step-number">1</span>
-                  <div class="step-content">
-                    <strong>Use this link to join:</strong> <a href="https://discord.com/invite/Y5atRPvc3V" target="_blank" rel="noopener noreferrer" style="color: var(--primary-dark); text-decoration: underline; font-weight: 600;">Discord Invite</a>
-                  </div>
-                </div>
-                <div class="step-item">
-                  <span class="step-number">2</span>
-                  <div class="step-content">
-                    Then message us (<strong>@altagether_org</strong>) with your name so we can add you to the private NC channel.
-                  </div>
-                </div>
-              </div>
-              <p style="margin-top: 16px; margin-bottom: 0; padding: 12px; background: rgba(96, 108, 56, 0.1); border-radius: 6px; border-left: 3px solid var(--accent);">
-                <strong>This video shows you how:</strong> <a href="https://drive.google.com/file/d/1ITF5yi1W14jenwAS92XFO3e99W5QIzGG/view?usp=drive_link" target="_blank" rel="noopener noreferrer" style="color: var(--primary-dark); text-decoration: underline; font-weight: 600;">Watch Quick-Start Training Video</a>
-              </p>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
     <!-- My NC Profile View (NC Directory) -->
     <div class="content-view hidden" id="profileView">
       <h2 class="page-title">My NC Profile</h2>
@@ -925,38 +774,12 @@
     updateHeaderTitle();
     updateNavigationState();
 
-    // Get Help link handler (in welcome overlay) - opens About This Tool view
+    // Get Help link handler (in welcome overlay) - opens About This Tool page in new tab
     const getHelpBtn = document.getElementById('getHelpBtn');
     if (getHelpBtn) {
       getHelpBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        switchView('help');
-      });
-    }
-
-    // Discord Quick Start modal handlers
-    const discordQuickStartBtn = document.getElementById('discordQuickStartBtn');
-    const discordModal = document.getElementById('discordQuickStartModal');
-    const discordModalClose = document.getElementById('discordModalClose');
-    
-    if (discordQuickStartBtn && discordModal) {
-      discordQuickStartBtn.addEventListener('click', () => {
-        discordModal.classList.remove('hidden');
-      });
-    }
-    
-    if (discordModalClose && discordModal) {
-      discordModalClose.addEventListener('click', () => {
-        discordModal.classList.add('hidden');
-      });
-    }
-    
-    // Close modal when clicking outside
-    if (discordModal) {
-      discordModal.addEventListener('click', (e) => {
-        if (e.target === discordModal) {
-          discordModal.classList.add('hidden');
-        }
+        window.open('about.html', '_blank', 'noopener,noreferrer');
       });
     }
 
@@ -1510,7 +1333,7 @@
         }
         navItems.forEach(item => {
           const viewName = item.getAttribute('data-view');
-          if (viewName !== 'home' && viewName !== 'help') {
+          if (viewName !== 'home') {
             item.disabled = true;
             item.style.pointerEvents = 'none';
           } else {
@@ -5490,7 +5313,7 @@
       // Prevent switching to non-home views if no spreadsheet is linked
       // Exception: Profile view is always accessible
       const hasSheet = currentSheetUrl || localStorage.getItem('savedSheetUrl');
-      if (!hasSheet && viewName !== 'home' && viewName !== 'profile' && viewName !== 'help') {
+      if (!hasSheet && viewName !== 'home' && viewName !== 'profile') {
         // Force back to home view
         viewName = 'home';
         currentView = 'home';
@@ -5688,7 +5511,7 @@
         // Use currentTarget to get the button, not the clicked child element (like span)
         const viewName = e.currentTarget.getAttribute('data-view');
         // Prevent navigation if no spreadsheet is linked (except Home, Profile)
-        if (!currentSheetUrl && viewName !== 'home' && viewName !== 'profile' && viewName !== 'help') {
+        if (!currentSheetUrl && viewName !== 'home' && viewName !== 'profile') {
           e.preventDefault();
           e.stopPropagation();
           return false;

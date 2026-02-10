@@ -96,6 +96,7 @@
 - **How the App Works:** Sign in → Link sheet → Read/write → Session-based access.
 - **Tutorials:** Collapsible walkthroughs (Getting started, Loading sheet, Map, Common mistakes).
 - **Common Issues:** Troubleshooting (session expired, sheet not loading, permissions, re-linking).
+- **Standalone page:** `about.html` — publicly accessible, no login required. Shareable URL for app verification and orientation.
 - **More Help & Community:** Zone Dashboard Documentation (link to `help.html`), Discord Quick Start modal, Discord Tutorial link to `discord-help.html`.
 
 ---
@@ -130,6 +131,6 @@
 
 ## 14. Related Files / Surfaces
 
-- **Standalone pages:** `help.html`, `discord-help.html`, `flyer_tool.html`, `nc-directory.html`, `documentation.html`.
+- **Standalone pages:** `about.html`, `help.html`, `discord-help.html`, `flyer_tool.html`, `nc-directory.html`, `documentation.html`.
 - **Backend:** `server.js` (e.g. `/api/homepage-feed`, `/api/actions-feed`).
 - **Docs:** `SETUP.md`, `SERVICE_ACCOUNT_SETUP.md`, `AUTH_AND_SPREADSHEET_ACCESS.md`, `ALTAGETHER_FEED_SETUP.md`, `NC_DIRECTORY_SETUP.md`, `DEV_PLAN.md`, `CHANGELOG.md`.
