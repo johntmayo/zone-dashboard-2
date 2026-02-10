@@ -577,9 +577,18 @@ app.post('/api/sheets/batch-update', async (req, res) => {
   }
 });
 
-// Explicitly serve flyer_tool.html so it's not caught by the SPA fallback
+// Explicitly serve standalone HTML pages so they're not caught by the SPA fallback
 app.get('/flyer_tool.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'flyer_tool.html'));
+});
+app.get('/about.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'about.html'));
+});
+app.get('/help.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'help.html'));
+});
+app.get('/discord-help.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'discord-help.html'));
 });
 
 // Serve index.html for all other routes (SPA fallback)
