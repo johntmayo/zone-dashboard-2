@@ -577,7 +577,12 @@ app.post('/api/sheets/batch-update', async (req, res) => {
   }
 });
 
-// Serve index.html for all other routes
+// Explicitly serve flyer_tool.html so it's not caught by the SPA fallback
+app.get('/flyer_tool.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'flyer_tool.html'));
+});
+
+// Serve index.html for all other routes (SPA fallback)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
