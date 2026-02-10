@@ -1350,6 +1350,7 @@
       // Show welcome message only on home page when no spreadsheet is linked
       if (currentView === 'home' && !currentSheetUrl) {
         welcomeOverlay.classList.remove('hidden');
+        document.body.classList.remove('dashboard-active');
         
         // Update step visibility based on sign-in state
         if (accessToken) {
@@ -1383,6 +1384,7 @@
         }
       } else {
         welcomeOverlay.classList.add('hidden');
+        document.body.classList.add('dashboard-active');
       }
     }
 
@@ -3317,6 +3319,20 @@
         }
       }
     }
+
+    // Debounced resize: keep content/map aligned with filter bar when window is resized
+    (function initResizeListener() {
+      var resizeTimer = null;
+      var resizeDelay = 120;
+      function onResize() {
+        if (resizeTimer) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function() {
+          resizeTimer = null;
+          adjustContentViewsForFilterBar();
+        }, resizeDelay);
+      }
+      window.addEventListener('resize', onResize);
+    })();
     
     // Populate persistent filter bar
     function populateFilterBar() {

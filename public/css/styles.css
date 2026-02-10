@@ -47,6 +47,11 @@
       background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjRkRGQkY3Ii8+CjxwYXRoIGQ9Ik0wIDBoNHY0SDB6IiBmaWxsPSIjMDAwIiBmaWxsLW9wYWNpdHk9IjAuMDIiLz4KPC9zdmc+');
     }
 
+    /* When dashboard is active (welcome overlay hidden), only app regions scroll */
+    body.dashboard-active {
+      overflow-y: hidden;
+    }
+
     /* Typography - Chivo for headings and UI elements */
     h1, h2, h3, h4, h5, h6,
     .nav-item,
@@ -194,6 +199,7 @@
       width: 90%;
       max-width: 620px;
       max-height: 90vh;
+      max-height: 90dvh;
       overflow: hidden;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     }
@@ -1086,6 +1092,7 @@
       max-width: 700px;
       width: 100%;
       max-height: 90vh;
+      max-height: 90dvh;
       overflow-y: auto;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
       position: relative;
@@ -1228,9 +1235,20 @@
     }
 
     /* Addresses & People view - leave space for floating panel */
+    /* Single scroll owner: view is flex column, table area scrolls (no nested scroll) */
     .content-view#peopleView {
       right: 420px; /* Leave space for the floating panel */
       top: 0; /* Will be adjusted dynamically by JavaScript */
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #peopleView #peopleTableView {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
     }
 
     /* People View Header */
@@ -1243,6 +1261,7 @@
       border-bottom: 2px solid var(--primary);
       flex-wrap: wrap;
       gap: 16px;
+      flex-shrink: 0;
     }
 
     .people-view-actions {
@@ -1269,13 +1288,11 @@
       box-shadow: 0 4px 12px rgba(188, 108, 37, 0.4);
     }
 
-    /* Address Table View */
+    /* Address Table View - scroll is on #peopleTableView; container grows with table */
     .address-table-container {
       width: 100%;
-      max-height: calc(100vh - 260px); /* Leave space for header, filters, and padding */
       overflow-x: auto;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
+      overflow-y: visible;
     }
 
     .address-table {
@@ -3851,6 +3868,7 @@
       -webkit-backdrop-filter: blur(16px);
       pointer-events: auto;
       animation: fadeIn 0.2s ease-out;
+      overflow-y: auto;
     }
 
     @keyframes fadeIn {
@@ -3894,7 +3912,9 @@
       padding: 48px;
       max-width: 560px;
       width: calc(100% - 48px);
-      margin: 0 24px;
+      margin: 24px;
+      max-height: 90vh;
+      max-height: 90dvh;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
       border: 1px solid rgba(96, 108, 56, 0.1);
       text-align: center;
@@ -4105,6 +4125,7 @@
       max-width: 700px;
       width: 100%;
       max-height: 90vh;
+      max-height: 90dvh;
       overflow-y: auto;
       box-shadow: 8px 8px 0px var(--text-primary);
       position: relative;
