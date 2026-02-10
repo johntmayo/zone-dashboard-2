@@ -5023,11 +5023,11 @@
           const lower = col.toLowerCase();
           if (lower.includes('home phone') || lower.includes('homephone') ||
               (lower.includes('phone') && lower.includes('home'))) {
-            return '📞 Home';
+            return 'Home 📞';
           }
           if ((lower.includes('cell') || lower.includes('mobile')) &&
               (lower.includes('phone') || lower.includes('cell') || lower.includes('mobile'))) {
-            return '📞 Cell';
+            return 'Cell 📞';
           }
           // Remove "Person - " prefix from checkbox fields; use friendly label for specific columns
           if (col.startsWith('Person - ')) {
@@ -5038,8 +5038,9 @@
           return col;
         };
 
-        // Add colon after label for display (e.g. "📞 Home:", "Unable to reach:")
+        // Omit colon for phone labels and person-tag checkboxes (Renter, Needs Follow-Up, Unable to reach)
         const formatLabelForDisplay = (label) => {
+          if (label === 'Home 📞' || label === 'Cell 📞' || label === 'Renter' || label === 'Needs Follow-Up' || label === 'Unable to reach') return label;
           return label + ':';
         };
         
@@ -5157,6 +5158,18 @@
             html += renderField(cellPhoneCol, true);
           }
           html += '</div>';
+        }
+        
+        // Person Tags accordion (same style as Address Tags): Renter, Needs Follow-Up, Unable to reach, etc.
+        const personTagCols = personLevelCols.filter(col => col.startsWith('Person - '));
+        if (personTagCols.length > 0) {
+          html += '<details class="address-tags-section" style="margin-top:12px;">';
+          html += '<summary style="cursor:pointer; font-weight:700; font-family: Chivo, sans-serif;">Person Tags</summary>';
+          html += '<div style="margin-top:12px; padding-left:0;">';
+          personTagCols.forEach(col => {
+            html += renderField(col);
+          });
+          html += '</div></details>';
         }
         
         // Render remaining person-level fields individually
@@ -7023,6 +7036,12 @@
       }, 100);
     }
 
+    // Minimum zoom for Map tab - match Home page minimap (16) so we're never more zoomed out
+    const ZONE_MAP_MIN_ZOOM = 16;
+    function clampZoneMapZoom() {
+      if (zoneMap && zoneMap.getZoom() < ZONE_MAP_MIN_ZOOM) zoneMap.setZoom(ZONE_MAP_MIN_ZOOM);
+    }
+
     // Initialize Leaflet map
     function initializeMap() {
       const mapDiv = document.getElementById('zoneMap');
@@ -7034,7 +7053,7 @@
       if (!zoneMap) {
         try {
           // Default center (Altadena, CA - adjust as needed)
-          zoneMap = L.map('zoneMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 15);
+          zoneMap = L.map('zoneMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 16);
           
           // Add CartoDB Voyager tiles (warm, colorful with labels)
           currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -7627,6 +7646,7 @@
         kmlLayer = L.geoJSON(zoneFc, { style: ZONE_BOUNDARY_STYLE }).addTo(zoneMap);
         if (kmlLayer.getBounds && kmlLayer.getBounds().isValid()) {
           zoneMap.fitBounds(kmlLayer.getBounds(), { padding: [20, 20], maxZoom: 17 });
+          setTimeout(clampZoneMapZoom, 350);
         }
         return true;
       } catch (e) {
@@ -7813,6 +7833,7 @@
         // Fit map to boundary
         if (kmlLayer.getBounds && kmlLayer.getBounds().isValid()) {
           zoneMap.fitBounds(kmlLayer.getBounds(), { padding: [20, 20], maxZoom: 17 });
+          setTimeout(clampZoneMapZoom, 350);
         }
       } catch (error) {
         console.error('Error loading KML:', error);
@@ -8081,6 +8102,7 @@
           // Prefer zone boundary if available (home map loads it early)
           if (!kmlLayer && homeKmlLayer && homeKmlLayer.getBounds && homeKmlLayer.getBounds().isValid()) {
             zoneMap.fitBounds(homeKmlLayer.getBounds(), { padding: [20, 20], maxZoom: 17 });
+            setTimeout(clampZoneMapZoom, 350);
             return;
           }
           // If a boundary is expected but not loaded yet, avoid fitting to outlier markers
@@ -8089,7 +8111,7 @@
           }
           // If no boundary is available, keep a sane default zoom/center
           if (!kmlLayer && (!homeKmlLayer || !homeKmlLayer.getBounds || !homeKmlLayer.getBounds().isValid())) {
-            zoneMap.setView([34.19, -118.15], 15);
+            zoneMap.setView([34.19, -118.15], 16);
             return;
           }
           // Otherwise, fit to markers when no zone boundary is present
@@ -8098,6 +8120,7 @@
               padding: [20, 20],
               maxZoom: 17
             });
+            setTimeout(clampZoneMapZoom, 350);
           }
         } catch (error) {
           console.error('Error fitting bounds:', error);
