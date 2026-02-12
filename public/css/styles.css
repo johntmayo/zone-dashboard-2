@@ -3825,6 +3825,28 @@
       margin-left: 10px;
     }
 
+    /* Nearby Zones labels are shown only when JS adds .show-nearby-zone-labels to #zoneMap */
+    #zoneMap .additional-zone-tooltip {
+      display: none;
+      background: rgba(253, 251, 247, 0.92);
+      border: 1px solid rgba(49, 64, 89, 0.25);
+      border-radius: 4px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14);
+      color: var(--text-primary);
+      font-family: 'Chivo', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      line-height: 1.2;
+      padding: 4px 6px;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    #zoneMap.show-nearby-zone-labels .additional-zone-tooltip {
+      display: block;
+    }
+
     /* Dropdown for Damage and Address Plan */
     .editable-dropdown {
       display: inline-block;

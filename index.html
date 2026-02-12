@@ -716,6 +716,12 @@
     let homeMapMarkers = []; // Array of markers for homepage map
     let kmlLayer = null; // KML boundary layer
     let homeKmlLayer = null; // KML boundary layer for homepage
+    let additionalMapboxLayer = null; // Optional Mapbox-powered overlay layer
+    let additionalMapboxLayerControl = null; // Toggle control for optional overlay layer
+    let additionalMapboxLayerLoading = false; // Prevent duplicate overlay fetches
+    let additionalMapboxLayerVisible = false; // Current visibility state for optional overlay layer
+    let cachedAdditionalMapboxFeatureCollection = null; // Cached feature collection for optional overlay
+    let additionalMapboxZoomHandler = null; // Zoom listener for label visibility
     let currentTileLayer = null; // Current map tile layer
     let homeTileLayer = null; // Tile layer for homepage
     let isSatelliteMode = false; // Track satellite mode state
@@ -743,9 +749,67 @@
     const MAPBOX_CONFIG = {
       username: 'altagether',   // Your Mapbox account username (e.g. from Studio URL)
       datasetId: 'cm64fisju135z1qqmifs0zty5',  // Dataset ID containing zone polygons (ZoneName, Status, ContactEmail, etc.)
-      accessToken: 'pk.eyJ1IjoiYWx0YWdldGhlciIsImEiOiJjbWt5aXBhM2cwN2ZxM2ZxOWhteW0waTV4In0.UbhJ8qrWAsv1RSKQbpT9Aw' // Mapbox access token with datasets:read scope
+      accessToken: '' // Set from environment/runtime; keep blank in source to avoid secret scanning blocks
     };
-    const MAPBOX_ENABLED = !!(MAPBOX_CONFIG.accessToken && MAPBOX_CONFIG.username && MAPBOX_CONFIG.datasetId);
+    function isMapboxEnabled() {
+      return !!(MAPBOX_CONFIG.accessToken && MAPBOX_CONFIG.username && MAPBOX_CONFIG.datasetId);
+    }
+    const MAPBOX_ADDITIONAL_LAYER_CONFIG = {
+      tilesetId: 'altagether.cm64fisju135z1qqmifs0zty5-4swrp',
+      displayName: 'Nearby Zones',
+      defaultVisible: false,
+      filterToCurrentZone: false, // Set true if this layer should only show current zone features
+      zonePropertyKeys: ['ZoneName', 'Zone name', 'zoneName', 'zone'],
+      contactNamePropertyKeys: ['ContactName', 'Contact Name', 'Captain Name', 'CaptainName', 'Captain'],
+      contactEmailPropertyKeys: ['ContactEmail', 'Contact Email', 'Email', 'Emails'],
+      contactPhonePropertyKeys: ['ContactPhone', 'Contact Phone', 'Phone', 'Phones'],
+      statusPropertyKeys: ['Status', 'status'],
+      tooltip: {
+        enabled: true,
+        permanent: true,
+        direction: 'center',
+        className: 'additional-zone-tooltip'
+      },
+      labelMinZoom: 17,
+      style: {
+        color: '#4B7D5D',
+        weight: 2,
+        opacity: 0.85,
+        fillColor: '#A9CFA0',
+        fillOpacity: 0.16
+      },
+      hoverStyle: {
+        weight: 3,
+        opacity: 0.95,
+        fillOpacity: 0.24
+      }
+    };
+    function isAdditionalMapboxLayerEnabled() {
+      return !!(MAPBOX_CONFIG.accessToken && MAPBOX_ADDITIONAL_LAYER_CONFIG.tilesetId);
+    }
+
+    async function initializeMapboxAccessToken() {
+      if (MAPBOX_CONFIG.accessToken && MAPBOX_CONFIG.accessToken.trim()) return;
+      try {
+        const response = await fetch('/api/mapbox-token', { cache: 'no-store' });
+        if (!response.ok) return;
+        const payload = await response.json();
+        const token = (payload?.token || '').trim();
+        if (!token) return;
+        MAPBOX_CONFIG.accessToken = token;
+
+        // Refresh boundary overlays once token is available at runtime.
+        if (currentZoneName && currentZoneName.trim()) {
+          if (zoneMap) loadZoneBoundary();
+          if (homeMap) loadHomeZoneBoundary();
+        }
+        if (additionalMapboxLayerVisible) {
+          setAdditionalMapboxLayerVisible(true);
+        }
+      } catch (error) {
+        console.warn('Mapbox token endpoint unavailable; Mapbox layers remain disabled.', error);
+      }
+    }
 
     // Load OAuth token and user email from localStorage
     const savedToken = localStorage.getItem('googleOAuthToken');
@@ -776,6 +840,7 @@
     updateWelcomeMessage();
     updateHeaderTitle();
     updateNavigationState();
+    initializeMapboxAccessToken();
 
     // Get Help link handler (in welcome overlay) - opens About the Dashboard page in new tab
     const getHelpBtn = document.getElementById('getHelpBtn');
@@ -1755,6 +1820,7 @@
         initializeMap();
         // Load zone boundary (Mapbox first if configured, else KML from Zone Notes)
         loadZoneBoundary();
+        refreshAdditionalMapboxLayer();
 
         // Only update map markers if we're currently on the map view
         if (currentView === 'map') {
@@ -5406,6 +5472,7 @@
         if (!zoneMap) {
           initializeMap();
           loadZoneBoundary(); // Boundary may not have been loaded if map was created just now
+          refreshAdditionalMapboxLayer();
           // After map is initialized, ensure color filter control exists and restore color mode
           setTimeout(() => {
             ensureColorFilterControl();
@@ -5415,6 +5482,7 @@
           }, 200);
         } else {
           // Map already exists - ensure color filter control is present
+          ensureAdditionalMapboxLayerControl();
           ensureColorFilterControl();
           // Wait a bit for control to be added to DOM before restoring
           setTimeout(() => {
@@ -5492,7 +5560,7 @@
             if (homeMap) {
               homeMap.invalidateSize();
               // Load zone boundary on home map (Mapbox or KML) if map wasn't ready before
-              if (zoneKmlUrl || (MAPBOX_ENABLED && currentZoneName)) {
+              if (zoneKmlUrl || (isMapboxEnabled() && currentZoneName)) {
                 setTimeout(() => loadHomeZoneBoundary(), 200);
               }
             }
@@ -6991,6 +7059,8 @@
           
           // Add satellite toggle control next to zoom controls
           new SatelliteToggleControl({ position: 'topleft' }).addTo(zoneMap);
+          // Add optional overlay toggle using Mapbox tileset-backed features
+          ensureAdditionalMapboxLayerControl();
           
           // Don't create color filter control here - it will be created via ensureColorFilterControl()
           // after the map container is visible and ready
@@ -7002,6 +7072,7 @@
               const mapDiv = document.getElementById('zoneMap');
               if (mapDiv && mapDiv.offsetParent !== null) {
                 zoneMap.invalidateSize();
+                ensureAdditionalMapboxLayerControl();
                 // Now that map is ready and visible, ensure color filter control exists
                 if (currentView === 'map') {
                   ensureColorFilterControl();
@@ -7024,6 +7095,7 @@
             const mapDiv = document.getElementById('zoneMap');
             if (mapDiv && mapDiv.offsetParent !== null) {
               zoneMap.invalidateSize();
+              ensureAdditionalMapboxLayerControl();
               // Ensure color filter control exists when map already exists
               if (currentView === 'map') {
                 ensureColorFilterControl();
@@ -7140,7 +7212,7 @@
       createHomeColorFilterControl();
       
       // Load zone boundary on home map (Mapbox or KML) with delay to ensure map is ready
-      if (zoneKmlUrl || (MAPBOX_ENABLED && currentZoneName)) {
+      if (zoneKmlUrl || (isMapboxEnabled() && currentZoneName)) {
         setTimeout(() => loadHomeZoneBoundary(), 300);
       }
     }
@@ -7496,6 +7568,241 @@
       return { type: 'FeatureCollection', features: [feature] };
     }
 
+    // Parse `username.datasetId-tilesetSuffix` into { username, datasetId } for code-styled overlay loading.
+    function parseMapboxTilesetId(tilesetId) {
+      if (!tilesetId || typeof tilesetId !== 'string') return null;
+      const clean = tilesetId.trim();
+      if (!clean) return null;
+      const dotIndex = clean.indexOf('.');
+      if (dotIndex <= 0 || dotIndex >= clean.length - 1) return null;
+      const username = clean.slice(0, dotIndex).trim();
+      const layerPart = clean.slice(dotIndex + 1).trim();
+      const datasetId = layerPart.split('-')[0].trim();
+      if (!username || !datasetId) return null;
+      return { username, datasetId };
+    }
+
+    function filterFeatureCollectionByZone(featureCollection, zoneName) {
+      if (!featureCollection || !Array.isArray(featureCollection.features)) {
+        return { type: 'FeatureCollection', features: [] };
+      }
+      if (!MAPBOX_ADDITIONAL_LAYER_CONFIG.filterToCurrentZone) return featureCollection;
+      const needle = (zoneName || '').trim();
+      if (!needle) return { type: 'FeatureCollection', features: [] };
+      const features = featureCollection.features.filter((feature) => {
+        const props = feature?.properties || {};
+        return MAPBOX_ADDITIONAL_LAYER_CONFIG.zonePropertyKeys.some((key) => {
+          const value = props[key];
+          return value != null && String(value).trim() === needle;
+        });
+      });
+      return { type: 'FeatureCollection', features };
+    }
+
+    async function fetchAdditionalMapboxFeatureCollection() {
+      if (!isAdditionalMapboxLayerEnabled()) return null;
+      if (cachedAdditionalMapboxFeatureCollection) return cachedAdditionalMapboxFeatureCollection;
+      const parsed = parseMapboxTilesetId(MAPBOX_ADDITIONAL_LAYER_CONFIG.tilesetId);
+      if (!parsed) {
+        console.warn('Additional layer tilesetId is not in expected format "username.datasetId-..."');
+        return null;
+      }
+      cachedAdditionalMapboxFeatureCollection = await fetchMapboxDatasetFeatures(
+        parsed.username,
+        parsed.datasetId,
+        MAPBOX_CONFIG.accessToken
+      );
+      return cachedAdditionalMapboxFeatureCollection;
+    }
+
+    async function buildAdditionalMapboxLayer() {
+      if (!zoneMap || !isAdditionalMapboxLayerEnabled()) return null;
+      if (additionalMapboxLayerLoading) return additionalMapboxLayer;
+      additionalMapboxLayerLoading = true;
+      try {
+        const featureCollection = await fetchAdditionalMapboxFeatureCollection();
+        if (!featureCollection) return null;
+        const filteredCollection = filterFeatureCollectionByZone(featureCollection, currentZoneName);
+        if (!filteredCollection.features.length) {
+          console.warn('Additional layer has no matching features to render.');
+          return null;
+        }
+        if (additionalMapboxLayer) {
+          zoneMap.removeLayer(additionalMapboxLayer);
+          additionalMapboxLayer = null;
+        }
+        const getFirstNonEmptyProperty = (props, keys) => {
+          for (const key of keys || []) {
+            const value = props?.[key];
+            if (value != null && String(value).trim()) return String(value).trim();
+          }
+          return '';
+        };
+        const splitSemicolonValues = (raw) => String(raw || '')
+          .split(';')
+          .map(v => v.trim())
+          .filter(Boolean);
+        const firstNameFromFullName = (rawName) => {
+          const clean = String(rawName || '').trim().replace(/\s+/g, ' ');
+          if (!clean) return '';
+          const token = clean.split(' ')[0] || '';
+          return token.replace(/[^A-Za-z'-]/g, '').trim();
+        };
+        const getZoneName = (props) => getFirstNonEmptyProperty(props, MAPBOX_ADDITIONAL_LAYER_CONFIG.zonePropertyKeys) || 'Zone';
+        const getContactNames = (props) => getFirstNonEmptyProperty(props, MAPBOX_ADDITIONAL_LAYER_CONFIG.contactNamePropertyKeys);
+        const getContactEmails = (props) => getFirstNonEmptyProperty(props, MAPBOX_ADDITIONAL_LAYER_CONFIG.contactEmailPropertyKeys);
+        const getContactPhones = (props) => getFirstNonEmptyProperty(props, MAPBOX_ADDITIONAL_LAYER_CONFIG.contactPhonePropertyKeys);
+        const getStatus = (props) => getFirstNonEmptyProperty(props, MAPBOX_ADDITIONAL_LAYER_CONFIG.statusPropertyKeys);
+        const escapeHtml = (text) => String(text || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+        const buildZoneTooltipLabel = (props) => {
+          const zoneName = getZoneName(props).toUpperCase();
+          const firstNames = splitSemicolonValues(getContactNames(props))
+            .map(firstNameFromFullName)
+            .filter(Boolean);
+          const firstNamesLine = firstNames.length ? firstNames.join(', ') : 'Captain names pending';
+          return `${escapeHtml(zoneName)}<br>${escapeHtml(firstNamesLine)}`;
+        };
+        const buildPopupSection = (label, rawValue) => {
+          const values = splitSemicolonValues(rawValue);
+          if (!values.length) return '';
+          const valueHtml = values.map(v => escapeHtml(v)).join('<br>');
+          return `<div style="margin-top:8px;"><strong>${escapeHtml(label)}:</strong><br>${valueHtml}</div>`;
+        };
+        const buildFeaturePopupHtml = (props) => {
+          const zoneName = getZoneName(props).toUpperCase();
+          const status = getStatus(props);
+          const names = getContactNames(props);
+          const emails = getContactEmails(props);
+          const phones = getContactPhones(props);
+          return `
+            <div style="min-width:220px; line-height:1.35;">
+              <div style="font-size:15px; font-weight:700; letter-spacing:0.5px; color:#214025;">${escapeHtml(zoneName)}</div>
+              ${status ? `<div style="margin-top:4px; color:#4a4a4a;"><strong>Status:</strong> ${escapeHtml(status)}</div>` : ''}
+              ${buildPopupSection('Contact Name', names)}
+              ${buildPopupSection('Contact Email', emails)}
+              ${buildPopupSection('Contact Phone', phones)}
+            </div>
+          `;
+        };
+        const baseStyle = MAPBOX_ADDITIONAL_LAYER_CONFIG.style || {};
+        const hoverStyle = MAPBOX_ADDITIONAL_LAYER_CONFIG.hoverStyle || {};
+        additionalMapboxLayer = L.geoJSON(filteredCollection, {
+          style: baseStyle,
+          onEachFeature: (feature, layer) => {
+            const props = feature?.properties || {};
+            const label = buildZoneTooltipLabel(props);
+            if (label && MAPBOX_ADDITIONAL_LAYER_CONFIG.tooltip?.enabled) {
+              layer.bindTooltip(label, MAPBOX_ADDITIONAL_LAYER_CONFIG.tooltip);
+            }
+            const popupHtml = buildFeaturePopupHtml(props);
+            if (popupHtml.trim()) {
+              layer.bindPopup(popupHtml);
+            }
+            layer.on('mouseover', () => {
+              layer.setStyle({ ...baseStyle, ...hoverStyle });
+            });
+            layer.on('mouseout', () => {
+              layer.setStyle(baseStyle);
+            });
+          }
+        });
+        return additionalMapboxLayer;
+      } catch (error) {
+        console.warn('Failed to build additional map layer:', error);
+        return null;
+      } finally {
+        additionalMapboxLayerLoading = false;
+      }
+    }
+
+    function updateAdditionalMapboxLayerToggleButton() {
+      const button = document.getElementById('additionalMapboxLayerToggleBtn');
+      if (!button) return;
+      const on = additionalMapboxLayerVisible;
+      button.style.background = on ? '#214025' : '#ffffff';
+      button.style.color = on ? '#ffffff' : '#2d3436';
+      button.style.fontWeight = on ? '700' : '500';
+      button.title = on
+        ? `Hide ${MAPBOX_ADDITIONAL_LAYER_CONFIG.displayName}`
+        : `Show ${MAPBOX_ADDITIONAL_LAYER_CONFIG.displayName}`;
+    }
+
+    function updateAdditionalMapboxLabelVisibility() {
+      if (!zoneMap) return;
+      const minZoom = MAPBOX_ADDITIONAL_LAYER_CONFIG.labelMinZoom || 0;
+      const shouldShowLabels = additionalMapboxLayerVisible && zoneMap.getZoom() >= minZoom;
+      const mapContainer = zoneMap.getContainer();
+      if (!mapContainer) return;
+      mapContainer.classList.toggle('show-nearby-zone-labels', shouldShowLabels);
+    }
+
+    async function setAdditionalMapboxLayerVisible(isVisible) {
+      if (!zoneMap || !isAdditionalMapboxLayerEnabled()) return;
+      additionalMapboxLayerVisible = !!isVisible;
+      if (!additionalMapboxLayerVisible) {
+        if (additionalMapboxZoomHandler) {
+          zoneMap.off('zoomend', additionalMapboxZoomHandler);
+          additionalMapboxZoomHandler = null;
+        }
+        if (additionalMapboxLayer && zoneMap.hasLayer(additionalMapboxLayer)) {
+          zoneMap.removeLayer(additionalMapboxLayer);
+        }
+        updateAdditionalMapboxLabelVisibility();
+        updateAdditionalMapboxLayerToggleButton();
+        return;
+      }
+      if (!additionalMapboxZoomHandler) {
+        additionalMapboxZoomHandler = () => updateAdditionalMapboxLabelVisibility();
+        zoneMap.on('zoomend', additionalMapboxZoomHandler);
+      }
+      const layer = await buildAdditionalMapboxLayer();
+      if (layer && !zoneMap.hasLayer(layer)) {
+        layer.addTo(zoneMap);
+      }
+      updateAdditionalMapboxLabelVisibility();
+      updateAdditionalMapboxLayerToggleButton();
+    }
+
+    async function refreshAdditionalMapboxLayer() {
+      if (!MAPBOX_ADDITIONAL_LAYER_CONFIG.filterToCurrentZone) return;
+      if (!additionalMapboxLayerVisible) return;
+      await setAdditionalMapboxLayerVisible(true);
+    }
+
+    function ensureAdditionalMapboxLayerControl() {
+      if (!zoneMap || !isAdditionalMapboxLayerEnabled()) return;
+      if (additionalMapboxLayerControl) return;
+      const AdditionalMapboxLayerToggleControl = L.Control.extend({
+        onAdd: function() {
+          const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+          const button = L.DomUtil.create('a', 'additional-mapbox-layer-toggle-btn', container);
+          button.id = 'additionalMapboxLayerToggleBtn';
+          button.href = '#';
+          button.innerHTML = MAPBOX_ADDITIONAL_LAYER_CONFIG.displayName;
+          button.style.cssText = 'min-width: 46px; height: 30px; line-height: 30px; text-align: center; text-decoration: none; display: block; padding: 0 8px; font-size: 12px;';
+
+          L.DomEvent.disableClickPropagation(button);
+          L.DomEvent.on(button, 'click', L.DomEvent.stop);
+          L.DomEvent.on(button, 'click', async () => {
+            await setAdditionalMapboxLayerVisible(!additionalMapboxLayerVisible);
+          });
+
+          updateAdditionalMapboxLayerToggleButton();
+          return container;
+        }
+      });
+      additionalMapboxLayerControl = new AdditionalMapboxLayerToggleControl({ position: 'topleft' });
+      additionalMapboxLayerControl.addTo(zoneMap);
+      if (MAPBOX_ADDITIONAL_LAYER_CONFIG.defaultVisible) {
+        setAdditionalMapboxLayerVisible(true);
+      }
+    }
+
     const ZONE_BOUNDARY_STYLE = {
       color: '#214025',
       weight: 3,
@@ -7563,7 +7870,7 @@
     // Load zone boundary: try Mapbox first (if configured and zone name set), then KML URL fallback.
     async function loadZoneBoundary() {
       if (!zoneMap) return;
-      if (MAPBOX_ENABLED && currentZoneName && currentZoneName.trim()) {
+      if (isMapboxEnabled() && currentZoneName && currentZoneName.trim()) {
         const ok = await loadMapboxBoundary(currentZoneName.trim());
         if (ok) return;
       }
@@ -7574,7 +7881,7 @@
 
     // Load zone boundary on home map: try Mapbox first, then KML fallback.
     async function loadHomeZoneBoundary() {
-      if (MAPBOX_ENABLED && currentZoneName && currentZoneName.trim()) {
+      if (isMapboxEnabled() && currentZoneName && currentZoneName.trim()) {
         if (homeMap) {
           const ok = await loadMapboxBoundaryForHome(currentZoneName.trim());
           if (ok) return;
@@ -7985,7 +8292,7 @@
             return;
           }
           // If a boundary is expected but not loaded yet, avoid fitting to outlier markers
-          if (!kmlLayer && (MAPBOX_ENABLED || zoneKmlUrl) && currentZoneName) {
+          if (!kmlLayer && (isMapboxEnabled() || zoneKmlUrl) && currentZoneName) {
             return;
           }
           // If no boundary is available, keep a sane default zoom/center
@@ -9041,7 +9348,7 @@
       updateRebuildProgressCharts();
       initializeHomeMap();
       // Load zone boundary on home map (Mapbox or KML) if available
-      if (zoneKmlUrl || (MAPBOX_ENABLED && currentZoneName)) {
+      if (zoneKmlUrl || (isMapboxEnabled() && currentZoneName)) {
         if (homeMap) {
           loadHomeZoneBoundary();
         } else {

@@ -22,6 +22,13 @@ app.get('/', (req, res, next) => {
 app.use('/public', express.static(path.join(__dirname, 'public'))); // Static assets at /public (css, js, images)
 app.use(express.static(path.join(__dirname))); // Serve HTML and other static files from app directory (index.html, flyer_tool.html, nc-directory.html, etc.)
 
+// Expose Mapbox public token to browser at runtime (from environment, never hardcoded in source).
+app.get('/api/mapbox-token', (req, res) => {
+  const token = (process.env.MAPBOX_PUBLIC_TOKEN || process.env.MAPBOX_ACCESS_TOKEN || '').trim();
+  res.set('Cache-Control', 'no-store');
+  res.json({ token });
+});
+
 // Service account auth for Sheets API (single server-side identity)
 let sheetsClientCache = null;
 function getSheetsClient() {
