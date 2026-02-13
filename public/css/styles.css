@@ -818,20 +818,20 @@
 
     .panel-collapse-toggle {
       position: absolute;
-      left: 0;
+      left: 8px;
       top: 50%;
-      transform: translate(-100%, -50%);
+      transform: translateY(-50%);
       width: 36px;
       height: 76px;
       border: 2px solid var(--text-primary);
-      border-right: 0;
+      border-left: 0;
       background: var(--bg-card);
       color: var(--primary-dark);
       font-size: 1.1rem;
       font-weight: 800;
       cursor: pointer;
       z-index: 205;
-      box-shadow: -3px 3px 0 var(--text-primary);
+      box-shadow: 3px 3px 0 var(--text-primary);
       transition: background 0.2s ease, color 0.2s ease;
     }
 
