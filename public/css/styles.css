@@ -35,6 +35,7 @@
       --panel-expanded-width: 420px;
       --panel-collapsed-peek: 44px;
       --panel-current-width: var(--panel-expanded-width);
+      --map-control-width: 200px;
     }
 
     body.panel-collapsed {
@@ -3861,20 +3862,32 @@
     /* Color filter control styling */
     .color-filter-control {
       margin-top: 10px;
+      padding: 8px;
+      font-size: 0.75rem;
     }
     
     .color-legend-control {
       margin-top: 10px;
       margin-left: 10px;
+      padding: 10px;
+      font-size: 0.75rem;
+    }
+
+    .map-control-card {
+      background: #ffffff;
+      border-radius: 8px;
+      border: 1px solid rgba(49, 64, 89, 0.25);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+      width: var(--map-control-width);
+      min-width: var(--map-control-width);
+      max-width: var(--map-control-width);
     }
 
     .map-layers-control {
       margin-top: 10px;
-      border-radius: 4px;
+      border-radius: 8px;
       overflow: visible;
-      background: #ffffff;
-      border: 1px solid rgba(49, 64, 89, 0.25);
-      min-width: 180px;
+      border: 0;
     }
 
     .map-layers-control .map-layers-expand-btn,

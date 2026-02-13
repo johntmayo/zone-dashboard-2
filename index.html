@@ -6291,8 +6291,7 @@
       
       const ColorLegendControl = L.Control.extend({
         onAdd: function(map) {
-          const container = L.DomUtil.create('div', 'color-legend-control');
-          container.style.cssText = 'background: white; border-radius: 4px; box-shadow: 0 1px 5px rgba(0,0,0,0.4); padding: 10px; font-size: 0.75rem; min-width: 160px; max-width: 200px;';
+          const container = L.DomUtil.create('div', 'color-legend-control map-control-card');
           
           let html = '';
           
@@ -6390,8 +6389,7 @@
       
       const ColorLegendControl = L.Control.extend({
         onAdd: function(map) {
-          const container = L.DomUtil.create('div', 'color-legend-control');
-          container.style.cssText = 'background: white; border-radius: 4px; box-shadow: 0 1px 5px rgba(0,0,0,0.4); padding: 10px; font-size: 0.75rem; min-width: 160px; max-width: 200px;';
+          const container = L.DomUtil.create('div', 'color-legend-control map-control-card');
           
           let html = '';
           if (mode === 'contact') {
@@ -6505,8 +6503,7 @@
       
       const ColorFilterControl = L.Control.extend({
         onAdd: function(map) {
-          const container = L.DomUtil.create('div', 'color-filter-control');
-          container.style.cssText = 'background: white; border-radius: 4px; box-shadow: 0 1px 5px rgba(0,0,0,0.4); padding: 8px; font-size: 0.75rem; width: 120px;';
+          const container = L.DomUtil.create('div', 'color-filter-control map-control-card');
           
           // Header
           const header = L.DomUtil.create('div', 'color-filter-header', container);
@@ -6889,8 +6886,7 @@
       
       const ColorFilterControl = L.Control.extend({
         onAdd: function(map) {
-          const container = L.DomUtil.create('div', 'color-filter-control');
-          container.style.cssText = 'background: white; border-radius: 4px; box-shadow: 0 1px 5px rgba(0,0,0,0.4); padding: 8px; font-size: 0.75rem; width: 120px;';
+          const container = L.DomUtil.create('div', 'color-filter-control map-control-card');
           
           // Header
           const header = L.DomUtil.create('div', 'color-filter-header', container);
@@ -7937,7 +7933,7 @@
       if (additionalMapboxLayerControl) return;
       const AdditionalMapboxLayerToggleControl = L.Control.extend({
         onAdd: function() {
-          const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control map-layers-control');
+          const container = L.DomUtil.create('div', 'leaflet-control map-layers-control map-control-card');
           const expandBtn = L.DomUtil.create('a', 'map-layers-expand-btn', container);
           expandBtn.id = 'mapLayersExpandBtn';
           expandBtn.href = '#';
