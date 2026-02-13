@@ -4070,6 +4070,36 @@
       pointer-events: none;
     }
 
+    .overlay-census-badge {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(91, 33, 182, 0.4);
+      background: rgba(237, 233, 254, 0.96);
+      color: #4c1d95;
+      font-family: 'Chivo', sans-serif;
+      box-shadow: 0 2px 8px rgba(76, 29, 149, 0.16);
+      transform: translate(-50%, -50%);
+      max-width: 280px;
+      pointer-events: none;
+    }
+
+    .overlay-census-badge-title {
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.15;
+      margin-bottom: 3px;
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+    }
+
+    .overlay-census-badge-subtitle {
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.25;
+      white-space: normal;
+    }
+
     /* Dropdown for Damage and Address Plan */
     .editable-dropdown {
       display: inline-block;

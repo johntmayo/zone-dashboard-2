@@ -865,8 +865,9 @@
         },
         label: {
           enabled: true,
-          minZoom: 16,
-          type: 'censusCard'
+          minZoom: 13,
+          type: 'censusBadge',
+          tilequeryRadiusMeters: 2000
         },
         labelTitlePropertyKeys: ['name', 'Name', 'NAME', 'tract_name', 'TRACT_NAME'],
         labelDescriptionPropertyKeys: ['description', 'Description', 'DESCRIPTION'],
@@ -909,7 +910,7 @@
         },
         label: {
           enabled: true,
-          minZoom: 16,
+          minZoom: 13,
           type: 'waterCompanyBadge',
           text: 'Lincoln Ave Water Co'
         }
@@ -933,7 +934,7 @@
         },
         label: {
           enabled: true,
-          minZoom: 16,
+          minZoom: 13,
           type: 'waterCompanyBadge',
           text: 'Las Flores Water Co'
         }
@@ -957,7 +958,7 @@
         },
         label: {
           enabled: true,
-          minZoom: 16,
+          minZoom: 13,
           type: 'waterCompanyBadge',
           text: 'Rubio Canon Water Assn'
         }
@@ -7935,9 +7936,12 @@
     async function fetchOverlayTilequeryFeature(overlayConfig, centerLng, centerLat) {
       if (!overlayConfig?.tilesetId || !overlayConfig?.sourceLayer || !MAPBOX_CONFIG.accessToken) return null;
       try {
+        const radiusMeters = Number.isFinite(overlayConfig?.label?.tilequeryRadiusMeters)
+          ? overlayConfig.label.tilequeryRadiusMeters
+          : 1000;
         const params = new URLSearchParams({
           layers: overlayConfig.sourceLayer,
-          radius: '0',
+          radius: String(Math.max(0, Math.round(radiusMeters))),
           limit: '1',
           dedupe: 'true',
           access_token: MAPBOX_CONFIG.accessToken
@@ -7977,7 +7981,7 @@
       if (!Number.isFinite(centerLng) || !Number.isFinite(centerLat)) return null;
       const markerLatLng = [centerLat, centerLng];
 
-      if (overlayConfig.label.type === 'censusCard') {
+      if (overlayConfig.label.type === 'censusBadge') {
         const tileFeature = await fetchOverlayTilequeryFeature(overlayConfig, centerLng, centerLat);
         const props = tileFeature?.properties || {};
         const tractNameRaw = getFirstOverlayProperty(props, overlayConfig.labelTitlePropertyKeys);
@@ -7986,9 +7990,9 @@
           || getFirstOverlayProperty(props, overlayConfig.labelDescriptionPropertyKeys)
           || 'TBD';
         const labelHtml = `
-          <div class="overlay-floating-card census">
-            <div class="overlay-floating-card-title">${escapeOverlayHtml(tractName)}</div>
-            <div class="overlay-floating-card-subtitle">Town Council members: ${escapeOverlayHtml(councilMembers)}</div>
+          <div class="overlay-census-badge">
+            <div class="overlay-census-badge-title">${escapeOverlayHtml(tractName)}</div>
+            <div class="overlay-census-badge-subtitle">Town Council members: ${escapeOverlayHtml(councilMembers)}</div>
           </div>
         `;
         return L.layerGroup([
