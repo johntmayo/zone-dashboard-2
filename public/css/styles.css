@@ -3902,6 +3902,49 @@
       background: #f3f7f2;
     }
 
+    .map-layer-group-label {
+      padding: 8px 10px 4px;
+      font-family: 'Chivo', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      color: #4b5563;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      background: #ffffff;
+    }
+
+    .map-basemap-toggle {
+      display: flex;
+      margin: 0 10px 10px;
+      border: 1px solid rgba(49, 64, 89, 0.25);
+      border-radius: 6px;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .map-basemap-toggle-btn {
+      flex: 1;
+      height: 30px;
+      line-height: 30px;
+      text-align: center;
+      text-decoration: none;
+      font-family: 'Chivo', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      color: #2d3436;
+      background: #ffffff;
+      border-right: 1px solid rgba(49, 64, 89, 0.2);
+    }
+
+    .map-basemap-toggle-btn:last-child {
+      border-right: 0;
+    }
+
+    .map-basemap-toggle-btn.active {
+      background: #214025;
+      color: #ffffff;
+    }
+
     /* Nearby Zones labels are shown only when JS adds .show-nearby-zone-labels to #zoneMap */
     #zoneMap .additional-zone-tooltip {
       display: none;

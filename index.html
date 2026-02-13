@@ -870,12 +870,9 @@
         if (additionalMapboxLayerVisible) {
           setAdditionalMapboxLayerVisible(true);
         }
-        if (censusTractsVisible) {
-          setCensusTractsVisible(true);
-        }
-        if (lasFloresWaterDistrictVisible) {
-          setLasFloresWaterDistrictVisible(true);
-        }
+        // Keep these overlays disabled for now.
+        setCensusTractsVisible(false);
+        setLasFloresWaterDistrictVisible(false);
       } catch (error) {
         console.warn('Mapbox token endpoint unavailable; Mapbox layers remain disabled.', error);
       }
@@ -7850,10 +7847,11 @@
     }
 
     function updateSatelliteLayerToggleButton() {
-      const button = document.getElementById('satelliteLayerToggleBtn');
-      if (!button) return;
-      button.textContent = isSatelliteMode ? 'Basemap: Satellite' : 'Basemap: Street';
-      button.title = isSatelliteMode ? 'Switch to street map' : 'Switch to satellite map';
+      const streetBtn = document.getElementById('streetLayerToggleBtn');
+      const satelliteBtn = document.getElementById('satelliteLayerToggleBtn');
+      if (!streetBtn || !satelliteBtn) return;
+      streetBtn.classList.toggle('active', !isSatelliteMode);
+      satelliteBtn.classList.toggle('active', isSatelliteMode);
     }
 
     function updateMapLayersExpandButton() {
@@ -7861,16 +7859,21 @@
       const toggleBtn = document.getElementById('mapLayersExpandBtn');
       if (!panel || !toggleBtn) return;
       const expanded = panel.style.display !== 'none';
-      toggleBtn.innerHTML = expanded ? 'Zone Layers ▾' : 'Zone Layers ▸';
+      toggleBtn.innerHTML = expanded ? 'Layers ▾' : 'Layers ▸';
       toggleBtn.title = expanded ? 'Collapse layers' : 'Expand layers';
     }
 
-    function toggleSatelliteBaseLayer() {
+    function setBaseMapMode(mode) {
       if (!zoneMap) return;
+      const wantSatellite = mode === 'satellite';
+      if ((wantSatellite && isSatelliteMode) || (!wantSatellite && !isSatelliteMode)) {
+        updateSatelliteLayerToggleButton();
+        return;
+      }
       if (currentTileLayer) {
         zoneMap.removeLayer(currentTileLayer);
       }
-      if (isSatelliteMode) {
+      if (!wantSatellite) {
         currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
           attribution: '© OpenStreetMap contributors, © CARTO',
           maxZoom: 22,
@@ -7941,34 +7944,31 @@
           expandBtn.id = 'mapLayersExpandBtn';
           expandBtn.href = '#';
           expandBtn.style.cssText = 'min-width: 138px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; font-weight: 700; white-space: nowrap;';
-          expandBtn.innerHTML = 'Zone Layers ▸';
+          expandBtn.innerHTML = 'Layers ▸';
 
           const panel = L.DomUtil.create('div', 'map-layers-panel', container);
           panel.id = 'mapLayersPanel';
           panel.style.display = 'none';
 
-          const satelliteBtn = L.DomUtil.create('a', 'map-layer-item-btn satellite-layer-toggle-btn', panel);
+          const baseMapLabel = L.DomUtil.create('div', 'map-layer-group-label', panel);
+          baseMapLabel.textContent = 'Base map';
+
+          const baseMapToggle = L.DomUtil.create('div', 'map-basemap-toggle', panel);
+          const streetBtn = L.DomUtil.create('a', 'map-basemap-toggle-btn', baseMapToggle);
+          streetBtn.id = 'streetLayerToggleBtn';
+          streetBtn.href = '#';
+          streetBtn.textContent = 'Street';
+
+          const satelliteBtn = L.DomUtil.create('a', 'map-basemap-toggle-btn', baseMapToggle);
           satelliteBtn.id = 'satelliteLayerToggleBtn';
           satelliteBtn.href = '#';
-          satelliteBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
+          satelliteBtn.textContent = 'Satellite';
 
           const zonesBtn = L.DomUtil.create('a', 'map-layer-item-btn additional-mapbox-layer-toggle-btn', panel);
           zonesBtn.id = 'additionalMapboxLayerToggleBtn';
           zonesBtn.href = '#';
           zonesBtn.innerHTML = MAPBOX_ADDITIONAL_LAYER_CONFIG.displayName;
           zonesBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
-
-          const censusBtn = L.DomUtil.create('a', 'map-layer-item-btn census-tracts-toggle-btn', panel);
-          censusBtn.id = 'censusTractsLayerToggleBtn';
-          censusBtn.href = '#';
-          censusBtn.innerHTML = MAPBOX_DATASET_OVERLAY_CONFIG.censusTracts.displayName;
-          censusBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
-
-          const waterBtn = L.DomUtil.create('a', 'map-layer-item-btn water-district-toggle-btn', panel);
-          waterBtn.id = 'lasFloresWaterDistrictLayerToggleBtn';
-          waterBtn.href = '#';
-          waterBtn.innerHTML = MAPBOX_DATASET_OVERLAY_CONFIG.lasFloresWaterDistrict.displayName;
-          waterBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
 
           L.DomEvent.disableClickPropagation(container);
           L.DomEvent.on(expandBtn, 'click', L.DomEvent.stop);
@@ -7977,9 +7977,14 @@
             updateMapLayersExpandButton();
           });
 
+          L.DomEvent.on(streetBtn, 'click', L.DomEvent.stop);
+          L.DomEvent.on(streetBtn, 'click', () => {
+            setBaseMapMode('street');
+          });
+
           L.DomEvent.on(satelliteBtn, 'click', L.DomEvent.stop);
           L.DomEvent.on(satelliteBtn, 'click', () => {
-            toggleSatelliteBaseLayer();
+            setBaseMapMode('satellite');
           });
 
           L.DomEvent.on(zonesBtn, 'click', L.DomEvent.stop);
@@ -7987,34 +7992,17 @@
             await setAdditionalMapboxLayerVisible(!additionalMapboxLayerVisible);
           });
 
-          L.DomEvent.on(censusBtn, 'click', L.DomEvent.stop);
-          L.DomEvent.on(censusBtn, 'click', () => {
-            setCensusTractsVisible(!censusTractsVisible);
-          });
-
-          L.DomEvent.on(waterBtn, 'click', L.DomEvent.stop);
-          L.DomEvent.on(waterBtn, 'click', () => {
-            setLasFloresWaterDistrictVisible(!lasFloresWaterDistrictVisible);
-          });
-
           updateMapLayersExpandButton();
           updateSatelliteLayerToggleButton();
           updateAdditionalMapboxLayerToggleButton();
-          updateDatasetOverlayToggleButton(
-            'censusTractsLayerToggleBtn',
-            censusTractsVisible,
-            MAPBOX_DATASET_OVERLAY_CONFIG.censusTracts.displayName
-          );
-          updateDatasetOverlayToggleButton(
-            'lasFloresWaterDistrictLayerToggleBtn',
-            lasFloresWaterDistrictVisible,
-            MAPBOX_DATASET_OVERLAY_CONFIG.lasFloresWaterDistrict.displayName
-          );
           return container;
         }
       });
       additionalMapboxLayerControl = new AdditionalMapboxLayerToggleControl({ position: 'topleft' });
       additionalMapboxLayerControl.addTo(zoneMap);
+      // Force-disable these two overlays for now until reintroduced intentionally.
+      setCensusTractsVisible(false);
+      setLasFloresWaterDistrictVisible(false);
       if (MAPBOX_ADDITIONAL_LAYER_CONFIG.defaultVisible && isAdditionalMapboxLayerEnabled()) {
         setAdditionalMapboxLayerVisible(true);
       }
