@@ -731,10 +731,8 @@
     let additionalMapboxLayerVisible = false; // Current visibility state for optional overlay layer
     let cachedAdditionalMapboxFeatureCollection = null; // Cached feature collection for optional overlay
     let additionalMapboxZoomHandler = null; // Zoom listener for label visibility
-    let censusTractsLayer = null; // Optional raster overlay layer: Census Tracts
-    let censusTractsVisible = false; // Current visibility state for Census Tracts overlay
-    let lasFloresWaterDistrictLayer = null; // Optional raster overlay layer: Las Flores Water District
-    let lasFloresWaterDistrictVisible = false; // Current visibility state for water district overlay
+    const datasetOverlayLayers = {}; // Rendered Leaflet layer instances by overlay key
+    const datasetOverlayVisibility = {}; // Visibility state by overlay key
     const cachedDatasetOverlayFeatureCollections = {}; // Cache by overlay key
     const datasetOverlayLoadingState = {}; // Loading guard by overlay key
     let currentTileLayer = null; // Current map tile layer
@@ -841,16 +839,112 @@
       censusTracts: {
         displayName: 'Census Tracts',
         tilesetId: 'altagether.92eswabm',
-        opacity: 0.24,
-        maxNativeZoom: 14
+        sourceLayer: 'CTs-20kq2g',
+        layerType: 'fill',
+        defaultVisible: false,
+        style: {
+          color: '#5D3FD3',
+          weight: 3,
+          opacity: 0.95,
+          fillColor: '#9A7BFF',
+          fillOpacity: 0.26
+        },
+        hoverStyle: {
+          weight: 4,
+          fillOpacity: 0.35
+        },
+        tooltip: {
+          enabled: true,
+          permanent: true,
+          direction: 'center',
+          className: 'census-overlay-tooltip'
+        },
+        labelTitlePropertyKeys: ['name', 'Name', 'NAME', 'tract_name', 'TRACT_NAME'],
+        labelDescriptionPropertyKeys: ['description', 'Description', 'DESCRIPTION']
       },
-      lasFloresWaterDistrict: {
-        displayName: 'Las Flores Water District',
-        tilesetId: 'altagether.2z7rcgeq',
-        opacity: 0.28,
-        maxNativeZoom: 14
+      eatonFirePerimeter: {
+        displayName: 'Eaton Fire Perimeter',
+        tilesetId: 'altagether.21obglbu',
+        sourceLayer: 'Eaton_Perimeter_20250121-bhnm45',
+        layerType: 'fill',
+        defaultVisible: false,
+        style: {
+          color: '#D3822A',
+          weight: 2,
+          opacity: 0.9,
+          fillColor: '#F6B26B',
+          fillOpacity: 0.24
+        },
+        hoverStyle: {
+          weight: 3,
+          fillOpacity: 0.32
+        }
+      },
+      lincolnAveWaterCo: {
+        displayName: 'Lincoln Ave Water Co',
+        tilesetId: 'altagether.7i3nd5cw',
+        sourceLayer: 'Lincoln_Avenue_Water_Company_-5mpvev',
+        layerType: 'fill',
+        defaultVisible: false,
+        style: {
+          color: '#3B82F6',
+          weight: 2,
+          opacity: 0.9,
+          fillColor: '#93C5FD',
+          fillOpacity: 0.2
+        },
+        hoverStyle: {
+          weight: 3,
+          fillOpacity: 0.28
+        }
+      },
+      lasFloresWaterCo: {
+        displayName: 'Las Flores Water Co',
+        tilesetId: 'altagether.9d7wai0g',
+        sourceLayer: 'Las_Flores_Water_Company-dt5eg0',
+        layerType: 'fill',
+        defaultVisible: false,
+        style: {
+          color: '#3B82F6',
+          weight: 2,
+          opacity: 0.9,
+          fillColor: '#93C5FD',
+          fillOpacity: 0.2
+        },
+        hoverStyle: {
+          weight: 3,
+          fillOpacity: 0.28
+        }
+      },
+      rubioCanonWaterAssn: {
+        displayName: 'Rubio Canon Water Assn',
+        tilesetId: 'altagether.5zl309g2',
+        sourceLayer: 'Rubio_Canon_Land_and_Water_As-6k6a82',
+        layerType: 'fill',
+        defaultVisible: false,
+        style: {
+          color: '#3B82F6',
+          weight: 2,
+          opacity: 0.9,
+          fillColor: '#93C5FD',
+          fillOpacity: 0.2
+        },
+        hoverStyle: {
+          weight: 3,
+          fillOpacity: 0.28
+        }
       }
     };
+    const MAPBOX_DATASET_OVERLAY_ORDER = [
+      'censusTracts',
+      'eatonFirePerimeter',
+      'lincolnAveWaterCo',
+      'lasFloresWaterCo',
+      'rubioCanonWaterAssn'
+    ];
+    MAPBOX_DATASET_OVERLAY_ORDER.forEach((overlayKey) => {
+      datasetOverlayVisibility[overlayKey] = !!MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey]?.defaultVisible;
+    });
 
     async function initializeMapboxAccessToken() {
       if (MAPBOX_CONFIG.accessToken && MAPBOX_CONFIG.accessToken.trim()) return;
@@ -870,9 +964,10 @@
         if (additionalMapboxLayerVisible) {
           setAdditionalMapboxLayerVisible(true);
         }
-        // Keep these overlays disabled for now.
-        setCensusTractsVisible(false);
-        setLasFloresWaterDistrictVisible(false);
+        // Honor configured defaults once token is ready (all are currently default-off).
+        MAPBOX_DATASET_OVERLAY_ORDER.forEach((overlayKey) => {
+          setDatasetOverlayVisible(overlayKey, !!MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey]?.defaultVisible);
+        });
       } catch (error) {
         console.warn('Mapbox token endpoint unavailable; Mapbox layers remain disabled.', error);
       }
@@ -7754,90 +7849,172 @@
       button.setAttribute('aria-pressed', on ? 'true' : 'false');
     }
 
-    function updateDatasetOverlayToggleButton(buttonId, isOn, label) {
-      const button = document.getElementById(buttonId);
+    function getDatasetOverlayButtonId(overlayKey) {
+      return `datasetOverlayToggleBtn-${overlayKey}`;
+    }
+
+    function updateDatasetOverlayToggleButton(overlayKey, isOn) {
+      const overlayConfig = MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey];
+      if (!overlayConfig) return;
+      const button = document.getElementById(getDatasetOverlayButtonId(overlayKey));
       if (!button) return;
       button.classList.toggle('active', !!isOn);
-      button.title = isOn ? `Hide ${label}` : `Show ${label}`;
+      button.title = isOn ? `Hide ${overlayConfig.displayName}` : `Show ${overlayConfig.displayName}`;
       button.setAttribute('aria-pressed', isOn ? 'true' : 'false');
     }
 
-    function buildDatasetOverlayLayer(overlayKey) {
-      if (!zoneMap || !MAPBOX_CONFIG.accessToken) return null;
-      const overlayConfig = MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey];
-      if (!overlayConfig || !overlayConfig.tilesetId) return null;
-      return L.tileLayer(
-        `https://api.mapbox.com/v4/${encodeURIComponent(overlayConfig.tilesetId)}/{z}/{x}/{y}@2x.pngraw?access_token=${encodeURIComponent(MAPBOX_CONFIG.accessToken)}`,
-        {
-          attribution: '© Mapbox',
-          opacity: overlayConfig.opacity ?? 0.25,
-          maxZoom: 22,
-          maxNativeZoom: overlayConfig.maxNativeZoom ?? 14
+    function escapeOverlayHtml(text) {
+      return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function getFirstOverlayProperty(props, keys) {
+      for (const key of keys || []) {
+        const value = props?.[key];
+        if (value != null && String(value).trim()) {
+          return String(value).trim();
         }
-      );
+      }
+      return '';
+    }
+
+    async function fetchDatasetOverlayFeatureCollection(overlayKey) {
+      const overlayConfig = MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey];
+      if (!overlayConfig || !overlayConfig.tilesetId || !MAPBOX_CONFIG.accessToken) return null;
+      if (cachedDatasetOverlayFeatureCollections[overlayKey]) {
+        return cachedDatasetOverlayFeatureCollections[overlayKey];
+      }
+      if (datasetOverlayLoadingState[overlayKey]) {
+        return null;
+      }
+      datasetOverlayLoadingState[overlayKey] = true;
+      try {
+        const parsed = parseMapboxTilesetId(overlayConfig.tilesetId);
+        if (!parsed) {
+          console.warn('Overlay tilesetId is not in expected format "username.datasetId-..."', overlayKey);
+          return null;
+        }
+        const fc = await fetchMapboxDatasetFeatures(
+          parsed.username,
+          parsed.datasetId,
+          MAPBOX_CONFIG.accessToken
+        );
+        cachedDatasetOverlayFeatureCollections[overlayKey] = fc;
+        return fc;
+      } catch (error) {
+        console.warn(`Failed loading dataset overlay "${overlayKey}"`, error);
+        return null;
+      } finally {
+        datasetOverlayLoadingState[overlayKey] = false;
+      }
+    }
+
+    async function buildDatasetOverlayLayer(overlayKey) {
+      if (!zoneMap) return null;
+      const overlayConfig = MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey];
+      if (!overlayConfig) return null;
+
+      const featureCollection = await fetchDatasetOverlayFeatureCollection(overlayKey);
+      if (!featureCollection || !Array.isArray(featureCollection.features) || !featureCollection.features.length) {
+        console.warn(`Overlay "${overlayConfig.displayName}" has no features to render.`);
+        return null;
+      }
+
+      const paneName = `dataset-overlay-pane-${overlayKey}`;
+      if (!zoneMap.getPane(paneName)) {
+        zoneMap.createPane(paneName);
+      }
+      const overlayOrderIndex = Math.max(0, MAPBOX_DATASET_OVERLAY_ORDER.indexOf(overlayKey));
+      zoneMap.getPane(paneName).style.zIndex = String(430 + overlayOrderIndex);
+
+      const baseStyle = overlayConfig.style || {};
+      const hoverStyle = overlayConfig.hoverStyle || {};
+      const tooltipConfig = overlayConfig.tooltip || {};
+      const layer = L.geoJSON(featureCollection, {
+        pane: paneName,
+        style: () => baseStyle,
+        pointToLayer: (_feature, latlng) => L.circleMarker(latlng, {
+          radius: 4,
+          color: baseStyle.color || '#1F2937',
+          weight: 1,
+          opacity: baseStyle.opacity ?? 0.9,
+          fillColor: baseStyle.fillColor || baseStyle.color || '#1F2937',
+          fillOpacity: baseStyle.fillOpacity ?? 0.5
+        }),
+        onEachFeature: (feature, featureLayer) => {
+          const props = feature?.properties || {};
+          const title = getFirstOverlayProperty(props, overlayConfig.labelTitlePropertyKeys);
+          const description = getFirstOverlayProperty(props, overlayConfig.labelDescriptionPropertyKeys);
+          if (tooltipConfig.enabled && (title || description)) {
+            const labelHtml = `
+              <div style="min-width:120px;">
+                ${title ? `<div style="font-weight:700; margin-bottom:2px;">${escapeOverlayHtml(title)}</div>` : ''}
+                ${description ? `<div>${escapeOverlayHtml(description)}</div>` : ''}
+              </div>
+            `;
+            featureLayer.bindTooltip(labelHtml, tooltipConfig);
+          }
+          if (typeof featureLayer.setStyle === 'function') {
+            featureLayer.on('mouseover', () => {
+              featureLayer.setStyle({ ...baseStyle, ...hoverStyle });
+            });
+            featureLayer.on('mouseout', () => {
+              featureLayer.setStyle(baseStyle);
+            });
+          }
+        }
+      });
+      return layer;
     }
 
     function refreshDatasetOverlayOnZoom() {
       if (!zoneMap) return;
-      if (censusTractsVisible && censusTractsLayer && !zoneMap.hasLayer(censusTractsLayer)) {
-        censusTractsLayer.addTo(zoneMap);
-      }
-      if (lasFloresWaterDistrictVisible && lasFloresWaterDistrictLayer && !zoneMap.hasLayer(lasFloresWaterDistrictLayer)) {
-        lasFloresWaterDistrictLayer.addTo(zoneMap);
-      }
+      MAPBOX_DATASET_OVERLAY_ORDER.forEach((overlayKey) => {
+        const isVisible = !!datasetOverlayVisibility[overlayKey];
+        const layer = datasetOverlayLayers[overlayKey];
+        if (isVisible && layer && !zoneMap.hasLayer(layer)) {
+          layer.addTo(zoneMap);
+        }
+      });
     }
 
-    function setDatasetOverlayVisible(overlayKey, isVisible) {
+    async function setDatasetOverlayVisible(overlayKey, isVisible) {
       if (!zoneMap) return;
       const overlayConfig = MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey];
       if (!overlayConfig) return;
-      const buttonId = overlayKey === 'censusTracts' ? 'censusTractsLayerToggleBtn' : 'lasFloresWaterDistrictLayerToggleBtn';
-      const label = overlayConfig.displayName;
-      if (overlayKey === 'censusTracts') {
-        censusTractsVisible = !!isVisible;
-      } else {
-        lasFloresWaterDistrictVisible = !!isVisible;
-      }
+      datasetOverlayVisibility[overlayKey] = !!isVisible;
 
       if (!isVisible) {
-        if (overlayKey === 'censusTracts' && censusTractsLayer && zoneMap.hasLayer(censusTractsLayer)) {
-          zoneMap.removeLayer(censusTractsLayer);
+        const existingLayer = datasetOverlayLayers[overlayKey];
+        if (existingLayer && zoneMap.hasLayer(existingLayer)) {
+          zoneMap.removeLayer(existingLayer);
         }
-        if (overlayKey === 'lasFloresWaterDistrict' && lasFloresWaterDistrictLayer && zoneMap.hasLayer(lasFloresWaterDistrictLayer)) {
-          zoneMap.removeLayer(lasFloresWaterDistrictLayer);
-        }
-        updateDatasetOverlayToggleButton(buttonId, false, label);
+        updateDatasetOverlayToggleButton(overlayKey, false);
         return;
       }
 
       if (!MAPBOX_CONFIG.accessToken) {
-        updateDatasetOverlayToggleButton(buttonId, false, label);
+        datasetOverlayVisibility[overlayKey] = false;
+        updateDatasetOverlayToggleButton(overlayKey, false);
         return;
       }
 
-      let layer = overlayKey === 'censusTracts' ? censusTractsLayer : lasFloresWaterDistrictLayer;
+      let layer = datasetOverlayLayers[overlayKey];
       if (!layer) {
-        layer = buildDatasetOverlayLayer(overlayKey);
+        layer = await buildDatasetOverlayLayer(overlayKey);
         if (!layer) {
-          updateDatasetOverlayToggleButton(buttonId, false, label);
+          datasetOverlayVisibility[overlayKey] = false;
+          updateDatasetOverlayToggleButton(overlayKey, false);
           return;
         }
-        if (overlayKey === 'censusTracts') {
-          censusTractsLayer = layer;
-        } else {
-          lasFloresWaterDistrictLayer = layer;
-        }
+        datasetOverlayLayers[overlayKey] = layer;
       }
       if (!zoneMap.hasLayer(layer)) layer.addTo(zoneMap);
-      updateDatasetOverlayToggleButton(buttonId, true, label);
-    }
-
-    function setCensusTractsVisible(isVisible) {
-      setDatasetOverlayVisible('censusTracts', !!isVisible);
-    }
-
-    function setLasFloresWaterDistrictVisible(isVisible) {
-      setDatasetOverlayVisible('lasFloresWaterDistrict', !!isVisible);
+      updateDatasetOverlayToggleButton(overlayKey, true);
     }
 
     function updateSatelliteLayerToggleButton() {
@@ -7964,10 +8141,26 @@
           zonesBtn.innerHTML = MAPBOX_ADDITIONAL_LAYER_CONFIG.displayName;
           zonesBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
 
+          const overlayLabel = L.DomUtil.create('div', 'map-layer-group-label', panel);
+          overlayLabel.textContent = 'Overlays';
+
+          const datasetOverlayButtons = {};
+          MAPBOX_DATASET_OVERLAY_ORDER.forEach((overlayKey) => {
+            const overlayConfig = MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey];
+            if (!overlayConfig) return;
+            const overlayBtn = L.DomUtil.create('a', 'map-layer-item-btn', panel);
+            overlayBtn.id = getDatasetOverlayButtonId(overlayKey);
+            overlayBtn.href = '#';
+            overlayBtn.innerHTML = overlayConfig.displayName;
+            overlayBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
+            datasetOverlayButtons[overlayKey] = overlayBtn;
+          });
+
           L.DomEvent.disableClickPropagation(container);
           L.DomEvent.on(expandBtn, 'click', L.DomEvent.stop);
           L.DomEvent.on(expandBtn, 'click', () => {
             panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            updateSatelliteLayerToggleButton();
             updateMapLayersExpandButton();
           });
 
@@ -7986,17 +8179,27 @@
             await setAdditionalMapboxLayerVisible(!additionalMapboxLayerVisible);
           });
 
+          Object.entries(datasetOverlayButtons).forEach(([overlayKey, overlayBtn]) => {
+            L.DomEvent.on(overlayBtn, 'click', L.DomEvent.stop);
+            L.DomEvent.on(overlayBtn, 'click', async () => {
+              await setDatasetOverlayVisible(overlayKey, !datasetOverlayVisibility[overlayKey]);
+            });
+          });
+
           updateMapLayersExpandButton();
           updateSatelliteLayerToggleButton();
           updateAdditionalMapboxLayerToggleButton();
+          MAPBOX_DATASET_OVERLAY_ORDER.forEach((overlayKey) => {
+            updateDatasetOverlayToggleButton(overlayKey, !!datasetOverlayVisibility[overlayKey]);
+          });
           return container;
         }
       });
       additionalMapboxLayerControl = new AdditionalMapboxLayerToggleControl({ position: 'topleft' });
       additionalMapboxLayerControl.addTo(zoneMap);
-      // Force-disable these two overlays for now until reintroduced intentionally.
-      setCensusTractsVisible(false);
-      setLasFloresWaterDistrictVisible(false);
+      MAPBOX_DATASET_OVERLAY_ORDER.forEach((overlayKey) => {
+        setDatasetOverlayVisible(overlayKey, !!MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey]?.defaultVisible);
+      });
       if (MAPBOX_ADDITIONAL_LAYER_CONFIG.defaultVisible && isAdditionalMapboxLayerEnabled()) {
         setAdditionalMapboxLayerVisible(true);
       }
