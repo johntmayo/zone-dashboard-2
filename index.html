@@ -109,6 +109,15 @@
 
     <!-- Floating Right Panel (Addresses/Zone Notes/Contact Mode) -->
     <div class="floating-panel" id="floatingPanel">
+      <button
+        class="panel-collapse-toggle"
+        id="panelCollapseToggle"
+        type="button"
+        aria-label="Collapse details panel"
+        aria-expanded="true"
+        aria-controls="floatingPanel"
+        title="Collapse details panel"
+      >❯</button>
       <div class="address-panel">
         <div class="address-panel-tabs">
           <div class="details-header">Details</div>
@@ -722,6 +731,10 @@
     let additionalMapboxLayerVisible = false; // Current visibility state for optional overlay layer
     let cachedAdditionalMapboxFeatureCollection = null; // Cached feature collection for optional overlay
     let additionalMapboxZoomHandler = null; // Zoom listener for label visibility
+    let censusTractsLayer = null; // Optional raster overlay layer: Census Tracts
+    let censusTractsVisible = false; // Current visibility state for Census Tracts overlay
+    let lasFloresWaterDistrictLayer = null; // Optional raster overlay layer: Las Flores Water District
+    let lasFloresWaterDistrictVisible = false; // Current visibility state for water district overlay
     let currentTileLayer = null; // Current map tile layer
     let homeTileLayer = null; // Tile layer for homepage
     let isSatelliteMode = false; // Track satellite mode state
@@ -744,6 +757,42 @@
     let autoSaveTimer = null; // Timer for debounced auto-save
     let currentZoneName = ''; // Current zone name from spreadsheet
     let homeKmlLoading = false; // Prevent duplicate KML loads causing transparency issues
+    const panelCollapseToggle = document.getElementById('panelCollapseToggle');
+    const DETAILS_PANEL_COLLAPSED_KEY = 'detailsPanelCollapsed';
+
+    function updatePanelCollapseToggle(collapsed) {
+      if (!panelCollapseToggle) return;
+      const actionLabel = collapsed ? 'Expand details panel' : 'Collapse details panel';
+      panelCollapseToggle.textContent = collapsed ? '❮' : '❯';
+      panelCollapseToggle.setAttribute('aria-label', actionLabel);
+      panelCollapseToggle.setAttribute('title', actionLabel);
+      panelCollapseToggle.setAttribute('aria-expanded', String(!collapsed));
+    }
+
+    function setDetailsPanelCollapsed(collapsed, persist = true) {
+      document.body.classList.toggle('panel-collapsed', !!collapsed);
+      updatePanelCollapseToggle(!!collapsed);
+      if (persist) {
+        try {
+          localStorage.setItem(DETAILS_PANEL_COLLAPSED_KEY, collapsed ? '1' : '0');
+        } catch (error) {
+          console.warn('Could not persist details panel preference:', error);
+        }
+      }
+      if (zoneMap && currentView === 'map') {
+        setTimeout(() => {
+          if (zoneMap) zoneMap.invalidateSize();
+        }, 230);
+      }
+    }
+
+    if (panelCollapseToggle) {
+      panelCollapseToggle.addEventListener('click', () => {
+        const collapsed = document.body.classList.contains('panel-collapsed');
+        setDetailsPanelCollapsed(!collapsed);
+      });
+    }
+    setDetailsPanelCollapsed(localStorage.getItem(DETAILS_PANEL_COLLAPSED_KEY) === '1', false);
 
     // Mapbox Datasets API config (zone boundaries). Leave token empty to disable; KML fallback still works.
     const MAPBOX_CONFIG = {
@@ -786,6 +835,18 @@
     function isAdditionalMapboxLayerEnabled() {
       return !!(MAPBOX_CONFIG.accessToken && MAPBOX_ADDITIONAL_LAYER_CONFIG.tilesetId);
     }
+    const MAPBOX_RASTER_OVERLAY_CONFIG = {
+      censusTracts: {
+        displayName: 'Census Tracts',
+        tilesetId: 'altagether.92eswabm',
+        opacity: 0.65
+      },
+      lasFloresWaterDistrict: {
+        displayName: 'Las Flores Water District',
+        tilesetId: 'altagether.2z7rcgeq',
+        opacity: 0.68
+      }
+    };
 
     async function initializeMapboxAccessToken() {
       if (MAPBOX_CONFIG.accessToken && MAPBOX_CONFIG.accessToken.trim()) return;
@@ -804,6 +865,12 @@
         }
         if (additionalMapboxLayerVisible) {
           setAdditionalMapboxLayerVisible(true);
+        }
+        if (censusTractsVisible) {
+          setCensusTractsVisible(true);
+        }
+        if (lasFloresWaterDistrictVisible) {
+          setLasFloresWaterDistrictVisible(true);
         }
       } catch (error) {
         console.warn('Mapbox token endpoint unavailable; Mapbox layers remain disabled.', error);
@@ -7691,6 +7758,96 @@
         : `Show ${MAPBOX_ADDITIONAL_LAYER_CONFIG.displayName}`;
     }
 
+    function updateRasterOverlayToggleButton(buttonId, isOn, label) {
+      const button = document.getElementById(buttonId);
+      if (!button) return;
+      button.style.background = isOn ? '#214025' : '#ffffff';
+      button.style.color = isOn ? '#ffffff' : '#2d3436';
+      button.style.fontWeight = isOn ? '700' : '500';
+      button.title = isOn ? `Hide ${label}` : `Show ${label}`;
+    }
+
+    function buildMapboxRasterTileLayer(tilesetId, opacity = 0.65) {
+      if (!zoneMap || !MAPBOX_CONFIG.accessToken || !tilesetId) return null;
+      return L.tileLayer(
+        `https://api.mapbox.com/v4/${encodeURIComponent(tilesetId)}/{z}/{x}/{y}@2x.png?access_token=${encodeURIComponent(MAPBOX_CONFIG.accessToken)}`,
+        {
+          attribution: '© Mapbox',
+          opacity,
+          maxZoom: 22
+        }
+      );
+    }
+
+    function setRasterOverlayVisible(options) {
+      const {
+        visible,
+        layerRefName,
+        visibilityRefName,
+        tilesetId,
+        opacity,
+        buttonId,
+        label
+      } = options;
+      if (!zoneMap) return;
+
+      if (visibilityRefName === 'censusTractsVisible') {
+        censusTractsVisible = !!visible;
+      } else if (visibilityRefName === 'lasFloresWaterDistrictVisible') {
+        lasFloresWaterDistrictVisible = !!visible;
+      }
+
+      if (!visible) {
+        if (layerRefName === 'censusTractsLayer' && censusTractsLayer && zoneMap.hasLayer(censusTractsLayer)) {
+          zoneMap.removeLayer(censusTractsLayer);
+        }
+        if (layerRefName === 'lasFloresWaterDistrictLayer' && lasFloresWaterDistrictLayer && zoneMap.hasLayer(lasFloresWaterDistrictLayer)) {
+          zoneMap.removeLayer(lasFloresWaterDistrictLayer);
+        }
+        updateRasterOverlayToggleButton(buttonId, false, label);
+        return;
+      }
+
+      if (!MAPBOX_CONFIG.accessToken) {
+        updateRasterOverlayToggleButton(buttonId, false, label);
+        return;
+      }
+
+      if (layerRefName === 'censusTractsLayer' && !censusTractsLayer) {
+        censusTractsLayer = buildMapboxRasterTileLayer(tilesetId, opacity);
+      }
+      if (layerRefName === 'lasFloresWaterDistrictLayer' && !lasFloresWaterDistrictLayer) {
+        lasFloresWaterDistrictLayer = buildMapboxRasterTileLayer(tilesetId, opacity);
+      }
+      const layer = layerRefName === 'censusTractsLayer' ? censusTractsLayer : lasFloresWaterDistrictLayer;
+      if (layer && !zoneMap.hasLayer(layer)) layer.addTo(zoneMap);
+      updateRasterOverlayToggleButton(buttonId, true, label);
+    }
+
+    function setCensusTractsVisible(isVisible) {
+      setRasterOverlayVisible({
+        visible: !!isVisible,
+        layerRefName: 'censusTractsLayer',
+        visibilityRefName: 'censusTractsVisible',
+        tilesetId: MAPBOX_RASTER_OVERLAY_CONFIG.censusTracts.tilesetId,
+        opacity: MAPBOX_RASTER_OVERLAY_CONFIG.censusTracts.opacity,
+        buttonId: 'censusTractsLayerToggleBtn',
+        label: MAPBOX_RASTER_OVERLAY_CONFIG.censusTracts.displayName
+      });
+    }
+
+    function setLasFloresWaterDistrictVisible(isVisible) {
+      setRasterOverlayVisible({
+        visible: !!isVisible,
+        layerRefName: 'lasFloresWaterDistrictLayer',
+        visibilityRefName: 'lasFloresWaterDistrictVisible',
+        tilesetId: MAPBOX_RASTER_OVERLAY_CONFIG.lasFloresWaterDistrict.tilesetId,
+        opacity: MAPBOX_RASTER_OVERLAY_CONFIG.lasFloresWaterDistrict.opacity,
+        buttonId: 'lasFloresWaterDistrictLayerToggleBtn',
+        label: MAPBOX_RASTER_OVERLAY_CONFIG.lasFloresWaterDistrict.displayName
+      });
+    }
+
     function updateSatelliteLayerToggleButton() {
       const button = document.getElementById('satelliteLayerToggleBtn');
       if (!button) return;
@@ -7791,13 +7948,25 @@
           const satelliteBtn = L.DomUtil.create('a', 'map-layer-item-btn satellite-layer-toggle-btn', panel);
           satelliteBtn.id = 'satelliteLayerToggleBtn';
           satelliteBtn.href = '#';
-          satelliteBtn.style.cssText = 'min-width: 66px; height: 30px; line-height: 30px; text-align: center; text-decoration: none; display: block; padding: 0 8px; font-size: 12px;';
+          satelliteBtn.style.cssText = 'min-width: 140px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px;';
 
           const zonesBtn = L.DomUtil.create('a', 'map-layer-item-btn additional-mapbox-layer-toggle-btn', panel);
           zonesBtn.id = 'additionalMapboxLayerToggleBtn';
           zonesBtn.href = '#';
           zonesBtn.innerHTML = MAPBOX_ADDITIONAL_LAYER_CONFIG.displayName;
-          zonesBtn.style.cssText = 'min-width: 66px; height: 30px; line-height: 30px; text-align: center; text-decoration: none; display: block; padding: 0 8px; font-size: 12px;';
+          zonesBtn.style.cssText = 'min-width: 140px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px;';
+
+          const censusBtn = L.DomUtil.create('a', 'map-layer-item-btn census-tracts-toggle-btn', panel);
+          censusBtn.id = 'censusTractsLayerToggleBtn';
+          censusBtn.href = '#';
+          censusBtn.innerHTML = MAPBOX_RASTER_OVERLAY_CONFIG.censusTracts.displayName;
+          censusBtn.style.cssText = 'min-width: 140px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px;';
+
+          const waterBtn = L.DomUtil.create('a', 'map-layer-item-btn water-district-toggle-btn', panel);
+          waterBtn.id = 'lasFloresWaterDistrictLayerToggleBtn';
+          waterBtn.href = '#';
+          waterBtn.innerHTML = MAPBOX_RASTER_OVERLAY_CONFIG.lasFloresWaterDistrict.displayName;
+          waterBtn.style.cssText = 'min-width: 140px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px;';
 
           L.DomEvent.disableClickPropagation(container);
           L.DomEvent.on(expandBtn, 'click', L.DomEvent.stop);
@@ -7816,9 +7985,29 @@
             await setAdditionalMapboxLayerVisible(!additionalMapboxLayerVisible);
           });
 
+          L.DomEvent.on(censusBtn, 'click', L.DomEvent.stop);
+          L.DomEvent.on(censusBtn, 'click', () => {
+            setCensusTractsVisible(!censusTractsVisible);
+          });
+
+          L.DomEvent.on(waterBtn, 'click', L.DomEvent.stop);
+          L.DomEvent.on(waterBtn, 'click', () => {
+            setLasFloresWaterDistrictVisible(!lasFloresWaterDistrictVisible);
+          });
+
           updateMapLayersExpandButton();
           updateSatelliteLayerToggleButton();
           updateAdditionalMapboxLayerToggleButton();
+          updateRasterOverlayToggleButton(
+            'censusTractsLayerToggleBtn',
+            censusTractsVisible,
+            MAPBOX_RASTER_OVERLAY_CONFIG.censusTracts.displayName
+          );
+          updateRasterOverlayToggleButton(
+            'lasFloresWaterDistrictLayerToggleBtn',
+            lasFloresWaterDistrictVisible,
+            MAPBOX_RASTER_OVERLAY_CONFIG.lasFloresWaterDistrict.displayName
+          );
           return container;
         }
       });

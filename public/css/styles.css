@@ -30,6 +30,15 @@
       --highlight: var(--accent-gold);
       --text: var(--text-primary);
       --text-light: var(--text-secondary);
+
+      /* Floating details panel layout */
+      --panel-expanded-width: 420px;
+      --panel-collapsed-peek: 44px;
+      --panel-current-width: var(--panel-expanded-width);
+    }
+
+    body.panel-collapsed {
+      --panel-current-width: var(--panel-collapsed-peek);
     }
 
     * { box-sizing: border-box; }
@@ -659,7 +668,7 @@
       position: absolute;
       top: 0; /* Will be adjusted dynamically by JavaScript */
       left: 240px;
-      right: 420px; /* Leave space for floating panel */
+      right: var(--panel-current-width); /* Leave space for floating panel */
       bottom: 0;
       z-index: 1;
       display: none; /* Hidden by default, shown only in map view */
@@ -701,7 +710,7 @@
       position: fixed;
       top: 0;
       left: 240px;
-      right: 420px;
+      right: var(--panel-current-width);
       background: var(--bg-paper);
       border-bottom: 2px solid var(--primary);
       z-index: 175;
@@ -791,7 +800,7 @@
       position: fixed;
       top: 0;
       right: 0;
-      width: 420px;
+      width: var(--panel-expanded-width);
       bottom: 0;
       background: var(--bg-card);
       box-shadow: -6px 0 0 var(--text-primary);
@@ -800,6 +809,40 @@
       flex-direction: column;
       overflow: hidden;
       border-left: var(--border-thickness) solid var(--text-primary);
+      transition: transform 0.22s ease;
+    }
+
+    body.panel-collapsed .floating-panel {
+      transform: translateX(calc(var(--panel-expanded-width) - var(--panel-collapsed-peek)));
+    }
+
+    .panel-collapse-toggle {
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translate(-100%, -50%);
+      width: 36px;
+      height: 76px;
+      border: 2px solid var(--text-primary);
+      border-right: 0;
+      background: var(--bg-card);
+      color: var(--primary-dark);
+      font-size: 1.1rem;
+      font-weight: 800;
+      cursor: pointer;
+      z-index: 205;
+      box-shadow: -3px 3px 0 var(--text-primary);
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .panel-collapse-toggle:hover {
+      background: var(--accent-gold);
+      color: var(--text-primary);
+    }
+
+    .panel-collapse-toggle:focus-visible {
+      outline: 3px solid var(--accent-gold);
+      outline-offset: 2px;
     }
 
     /* Content Views */
@@ -1371,7 +1414,7 @@
     /* Addresses & People view - leave space for floating panel */
     /* Single scroll owner: view is flex column, table area scrolls (no nested scroll) */
     .content-view#peopleView {
-      right: 420px; /* Leave space for the floating panel */
+      right: var(--panel-current-width); /* Leave space for the floating panel */
       top: 0; /* Will be adjusted dynamically by JavaScript */
       display: flex;
       flex-direction: column;
