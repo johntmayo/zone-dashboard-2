@@ -734,6 +734,9 @@
     let additionalMapboxZoomHandler = null; // Zoom listener for label visibility
     const datasetOverlayLayers = {}; // Rendered Leaflet layer instances by overlay key
     const datasetOverlayVisibility = {}; // Visibility state by overlay key
+    const datasetOverlayLabelLayers = {}; // Label/card layers by overlay key
+    const cachedOverlayTilesetMetadata = {}; // Mapbox TileJSON metadata cache by tileset id
+    let datasetOverlayLabelRefreshHandler = null; // Shared zoom/move handler for overlay labels
     let currentTileLayer = null; // Current map tile layer
     let homeTileLayer = null; // Tile layer for homepage
     let isSatelliteMode = false; // Track satellite mode state
@@ -860,14 +863,14 @@
           weight: 4,
           fillOpacity: 0.35
         },
-        tooltip: {
+        label: {
           enabled: true,
-          permanent: true,
-          direction: 'center',
-          className: 'census-overlay-tooltip'
+          minZoom: 16,
+          type: 'censusCard'
         },
         labelTitlePropertyKeys: ['name', 'Name', 'NAME', 'tract_name', 'TRACT_NAME'],
-        labelDescriptionPropertyKeys: ['description', 'Description', 'DESCRIPTION']
+        labelDescriptionPropertyKeys: ['description', 'Description', 'DESCRIPTION'],
+        townCouncilPropertyKeys: ['Town Council members', 'TownCouncilMembers', 'town_council_members', 'CouncilMembers']
       },
       eatonFirePerimeter: {
         displayName: 'Eaton Fire Perimeter',
@@ -889,8 +892,8 @@
       },
       lincolnAveWaterCo: {
         displayName: 'Lincoln Ave Water Co',
-        tilesetId: 'altagether.7i3nd5cw',
-        sourceLayer: 'Lincoln_Avenue_Water_Company_-5mpvev',
+        tilesetId: 'altagether.1boflh8l',
+        sourceLayer: 'Lincoln_Avenue_Water_Company_-5psyio',
         layerType: 'fill',
         defaultVisible: false,
         style: {
@@ -903,6 +906,12 @@
         hoverStyle: {
           weight: 3,
           fillOpacity: 0.28
+        },
+        label: {
+          enabled: true,
+          minZoom: 16,
+          type: 'waterCompanyBadge',
+          text: 'Lincoln Ave Water Co'
         }
       },
       lasFloresWaterCo: {
@@ -921,6 +930,12 @@
         hoverStyle: {
           weight: 3,
           fillOpacity: 0.28
+        },
+        label: {
+          enabled: true,
+          minZoom: 16,
+          type: 'waterCompanyBadge',
+          text: 'Las Flores Water Co'
         }
       },
       rubioCanonWaterAssn: {
@@ -939,6 +954,12 @@
         hoverStyle: {
           weight: 3,
           fillOpacity: 0.28
+        },
+        label: {
+          enabled: true,
+          minZoom: 16,
+          type: 'waterCompanyBadge',
+          text: 'Rubio Canon Water Assn'
         }
       }
     };
@@ -7172,6 +7193,11 @@
           
           // Add expandable Layers control (Satellite + Zones toggle)
           ensureAdditionalMapboxLayerControl();
+          if (!datasetOverlayLabelRefreshHandler) {
+            datasetOverlayLabelRefreshHandler = () => refreshDatasetOverlayOnZoom();
+            zoneMap.on('zoomend', datasetOverlayLabelRefreshHandler);
+            zoneMap.on('moveend', datasetOverlayLabelRefreshHandler);
+          }
           
           // Don't create color filter control here - it will be created via ensureColorFilterControl()
           // after the map container is visible and ready
@@ -7885,6 +7911,136 @@
       return '';
     }
 
+    function normalizeCensusLabel(rawValue) {
+      const clean = String(rawValue || '').trim();
+      if (!clean) return '';
+      return clean.replace(/(\.\d+)+$/, '');
+    }
+
+    async function fetchOverlayTilesetMetadata(tilesetId) {
+      if (!tilesetId || !MAPBOX_CONFIG.accessToken) return null;
+      if (cachedOverlayTilesetMetadata[tilesetId]) return cachedOverlayTilesetMetadata[tilesetId];
+      try {
+        const url = `https://api.mapbox.com/v4/${encodeURIComponent(tilesetId)}.json?secure&access_token=${encodeURIComponent(MAPBOX_CONFIG.accessToken)}`;
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const payload = await res.json();
+        cachedOverlayTilesetMetadata[tilesetId] = payload;
+        return payload;
+      } catch (_error) {
+        return null;
+      }
+    }
+
+    async function fetchOverlayTilequeryFeature(overlayConfig, centerLng, centerLat) {
+      if (!overlayConfig?.tilesetId || !overlayConfig?.sourceLayer || !MAPBOX_CONFIG.accessToken) return null;
+      try {
+        const params = new URLSearchParams({
+          layers: overlayConfig.sourceLayer,
+          radius: '0',
+          limit: '1',
+          dedupe: 'true',
+          access_token: MAPBOX_CONFIG.accessToken
+        });
+        const url = `https://api.mapbox.com/v4/${encodeURIComponent(overlayConfig.tilesetId)}/tilequery/${centerLng},${centerLat}.json?${params.toString()}`;
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const payload = await res.json();
+        if (!Array.isArray(payload?.features) || !payload.features.length) return null;
+        return payload.features[0] || null;
+      } catch (_error) {
+        return null;
+      }
+    }
+
+    function getOverlayLabelMinZoom(overlayKey) {
+      const overlayConfig = MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey];
+      const minZoom = overlayConfig?.label?.minZoom;
+      return Number.isFinite(minZoom) ? minZoom : 0;
+    }
+
+    function shouldShowOverlayLabel(overlayKey) {
+      if (!zoneMap) return false;
+      if (!datasetOverlayVisibility[overlayKey]) return false;
+      return zoneMap.getZoom() >= getOverlayLabelMinZoom(overlayKey);
+    }
+
+    async function buildDatasetOverlayLabelLayer(overlayKey) {
+      if (!zoneMap) return null;
+      const overlayConfig = MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey];
+      if (!overlayConfig?.label?.enabled) return null;
+      const metadata = await fetchOverlayTilesetMetadata(overlayConfig.tilesetId);
+      const center = metadata?.center;
+      if (!Array.isArray(center) || center.length < 2) return null;
+      const centerLng = Number(center[0]);
+      const centerLat = Number(center[1]);
+      if (!Number.isFinite(centerLng) || !Number.isFinite(centerLat)) return null;
+      const markerLatLng = [centerLat, centerLng];
+
+      if (overlayConfig.label.type === 'censusCard') {
+        const tileFeature = await fetchOverlayTilequeryFeature(overlayConfig, centerLng, centerLat);
+        const props = tileFeature?.properties || {};
+        const tractNameRaw = getFirstOverlayProperty(props, overlayConfig.labelTitlePropertyKeys);
+        const tractName = normalizeCensusLabel(tractNameRaw) || 'Census Tract';
+        const councilMembers = getFirstOverlayProperty(props, overlayConfig.townCouncilPropertyKeys)
+          || getFirstOverlayProperty(props, overlayConfig.labelDescriptionPropertyKeys)
+          || 'TBD';
+        const labelHtml = `
+          <div class="overlay-floating-card census">
+            <div class="overlay-floating-card-title">${escapeOverlayHtml(tractName)}</div>
+            <div class="overlay-floating-card-subtitle">Town Council members: ${escapeOverlayHtml(councilMembers)}</div>
+          </div>
+        `;
+        return L.layerGroup([
+          L.marker(markerLatLng, {
+            icon: L.divIcon({
+              className: 'overlay-floating-card-wrapper',
+              html: labelHtml,
+              iconSize: null
+            }),
+            interactive: false,
+            keyboard: false
+          })
+        ]);
+      }
+
+      if (overlayConfig.label.type === 'waterCompanyBadge') {
+        const text = overlayConfig.label.text || overlayConfig.displayName || 'Water Company';
+        const labelHtml = `<div class="overlay-water-badge">${escapeOverlayHtml(text)}</div>`;
+        return L.layerGroup([
+          L.marker(markerLatLng, {
+            icon: L.divIcon({
+              className: 'overlay-water-badge-wrapper',
+              html: labelHtml,
+              iconSize: null
+            }),
+            interactive: false,
+            keyboard: false
+          })
+        ]);
+      }
+
+      return null;
+    }
+
+    async function ensureDatasetOverlayLabelLayer(overlayKey) {
+      if (datasetOverlayLabelLayers[overlayKey]) return datasetOverlayLabelLayers[overlayKey];
+      const layer = await buildDatasetOverlayLabelLayer(overlayKey);
+      if (layer) datasetOverlayLabelLayers[overlayKey] = layer;
+      return layer || null;
+    }
+
+    function syncDatasetOverlayLabelVisibility(overlayKey) {
+      if (!zoneMap) return;
+      const labelLayer = datasetOverlayLabelLayers[overlayKey];
+      if (!labelLayer) return;
+      if (shouldShowOverlayLabel(overlayKey)) {
+        if (!zoneMap.hasLayer(labelLayer)) labelLayer.addTo(zoneMap);
+      } else if (zoneMap.hasLayer(labelLayer)) {
+        zoneMap.removeLayer(labelLayer);
+      }
+    }
+
     async function buildDatasetOverlayLayer(overlayKey) {
       if (!zoneMap) return null;
       const overlayConfig = MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey];
@@ -7923,33 +8079,13 @@
       const vectorTileUrl = `https://api.mapbox.com/v4/${encodeURIComponent(overlayConfig.tilesetId)}/{z}/{x}/{y}.vector.pbf?access_token=${encodeURIComponent(MAPBOX_CONFIG.accessToken)}`;
       const layer = L.vectorGrid.protobuf(vectorTileUrl, {
         pane: paneName,
-        interactive: true,
+        interactive: overlayKey === 'censusTracts',
         maxNativeZoom: 22,
         attribution: '© Mapbox',
         vectorTileLayerStyles: {
           [overlayConfig.sourceLayer]: () => vectorStyle
         }
       });
-
-      if (overlayKey === 'censusTracts') {
-        layer.on('click', (event) => {
-          const props = event?.layer?.properties || {};
-          const title = getFirstOverlayProperty(props, overlayConfig.labelTitlePropertyKeys);
-          const description = getFirstOverlayProperty(props, overlayConfig.labelDescriptionPropertyKeys);
-          if (!title && !description) return;
-          const labelHtml = `
-            <div style="min-width:120px;">
-              ${title ? `<div style="font-weight:700; margin-bottom:2px;">${escapeOverlayHtml(title)}</div>` : ''}
-              ${description ? `<div>${escapeOverlayHtml(description)}</div>` : ''}
-            </div>
-          `;
-          L.popup({ className: 'census-overlay-tooltip', autoPan: true, closeButton: true })
-            .setLatLng(event.latlng)
-            .setContent(labelHtml)
-            .openOn(zoneMap);
-        });
-      }
-
       return layer;
     }
 
@@ -7961,6 +8097,7 @@
         if (isVisible && layer && !zoneMap.hasLayer(layer)) {
           layer.addTo(zoneMap);
         }
+        syncDatasetOverlayLabelVisibility(overlayKey);
       });
     }
 
@@ -7974,6 +8111,10 @@
         const existingLayer = datasetOverlayLayers[overlayKey];
         if (existingLayer && zoneMap.hasLayer(existingLayer)) {
           zoneMap.removeLayer(existingLayer);
+        }
+        const labelLayer = datasetOverlayLabelLayers[overlayKey];
+        if (labelLayer && zoneMap.hasLayer(labelLayer)) {
+          zoneMap.removeLayer(labelLayer);
         }
         updateDatasetOverlayToggleButton(overlayKey, false);
         return;
@@ -7996,6 +8137,8 @@
         datasetOverlayLayers[overlayKey] = layer;
       }
       if (!zoneMap.hasLayer(layer)) layer.addTo(zoneMap);
+      await ensureDatasetOverlayLabelLayer(overlayKey);
+      syncDatasetOverlayLabelVisibility(overlayKey);
       updateDatasetOverlayToggleButton(overlayKey, true);
     }
 

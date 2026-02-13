@@ -4018,6 +4018,58 @@
       margin: 0;
     }
 
+    .overlay-floating-card-wrapper,
+    .overlay-water-badge-wrapper {
+      background: transparent;
+      border: 0;
+    }
+
+    .overlay-floating-card {
+      min-width: 260px;
+      max-width: 360px;
+      background: rgba(253, 251, 247, 0.97);
+      border: 1px solid rgba(49, 64, 89, 0.28);
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+      padding: 14px 16px;
+      color: var(--text-primary);
+      font-family: 'Chivo', sans-serif;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      white-space: normal;
+    }
+
+    .overlay-floating-card-title {
+      font-size: 20px;
+      font-weight: 900;
+      line-height: 1.1;
+      margin-bottom: 8px;
+      letter-spacing: 0.2px;
+    }
+
+    .overlay-floating-card-subtitle {
+      font-size: 16px;
+      font-weight: 500;
+      line-height: 1.25;
+    }
+
+    .overlay-water-badge {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(30, 64, 175, 0.38);
+      background: rgba(219, 234, 254, 0.95);
+      color: #1e3a8a;
+      font-family: 'Chivo', sans-serif;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      box-shadow: 0 2px 8px rgba(30, 58, 138, 0.16);
+      transform: translate(-50%, -50%);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
     /* Dropdown for Damage and Address Plan */
     .editable-dropdown {
       display: inline-block;
