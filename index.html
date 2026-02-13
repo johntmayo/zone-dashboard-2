@@ -12,6 +12,7 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.vectorgrid@1.3.0/dist/Leaflet.VectorGrid.bundled.js"></script>
   <script src="https://unpkg.com/@mapbox/togeojson@0.16.0/togeojson.js"></script>
   <script src="https://unpkg.com/leaflet-kml@1.0.0/dist/leaflet-kml.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -733,8 +734,6 @@
     let additionalMapboxZoomHandler = null; // Zoom listener for label visibility
     const datasetOverlayLayers = {}; // Rendered Leaflet layer instances by overlay key
     const datasetOverlayVisibility = {}; // Visibility state by overlay key
-    const cachedDatasetOverlayFeatureCollections = {}; // Cache by overlay key
-    const datasetOverlayLoadingState = {}; // Loading guard by overlay key
     let currentTileLayer = null; // Current map tile layer
     let homeTileLayer = null; // Tile layer for homepage
     let isSatelliteMode = false; // Track satellite mode state
@@ -7886,45 +7885,14 @@
       return '';
     }
 
-    async function fetchDatasetOverlayFeatureCollection(overlayKey) {
-      const overlayConfig = MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey];
-      if (!overlayConfig || !overlayConfig.tilesetId || !MAPBOX_CONFIG.accessToken) return null;
-      if (cachedDatasetOverlayFeatureCollections[overlayKey]) {
-        return cachedDatasetOverlayFeatureCollections[overlayKey];
-      }
-      if (datasetOverlayLoadingState[overlayKey]) {
-        return null;
-      }
-      datasetOverlayLoadingState[overlayKey] = true;
-      try {
-        const parsed = parseMapboxTilesetId(overlayConfig.tilesetId);
-        if (!parsed) {
-          console.warn('Overlay tilesetId is not in expected format "username.datasetId-..."', overlayKey);
-          return null;
-        }
-        const fc = await fetchMapboxDatasetFeatures(
-          parsed.username,
-          parsed.datasetId,
-          MAPBOX_CONFIG.accessToken
-        );
-        cachedDatasetOverlayFeatureCollections[overlayKey] = fc;
-        return fc;
-      } catch (error) {
-        console.warn(`Failed loading dataset overlay "${overlayKey}"`, error);
-        return null;
-      } finally {
-        datasetOverlayLoadingState[overlayKey] = false;
-      }
-    }
-
     async function buildDatasetOverlayLayer(overlayKey) {
       if (!zoneMap) return null;
       const overlayConfig = MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey];
       if (!overlayConfig) return null;
-
-      const featureCollection = await fetchDatasetOverlayFeatureCollection(overlayKey);
-      if (!featureCollection || !Array.isArray(featureCollection.features) || !featureCollection.features.length) {
-        console.warn(`Overlay "${overlayConfig.displayName}" has no features to render.`);
+      if (!MAPBOX_CONFIG.accessToken) return null;
+      if (!overlayConfig.tilesetId || !overlayConfig.sourceLayer) return null;
+      if (!L?.vectorGrid?.protobuf) {
+        console.warn('Leaflet.VectorGrid is unavailable; dataset overlays cannot render.');
         return null;
       }
 
@@ -7936,42 +7904,52 @@
       zoneMap.getPane(paneName).style.zIndex = String(430 + overlayOrderIndex);
 
       const baseStyle = overlayConfig.style || {};
-      const hoverStyle = overlayConfig.hoverStyle || {};
-      const tooltipConfig = overlayConfig.tooltip || {};
-      const layer = L.geoJSON(featureCollection, {
+      const vectorStyle = overlayConfig.layerType === 'line'
+        ? {
+            color: baseStyle.color || '#1F2937',
+            weight: baseStyle.weight ?? 2,
+            opacity: baseStyle.opacity ?? 0.9,
+            fill: false
+          }
+        : {
+            color: baseStyle.color || '#1F2937',
+            weight: baseStyle.weight ?? 2,
+            opacity: baseStyle.opacity ?? 0.9,
+            fillColor: baseStyle.fillColor || baseStyle.color || '#1F2937',
+            fillOpacity: baseStyle.fillOpacity ?? 0.24,
+            fill: true
+          };
+
+      const vectorTileUrl = `https://api.mapbox.com/v4/${encodeURIComponent(overlayConfig.tilesetId)}/{z}/{x}/{y}.vector.pbf?access_token=${encodeURIComponent(MAPBOX_CONFIG.accessToken)}`;
+      const layer = L.vectorGrid.protobuf(vectorTileUrl, {
         pane: paneName,
-        style: () => baseStyle,
-        pointToLayer: (_feature, latlng) => L.circleMarker(latlng, {
-          radius: 4,
-          color: baseStyle.color || '#1F2937',
-          weight: 1,
-          opacity: baseStyle.opacity ?? 0.9,
-          fillColor: baseStyle.fillColor || baseStyle.color || '#1F2937',
-          fillOpacity: baseStyle.fillOpacity ?? 0.5
-        }),
-        onEachFeature: (feature, featureLayer) => {
-          const props = feature?.properties || {};
-          const title = getFirstOverlayProperty(props, overlayConfig.labelTitlePropertyKeys);
-          const description = getFirstOverlayProperty(props, overlayConfig.labelDescriptionPropertyKeys);
-          if (tooltipConfig.enabled && (title || description)) {
-            const labelHtml = `
-              <div style="min-width:120px;">
-                ${title ? `<div style="font-weight:700; margin-bottom:2px;">${escapeOverlayHtml(title)}</div>` : ''}
-                ${description ? `<div>${escapeOverlayHtml(description)}</div>` : ''}
-              </div>
-            `;
-            featureLayer.bindTooltip(labelHtml, tooltipConfig);
-          }
-          if (typeof featureLayer.setStyle === 'function') {
-            featureLayer.on('mouseover', () => {
-              featureLayer.setStyle({ ...baseStyle, ...hoverStyle });
-            });
-            featureLayer.on('mouseout', () => {
-              featureLayer.setStyle(baseStyle);
-            });
-          }
+        interactive: true,
+        maxNativeZoom: 22,
+        attribution: '© Mapbox',
+        vectorTileLayerStyles: {
+          [overlayConfig.sourceLayer]: () => vectorStyle
         }
       });
+
+      if (overlayKey === 'censusTracts') {
+        layer.on('click', (event) => {
+          const props = event?.layer?.properties || {};
+          const title = getFirstOverlayProperty(props, overlayConfig.labelTitlePropertyKeys);
+          const description = getFirstOverlayProperty(props, overlayConfig.labelDescriptionPropertyKeys);
+          if (!title && !description) return;
+          const labelHtml = `
+            <div style="min-width:120px;">
+              ${title ? `<div style="font-weight:700; margin-bottom:2px;">${escapeOverlayHtml(title)}</div>` : ''}
+              ${description ? `<div>${escapeOverlayHtml(description)}</div>` : ''}
+            </div>
+          `;
+          L.popup({ className: 'census-overlay-tooltip', autoPan: true, closeButton: true })
+            .setLatLng(event.latlng)
+            .setContent(labelHtml)
+            .openOn(zoneMap);
+        });
+      }
+
       return layer;
     }
 
