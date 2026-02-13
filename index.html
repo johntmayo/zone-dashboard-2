@@ -779,9 +779,17 @@
           console.warn('Could not persist details panel preference:', error);
         }
       }
-      if (zoneMap && currentView === 'map') {
+      // Panel width changes can reflow the filter bar; resync map/content top offsets
+      // immediately and once more after the panel transition completes.
+      if (currentView === 'map' || currentView === 'people') {
+        requestAnimationFrame(() => {
+          adjustContentViewsForFilterBar();
+        });
         setTimeout(() => {
-          if (zoneMap) zoneMap.invalidateSize();
+          adjustContentViewsForFilterBar();
+          if (zoneMap && currentView === 'map') {
+            zoneMap.invalidateSize();
+          }
         }, 230);
       }
     }
@@ -3416,18 +3424,14 @@
         // Force a layout recalculation by accessing offsetHeight
         const forceLayout = filterBar.offsetHeight;
         
-        // Get the filter bar's bounding rectangle for accurate position
+        // Get the filter bar's rendered position and use its bottom edge.
         const filterBarRect = filterBar.getBoundingClientRect();
-        const filterBarTop = filterBarRect.top;
-        const filterBarHeight = filterBarRect.height;
-        // Add a small buffer (2px) to ensure no overlap
-        const filterBarOffset = filterBarTop + filterBarHeight + 2;
         
         // Apply offset to content views
         // Both filter bar and app-container start at top of viewport
         // Filter bar is fixed, content views are absolute within app-container
-        // Since they start at the same point, we just need filter bar height
-        const offset = filterBarRect.height + 2; // +2px buffer to prevent any overlap
+        // Since shell starts at top=0, bottom gives the exact required inset.
+        const offset = Math.ceil(filterBarRect.bottom) + 1;
         
         document.querySelectorAll('.content-view').forEach(view => {
           if (view.id === 'peopleView' || view.id === 'mapView') {
