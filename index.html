@@ -841,24 +841,14 @@
       censusTracts: {
         displayName: 'Census Tracts',
         tilesetId: 'altagether.92eswabm',
-        style: {
-          color: '#486D9A',
-          weight: 1.5,
-          opacity: 0.9,
-          fillColor: '#6F9FCC',
-          fillOpacity: 0.03
-        }
+        opacity: 0.24,
+        maxNativeZoom: 14
       },
       lasFloresWaterDistrict: {
         displayName: 'Las Flores Water District',
         tilesetId: 'altagether.2z7rcgeq',
-        style: {
-          color: '#2E6A8E',
-          weight: 2.5,
-          opacity: 0.95,
-          fillColor: '#7AB8DF',
-          fillOpacity: 0.04
-        }
+        opacity: 0.28,
+        maxNativeZoom: 14
       }
     };
 
@@ -7781,38 +7771,32 @@
       button.title = isOn ? `Hide ${label}` : `Show ${label}`;
     }
 
-    async function buildDatasetOverlayLayer(overlayKey) {
+    function buildDatasetOverlayLayer(overlayKey) {
       if (!zoneMap || !MAPBOX_CONFIG.accessToken) return null;
       const overlayConfig = MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey];
       if (!overlayConfig || !overlayConfig.tilesetId) return null;
-      if (datasetOverlayLoadingState[overlayKey]) {
-        return overlayKey === 'censusTracts' ? censusTractsLayer : lasFloresWaterDistrictLayer;
+      return L.tileLayer(
+        `https://api.mapbox.com/v4/${encodeURIComponent(overlayConfig.tilesetId)}/{z}/{x}/{y}@2x.pngraw?access_token=${encodeURIComponent(MAPBOX_CONFIG.accessToken)}`,
+        {
+          attribution: '© Mapbox',
+          opacity: overlayConfig.opacity ?? 0.25,
+          maxZoom: 22,
+          maxNativeZoom: overlayConfig.maxNativeZoom ?? 14
+        }
+      );
+    }
+
+    function refreshDatasetOverlayOnZoom() {
+      if (!zoneMap) return;
+      if (censusTractsVisible && censusTractsLayer && !zoneMap.hasLayer(censusTractsLayer)) {
+        censusTractsLayer.addTo(zoneMap);
       }
-      datasetOverlayLoadingState[overlayKey] = true;
-      try {
-        if (!cachedDatasetOverlayFeatureCollections[overlayKey]) {
-          const parsed = parseMapboxTilesetId(overlayConfig.tilesetId);
-          if (!parsed) return null;
-          cachedDatasetOverlayFeatureCollections[overlayKey] = await fetchMapboxDatasetFeatures(
-            parsed.username,
-            parsed.datasetId,
-            MAPBOX_CONFIG.accessToken
-          );
-        }
-        const featureCollection = cachedDatasetOverlayFeatureCollections[overlayKey];
-        if (!featureCollection || !Array.isArray(featureCollection.features) || !featureCollection.features.length) {
-          return null;
-        }
-        return L.geoJSON(featureCollection, { style: overlayConfig.style || {} });
-      } catch (error) {
-        console.warn(`Failed to load ${overlayKey} overlay:`, error);
-        return null;
-      } finally {
-        datasetOverlayLoadingState[overlayKey] = false;
+      if (lasFloresWaterDistrictVisible && lasFloresWaterDistrictLayer && !zoneMap.hasLayer(lasFloresWaterDistrictLayer)) {
+        lasFloresWaterDistrictLayer.addTo(zoneMap);
       }
     }
 
-    async function setDatasetOverlayVisible(overlayKey, isVisible) {
+    function setDatasetOverlayVisible(overlayKey, isVisible) {
       if (!zoneMap) return;
       const overlayConfig = MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey];
       if (!overlayConfig) return;
@@ -7842,7 +7826,7 @@
 
       let layer = overlayKey === 'censusTracts' ? censusTractsLayer : lasFloresWaterDistrictLayer;
       if (!layer) {
-        layer = await buildDatasetOverlayLayer(overlayKey);
+        layer = buildDatasetOverlayLayer(overlayKey);
         if (!layer) {
           updateDatasetOverlayToggleButton(buttonId, false, label);
           return;
@@ -7868,7 +7852,7 @@
     function updateSatelliteLayerToggleButton() {
       const button = document.getElementById('satelliteLayerToggleBtn');
       if (!button) return;
-      button.textContent = isSatelliteMode ? 'Street' : 'Satellite';
+      button.textContent = isSatelliteMode ? 'Basemap: Satellite' : 'Basemap: Street';
       button.title = isSatelliteMode ? 'Switch to street map' : 'Switch to satellite map';
     }
 
@@ -7877,7 +7861,7 @@
       const toggleBtn = document.getElementById('mapLayersExpandBtn');
       if (!panel || !toggleBtn) return;
       const expanded = panel.style.display !== 'none';
-      toggleBtn.innerHTML = expanded ? 'Layers ▾' : 'Layers ▸';
+      toggleBtn.innerHTML = expanded ? 'Zone Layers ▾' : 'Zone Layers ▸';
       toggleBtn.title = expanded ? 'Collapse layers' : 'Expand layers';
     }
 
@@ -7902,6 +7886,7 @@
         isSatelliteMode = true;
       }
       updateSatelliteLayerToggleButton();
+      refreshDatasetOverlayOnZoom();
     }
 
     function updateAdditionalMapboxLabelVisibility() {
@@ -7955,8 +7940,8 @@
           const expandBtn = L.DomUtil.create('a', 'map-layers-expand-btn', container);
           expandBtn.id = 'mapLayersExpandBtn';
           expandBtn.href = '#';
-          expandBtn.style.cssText = 'min-width: 66px; height: 30px; line-height: 30px; text-align: center; text-decoration: none; display: block; padding: 0 8px; font-size: 12px; font-weight: 700;';
-          expandBtn.innerHTML = 'Layers ▸';
+          expandBtn.style.cssText = 'min-width: 138px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; font-weight: 700; white-space: nowrap;';
+          expandBtn.innerHTML = 'Zone Layers ▸';
 
           const panel = L.DomUtil.create('div', 'map-layers-panel', container);
           panel.id = 'mapLayersPanel';
@@ -7965,25 +7950,25 @@
           const satelliteBtn = L.DomUtil.create('a', 'map-layer-item-btn satellite-layer-toggle-btn', panel);
           satelliteBtn.id = 'satelliteLayerToggleBtn';
           satelliteBtn.href = '#';
-          satelliteBtn.style.cssText = 'min-width: 140px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px;';
+          satelliteBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
 
           const zonesBtn = L.DomUtil.create('a', 'map-layer-item-btn additional-mapbox-layer-toggle-btn', panel);
           zonesBtn.id = 'additionalMapboxLayerToggleBtn';
           zonesBtn.href = '#';
           zonesBtn.innerHTML = MAPBOX_ADDITIONAL_LAYER_CONFIG.displayName;
-          zonesBtn.style.cssText = 'min-width: 140px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px;';
+          zonesBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
 
           const censusBtn = L.DomUtil.create('a', 'map-layer-item-btn census-tracts-toggle-btn', panel);
           censusBtn.id = 'censusTractsLayerToggleBtn';
           censusBtn.href = '#';
           censusBtn.innerHTML = MAPBOX_DATASET_OVERLAY_CONFIG.censusTracts.displayName;
-          censusBtn.style.cssText = 'min-width: 140px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px;';
+          censusBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
 
           const waterBtn = L.DomUtil.create('a', 'map-layer-item-btn water-district-toggle-btn', panel);
           waterBtn.id = 'lasFloresWaterDistrictLayerToggleBtn';
           waterBtn.href = '#';
           waterBtn.innerHTML = MAPBOX_DATASET_OVERLAY_CONFIG.lasFloresWaterDistrict.displayName;
-          waterBtn.style.cssText = 'min-width: 140px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px;';
+          waterBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
 
           L.DomEvent.disableClickPropagation(container);
           L.DomEvent.on(expandBtn, 'click', L.DomEvent.stop);
