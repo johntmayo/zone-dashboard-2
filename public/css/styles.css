@@ -3887,6 +3887,8 @@
       font-weight: 700;
       cursor: pointer;
       white-space: nowrap;
+      outline: none;
+      box-shadow: none;
     }
 
     .map-layers-control .map-layers-panel {
@@ -3900,6 +3902,21 @@
     .map-layers-control .map-layers-expand-btn:hover,
     .map-layers-control .map-layer-item-btn:hover {
       background: #f3f7f2;
+    }
+
+    .map-layers-control .map-layer-item-btn.active,
+    .map-layers-control .map-layer-item-btn.active:hover,
+    .map-layers-control .map-layer-item-btn.active:focus,
+    .map-layers-control .map-layer-item-btn.active:active {
+      background: #214025;
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    .map-layers-control .map-layer-item-btn:focus,
+    .map-layers-control .map-layer-item-btn:active {
+      outline: none;
+      box-shadow: none;
     }
 
     .map-layer-group-label {

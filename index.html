@@ -807,7 +807,7 @@
     }
     const MAPBOX_ADDITIONAL_LAYER_CONFIG = {
       tilesetId: 'altagether.cm64fisju135z1qqmifs0zty5-4swrp',
-      displayName: 'Zones',
+      displayName: 'Altogether Zones',
       defaultVisible: false,
       filterToCurrentZone: false, // Set true if this layer should only show current zone features
       zonePropertyKeys: ['ZoneName', 'Zone name', 'zoneName', 'zone'],
@@ -7751,21 +7751,19 @@
       const button = document.getElementById('additionalMapboxLayerToggleBtn');
       if (!button) return;
       const on = additionalMapboxLayerVisible;
-      button.style.background = on ? '#214025' : '#ffffff';
-      button.style.color = on ? '#ffffff' : '#2d3436';
-      button.style.fontWeight = on ? '700' : '500';
+      button.classList.toggle('active', on);
       button.title = on
         ? `Hide ${MAPBOX_ADDITIONAL_LAYER_CONFIG.displayName}`
         : `Show ${MAPBOX_ADDITIONAL_LAYER_CONFIG.displayName}`;
+      button.setAttribute('aria-pressed', on ? 'true' : 'false');
     }
 
     function updateDatasetOverlayToggleButton(buttonId, isOn, label) {
       const button = document.getElementById(buttonId);
       if (!button) return;
-      button.style.background = isOn ? '#214025' : '#ffffff';
-      button.style.color = isOn ? '#ffffff' : '#2d3436';
-      button.style.fontWeight = isOn ? '700' : '500';
+      button.classList.toggle('active', !!isOn);
       button.title = isOn ? `Hide ${label}` : `Show ${label}`;
+      button.setAttribute('aria-pressed', isOn ? 'true' : 'false');
     }
 
     function buildDatasetOverlayLayer(overlayKey) {
