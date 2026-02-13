@@ -35,7 +35,7 @@
       --panel-expanded-width: 420px;
       --panel-collapsed-peek: 44px;
       --panel-current-width: var(--panel-expanded-width);
-      --panel-toggle-gutter: 44px;
+      --panel-toggle-gutter: 24px;
       --map-control-width: 200px;
     }
 
@@ -821,20 +821,20 @@
 
     .panel-collapse-toggle {
       position: absolute;
-      left: 8px;
+      left: 0;
       top: 50%;
       transform: translateY(-50%);
-      width: calc(var(--panel-toggle-gutter) - 8px);
-      height: 76px;
+      width: var(--panel-toggle-gutter);
+      height: 56px;
       border: 2px solid var(--text-primary);
       border-left: 0;
       background: var(--bg-card);
       color: var(--primary-dark);
-      font-size: 1.1rem;
+      font-size: 0.95rem;
       font-weight: 800;
       cursor: pointer;
       z-index: 205;
-      box-shadow: 3px 3px 0 var(--text-primary);
+      box-shadow: 2px 2px 0 var(--text-primary);
       transition: background 0.2s ease, color 0.2s ease;
     }
 
