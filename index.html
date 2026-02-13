@@ -11267,6 +11267,8 @@
           const SatelliteToggleControl = L.Control.extend({
             onAdd: function(m) {
               const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+              L.DomEvent.disableClickPropagation(container);
+              L.DomEvent.disableScrollPropagation(container);
               const button = L.DomUtil.create('a', 'satellite-toggle-btn', container);
               button.href = '#';
               button.title = 'Switch to satellite view';
@@ -11274,6 +11276,7 @@
               button.style.cssText = 'width: 30px; height: 30px; line-height: 30px; text-align: center; text-decoration: none; display: block; font-size: 18px;';
               L.DomEvent.on(button, 'click', (ev) => {
                 L.DomEvent.preventDefault(ev);
+                L.DomEvent.stopPropagation(ev);
                 map.removeLayer(batchTaggingTileLayer);
                 if (isBatchTaggingSatellite) {
                   batchTaggingTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© OpenStreetMap contributors, © CARTO', maxZoom: 22 });
@@ -11305,14 +11308,20 @@
           });
           const polygonLayer = L.layerGroup().addTo(map);
           const latlngs = [];
+          let drawingHoverLatLng = null;
           function updatePolygonDisplay() {
             polygonLayer.clearLayers();
             latlngs.forEach((ll) => {
               L.circleMarker(ll, { radius: 8, fillColor: '#2563eb', color: '#1d4ed8', weight: 2, fillOpacity: 0.9 }).addTo(polygonLayer);
             });
             if (latlngs.length >= 2) {
-              const lineLatlngs = latlngs.concat([latlngs[0]]);
-              L.polyline(lineLatlngs, { color: '#2563eb', weight: 2, dashArray: '5,5' }).addTo(polygonLayer);
+              L.polyline(latlngs, { color: '#2563eb', weight: 3, opacity: 0.95 }).addTo(polygonLayer);
+            }
+            if (latlngs.length >= 1 && drawingHoverLatLng) {
+              L.polyline([latlngs[latlngs.length - 1], drawingHoverLatLng], { color: '#3b82f6', weight: 3, opacity: 0.9, dashArray: '6,6' }).addTo(polygonLayer);
+            }
+            if (latlngs.length >= 2) {
+              L.polyline([latlngs[latlngs.length - 1], latlngs[0]], { color: '#2563eb', weight: 2, opacity: 0.65, dashArray: '4,7' }).addTo(polygonLayer);
             }
             if (mapStatusEl) mapStatusEl.textContent = latlngs.length < 3 ? 'Click to add points (need at least 3). Click the first point again to close the shape.' : 'Click the first point again to close the shape, or add more points.';
           }
@@ -11334,9 +11343,20 @@
             latlngs.push(e.latlng);
             updatePolygonDisplay();
           });
-          window._batchTaggingMapState = { map, polygonLayer, latlngs, addressToCoords, addressMarkers, updatePolygonDisplay, updateAddressMarkerColors };
+          map.on('mousemove', (e) => {
+            if (latlngs.length === 0) return;
+            drawingHoverLatLng = e.latlng;
+            updatePolygonDisplay();
+          });
+          map.on('mouseout', () => {
+            if (!drawingHoverLatLng) return;
+            drawingHoverLatLng = null;
+            updatePolygonDisplay();
+          });
+          window._batchTaggingMapState = { map, polygonLayer, latlngs, addressToCoords, addressMarkers, updatePolygonDisplay, updateAddressMarkerColors, clearDrawingHover: () => { drawingHoverLatLng = null; } };
         }
         window._batchTaggingMapState.latlngs.length = 0;
+        if (typeof window._batchTaggingMapState.clearDrawingHover === 'function') window._batchTaggingMapState.clearDrawingHover();
         window._batchTaggingMapState.polygonLayer.clearLayers();
         window._batchTaggingMapState.updateAddressMarkerColors(new Set());
         window._batchTaggingMapState.updatePolygonDisplay();
@@ -11370,6 +11390,7 @@
         const state = window._batchTaggingMapState;
         if (state) {
           state.latlngs.length = 0;
+          if (typeof state.clearDrawingHover === 'function') state.clearDrawingHover();
           state.polygonLayer.clearLayers();
           state.updateAddressMarkerColors(new Set());
           state.updatePolygonDisplay();
