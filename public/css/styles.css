@@ -3825,6 +3825,38 @@
       margin-left: 10px;
     }
 
+    .map-layers-control {
+      margin-top: 10px;
+      border-radius: 4px;
+      overflow: hidden;
+      background: #ffffff;
+      border: 1px solid rgba(49, 64, 89, 0.25);
+    }
+
+    .map-layers-control .map-layers-expand-btn,
+    .map-layers-control .map-layer-item-btn {
+      color: #223022;
+      background: #ffffff;
+      border: 0;
+      border-bottom: 1px solid rgba(49, 64, 89, 0.18);
+      font-family: 'Chivo', sans-serif;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .map-layers-control .map-layers-panel {
+      border-top: 1px solid rgba(49, 64, 89, 0.18);
+    }
+
+    .map-layers-control .map-layer-item-btn:last-child {
+      border-bottom: 0;
+    }
+
+    .map-layers-control .map-layers-expand-btn:hover,
+    .map-layers-control .map-layer-item-btn:hover {
+      background: #f3f7f2;
+    }
+
     /* Nearby Zones labels are shown only when JS adds .show-nearby-zone-labels to #zoneMap */
     #zoneMap .additional-zone-tooltip {
       display: none;

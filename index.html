@@ -717,7 +717,7 @@
     let kmlLayer = null; // KML boundary layer
     let homeKmlLayer = null; // KML boundary layer for homepage
     let additionalMapboxLayer = null; // Optional Mapbox-powered overlay layer
-    let additionalMapboxLayerControl = null; // Toggle control for optional overlay layer
+    let additionalMapboxLayerControl = null; // Expandable layers control for map overlays
     let additionalMapboxLayerLoading = false; // Prevent duplicate overlay fetches
     let additionalMapboxLayerVisible = false; // Current visibility state for optional overlay layer
     let cachedAdditionalMapboxFeatureCollection = null; // Cached feature collection for optional overlay
@@ -756,21 +756,20 @@
     }
     const MAPBOX_ADDITIONAL_LAYER_CONFIG = {
       tilesetId: 'altagether.cm64fisju135z1qqmifs0zty5-4swrp',
-      displayName: 'Nearby Zones',
+      displayName: 'Zones',
       defaultVisible: false,
       filterToCurrentZone: false, // Set true if this layer should only show current zone features
       zonePropertyKeys: ['ZoneName', 'Zone name', 'zoneName', 'zone'],
       contactNamePropertyKeys: ['ContactName', 'Contact Name', 'Captain Name', 'CaptainName', 'Captain'],
       contactEmailPropertyKeys: ['ContactEmail', 'Contact Email', 'Email', 'Emails'],
       contactPhonePropertyKeys: ['ContactPhone', 'Contact Phone', 'Phone', 'Phones'],
-      statusPropertyKeys: ['Status', 'status'],
       tooltip: {
         enabled: true,
         permanent: true,
         direction: 'center',
         className: 'additional-zone-tooltip'
       },
-      labelMinZoom: 17,
+      labelMinZoom: 16,
       style: {
         color: '#4B7D5D',
         weight: 2,
@@ -7009,57 +7008,7 @@
             subdomains: 'abcd'
           }).addTo(zoneMap);
           
-          // Create satellite toggle control
-          const SatelliteToggleControl = L.Control.extend({
-            onAdd: function(map) {
-              const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-              const button = L.DomUtil.create('a', 'satellite-toggle-btn', container);
-              button.href = '#';
-              button.title = 'Switch to satellite view';
-              button.innerHTML = '🛰️';
-              button.style.cssText = 'width: 30px; height: 30px; line-height: 30px; text-align: center; text-decoration: none; display: block; font-size: 18px;';
-              
-              L.DomEvent.disableClickPropagation(button);
-              L.DomEvent.on(button, 'click', L.DomEvent.stop);
-              L.DomEvent.on(button, 'click', () => {
-                if (!zoneMap) return;
-                
-                // Remove current tile layer
-                if (currentTileLayer) {
-                  zoneMap.removeLayer(currentTileLayer);
-                }
-                
-                // Toggle between street and satellite
-                if (isSatelliteMode) {
-                  // Switch to street map (CartoDB Voyager)
-                  currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                    attribution: '© OpenStreetMap contributors, © CARTO',
-                    maxZoom: 22,
-                    subdomains: 'abcd'
-                  }).addTo(zoneMap);
-                  button.innerHTML = '🛰️';
-                  button.title = 'Switch to satellite view';
-                  isSatelliteMode = false;
-                } else {
-                  // Switch to satellite - using Google Satellite for more recent imagery
-                  currentTileLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-                    subdomains: ['0', '1', '2', '3'],
-                    attribution: '© Google',
-                    maxZoom: 22
-                  }).addTo(zoneMap);
-                  button.innerHTML = '🗺️';
-                  button.title = 'Switch to street map';
-                  isSatelliteMode = true;
-                }
-              });
-              
-              return container;
-            }
-          });
-          
-          // Add satellite toggle control next to zoom controls
-          new SatelliteToggleControl({ position: 'topleft' }).addTo(zoneMap);
-          // Add optional overlay toggle using Mapbox tileset-backed features
+          // Add expandable Layers control (Satellite + Zones toggle)
           ensureAdditionalMapboxLayerControl();
           
           // Don't create color filter control here - it will be created via ensureColorFilterControl()
@@ -7652,7 +7601,6 @@
         const getContactNames = (props) => getFirstNonEmptyProperty(props, MAPBOX_ADDITIONAL_LAYER_CONFIG.contactNamePropertyKeys);
         const getContactEmails = (props) => getFirstNonEmptyProperty(props, MAPBOX_ADDITIONAL_LAYER_CONFIG.contactEmailPropertyKeys);
         const getContactPhones = (props) => getFirstNonEmptyProperty(props, MAPBOX_ADDITIONAL_LAYER_CONFIG.contactPhonePropertyKeys);
-        const getStatus = (props) => getFirstNonEmptyProperty(props, MAPBOX_ADDITIONAL_LAYER_CONFIG.statusPropertyKeys);
         const escapeHtml = (text) => String(text || '')
           .replace(/&/g, '&amp;')
           .replace(/</g, '&lt;')
@@ -7667,25 +7615,36 @@
           const firstNamesLine = firstNames.length ? firstNames.join(', ') : 'Captain names pending';
           return `${escapeHtml(zoneName)}<br>${escapeHtml(firstNamesLine)}`;
         };
-        const buildPopupSection = (label, rawValue) => {
-          const values = splitSemicolonValues(rawValue);
-          if (!values.length) return '';
-          const valueHtml = values.map(v => escapeHtml(v)).join('<br>');
-          return `<div style="margin-top:8px;"><strong>${escapeHtml(label)}:</strong><br>${valueHtml}</div>`;
+        const buildCaptainCards = (props) => {
+          const names = splitSemicolonValues(getContactNames(props));
+          const emails = splitSemicolonValues(getContactEmails(props));
+          const phones = splitSemicolonValues(getContactPhones(props));
+          const maxLen = Math.max(names.length, emails.length, phones.length);
+          if (!maxLen) return '<div style="margin-top:10px; color:#4a4a4a;">Captain details pending.</div>';
+
+          const cards = [];
+          for (let i = 0; i < maxLen; i++) {
+            const captainLabel = `Captain ${i + 1}`;
+            const name = names[i] || '';
+            const email = emails[i] || '';
+            const phone = phones[i] || '';
+            cards.push(`
+              <div style="margin-top:10px; padding:10px 12px; border:1px solid #d7dfd2; border-radius:8px; background:#f9fbf8;">
+                <div style="font-weight:700; color:#214025; margin-bottom:6px;">${captainLabel}</div>
+                ${name ? `<div style="margin:2px 0;"><strong>Name:</strong> ${escapeHtml(name)}</div>` : ''}
+                ${phone ? `<div style="margin:2px 0;"><strong>Phone:</strong> ${escapeHtml(phone)}</div>` : ''}
+                ${email ? `<div style="margin:2px 0;"><strong>Email:</strong> ${escapeHtml(email)}</div>` : ''}
+              </div>
+            `);
+          }
+          return cards.join('');
         };
         const buildFeaturePopupHtml = (props) => {
           const zoneName = getZoneName(props).toUpperCase();
-          const status = getStatus(props);
-          const names = getContactNames(props);
-          const emails = getContactEmails(props);
-          const phones = getContactPhones(props);
           return `
             <div style="min-width:220px; line-height:1.35;">
               <div style="font-size:15px; font-weight:700; letter-spacing:0.5px; color:#214025;">${escapeHtml(zoneName)}</div>
-              ${status ? `<div style="margin-top:4px; color:#4a4a4a;"><strong>Status:</strong> ${escapeHtml(status)}</div>` : ''}
-              ${buildPopupSection('Contact Name', names)}
-              ${buildPopupSection('Contact Email', emails)}
-              ${buildPopupSection('Contact Phone', phones)}
+              ${buildCaptainCards(props)}
             </div>
           `;
         };
@@ -7732,6 +7691,45 @@
         : `Show ${MAPBOX_ADDITIONAL_LAYER_CONFIG.displayName}`;
     }
 
+    function updateSatelliteLayerToggleButton() {
+      const button = document.getElementById('satelliteLayerToggleBtn');
+      if (!button) return;
+      button.textContent = isSatelliteMode ? 'Street' : 'Satellite';
+      button.title = isSatelliteMode ? 'Switch to street map' : 'Switch to satellite map';
+    }
+
+    function updateMapLayersExpandButton() {
+      const panel = document.getElementById('mapLayersPanel');
+      const toggleBtn = document.getElementById('mapLayersExpandBtn');
+      if (!panel || !toggleBtn) return;
+      const expanded = panel.style.display !== 'none';
+      toggleBtn.innerHTML = expanded ? 'Layers ▾' : 'Layers ▸';
+      toggleBtn.title = expanded ? 'Collapse layers' : 'Expand layers';
+    }
+
+    function toggleSatelliteBaseLayer() {
+      if (!zoneMap) return;
+      if (currentTileLayer) {
+        zoneMap.removeLayer(currentTileLayer);
+      }
+      if (isSatelliteMode) {
+        currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          attribution: '© OpenStreetMap contributors, © CARTO',
+          maxZoom: 22,
+          subdomains: 'abcd'
+        }).addTo(zoneMap);
+        isSatelliteMode = false;
+      } else {
+        currentTileLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+          subdomains: ['0', '1', '2', '3'],
+          attribution: '© Google',
+          maxZoom: 22
+        }).addTo(zoneMap);
+        isSatelliteMode = true;
+      }
+      updateSatelliteLayerToggleButton();
+    }
+
     function updateAdditionalMapboxLabelVisibility() {
       if (!zoneMap) return;
       const minZoom = MAPBOX_ADDITIONAL_LAYER_CONFIG.labelMinZoom || 0;
@@ -7775,30 +7773,58 @@
     }
 
     function ensureAdditionalMapboxLayerControl() {
-      if (!zoneMap || !isAdditionalMapboxLayerEnabled()) return;
+      if (!zoneMap) return;
       if (additionalMapboxLayerControl) return;
       const AdditionalMapboxLayerToggleControl = L.Control.extend({
         onAdd: function() {
-          const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-          const button = L.DomUtil.create('a', 'additional-mapbox-layer-toggle-btn', container);
-          button.id = 'additionalMapboxLayerToggleBtn';
-          button.href = '#';
-          button.innerHTML = MAPBOX_ADDITIONAL_LAYER_CONFIG.displayName;
-          button.style.cssText = 'min-width: 46px; height: 30px; line-height: 30px; text-align: center; text-decoration: none; display: block; padding: 0 8px; font-size: 12px;';
+          const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control map-layers-control');
+          const expandBtn = L.DomUtil.create('a', 'map-layers-expand-btn', container);
+          expandBtn.id = 'mapLayersExpandBtn';
+          expandBtn.href = '#';
+          expandBtn.style.cssText = 'min-width: 66px; height: 30px; line-height: 30px; text-align: center; text-decoration: none; display: block; padding: 0 8px; font-size: 12px; font-weight: 700;';
+          expandBtn.innerHTML = 'Layers ▸';
 
-          L.DomEvent.disableClickPropagation(button);
-          L.DomEvent.on(button, 'click', L.DomEvent.stop);
-          L.DomEvent.on(button, 'click', async () => {
+          const panel = L.DomUtil.create('div', 'map-layers-panel', container);
+          panel.id = 'mapLayersPanel';
+          panel.style.display = 'none';
+
+          const satelliteBtn = L.DomUtil.create('a', 'map-layer-item-btn satellite-layer-toggle-btn', panel);
+          satelliteBtn.id = 'satelliteLayerToggleBtn';
+          satelliteBtn.href = '#';
+          satelliteBtn.style.cssText = 'min-width: 66px; height: 30px; line-height: 30px; text-align: center; text-decoration: none; display: block; padding: 0 8px; font-size: 12px;';
+
+          const zonesBtn = L.DomUtil.create('a', 'map-layer-item-btn additional-mapbox-layer-toggle-btn', panel);
+          zonesBtn.id = 'additionalMapboxLayerToggleBtn';
+          zonesBtn.href = '#';
+          zonesBtn.innerHTML = MAPBOX_ADDITIONAL_LAYER_CONFIG.displayName;
+          zonesBtn.style.cssText = 'min-width: 66px; height: 30px; line-height: 30px; text-align: center; text-decoration: none; display: block; padding: 0 8px; font-size: 12px;';
+
+          L.DomEvent.disableClickPropagation(container);
+          L.DomEvent.on(expandBtn, 'click', L.DomEvent.stop);
+          L.DomEvent.on(expandBtn, 'click', () => {
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            updateMapLayersExpandButton();
+          });
+
+          L.DomEvent.on(satelliteBtn, 'click', L.DomEvent.stop);
+          L.DomEvent.on(satelliteBtn, 'click', () => {
+            toggleSatelliteBaseLayer();
+          });
+
+          L.DomEvent.on(zonesBtn, 'click', L.DomEvent.stop);
+          L.DomEvent.on(zonesBtn, 'click', async () => {
             await setAdditionalMapboxLayerVisible(!additionalMapboxLayerVisible);
           });
 
+          updateMapLayersExpandButton();
+          updateSatelliteLayerToggleButton();
           updateAdditionalMapboxLayerToggleButton();
           return container;
         }
       });
       additionalMapboxLayerControl = new AdditionalMapboxLayerToggleControl({ position: 'topleft' });
       additionalMapboxLayerControl.addTo(zoneMap);
-      if (MAPBOX_ADDITIONAL_LAYER_CONFIG.defaultVisible) {
+      if (MAPBOX_ADDITIONAL_LAYER_CONFIG.defaultVisible && isAdditionalMapboxLayerEnabled()) {
         setAdditionalMapboxLayerVisible(true);
       }
     }
