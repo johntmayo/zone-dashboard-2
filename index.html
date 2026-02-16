@@ -707,6 +707,7 @@
     let currentAddressPlanFilter = 'all'; // Current Address Plan filter (only when Damage = Partial/Total Loss)
     let currentRebuildFilter = 'all'; // Current rebuild status filter
     let currentCaptainFilter = 'all'; // Current captain assigned filter
+    let currentPersonSearch = ''; // Current resident-name search filter
     let showContactedAddresses = true; // Show addresses with contacted people
     let showUncontactedAddresses = true; // Show addresses with uncontacted people
     
@@ -1974,6 +1975,7 @@
         currentDamageFilter = 'all';
         currentAddressPlanFilter = 'all';
         currentCaptainFilter = 'all';
+        currentPersonSearch = '';
         
         // Extract zone name from ZoneName column if available
         const zoneNameCol = headers.find(h => h.toLowerCase() === 'zonename' || h.toLowerCase() === 'zone name');
@@ -2321,6 +2323,23 @@
       return null;
     }
 
+    function getResidentNameColumn(headers) {
+      return headers.find(h => {
+        const lower = h.toLowerCase();
+        return lower.includes('resident name') || (lower.includes('name') && !lower.includes('first') && !lower.includes('last') && !lower.includes('nc'));
+      });
+    }
+
+    function addressMatchesPersonSearch(address, headers) {
+      const query = String(currentPersonSearch || '').trim().toLowerCase();
+      if (!query) return true;
+      if (!sheetData || !sheetData.addressMap) return false;
+      const residentNameCol = getResidentNameColumn(headers || []);
+      if (!residentNameCol) return false;
+      const rows = sheetData.addressMap.get(address) || [];
+      return rows.some(row => String(row[residentNameCol] || '').toLowerCase().includes(query));
+    }
+
     // Get captain assigned value for an address
     function getAddressCaptainAssigned(address) {
       const captainAssignedCol = findColumn(sheetData.headers, 'captain assigned');
@@ -2447,6 +2466,7 @@
       currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
       currentCaptainFilter = 'all';
+      currentPersonSearch = '';
       // Set contact filters
       showUncontactedAddresses = true;
       showContactedAddresses = false;
@@ -2463,6 +2483,7 @@
       currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
       currentCaptainFilter = 'all';
+      currentPersonSearch = '';
       // Reset contact filters to show all
       showUncontactedAddresses = true;
       showContactedAddresses = true;
@@ -2479,6 +2500,7 @@
       currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
       currentCaptainFilter = 'all';
+      currentPersonSearch = '';
       showUncontactedAddresses = true;
       showContactedAddresses = true;
       switchView('people');
@@ -3562,6 +3584,7 @@
           <option value="" ${currentCaptainFilter === '' ? 'selected' : ''}>(not specified)</option>
           ${captainNames.map(name => `<option value="${escapeHtml(name).replace(/"/g, '&quot;')}" ${currentCaptainFilter === name ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}
         </select>` : ''}
+        <input type="text" id="persistentPersonSearch" placeholder="Search Person" value="${escapeHtml(currentPersonSearch)}" class="${currentPersonSearch.trim() ? 'filter-active' : ''}" title="Filter addresses by resident name (partial match).">
         ${contactDateCol ? `
         <div class="contact-filter-group">
           <label class="contact-filter-checkbox" title="View only the addresses you have successfully reached.">
@@ -3623,6 +3646,10 @@
       const oldCaptainFilter = document.getElementById('persistentCaptainFilter');
       if (oldCaptainFilter) {
         oldCaptainFilter.replaceWith(oldCaptainFilter.cloneNode(true));
+      }
+      const oldPersonSearch = document.getElementById('persistentPersonSearch');
+      if (oldPersonSearch) {
+        oldPersonSearch.replaceWith(oldPersonSearch.cloneNode(true));
       }
       // Add event handlers
       const streetFilter = document.getElementById('persistentStreetFilter');
@@ -3720,6 +3747,21 @@
         });
       }
 
+      const personSearchInput = document.getElementById('persistentPersonSearch');
+      if (personSearchInput) {
+        personSearchInput.addEventListener('input', (e) => {
+          currentPersonSearch = (e.target.value || '').trim();
+          if (currentPersonSearch) {
+            personSearchInput.classList.add('filter-active');
+          } else {
+            personSearchInput.classList.remove('filter-active');
+          }
+          displayAddressTable();
+          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
+          updateMapMarkers();
+        });
+      }
+
     }
 
     // Display address table view for Addresses & People page
@@ -3745,10 +3787,7 @@
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
-      const residentNameCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return lower.includes('resident name') || (lower.includes('name') && !lower.includes('first') && !lower.includes('last') && !lower.includes('nc'));
-      });
+      const residentNameCol = getResidentNameColumn(headers);
       const ageCol = headers.find(h => h.toLowerCase() === 'age');
       const phoneCol = findColumn(headers, 'phone', ['nc']);
       const emailCol = findColumn(headers, 'email');
@@ -3774,6 +3813,7 @@
       // Filter addresses
       const filteredAddresses = addresses.filter(addr => {
         if (currentStreetFilter !== 'all' && extractStreet(addr) !== currentStreetFilter) return false;
+        if (!addressMatchesPersonSearch(addr, headers)) return false;
         if (currentDamageFilter !== 'all') {
           if (currentDamageFilter === '') {
             // Filter for "(not set)" - addresses with no damage status
@@ -4013,6 +4053,7 @@
       
       return addresses.filter(addr => {
         if (currentStreetFilter !== 'all' && extractStreet(addr) !== currentStreetFilter) return false;
+        if (!addressMatchesPersonSearch(addr, headers)) return false;
         if (currentDamageFilter !== 'all') {
           if (currentDamageFilter === '') {
             const damage = getAddressDamage(addr);
@@ -4523,6 +4564,9 @@
       const filteredAddresses = addresses.filter(addr => {
         // Street filter
         if (currentStreetFilter !== 'all' && extractStreet(addr) !== currentStreetFilter) {
+          return false;
+        }
+        if (!addressMatchesPersonSearch(addr, headers)) {
           return false;
         }
         // Damage filter
@@ -8616,13 +8660,15 @@
       
       // Get filtered addresses (same logic as displayAddressTable)
       const addresses = Array.from(sheetData.addressMap.keys());
-      const contactDateCol = findColumn(sheetData.headers, ['contact', 'date']);
+      const headers = sheetData.headers;
+      const contactDateCol = findColumn(headers, ['contact', 'date']);
       const filteredAddresses = addresses.filter(address => {
         // Street filter
         if (currentStreetFilter !== 'all') {
           const street = extractStreet(address);
           if (street !== currentStreetFilter) return false;
         }
+        if (!addressMatchesPersonSearch(address, headers)) return false;
         
         // Damage filter
         if (currentDamageFilter !== 'all') {
@@ -8646,7 +8692,7 @@
         }
         
         // Rebuild filter
-        const rebuildCol = findColumn(sheetData.headers, ['build', 'status'], ['intent']);
+        const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
         if (currentRebuildFilter !== 'all' && rebuildCol) {
           const rows = sheetData.addressMap.get(address);
           if (rows && rows[0]) {
@@ -8659,7 +8705,7 @@
         
         // Captain assigned filter
         if (currentCaptainFilter !== 'all') {
-          const captainAssignedCol = findColumn(sheetData.headers, 'captain assigned');
+          const captainAssignedCol = findColumn(headers, 'captain assigned');
           if (captainAssignedCol) {
             const rows = sheetData.addressMap.get(address);
             if (rows && rows[0]) {

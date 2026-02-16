@@ -747,6 +747,17 @@
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
 
+    .filter-bar input[type="text"] {
+      padding: 10px 14px;
+      border: 2px solid rgba(96, 108, 56, 0.3);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      background: rgba(255, 255, 255, 0.9);
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      min-width: 170px;
+    }
+
     .filter-bar select:focus {
       outline: none;
       border-color: var(--primary);
@@ -754,7 +765,20 @@
       box-shadow: 0 4px 8px rgba(96, 108, 56, 0.2), 0 0 0 3px rgba(96, 108, 56, 0.1);
     }
 
+    .filter-bar input[type="text"]:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 4px 8px rgba(96, 108, 56, 0.2), 0 0 0 3px rgba(96, 108, 56, 0.1);
+    }
+
     .filter-bar select.filter-active {
+      border-color: var(--accent);
+      background: rgba(221, 161, 94, 0.15);
+      box-shadow: 0 2px 6px rgba(188, 108, 37, 0.2);
+    }
+
+    .filter-bar input[type="text"].filter-active {
       border-color: var(--accent);
       background: rgba(221, 161, 94, 0.15);
       box-shadow: 0 2px 6px rgba(188, 108, 37, 0.2);
