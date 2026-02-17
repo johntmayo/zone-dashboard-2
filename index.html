@@ -6361,6 +6361,35 @@
       'ash-grey': '#e5e5e5'
     };
 
+    const REBUILD_CHART_CUSTOM_COLORS = ['#e0e0e0', '#d4a574', '#c8a2c8', '#a8d8ea'];
+
+    function normalizeRebuildStageColorKey(stage) {
+      return String(stage || '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function getKnownRebuildStageColor(stage) {
+      const key = normalizeRebuildStageColorKey(stage);
+      if (!key) return null;
+      if (key === 'planning/not ready to build yet') return colorPalette['dusty-mauve'];
+      if (key === 'permits & pre-construction' || key === 'permits & pre construction') return colorPalette['soft-blush'];
+      if (key === 'under construction') return colorPalette['light-caramel'];
+      if (key === 'finishing/preparing to move back') return colorPalette['dry-sage'];
+      if (key === 'moved in') return colorPalette['sky-blue-light'];
+      return null;
+    }
+
+    function getRebuildStageColor(stage, fallbackIndex = 0) {
+      const key = normalizeRebuildStageColorKey(stage);
+      if (key === 'not started') return '#9e9e9e';
+      if (key === 'unknown') return colorPalette['ash-grey'];
+      const knownColor = getKnownRebuildStageColor(stage);
+      if (knownColor) return knownColor;
+      return REBUILD_CHART_CUSTOM_COLORS[Math.abs(fallbackIndex) % REBUILD_CHART_CUSTOM_COLORS.length];
+    }
+
     // Get captain color mapping (assigns colors to unique captain names)
     function getCaptainColorMapping() {
       if (!sheetData || !sheetData.headers || !sheetData.data) return {};
@@ -6390,10 +6419,9 @@
     // Get rebuild status -> color mapping (sequential stages + any custom values)
     function getRebuildColorMapping() {
       const stages = getFullRebuildStatusOptions();
-      const colorKeys = ['dusty-mauve', 'light-caramel', 'apricot-cream', 'sky-blue-light', 'dry-sage', 'soft-blush', 'ash-grey'];
       const mapping = {};
       stages.forEach((stage, index) => {
-        mapping[stage] = colorPalette[colorKeys[index % colorKeys.length]];
+        mapping[stage] = getRebuildStageColor(stage, index);
       });
       return mapping;
     }
@@ -7999,6 +8027,54 @@
       return clean;
     }
 
+    const CENSUS_TRACT_COUNCIL_DIRECTORY = {
+      '4601': [
+        { name: 'Connor Cipolla', email: 'Connor.Cipolla@altadenatowncouncil.org', phone: '(626) 344-2239' },
+        { name: 'Morgan Z Whirledge', email: 'morgan.whirledge@altadenatowncouncil.org', phone: '' }
+      ],
+      '4602': [
+        { name: 'Kim Yu', email: 'kim.yu@altadenatowncouncil.org', phone: '(310) 270-8466' },
+        { name: 'Nic Arnzen', email: 'nic.arnzen@altadenatowncouncil.org', phone: '' }
+      ],
+      '4603.01': [
+        { name: 'Dorothy Wong', email: 'dorothy.wong@altadenatowncouncil.org', phone: '(626) 765-4275' },
+        { name: 'Milissa Marona', email: 'milissa.marona@altadenatowncouncil.org', phone: '(626) 463-8190' }
+      ],
+      '4603.02': [
+        { name: 'Darlene Greene', email: 'darlene.greene@altadenatowncouncil.org', phone: '(626) 569-8258' },
+        { name: 'Jon Carmody', email: 'jon.carmody@altadenatowncouncil.org', phone: '(323) 434-7701' }
+      ],
+      '4610': [
+        { name: 'Anton (Antonio) Anderson', email: 'Anton.Anderson@altadenatowncouncil.org', phone: '' },
+        { name: 'Isis Moulden', email: 'Isis.Moulden@altadenatowncouncil.org', phone: '(323) 510-1330' }
+      ],
+      '4611': [
+        { name: 'Pat Sutherlen', email: 'pat.sutherlen@altadenatowncouncil.org', phone: '(626) 791-4656' },
+        { name: 'ViEyvette Stewart-Gordon', email: 'ViEyvette.Stewart-Gordon@altadenatowncouncil.org', phone: '' }
+      ],
+      '4612': [
+        { name: 'Justin Mahramas', email: 'justin.mahramas@altadenatowncouncil.org', phone: '' },
+        { name: 'Reginald Wilkins', email: 'reginald.wilkins@altadenatowncouncil.org', phone: '' }
+      ],
+      '4613': [
+        { name: 'Diane Marcussen', email: 'diane.marcussen@altadenatowncouncil.org', phone: '(626) 296-6633' },
+        { name: 'Sylvia Vega', email: 'sylvia.vega@altadenatowncouncil.org', phone: '(626) 482-8787' }
+      ]
+    };
+
+    function normalizeCensusFieldText(rawValue) {
+      return String(rawValue || '')
+        .replace(/[\u00A0\u200B-\u200D\u202A-\u202E\uFEFF]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function getCensusTractLookupKey(rawValue) {
+      const normalized = normalizeCensusLabel(rawValue).toUpperCase();
+      const match = normalized.match(/(\d+(?:\.\d+)?)/);
+      return match ? match[1] : '';
+    }
+
     function splitOverlayListValues(rawValue) {
       return String(rawValue || '')
         .split(/[\n;,]/)
@@ -8077,20 +8153,43 @@
     function buildCensusPopupHtml(overlayConfig, props) {
       const tractNameRaw = getFirstOverlayProperty(props, overlayConfig.labelTitlePropertyKeys);
       const tractName = normalizeCensusLabel(tractNameRaw) || 'Census Tract';
-      const councilRaw = getFirstOverlayProperty(props, overlayConfig.townCouncilPropertyKeys)
-        || getFirstOverlayProperty(props, overlayConfig.labelDescriptionPropertyKeys)
-        || '';
-      const councilEntries = splitOverlayListValues(councilRaw);
-      const councilMarkup = councilEntries.length
-        ? councilEntries.map((entry) => `<div style="margin:2px 0;">${escapeOverlayHtml(entry)}</div>`).join('')
-        : '<div style="margin:2px 0; color:#4a4a4a;">Council members pending.</div>';
+      const tractKey = getCensusTractLookupKey(tractNameRaw);
+      const directoryEntries = CENSUS_TRACT_COUNCIL_DIRECTORY[tractKey] || [];
+      const normalizedDirectoryEntries = directoryEntries
+        .map((entry) => ({
+          name: normalizeCensusFieldText(entry?.name),
+          email: normalizeCensusFieldText(entry?.email),
+          phone: normalizeCensusFieldText(entry?.phone)
+        }))
+        .filter((entry) => entry.name || entry.email || entry.phone);
+      const councilCards = normalizedDirectoryEntries.length
+        ? normalizedDirectoryEntries.map((entry, idx) => `
+            <div style="margin-top:10px; padding:10px 12px; border:1px solid #dbcaf6; border-radius:8px; background:#f5efff;">
+              <div style="font-weight:700; color:#4c1d95; margin-bottom:6px;">Council Member ${idx + 1}</div>
+              ${entry.name ? `<div style="margin:2px 0;"><strong>Name:</strong> ${escapeOverlayHtml(entry.name)}</div>` : ''}
+              ${entry.phone ? `<div style="margin:2px 0;"><strong>Phone:</strong> ${escapeOverlayHtml(entry.phone)}</div>` : ''}
+              ${entry.email ? `<div style="margin:2px 0;"><strong>Email:</strong> ${escapeOverlayHtml(entry.email)}</div>` : ''}
+            </div>
+          `).join('')
+        : (() => {
+            const councilRaw = getFirstOverlayProperty(props, overlayConfig.townCouncilPropertyKeys)
+              || getFirstOverlayProperty(props, overlayConfig.labelDescriptionPropertyKeys)
+              || '';
+            const councilEntries = splitOverlayListValues(councilRaw);
+            if (!councilEntries.length) {
+              return '<div style="margin-top:10px; color:#4a4a4a;">Council member details pending.</div>';
+            }
+            return `
+              <div style="margin-top:10px; padding:10px 12px; border:1px solid #dbcaf6; border-radius:8px; background:#f5efff;">
+                <div style="font-weight:700; color:#4c1d95; margin-bottom:6px;">Town Council members</div>
+                ${councilEntries.map((entry) => `<div style="margin:2px 0;">${escapeOverlayHtml(entry)}</div>`).join('')}
+              </div>
+            `;
+          })();
       return `
         <div style="min-width:220px; line-height:1.35;">
           <div style="font-size:15px; font-weight:700; letter-spacing:0.5px; color:#4c1d95;">${escapeOverlayHtml(tractName)}</div>
-          <div style="margin-top:10px; padding:10px 12px; border:1px solid #dbcaf6; border-radius:8px; background:#f5efff;">
-            <div style="font-weight:700; color:#4c1d95; margin-bottom:6px;">Town Council members</div>
-            ${councilMarkup}
-          </div>
+          ${councilCards}
         </div>
       `;
     }
@@ -8110,7 +8209,7 @@
 
       const entriesByKey = new Map();
 
-      const scanGrid = async (samplesX, samplesY) => {
+      const scanGrid = async (samplesX, samplesY, options = {}) => {
         const lngStep = (east - west) / (samplesX + 1);
         const latStep = (north - south) / (samplesY + 1);
         for (let y = 1; y <= samplesY; y++) {
@@ -8118,44 +8217,97 @@
             const lng = west + (lngStep * x);
             const lat = south + (latStep * y);
             const features = await fetchOverlayTilequeryFeatures(overlayConfig, lng, lat, {
-              radiusMeters: 0,
-              limit: 10
+              radiusMeters: Number.isFinite(options.radiusMeters) ? options.radiusMeters : 0,
+              limit: Number.isFinite(options.limit) ? options.limit : 10
             });
             if (!features) continue;
             features.forEach((feature) => {
               const key = buildCensusFeatureKey(feature, overlayConfig);
               if (!key) return;
               const existing = entriesByKey.get(key);
+              const distance = Number(feature?.distance);
+              const samplePoint = {
+                lat,
+                lng,
+                distance: Number.isFinite(distance) ? distance : 0
+              };
               if (!existing) {
                 entriesByKey.set(key, {
                   feature,
-                  latSum: lat,
-                  lngSum: lng,
-                  sampleCount: 1
+                  samples: [samplePoint]
                 });
                 return;
               }
               existing.feature = existing.feature || feature;
-              existing.latSum += lat;
-              existing.lngSum += lng;
-              existing.sampleCount += 1;
+              existing.samples.push(samplePoint);
             });
           }
         }
       };
 
-      await scanGrid(6, 6);
-      // If sparse sampling misses tracts, run one denser pass.
-      if (entriesByKey.size < 8) {
-        await scanGrid(9, 9);
+      const expectedTractKeys = new Set(Object.keys(CENSUS_TRACT_COUNCIL_DIRECTORY));
+      const hasAllExpectedTracts = () => {
+        if (!expectedTractKeys.size) return true;
+        for (const tractKey of expectedTractKeys) {
+          let found = false;
+          for (const entry of entriesByKey.values()) {
+            const entryProps = entry?.feature?.properties || {};
+            const key = getCensusTractLookupKey(getFirstOverlayProperty(entryProps, overlayConfig.labelTitlePropertyKeys));
+            if (key === tractKey) {
+              found = true;
+              break;
+            }
+          }
+          if (!found) return false;
+        }
+        return true;
+      };
+
+      await scanGrid(8, 8, { radiusMeters: 0, limit: 10 });
+      if (!hasAllExpectedTracts()) {
+        await scanGrid(12, 12, { radiusMeters: 120, limit: 20 });
+      }
+      if (!hasAllExpectedTracts()) {
+        await scanGrid(16, 16, { radiusMeters: 260, limit: 24 });
+      }
+      if (!hasAllExpectedTracts()) {
+        await scanGrid(22, 22, { radiusMeters: 320, limit: 28 });
       }
 
       const entries = Array.from(entriesByKey.values()).map((entry) => {
-        const count = Math.max(1, entry.sampleCount || 1);
+        const samples = Array.isArray(entry.samples) ? entry.samples : [];
+        if (!samples.length) {
+          return {
+            feature: entry.feature,
+            lat: (south + north) / 2,
+            lng: (west + east) / 2
+          };
+        }
+        const zeroDistanceSamples = samples.filter((sample) => Number(sample.distance) === 0);
+        const preferred = zeroDistanceSamples.length ? zeroDistanceSamples : samples;
+        const minDistance = Math.min(...preferred.map((sample) => Number.isFinite(sample.distance) ? sample.distance : 0));
+        const distanceWindowSamples = preferred.filter((sample) => {
+          const d = Number.isFinite(sample.distance) ? sample.distance : 0;
+          return d <= (minDistance + 40);
+        });
+        const pool = distanceWindowSamples.length ? distanceWindowSamples : preferred;
+        const latMean = pool.reduce((sum, sample) => sum + sample.lat, 0) / pool.length;
+        const lngMean = pool.reduce((sum, sample) => sum + sample.lng, 0) / pool.length;
+        let best = pool[0];
+        let bestDistSq = Number.POSITIVE_INFINITY;
+        pool.forEach((sample) => {
+          const dLat = sample.lat - latMean;
+          const dLng = sample.lng - lngMean;
+          const dSq = (dLat * dLat) + (dLng * dLng);
+          if (dSq < bestDistSq) {
+            best = sample;
+            bestDistSq = dSq;
+          }
+        });
         return {
           feature: entry.feature,
-          lat: entry.latSum / count,
-          lng: entry.lngSum / count
+          lat: best.lat,
+          lng: best.lng
         };
       });
       datasetOverlayLabelFeatureCache[overlayKey] = entries;
@@ -9856,7 +10008,7 @@
       const rebuildData = allRebuildLabels.map(label => rebuildCounts[label] || 0);
       
       // Show all stages even if they're zero (as requested)
-      const rebuildColors = ['#9e9e9e', '#bc455a', '#fdba77', '#f6cf98', '#afc892', '#81bdc3', '#e5e5e5', '#f9d6d3', '#e0e0e0', '#d4a574', '#c8a2c8', '#a8d8ea'];
+      const rebuildColors = allRebuildLabels.map((label, index) => getRebuildStageColor(label, index));
       
       const rebuildCtx = document.getElementById('rebuildStatusChart');
       if (rebuildStatusChart) rebuildStatusChart.destroy();
@@ -10834,7 +10986,7 @@
           render: () => {
             const rebuildData = getRebuildStatusData(headers, addressMap);
             if (rebuildData.labels.length === 0) return null;
-            const rebuildColors = ['#9e9e9e', '#bc455a', '#fdba77', '#f6cf98', '#afc892', '#81bdc3', '#e5e5e5', '#f9d6d3'];
+            const rebuildColors = rebuildData.labels.map((label, index) => getRebuildStageColor(label, index));
             const labelsWithCount = rebuildData.labels.map((label, i) => `${label} (${rebuildData.data[i]})`);
             return {
               type: 'doughnut',
