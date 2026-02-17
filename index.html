@@ -383,15 +383,21 @@
         <div class="tools-grid">
 
           <!-- Altadena Community Recovery Calendar Module -->
-          <div class="tool-module" id="altadenaCalendar" data-no-expand="true">
-            <div class="tool-module-header">
-              <h3>Altadena Community Recovery Calendar</h3>
+          <div class="tool-module tool-module--featured" id="altadenaCalendar">
+            <div class="tool-module-header" style="cursor: pointer;">
+              <h3>Altadena Community Recovery Calendar <span class="tool-module-toggle">▼</span></h3>
               <p>The most comprehensive public calendar of events around town. Brought to you by Courage (Zone 48) and Altadena Rising.</p>
             </div>
-            <div style="margin-top: 16px;">
-              <a href="https://altadenacalendar.org/" target="_blank" rel="noopener noreferrer" class="tool-link-btn">
-                📅 Open Calendar
-              </a>
+            <div class="tool-module-content">
+              <div style="border: 1px solid var(--border-soft); border-radius: 8px; overflow: hidden; background: #fff;">
+                <iframe
+                  src="https://calendar.google.com/calendar/embed?src=altadenaforevergroup%40gmail.com&ctz=America%2FLos_Angeles"
+                  title="Altadena Community Recovery Calendar"
+                  style="border: 0; width: 100%; height: 720px;"
+                  frameborder="0"
+                  scrolling="no">
+                </iframe>
+              </div>
             </div>
           </div>
 
@@ -7993,6 +7999,13 @@
       return clean;
     }
 
+    function splitOverlayListValues(rawValue) {
+      return String(rawValue || '')
+        .split(/[\n;,]/)
+        .map((value) => value.trim())
+        .filter(Boolean);
+    }
+
     async function fetchOverlayTilesetMetadata(tilesetId) {
       if (!tilesetId || !MAPBOX_CONFIG.accessToken) return null;
       if (cachedOverlayTilesetMetadata[tilesetId]) return cachedOverlayTilesetMetadata[tilesetId];
@@ -8061,6 +8074,27 @@
       return geoid || idValue || tractName || '';
     }
 
+    function buildCensusPopupHtml(overlayConfig, props) {
+      const tractNameRaw = getFirstOverlayProperty(props, overlayConfig.labelTitlePropertyKeys);
+      const tractName = normalizeCensusLabel(tractNameRaw) || 'Census Tract';
+      const councilRaw = getFirstOverlayProperty(props, overlayConfig.townCouncilPropertyKeys)
+        || getFirstOverlayProperty(props, overlayConfig.labelDescriptionPropertyKeys)
+        || '';
+      const councilEntries = splitOverlayListValues(councilRaw);
+      const councilMarkup = councilEntries.length
+        ? councilEntries.map((entry) => `<div style="margin:2px 0;">${escapeOverlayHtml(entry)}</div>`).join('')
+        : '<div style="margin:2px 0; color:#4a4a4a;">Council members pending.</div>';
+      return `
+        <div style="min-width:220px; line-height:1.35;">
+          <div style="font-size:15px; font-weight:700; letter-spacing:0.5px; color:#4c1d95;">${escapeOverlayHtml(tractName)}</div>
+          <div style="margin-top:10px; padding:10px 12px; border:1px solid #dbcaf6; border-radius:8px; background:#f5efff;">
+            <div style="font-weight:700; color:#4c1d95; margin-bottom:6px;">Town Council members</div>
+            ${councilMarkup}
+          </div>
+        </div>
+      `;
+    }
+
     async function collectCensusLabelFeatures(overlayKey, overlayConfig, metadata) {
       if (datasetOverlayLabelFeatureCache[overlayKey]) {
         return datasetOverlayLabelFeatureCache[overlayKey];
@@ -8091,9 +8125,20 @@
             features.forEach((feature) => {
               const key = buildCensusFeatureKey(feature, overlayConfig);
               if (!key) return;
-              if (!entriesByKey.has(key)) {
-                entriesByKey.set(key, { feature, lat, lng });
+              const existing = entriesByKey.get(key);
+              if (!existing) {
+                entriesByKey.set(key, {
+                  feature,
+                  latSum: lat,
+                  lngSum: lng,
+                  sampleCount: 1
+                });
+                return;
               }
+              existing.feature = existing.feature || feature;
+              existing.latSum += lat;
+              existing.lngSum += lng;
+              existing.sampleCount += 1;
             });
           }
         }
@@ -8105,7 +8150,14 @@
         await scanGrid(9, 9);
       }
 
-      const entries = Array.from(entriesByKey.values());
+      const entries = Array.from(entriesByKey.values()).map((entry) => {
+        const count = Math.max(1, entry.sampleCount || 1);
+        return {
+          feature: entry.feature,
+          lat: entry.latSum / count,
+          lng: entry.lngSum / count
+        };
+      });
       datasetOverlayLabelFeatureCache[overlayKey] = entries;
       return entries;
     }
@@ -8144,15 +8196,7 @@
           const props = entry?.feature?.properties || {};
           const tractNameRaw = getFirstOverlayProperty(props, overlayConfig.labelTitlePropertyKeys);
           const tractName = normalizeCensusLabel(tractNameRaw) || 'Census Tract';
-          const councilMembers = getFirstOverlayProperty(props, overlayConfig.townCouncilPropertyKeys)
-            || getFirstOverlayProperty(props, overlayConfig.labelDescriptionPropertyKeys)
-            || 'TBD';
-          const labelHtml = `
-            <div class="overlay-census-badge">
-              <div class="overlay-census-badge-title">${escapeOverlayHtml(tractName)}</div>
-              <div class="overlay-census-badge-subtitle">Town Council members: ${escapeOverlayHtml(councilMembers)}</div>
-            </div>
-          `;
+          const labelHtml = `<div class="overlay-census-badge">${escapeOverlayHtml(tractName)}</div>`;
           return L.marker([entry.lat, entry.lng], {
             pane: labelPane || undefined,
             icon: L.divIcon({
@@ -8250,6 +8294,18 @@
           [overlayConfig.sourceLayer]: () => vectorStyle
         }
       });
+
+      if (overlayKey === 'censusTracts') {
+        layer.on('click', (event) => {
+          const props = event?.layer?.properties || event?.properties || {};
+          const popupHtml = buildCensusPopupHtml(overlayConfig, props);
+          if (!popupHtml.trim() || !event?.latlng) return;
+          L.popup({ maxWidth: 340 })
+            .setLatLng(event.latlng)
+            .setContent(popupHtml)
+            .openOn(zoneMap);
+        });
+      }
       return layer;
     }
 
@@ -13744,7 +13800,7 @@
       if (!module) return;
       
       // Only allow expansion for specific modules
-      const expandableModules = ['contactListCreator', 'zoneReportGenerator', 'batchTaggingTool', 'neighborhoodCaptainCalendar'];
+      const expandableModules = ['contactListCreator', 'zoneReportGenerator', 'batchTaggingTool', 'neighborhoodCaptainCalendar', 'altadenaCalendar'];
       if (!expandableModules.includes(moduleId)) return;
       
       // If clicking the header of an expanded module, collapse it back to compact size
@@ -13785,7 +13841,7 @@
     // Setup tool module expand functionality
     function setupToolModuleExpansion() {
       // Only these modules should be expandable
-      const expandableModules = ['contactListCreator', 'zoneReportGenerator', 'batchTaggingTool', 'neighborhoodCaptainCalendar'];
+      const expandableModules = ['contactListCreator', 'zoneReportGenerator', 'batchTaggingTool', 'neighborhoodCaptainCalendar', 'altadenaCalendar'];
       
       document.querySelectorAll('.tool-module').forEach(module => {
         const moduleId = module.id;

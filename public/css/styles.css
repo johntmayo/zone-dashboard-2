@@ -4096,15 +4096,18 @@
 
     .overlay-census-badge {
       display: inline-block;
-      padding: 8px 12px;
+      padding: 6px 10px;
       border-radius: 8px;
       border: 1px solid rgba(91, 33, 182, 0.4);
       background: rgba(237, 233, 254, 0.96);
       color: #4c1d95;
       font-family: 'Chivo', sans-serif;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
       box-shadow: 0 2px 8px rgba(76, 29, 149, 0.16);
       transform: translate(-50%, -50%);
-      max-width: 280px;
+      white-space: nowrap;
       pointer-events: none;
     }
 
