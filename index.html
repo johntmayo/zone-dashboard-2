@@ -350,6 +350,30 @@
             </div>
           </div>
 
+          <!-- Neighborhood Captain Calendar Module -->
+          <div class="tool-module tool-module--featured" id="neighborhoodCaptainCalendar">
+            <div class="tool-module-header" style="cursor: pointer;">
+              <h3>Neighborhood Captain Calendar <span class="tool-module-toggle">▼</span></h3>
+              <p>View the Neighborhood Captain Calendar directly in the dashboard. Expand this card to see the full calendar.</p>
+            </div>
+            <div class="tool-module-content">
+              <div style="margin-bottom: 12px;">
+                <a href="https://calendar.google.com/calendar/embed?src=c_4e3af0360dc322b7f1f5197df84de116f78a18c2c0087c1408b5147cb36b2e7d%40group.calendar.google.com&ctz=America%2FLos_Angeles" target="_blank" rel="noopener noreferrer" class="tool-link-btn">
+                  📅 Open in Google Calendar
+                </a>
+              </div>
+              <div style="border: 1px solid var(--border-soft); border-radius: 8px; overflow: hidden; background: #fff;">
+                <iframe
+                  src="https://calendar.google.com/calendar/embed?src=c_4e3af0360dc322b7f1f5197df84de116f78a18c2c0087c1408b5147cb36b2e7d%40group.calendar.google.com&ctz=America%2FLos_Angeles"
+                  title="Neighborhood Captain Calendar"
+                  style="border: 0; width: 100%; height: 720px;"
+                  frameborder="0"
+                  scrolling="no">
+                </iframe>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -13720,7 +13744,7 @@
       if (!module) return;
       
       // Only allow expansion for specific modules
-      const expandableModules = ['contactListCreator', 'zoneReportGenerator', 'batchTaggingTool'];
+      const expandableModules = ['contactListCreator', 'zoneReportGenerator', 'batchTaggingTool', 'neighborhoodCaptainCalendar'];
       if (!expandableModules.includes(moduleId)) return;
       
       // If clicking the header of an expanded module, collapse it back to compact size
@@ -13761,7 +13785,7 @@
     // Setup tool module expand functionality
     function setupToolModuleExpansion() {
       // Only these modules should be expandable
-      const expandableModules = ['contactListCreator', 'zoneReportGenerator', 'batchTaggingTool'];
+      const expandableModules = ['contactListCreator', 'zoneReportGenerator', 'batchTaggingTool', 'neighborhoodCaptainCalendar'];
       
       document.querySelectorAll('.tool-module').forEach(module => {
         const moduleId = module.id;
