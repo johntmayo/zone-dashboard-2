@@ -8209,69 +8209,65 @@
 
       const entriesByKey = new Map();
 
+      const mergeFeaturesAtPoint = (features, lat, lng) => {
+        if (!features) return;
+        features.forEach((feature) => {
+          const key = buildCensusFeatureKey(feature, overlayConfig);
+          if (!key) return;
+          const existing = entriesByKey.get(key);
+          const distance = Number(feature?.distance);
+          const samplePoint = {
+            lat,
+            lng,
+            distance: Number.isFinite(distance) ? distance : 0
+          };
+          if (!existing) {
+            entriesByKey.set(key, {
+              feature,
+              samples: [samplePoint]
+            });
+            return;
+          }
+          existing.feature = existing.feature || feature;
+          existing.samples.push(samplePoint);
+        });
+      };
+
       const scanGrid = async (samplesX, samplesY, options = {}) => {
         const lngStep = (east - west) / (samplesX + 1);
         const latStep = (north - south) / (samplesY + 1);
+        const points = [];
         for (let y = 1; y <= samplesY; y++) {
           for (let x = 1; x <= samplesX; x++) {
-            const lng = west + (lngStep * x);
-            const lat = south + (latStep * y);
-            const features = await fetchOverlayTilequeryFeatures(overlayConfig, lng, lat, {
-              radiusMeters: Number.isFinite(options.radiusMeters) ? options.radiusMeters : 0,
-              limit: Number.isFinite(options.limit) ? options.limit : 10
-            });
-            if (!features) continue;
-            features.forEach((feature) => {
-              const key = buildCensusFeatureKey(feature, overlayConfig);
-              if (!key) return;
-              const existing = entriesByKey.get(key);
-              const distance = Number(feature?.distance);
-              const samplePoint = {
-                lat,
-                lng,
-                distance: Number.isFinite(distance) ? distance : 0
-              };
-              if (!existing) {
-                entriesByKey.set(key, {
-                  feature,
-                  samples: [samplePoint]
-                });
-                return;
-              }
-              existing.feature = existing.feature || feature;
-              existing.samples.push(samplePoint);
+            points.push({
+              lng: west + (lngStep * x),
+              lat: south + (latStep * y)
             });
           }
         }
-      };
 
-      const expectedTractKeys = new Set(Object.keys(CENSUS_TRACT_COUNCIL_DIRECTORY));
-      const hasAllExpectedTracts = () => {
-        if (!expectedTractKeys.size) return true;
-        for (const tractKey of expectedTractKeys) {
-          let found = false;
-          for (const entry of entriesByKey.values()) {
-            const entryProps = entry?.feature?.properties || {};
-            const key = getCensusTractLookupKey(getFirstOverlayProperty(entryProps, overlayConfig.labelTitlePropertyKeys));
-            if (key === tractKey) {
-              found = true;
-              break;
-            }
-          }
-          if (!found) return false;
+        const chunkSize = 18;
+        for (let i = 0; i < points.length; i += chunkSize) {
+          const chunk = points.slice(i, i + chunkSize);
+          const results = await Promise.all(
+            chunk.map(async (point) => {
+              const features = await fetchOverlayTilequeryFeatures(overlayConfig, point.lng, point.lat, {
+                radiusMeters: Number.isFinite(options.radiusMeters) ? options.radiusMeters : 0,
+                limit: Number.isFinite(options.limit) ? options.limit : 10
+              });
+              return { point, features };
+            })
+          );
+          results.forEach(({ point, features }) => {
+            mergeFeaturesAtPoint(features, point.lat, point.lng);
+          });
         }
-        return true;
       };
 
+      // Keep this fast so labels render promptly after toggling overlay.
       await scanGrid(8, 8, { radiusMeters: 0, limit: 10 });
-      if (!hasAllExpectedTracts()) {
-        await scanGrid(12, 12, { radiusMeters: 120, limit: 20 });
-      }
-      if (!hasAllExpectedTracts()) {
-        await scanGrid(16, 16, { radiusMeters: 260, limit: 24 });
-      }
-      if (!hasAllExpectedTracts()) {
-        await scanGrid(22, 22, { radiusMeters: 320, limit: 28 });
+      if (entriesByKey.size < 8) {
+        await scanGrid(11, 11, { radiusMeters: 160, limit: 16 });
       }
 
       const entries = Array.from(entriesByKey.values()).map((entry) => {
