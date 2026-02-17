@@ -736,6 +736,7 @@
     const datasetOverlayLayers = {}; // Rendered Leaflet layer instances by overlay key
     const datasetOverlayVisibility = {}; // Visibility state by overlay key
     const datasetOverlayLabelLayers = {}; // Label/card layers by overlay key
+    const datasetOverlayLabelFeatureCache = {}; // Cached label features (e.g., census tracts) by overlay key
     const cachedOverlayTilesetMetadata = {}; // Mapbox TileJSON metadata cache by tileset id
     let datasetOverlayLabelRefreshHandler = null; // Shared zoom/move handler for overlay labels
     let currentTileLayer = null; // Current map tile layer
@@ -866,7 +867,7 @@
         },
         label: {
           enabled: true,
-          minZoom: 13,
+          minZoom: 0,
           type: 'censusBadge',
           tilequeryRadiusMeters: 2000
         },
@@ -7959,7 +7960,13 @@
     function normalizeCensusLabel(rawValue) {
       const clean = String(rawValue || '').trim();
       if (!clean) return '';
-      return clean.replace(/(\.\d+)+$/, '');
+      if (/^ct\b/i.test(clean)) {
+        return clean.replace(/^ct\b\s*/i, 'CT ');
+      }
+      if (/^\d+(?:\.\d+)?$/.test(clean)) {
+        return `CT ${clean}`;
+      }
+      return clean;
     }
 
     async function fetchOverlayTilesetMetadata(tilesetId) {
@@ -7977,16 +7984,17 @@
       }
     }
 
-    async function fetchOverlayTilequeryFeature(overlayConfig, centerLng, centerLat) {
+    async function fetchOverlayTilequeryFeatures(overlayConfig, centerLng, centerLat, options = {}) {
       if (!overlayConfig?.tilesetId || !overlayConfig?.sourceLayer || !MAPBOX_CONFIG.accessToken) return null;
       try {
-        const radiusMeters = Number.isFinite(overlayConfig?.label?.tilequeryRadiusMeters)
-          ? overlayConfig.label.tilequeryRadiusMeters
-          : 1000;
+        const radiusMeters = Number.isFinite(options.radiusMeters)
+          ? options.radiusMeters
+          : (Number.isFinite(overlayConfig?.label?.tilequeryRadiusMeters) ? overlayConfig.label.tilequeryRadiusMeters : 1000);
+        const limit = Number.isFinite(options.limit) ? options.limit : 1;
         const params = new URLSearchParams({
           layers: overlayConfig.sourceLayer,
           radius: String(Math.max(0, Math.round(radiusMeters))),
-          limit: '1',
+          limit: String(Math.max(1, Math.round(limit))),
           dedupe: 'true',
           access_token: MAPBOX_CONFIG.accessToken
         });
@@ -7995,10 +8003,87 @@
         if (!res.ok) return null;
         const payload = await res.json();
         if (!Array.isArray(payload?.features) || !payload.features.length) return null;
-        return payload.features[0] || null;
+        return payload.features || null;
       } catch (_error) {
         return null;
       }
+    }
+
+    function getDatasetOverlayLabelPaneName(overlayKey) {
+      return `dataset-overlay-label-pane-${overlayKey}`;
+    }
+
+    function ensureDatasetOverlayLabelPane(overlayKey) {
+      if (!zoneMap) return null;
+      const paneName = getDatasetOverlayLabelPaneName(overlayKey);
+      if (!zoneMap.getPane(paneName)) {
+        zoneMap.createPane(paneName);
+      }
+      // Keep labels safely above overlay polygons and zone boundaries.
+      zoneMap.getPane(paneName).style.zIndex = '690';
+      return paneName;
+    }
+
+    function buildCensusFeatureKey(feature, overlayConfig) {
+      const props = feature?.properties || {};
+      const tractNameRaw = getFirstOverlayProperty(props, overlayConfig.labelTitlePropertyKeys);
+      const tractName = normalizeCensusLabel(tractNameRaw);
+      const geoid = String(
+        props.GEOID || props.geoid || props.TRACTCE || props.tractce || props.TRACT || props.tract || ''
+      ).trim();
+      const idValue = String(
+        feature?.id ?? props.id ?? props.ID ?? props.OBJECTID ?? ''
+      ).trim();
+      return geoid || idValue || tractName || '';
+    }
+
+    async function collectCensusLabelFeatures(overlayKey, overlayConfig, metadata) {
+      if (datasetOverlayLabelFeatureCache[overlayKey]) {
+        return datasetOverlayLabelFeatureCache[overlayKey];
+      }
+
+      const bounds = metadata?.bounds;
+      if (!Array.isArray(bounds) || bounds.length < 4) return [];
+      const west = Number(bounds[0]);
+      const south = Number(bounds[1]);
+      const east = Number(bounds[2]);
+      const north = Number(bounds[3]);
+      if (![west, south, east, north].every(Number.isFinite) || east <= west || north <= south) return [];
+
+      const entriesByKey = new Map();
+
+      const scanGrid = async (samplesX, samplesY) => {
+        const lngStep = (east - west) / (samplesX + 1);
+        const latStep = (north - south) / (samplesY + 1);
+        for (let y = 1; y <= samplesY; y++) {
+          for (let x = 1; x <= samplesX; x++) {
+            const lng = west + (lngStep * x);
+            const lat = south + (latStep * y);
+            const features = await fetchOverlayTilequeryFeatures(overlayConfig, lng, lat, {
+              radiusMeters: 0,
+              limit: 10
+            });
+            if (!features) continue;
+            features.forEach((feature) => {
+              const key = buildCensusFeatureKey(feature, overlayConfig);
+              if (!key) return;
+              if (!entriesByKey.has(key)) {
+                entriesByKey.set(key, { feature, lat, lng });
+              }
+            });
+          }
+        }
+      };
+
+      await scanGrid(6, 6);
+      // If sparse sampling misses tracts, run one denser pass.
+      if (entriesByKey.size < 8) {
+        await scanGrid(9, 9);
+      }
+
+      const entries = Array.from(entriesByKey.values());
+      datasetOverlayLabelFeatureCache[overlayKey] = entries;
+      return entries;
     }
 
     function getOverlayLabelMinZoom(overlayKey) {
@@ -8024,23 +8109,28 @@
       const centerLat = Number(center[1]);
       if (!Number.isFinite(centerLng) || !Number.isFinite(centerLat)) return null;
       const markerLatLng = [centerLat, centerLng];
+      const labelPane = ensureDatasetOverlayLabelPane(overlayKey);
 
       if (overlayConfig.label.type === 'censusBadge') {
-        const tileFeature = await fetchOverlayTilequeryFeature(overlayConfig, centerLng, centerLat);
-        const props = tileFeature?.properties || {};
-        const tractNameRaw = getFirstOverlayProperty(props, overlayConfig.labelTitlePropertyKeys);
-        const tractName = normalizeCensusLabel(tractNameRaw) || 'Census Tract';
-        const councilMembers = getFirstOverlayProperty(props, overlayConfig.townCouncilPropertyKeys)
-          || getFirstOverlayProperty(props, overlayConfig.labelDescriptionPropertyKeys)
-          || 'TBD';
-        const labelHtml = `
-          <div class="overlay-census-badge">
-            <div class="overlay-census-badge-title">${escapeOverlayHtml(tractName)}</div>
-            <div class="overlay-census-badge-subtitle">Town Council members: ${escapeOverlayHtml(councilMembers)}</div>
-          </div>
-        `;
-        return L.layerGroup([
-          L.marker(markerLatLng, {
+        const censusEntries = await collectCensusLabelFeatures(overlayKey, overlayConfig, metadata);
+        const markerDefs = censusEntries.length
+          ? censusEntries
+          : [{ feature: { properties: {} }, lat: centerLat, lng: centerLng }];
+        const markers = markerDefs.map((entry) => {
+          const props = entry?.feature?.properties || {};
+          const tractNameRaw = getFirstOverlayProperty(props, overlayConfig.labelTitlePropertyKeys);
+          const tractName = normalizeCensusLabel(tractNameRaw) || 'Census Tract';
+          const councilMembers = getFirstOverlayProperty(props, overlayConfig.townCouncilPropertyKeys)
+            || getFirstOverlayProperty(props, overlayConfig.labelDescriptionPropertyKeys)
+            || 'TBD';
+          const labelHtml = `
+            <div class="overlay-census-badge">
+              <div class="overlay-census-badge-title">${escapeOverlayHtml(tractName)}</div>
+              <div class="overlay-census-badge-subtitle">Town Council members: ${escapeOverlayHtml(councilMembers)}</div>
+            </div>
+          `;
+          return L.marker([entry.lat, entry.lng], {
+            pane: labelPane || undefined,
             icon: L.divIcon({
               className: 'overlay-floating-card-wrapper',
               html: labelHtml,
@@ -8048,8 +8138,9 @@
             }),
             interactive: false,
             keyboard: false
-          })
-        ]);
+          });
+        });
+        return L.layerGroup(markers);
       }
 
       if (overlayConfig.label.type === 'waterCompanyBadge') {
@@ -8057,6 +8148,7 @@
         const labelHtml = `<div class="overlay-water-badge">${escapeOverlayHtml(text)}</div>`;
         return L.layerGroup([
           L.marker(markerLatLng, {
+            pane: labelPane || undefined,
             icon: L.divIcon({
               className: 'overlay-water-badge-wrapper',
               html: labelHtml,
