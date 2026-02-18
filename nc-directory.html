@@ -121,7 +121,7 @@
     .card .bio { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; }
     .card .location { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; }
     .card .notes-bio { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; font-style: italic; }
-    .card .ask-me-about { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; }
+    .card .ask-me-about { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.1rem; line-height: 1.4; }
     .loading, .error { text-align: center; padding: 2rem; font-size: 1.1rem; }
     .error { color: var(--accent-clay); }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
@@ -583,7 +583,7 @@
             (phone ? '<div class="contact">' + escapeHtml(phone) + '</div>' : '') +
             (skills ? '<div class="bio">' + escapeHtml(skills.slice(0, 200)) + (skills.length > 200 ? '…' : '') + '</div>' : '') +
             (notesBio ? '<div class="notes-bio">' + escapeHtml(notesBio) + '</div>' : '') +
-            (askMeAbout ? '<div class="ask-me-about">Ask me about… ' + escapeHtml(askMeAbout) + '</div>' : '') +
+            (askMeAbout ? '<div class="tags-label">Ask Me About:</div><div class="ask-me-about">' + escapeHtml(askMeAbout) + '</div>' : '') +
             (wg.length ? '<div class="tags-label">Working groups:</div><div class="tags">' + wg.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
             (interests.length ? '<div class="tags-label">Interest areas:</div><div class="tags">' + interests.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
             (badges.length ? '<div class="tags">' + badges.map(x => { const t = (x || '').trim(); const special = t === '1 Year of Service' ? ' badge-1year' : (t === 'Working Group Chair' ? ' badge-chair' : (t === 'Newsletter' ? ' badge-newsletter' : (t.toLowerCase() === 'dena native' ? ' badge-dena-native' : ''))); return '<span class="tag badge' + special + '">' + escapeHtml(x) + '</span>'; }).join('') + '</div>' : '') +
