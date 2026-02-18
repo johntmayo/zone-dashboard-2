@@ -680,7 +680,7 @@
     <!-- My NC Profile View (NC Directory) -->
     <div class="content-view hidden" id="profileView">
       <h2 class="page-title">My NC Profile</h2>
-      <p style="color: var(--text-secondary); margin-bottom: 1rem; max-width: 700px;">Update your neighborhood captain&apos;s profile. Changes are saved to the NC directory. You can also update your profile the old fashioned way in the <a href="https://docs.google.com/spreadsheets/d/1E77qmT4eGtyokaDvD2wlK3q2NeMcS4itmkbYp6Rz0qM/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer">directory spreadsheet</a>.</p>
+      <p style="color: var(--text-secondary); margin-bottom: 1rem; max-width: 700px;">Update your neighborhood captain&apos;s profile. Changes are saved to the NC directory. You can access the <a href="nc-directory.html" target="_blank" rel="noopener noreferrer">Neighborhood Captain Directory here</a>. You can also update your profile the old fashioned way in the <a href="https://docs.google.com/spreadsheets/d/1E77qmT4eGtyokaDvD2wlK3q2NeMcS4itmkbYp6Rz0qM/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer">directory spreadsheet</a>.</p>
       <div id="profileSigninPrompt" class="hidden" style="padding: 1.5rem; background: var(--bg-card); border: 2px solid var(--border-color); border-radius: 8px; max-width: 500px;">
         <p><strong>Sign in to edit your profile</strong></p>
         <p>Use the &quot;Sign in with Google&quot; button above, then return here.</p>
@@ -11737,6 +11737,11 @@
             updatePolygonDisplay();
           });
           map.on('mouseout', () => {
+            // Regression guard:
+            // 1) Draw 3+ points, close polygon, then move pointer from map to toolbar buttons.
+            // 2) The closed polygon must remain visible until "Clear shape" is clicked.
+            // This avoids clearing a completed polygon due to a late hover-preview mouseout.
+            if (latlngs.length === 0) return;
             if (!drawingHoverLatLng) return;
             drawingHoverLatLng = null;
             updatePolygonDisplay();
@@ -11766,6 +11771,7 @@
         state.updateAddressMarkerColors(new Set(addressesInPolygon));
         state.polygonLayer.clearLayers();
         L.polygon(ring, { color: '#2563eb', weight: 2, fillColor: '#2563eb', fillOpacity: 0.2 }).addTo(state.polygonLayer);
+        if (typeof state.clearDrawingHover === 'function') state.clearDrawingHover();
         state.latlngs.length = 0;
         if (mapStatusEl) mapStatusEl.textContent = addressesInPolygon.length + ' address(es) selected. Choose values below and click Apply to selected addresses when ready.';
         showAppToast('Selected ' + addressesInPolygon.length + ' address(es). Choose values and click Apply when ready.');
