@@ -563,6 +563,71 @@ app.post('/api/sheets/append', async (req, res) => {
   }
 });
 
+// POST /api/sheets/append-record - append one row while inheriting validation/format
+app.post('/api/sheets/append-record', async (req, res) => {
+  const { sheetId, values, sheetName = 'Sheet1' } = req.body || {};
+  if (!sheetId || !Array.isArray(values)) {
+    return res.status(400).json({ error: 'sheetId and values (row array) required' });
+  }
+  try {
+    const sheets = await getSheetsClient();
+
+    // Resolve target tab metadata (gid + grid size)
+    const metadata = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+    const targetSheet = (metadata.data.sheets || []).find(
+      (s) => (s.properties && s.properties.title) === sheetName
+    );
+    if (!targetSheet || !targetSheet.properties || targetSheet.properties.sheetId === undefined) {
+      return res.status(404).json({ error: `Sheet "${sheetName}" not found` });
+    }
+    const targetSheetId = targetSheet.properties.sheetId;
+
+    // Find the last logical row in use. values.get returns rows up to the last non-empty row.
+    const existing = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `${sheetName}!A1:ZZ`
+    });
+    const existingRows = (existing.data && existing.data.values) ? existing.data.values : [];
+    const insertAtRowNumber = Math.max(existingRows.length + 1, 2); // keep row 1 as header
+
+    // Insert a physical row that inherits data validation/checkbox/dropdown rules from above.
+    const insertStartIndex = insertAtRowNumber - 1; // 0-based index where the new row is inserted
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId,
+      requestBody: {
+        requests: [
+          {
+            insertDimension: {
+              range: {
+                sheetId: targetSheetId,
+                dimension: 'ROWS',
+                startIndex: insertStartIndex,
+                endIndex: insertStartIndex + 1
+              },
+              inheritFromBefore: true
+            }
+          }
+        ]
+      }
+    });
+
+    // Write the provided values into the inserted row.
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: `${sheetName}!A${insertAtRowNumber}:ZZ${insertAtRowNumber}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [values] }
+    });
+
+    res.json({ success: true, rowNumber: insertAtRowNumber });
+  } catch (err) {
+    const status = sheetsErrorStatus(err);
+    const message = err.message || (err.response && err.response.data && err.response.data.error && err.response.data.error.message) || 'Sheets API error';
+    console.error('Sheets append-record error:', message);
+    res.status(status).json({ error: 'Failed to append record', message });
+  }
+});
+
 // POST /api/sheets/batch-update - batchUpdate
 app.post('/api/sheets/batch-update', async (req, res) => {
   const { sheetId, valueInputOption = 'USER_ENTERED', data } = req.body || {};

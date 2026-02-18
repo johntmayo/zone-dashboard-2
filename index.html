@@ -320,7 +320,7 @@
       <div class="people-view-header">
         <h2 style="margin: 0; color: var(--primary-dark); font-size: 1.8rem; letter-spacing: 0.5px; font-family: 'Chivo', sans-serif;">Neighbors</h2>
         <div class="people-view-actions">
-          <button class="btn-print-export" id="btnAddRecord">➕ Add Record</button>
+          <button class="btn-print-export" id="btnAddRecord" style="display:none;" aria-hidden="true">➕ Add Record</button>
           <button class="btn-print-export" id="btnPrintAddresses">🖨️ Print</button>
           <button class="btn-print-export" id="btnExportAddresses">📥 Export CSV</button>
         </div>
@@ -733,6 +733,8 @@
     let accessToken = null; // OAuth2 access token
     let currentUserEmail = null; // Signed-in Google account email (for NC Profile row match)
     let currentSheetId = null; // Current sheet ID for writing
+    // Emergency kill switch for Add Record while stabilization/testing is in progress.
+    const ENABLE_ADD_RECORD = false;
     let currentStreetFilter = 'all'; // Current street filter
     let currentDamageFilter = 'all'; // Current damage filter
     let currentAddressPlanFilter = 'all'; // Current Address Plan filter (only when Damage = Partial/Total Loss)
@@ -1812,7 +1814,12 @@
           row[header] = apiValues[i][index] || '';
         });
         // Only add row if it has at least one non-empty value
-        if (Object.values(row).some(v => v.trim())) {
+        if (headers.some(header => String(row[header] || '').trim() !== '')) {
+          // Preserve absolute sheet row coordinates even when blank rows exist.
+          // Spreadsheet row = i + 1 (because i starts at 1 and row 1 is header).
+          row.__sheetRowNumber = i + 1;
+          // Backward-compatible index used throughout the app (rowNumber = __originalIndex + 2).
+          row.__originalIndex = row.__sheetRowNumber - 2;
           data.push(row);
         }
       }
@@ -1932,9 +1939,19 @@
                  (lower.includes('street') && !lower.includes('address'));
         });
         const addressCol = headers.find(h => {
-          const lower = h.toLowerCase();
-          return (lower.includes('address') || lower.includes('location')) &&
-                 !lower.includes('email') && !lower.includes('phone');
+          const lower = h.toLowerCase().trim();
+          // Never treat Address Plan/Address Notes/Address status fields as the canonical address column.
+          if (lower.includes('plan') || lower.includes('note') || lower.includes('sale') || lower.includes('sold') || lower.includes('unit')) {
+            return false;
+          }
+          if (lower.includes('email') || lower.includes('phone')) {
+            return false;
+          }
+          return lower === 'address' ||
+                 lower === 'full address' ||
+                 lower === 'street address' ||
+                 lower === 'property address' ||
+                 lower === 'location';
         });
 
         // Helper function to get address string
@@ -1974,7 +1991,11 @@
             addressMap.set(address, []);
           }
           // Store row with its original index
-          addressMap.get(address).push({ ...row, __originalIndex: rowIndex });
+          addressMap.get(address).push({
+            ...row,
+            __originalIndex: typeof row.__originalIndex === 'number' ? row.__originalIndex : rowIndex,
+            __sheetRowNumber: typeof row.__sheetRowNumber === 'number' ? row.__sheetRowNumber : (rowIndex + 2)
+          });
         });
 
         // Store data globally
@@ -2980,15 +3001,17 @@
       if (!currentSheetId || !accessToken || !rows || rows.length === 0) {
         throw new Error('Not signed in or no sheet loaded.');
       }
-      const range = 'Sheet1!A1:ZZ'; // append to first sheet
-      const res = await fetch('/api/sheets/append', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sheetId: currentSheetId, values: rows })
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || err.error || 'Failed to add record to spreadsheet.');
+      // Append one physical row at a time and inherit validation/checkbox/dropdown rules.
+      for (const row of rows) {
+        const res = await fetch('/api/sheets/append-record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sheetId: currentSheetId, sheetName: 'Sheet1', values: row })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || err.error || 'Failed to add record to spreadsheet.');
+        }
       }
     }
 
@@ -3050,6 +3073,10 @@
 
     // Show Add Record modal (v2: flexible flow, geocode + minimap, no "spreadsheet" copy)
     function showAddRecordModal() {
+      if (!ENABLE_ADD_RECORD) {
+        alert('Add Record is temporarily disabled while we stabilize data integrity.');
+        return;
+      }
       if (!sheetData || !sheetData.headers || !sheetData.addressMap) {
         alert('Please load your zone data first.');
         return;
@@ -4044,6 +4071,10 @@
       const printBtn = document.getElementById('btnPrintAddresses');
       const exportBtn = document.getElementById('btnExportAddresses');
       const addRecordBtn = document.getElementById('btnAddRecord');
+      if (addRecordBtn && !ENABLE_ADD_RECORD) {
+        addRecordBtn.style.display = 'none';
+        addRecordBtn.setAttribute('aria-hidden', 'true');
+      }
       
       if (printBtn && !printBtn.hasAttribute('data-handler-attached')) {
         printBtn.addEventListener('click', (e) => {
@@ -4061,7 +4092,7 @@
         });
         exportBtn.setAttribute('data-handler-attached', 'true');
       }
-      if (addRecordBtn && !addRecordBtn.hasAttribute('data-handler-attached')) {
+      if (ENABLE_ADD_RECORD && addRecordBtn && !addRecordBtn.hasAttribute('data-handler-attached')) {
         addRecordBtn.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -9485,19 +9516,22 @@
         }
 
         // Update local data
-        if (sheetData && sheetData.data && sheetData.data[originalRowIndex]) {
+        if (sheetData && sheetData.data) {
           const contactCol = headers.find(h => 
             h.toLowerCase() === 'last contact date' ||
             h.toLowerCase().includes('last contact') || 
             h.toLowerCase().includes('contact date') ||
             h.toLowerCase().includes('contacted')
           ) || contactColumn;
-          sheetData.data[originalRowIndex][contactCol] = today;
+          const localRow = sheetData.data.find(r => r.__originalIndex === originalRowIndex);
+          if (localRow) {
+            localRow[contactCol] = today;
+          }
           
           // Update contact notes in local data if column exists
-          if (contactNotesColIndex >= 0 && contactNotes) {
+          if (localRow && contactNotesColIndex >= 0 && contactNotes) {
             const contactNotesCol = headers[contactNotesColIndex];
-            sheetData.data[originalRowIndex][contactNotesCol] = contactNotes;
+            localRow[contactNotesCol] = contactNotes;
           }
           
           // Update address map
