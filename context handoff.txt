@@ -1,0 +1,30 @@
+Context handoff:
+Please read `DATA_PROBLEM_HANDOFF.md` in this repo first and use it as source of truth.
+
+Current status:
+- High-risk row mismatch bug has been fixed and manually verified.
+- `Add Record` is intentionally disabled right now.
+- We need to continue with staged validation and safe re-enable.
+
+What I need you to do now:
+1) Verify current code state matches handoff:
+   - `index.html` has `ENABLE_ADD_RECORD = false`
+   - Add Record button is hidden/inaccessible
+   - row identity logic uses stable absolute row mapping
+   - address-column detection is hardened (does not map to Address Plan)
+   - `server.js` contains `POST /api/sheets/append-record`
+2) Create a tight, step-by-step staging test plan for re-enabling Add Record:
+   - checkbox/dropdown inheritance validation
+   - correct column placement (no address blob in Address Plan)
+   - sorting + refresh behavior
+   - multi-user stale-tab risk checks
+3) Propose exact production rollout sequence:
+   - pilot zone first, then broader rollout
+   - clear rollback trigger criteria
+4) Recommend short-term operating policy for captains until full row-ID architecture lands.
+5) Then implement any needed code/test updates (if in agent/edit mode) and report findings clearly.
+
+Important concerns:
+- We have ~25 sheets in the wild.
+- Need confidence sorting/filtering won’t silently corrupt data.
+- Long-term plan is likely `resident_id` + `source_sheet_id` composite identity for rollups.
