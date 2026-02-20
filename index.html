@@ -1998,8 +1998,8 @@
           });
         });
 
-        // Store data globally
-        sheetData = { headers, data, addressMap, addressCol, houseNumCol, streetCol, getAddressString };
+        // Store data globally (useResidentId: use resident_id for writes when column exists - sort-safe)
+        sheetData = { headers, data, addressMap, addressCol, houseNumCol, streetCol, getAddressString, useResidentId: headers.includes('resident_id') };
         
         // Re-initialize Contact List Creator if user is on Tools view and data just loaded
         if (currentView === 'tools') {
@@ -3015,6 +3015,25 @@
       }
     }
 
+    // Generate a unique resident_id (UUID) for new rows
+    function generateResidentId() {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0, v = c === 'y' ? (r & 0x3 | 0x8) : r;
+        return v.toString(16);
+      });
+    }
+
+    // Ensure resident_id and APN are set on row values when those columns exist (Add Record)
+    function ensureResidentIdAndApn(headers, valuesByColumn) {
+      if (headers.includes('resident_id') && (valuesByColumn['resident_id'] == null || valuesByColumn['resident_id'] === '')) {
+        valuesByColumn['resident_id'] = generateResidentId();
+      }
+      if (headers.includes('APN') && (valuesByColumn['APN'] == null || valuesByColumn['APN'] === '')) {
+        valuesByColumn['APN'] = '';
+      }
+    }
+
     // Build one row array in header order from a key-value map
     function buildRowForHeaders(headers, valuesByColumn) {
       return headers.map(h => (valuesByColumn[h] != null && valuesByColumn[h] !== '') ? String(valuesByColumn[h]).trim() : '');
@@ -3364,6 +3383,7 @@
         if (addRecordPendingMapConfirm && addRecordPendingRowValues) {
           if (latCol && addRecordLat != null) addRecordPendingRowValues[latCol] = String(addRecordLat);
           if (lonCol && addRecordLon != null) addRecordPendingRowValues[lonCol] = String(addRecordLon);
+          ensureResidentIdAndApn(headers, addRecordPendingRowValues);
           const row = buildRowForHeaders(headers, addRecordPendingRowValues);
           submitBtn.disabled = true;
           submitBtn.textContent = 'Adding…';
@@ -3430,6 +3450,7 @@
           }
           if (latCol) rowValuesByColumn[latCol] = lat;
           if (lonCol) rowValuesByColumn[lonCol] = lon;
+          ensureResidentIdAndApn(headers, rowValuesByColumn);
         } else {
           // t === 'person'
           const personName = (document.getElementById('addRecordPersonNameInput').value || '').trim();
@@ -3497,6 +3518,7 @@
           }
         }
 
+        ensureResidentIdAndApn(headers, rowValuesByColumn);
         const row = buildRowForHeaders(headers, rowValuesByColumn);
         submitBtn.disabled = true;
         submitBtn.textContent = 'Adding…';
@@ -4758,10 +4780,11 @@
         captainAssignedCol = findColumn(headers, 'captain assigned');
       }
 
-      // Find relevant columns (exclude address column itself)
+      // Find relevant columns (exclude address column itself and backend-only resident_id)
       const detailCols = headers.filter(h => 
         h !== addressCol && 
         h.toLowerCase() !== 'address' &&
+        h.toLowerCase() !== 'resident_id' &&
         rows.some(row => row[h] && row[h].trim())
       );
       
@@ -4786,6 +4809,7 @@
       // Separate address-level and person-level columns
       const addressLevelCols = headers.filter(h => {
         const lower = h.toLowerCase();
+        if (lower === 'resident_id') return false; // Backend only, never display
         // Explicitly exclude person-level notes and email address
         if (lower.includes('person note')) return false;
         if (lower.includes('email address')) return false;
@@ -4811,6 +4835,7 @@
       
       // Fields to hide from person view (address-level; address is shown as header)
       const hiddenFromPersonView = [
+        'resident_id', // Backend only, never display
         'house #',
         'house number',
         'house num',
@@ -4887,9 +4912,10 @@
       });
       
       // Find Notes columns separately - always show them if signed in, even if empty
-      // Exclude Contact Notes - it's shown separately in contact mode
+      // Exclude Contact Notes - it's shown separately in contact mode; exclude backend resident_id
       const allNotesCols = headers.filter(h => 
         h !== addressCol &&
+        h.toLowerCase() !== 'resident_id' &&
         h.toLowerCase().includes('note') &&
         !(h.toLowerCase().includes('contact') && h.toLowerCase().includes('note')) &&
         accessToken // Only if signed in
@@ -5989,10 +6015,24 @@
       }
 
       try {
-        // Collect all changes
+        const useResidentId = sheetData.useResidentId;
         const updates = [];
+        const updatesByResidentId = [];
+
+        function pushUpdate(row, column, value) {
+          if (useResidentId && row && row['resident_id']) {
+            updatesByResidentId.push({ resident_id: row['resident_id'], column: column, value: value });
+          } else if (row && (row.__originalIndex !== undefined && row.__originalIndex !== -1)) {
+            const rowNumber = row.__originalIndex + 2;
+            const colIndex = sheetData.headers.indexOf(column);
+            if (colIndex !== -1) {
+              const colLetter = indexToColumnLetter(colIndex);
+              updates.push({ range: `Sheet1!${colLetter}${rowNumber}`, values: [[value]] });
+            }
+          }
+        }
+
         editableFields.forEach(field => {
-          // Handle textareas differently from contenteditable divs
           const newValue = field.tagName === 'TEXTAREA' ? field.value.trim() : field.textContent.trim();
           const originalValue = field.getAttribute('data-original-value') || '';
           const column = field.getAttribute('data-column');
@@ -6000,164 +6040,86 @@
           const address = field.getAttribute('data-address');
           const originalRowIndex = parseInt(field.getAttribute('data-original-row-index'));
 
-          if (newValue !== originalValue) {
-            // Find the column index - handle Contact Notes with flexible matching
-            let colIndex = -1;
-            if (column === 'Contact Notes' || field.classList.contains('contact-notes-quick')) {
-              // For Contact Notes, use flexible search like markContact does
-              colIndex = sheetData.headers.findIndex(h => 
-                h.toLowerCase().includes('contact') && h.toLowerCase().includes('note')
-              );
-            } else {
-              colIndex = sheetData.headers.indexOf(column);
-            }
-            if (colIndex === -1) {
-              console.warn(`Column not found: ${column}`);
-              return;
-            }
+          if (newValue === originalValue) return;
+          let colIndex = -1;
+          if (column === 'Contact Notes' || field.classList.contains('contact-notes-quick')) {
+            colIndex = sheetData.headers.findIndex(h => h.toLowerCase().includes('contact') && h.toLowerCase().includes('note'));
+          } else {
+            colIndex = sheetData.headers.indexOf(column);
+          }
+          if (colIndex === -1) { console.warn(`Column not found: ${column}`); return; }
+          const colLetter = indexToColumnLetter(colIndex);
 
-            // Convert column index to letter (A, B, C, etc.)
-            const colLetter = indexToColumnLetter(colIndex);
-            
-            if (isAddressLevel) {
-              // Address-level: update ALL rows for this address
-              const rows = sheetData.addressMap.get(address);
-              if (rows) {
-                rows.forEach(row => {
-                  const rowIndex = row.__originalIndex;
-                  if (rowIndex !== undefined && rowIndex !== -1) {
-                    const rowNumber = rowIndex + 2; // +2 because +1 for header row, +1 for 1-based indexing
-                    const range = `${colLetter}${rowNumber}`;
-                    updates.push({
-                      range: `Sheet1!${range}`,
-                      values: [[newValue]]
-                    });
-                  }
-                });
-              }
-            } else {
-              // Person-level: update only this specific row
-              if (originalRowIndex !== -1) {
-                const rowNumber = originalRowIndex + 2; // +2 because +1 for header row, +1 for 1-based indexing
-                const range = `${colLetter}${rowNumber}`;
-                updates.push({
-                  range: `Sheet1!${range}`,
-                  values: [[newValue]]
-                });
-              }
-            }
+          if (isAddressLevel) {
+            const rows = sheetData.addressMap.get(address);
+            if (rows) rows.forEach(row => { pushUpdate(row, column, newValue); });
+          } else {
+            const rows = sheetData.addressMap.get(address);
+            const row = rows ? rows.find(r => r.__originalIndex === originalRowIndex) : null;
+            pushUpdate(row, column, newValue);
           }
         });
-        
-        // Handle dropdown fields
+
         editableDropdowns.forEach(dropdown => {
           const newValue = dropdown.value.trim();
           const originalValue = dropdown.getAttribute('data-original-value');
           const column = dropdown.getAttribute('data-column');
           const isAddressLevel = dropdown.getAttribute('data-address-level') === 'true';
           const address = dropdown.getAttribute('data-address');
+          if (newValue === originalValue) return;
+          const colIndex = sheetData.headers.indexOf(column);
+          if (colIndex === -1) return;
+          const colLetter = indexToColumnLetter(colIndex);
 
-          if (newValue !== originalValue) {
-            // Find the column index
-            const colIndex = sheetData.headers.indexOf(column);
-            if (colIndex === -1) return;
-
-            // Convert column index to letter
-            const colLetter = indexToColumnLetter(colIndex);
-            
-            if (isAddressLevel) {
-              // Address-level: update ALL rows for this address
-              const rows = sheetData.addressMap.get(address);
-              if (rows) {
-                rows.forEach(row => {
-                  const rowIndex = row.__originalIndex;
-                  if (rowIndex !== undefined && rowIndex !== -1) {
-                    const rowNumber = rowIndex + 2;
-                    const range = `${colLetter}${rowNumber}`;
-                    updates.push({
-                      range: `Sheet1!${range}`,
-                      values: [[newValue]]
-                    });
-                  }
-                });
-              }
-            }
+          if (isAddressLevel) {
+            const rows = sheetData.addressMap.get(address);
+            if (rows) rows.forEach(row => { pushUpdate(row, column, newValue); });
           }
         });
-        
-        // Handle checkbox fields
+
         editableCheckboxes.forEach(checkbox => {
           const newValue = checkbox.checked ? 'TRUE' : 'FALSE';
           const originalValue = checkbox.getAttribute('data-original-value') || '';
-          // Convert original value to boolean for comparison - handle TRUE/FALSE, yes/no, true/false
           const originalValueStr = (originalValue || '').trim();
           const originalValueStrLower = originalValueStr.toLowerCase();
-          const originalChecked = originalValueStrLower === 'true' || originalValueStr === 'TRUE' || 
-                                 originalValueStrLower === 'yes' || 
-                                 (originalValueStr !== '' && originalValueStrLower !== 'false' && originalValueStr !== 'FALSE' && originalValueStrLower !== 'no');
+          const originalChecked = originalValueStrLower === 'true' || originalValueStr === 'TRUE' || originalValueStrLower === 'yes' || (originalValueStr !== '' && originalValueStrLower !== 'false' && originalValueStr !== 'FALSE' && originalValueStrLower !== 'no');
           const column = checkbox.getAttribute('data-column');
           const isAddressLevel = checkbox.getAttribute('data-address-level') === 'true';
           const address = checkbox.getAttribute('data-address');
+          const originalRowIndex = parseInt(checkbox.getAttribute('data-original-row-index'));
+          if (checkbox.checked === originalChecked) return;
+          const colIndex = sheetData.headers.indexOf(column);
+          if (colIndex === -1) return;
+          const colLetter = indexToColumnLetter(colIndex);
 
-          if (checkbox.checked !== originalChecked) {
-            // Find the column index
-            const colIndex = sheetData.headers.indexOf(column);
-            if (colIndex === -1) return;
-
-            // Convert column index to letter
-            const colLetter = indexToColumnLetter(colIndex);
-            
-            if (isAddressLevel) {
-              // Address-level: update ALL rows for this address
-              const rows = sheetData.addressMap.get(address);
-              if (rows) {
-                rows.forEach(row => {
-                  const rowIndex = row.__originalIndex;
-                  if (rowIndex !== undefined && rowIndex !== -1) {
-                    const rowNumber = rowIndex + 2;
-                    const range = `${colLetter}${rowNumber}`;
-                    updates.push({
-                      range: `Sheet1!${range}`,
-                      values: [[newValue]]
-                    });
-                  }
-                });
-              }
-            } else {
-              // Person-level: update only this specific row
-              const originalRowIndex = parseInt(checkbox.getAttribute('data-original-row-index'));
-              if (originalRowIndex !== -1) {
-                const rowNumber = originalRowIndex + 2;
-                const range = `${colLetter}${rowNumber}`;
-                updates.push({
-                  range: `Sheet1!${range}`,
-                  values: [[newValue]]
-                });
-              }
-            }
+          if (isAddressLevel) {
+            const rows = sheetData.addressMap.get(address);
+            if (rows) rows.forEach(row => { pushUpdate(row, column, newValue); });
+          } else {
+            const rows = sheetData.addressMap.get(address);
+            const row = rows ? rows.find(r => r.__originalIndex === originalRowIndex) : null;
+            pushUpdate(row, column, newValue);
           }
         });
 
-        if (updates.length === 0) {
-          if (saveStatus) {
-            saveStatus.textContent = 'No changes to save';
-            saveStatus.className = 'save-status';
-          }
-          if (saveBtn) {
-            saveBtn.disabled = false;
-          }
+        const hasUpdates = updates.length > 0 || updatesByResidentId.length > 0;
+        if (!hasUpdates) {
+          if (saveStatus) { saveStatus.textContent = 'No changes to save'; saveStatus.className = 'save-status'; }
+          if (saveBtn) saveBtn.disabled = false;
           return;
         }
 
-        const response = await fetch('/api/sheets/batch-update', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sheetId: currentSheetId,
-            valueInputOption: 'USER_ENTERED',
-            data: updates
-          })
-        });
+        const response = updatesByResidentId.length > 0
+          ? await fetch('/api/sheets/batch-update-by-resident-id', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sheetId: currentSheetId, sheetName: 'Sheet1', valueInputOption: 'USER_ENTERED', updates: updatesByResidentId })
+            })
+          : await fetch('/api/sheets/batch-update', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sheetId: currentSheetId, valueInputOption: 'USER_ENTERED', data: updates })
+            });
         if (!response.ok) {
           const error = await response.json().catch(() => ({}));
           throw new Error(error.message || error.error || 'Failed to save');
@@ -9435,68 +9397,61 @@
           throw new Error('Invalid sheet URL. Make sure a spreadsheet is loaded.');
         }
 
-        // Find the row to update (using originalRowIndex + 2 because row 1 is header, row 2 is first data)
-        const rowNumber = originalRowIndex + 2;
-
-        // Get column letters for contact date and contact notes
         const headers = sheetData.headers;
-        const contactColIndex = headers.findIndex(h => 
+        const contactColIndex = headers.findIndex(h =>
           h.toLowerCase() === 'last contact date' ||
-          h.toLowerCase().includes('last contact') || 
+          h.toLowerCase().includes('last contact') ||
           h.toLowerCase().includes('contact date') ||
           h.toLowerCase().includes('contacted')
         );
-        
-        const contactNotesColIndex = headers.findIndex(h => 
+        const contactCol = contactColIndex >= 0 ? headers[contactColIndex] : null;
+        const contactNotesColIndex = headers.findIndex(h =>
           h.toLowerCase() === 'contact notes' ||
           h.toLowerCase().includes('contact notes')
         );
+        const contactNotesCol = contactNotesColIndex >= 0 ? headers[contactNotesColIndex] : null;
 
-        // Get contact notes from the textarea
         const contactNotesTextarea = button.parentNode.querySelector('.contact-notes-quick');
         const contactNotes = contactNotesTextarea ? contactNotesTextarea.value.trim() : '';
 
-        // Prepare updates for both date and notes
-        const updates = [];
-        
-        // Update Last Contact Date
-        if (contactColIndex >= 0) {
-          const columnLetter = indexToColumnLetter(contactColIndex);
-          const sheetName = 'Sheet1';
-          const cellRange = `${sheetName}!${columnLetter}${rowNumber}`;
-          updates.push({
-            range: cellRange,
-            values: [[today]]
-          });
-        }
+        const rows = sheetData.addressMap.get(address);
+        const row = rows ? rows.find(r => r.__originalIndex === originalRowIndex) : null;
+        const useResidentId = sheetData.useResidentId && row && row['resident_id'];
 
-        // Update Contact Notes if column exists (save even if empty to allow clearing)
-        if (contactNotesColIndex >= 0) {
-          const notesColumnLetter = indexToColumnLetter(contactNotesColIndex);
-          const sheetName = 'Sheet1';
-          const notesCellRange = `${sheetName}!${notesColumnLetter}${rowNumber}`;
-          updates.push({
-            range: notesCellRange,
-            values: [[contactNotes]]
-          });
+        if (useResidentId) {
+          const updatesByResidentId = [];
+          if (contactCol) updatesByResidentId.push({ resident_id: row['resident_id'], column: contactCol, value: today });
+          if (contactNotesCol !== null) updatesByResidentId.push({ resident_id: row['resident_id'], column: contactNotesCol, value: contactNotes });
+          if (updatesByResidentId.length > 0) {
+            const response = await fetch('/api/sheets/batch-update-by-resident-id', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sheetId: sheetInfo.sheetId, sheetName: 'Sheet1', valueInputOption: 'USER_ENTERED', updates: updatesByResidentId })
+            });
+            if (!response.ok) {
+              const error = await response.json().catch(() => ({}));
+              throw new Error(error.message || error.error || 'Failed to save contact');
+            }
+          }
         } else {
-          console.warn('Contact Notes column not found in headers:', headers);
-        }
-
-        if (updates.length > 0) {
-          const response = await fetch('/api/sheets/batch-update', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sheetId: sheetInfo.sheetId,
-              valueInputOption: 'USER_ENTERED',
-              data: updates
-            })
-          });
-          if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            console.error('Batch update error:', error);
-            throw new Error(error.message || error.error || 'Failed to save contact');
+          const rowNumber = originalRowIndex + 2;
+          const updates = [];
+          if (contactColIndex >= 0) {
+            updates.push({ range: 'Sheet1!' + indexToColumnLetter(contactColIndex) + rowNumber, values: [[today]] });
+          }
+          if (contactNotesColIndex >= 0) {
+            updates.push({ range: 'Sheet1!' + indexToColumnLetter(contactNotesColIndex) + rowNumber, values: [[contactNotes]] });
+          }
+          if (updates.length > 0) {
+            const response = await fetch('/api/sheets/batch-update', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sheetId: sheetInfo.sheetId, valueInputOption: 'USER_ENTERED', data: updates })
+            });
+            if (!response.ok) {
+              const error = await response.json().catch(() => ({}));
+              throw new Error(error.message || error.error || 'Failed to save contact');
+            }
           }
         }
 
@@ -11841,7 +11796,9 @@
           if (statusMsg) statusMsg.textContent = 'Choose at least one value (Damage, Address Plan, or Build Status).';
           return;
         }
+        const useResidentId = sheetData.useResidentId;
         const updates = [];
+        const updatesByResidentId = [];
         const damageColIndex = damageCol != null ? headers.indexOf(damageCol) : -1;
         const addressPlanColIndex = addressPlanCol != null ? headers.indexOf(addressPlanCol) : -1;
         const rebuildColIndex = rebuildCol != null ? headers.indexOf(rebuildCol) : -1;
@@ -11849,33 +11806,35 @@
           const rows = sheetData.addressMap.get(addr);
           if (!rows) return;
           rows.forEach(row => {
+            const rid = row['resident_id'];
             const rowIndex = row.__originalIndex;
-            if (rowIndex === undefined || rowIndex === -1) return;
-            const rowNum = rowIndex + 2;
-            if (damageVal && damageColIndex !== -1) {
-              updates.push({ range: 'Sheet1!' + indexToColumnLetter(damageColIndex) + rowNum, values: [[damageVal]] });
-            }
-            if (addressPlanVal && addressPlanColIndex !== -1) {
-              updates.push({ range: 'Sheet1!' + indexToColumnLetter(addressPlanColIndex) + rowNum, values: [[addressPlanVal]] });
-            }
-            if (rebuildVal && rebuildColIndex !== -1) {
-              updates.push({ range: 'Sheet1!' + indexToColumnLetter(rebuildColIndex) + rowNum, values: [[rebuildVal]] });
+            const rowNum = rowIndex !== undefined && rowIndex !== -1 ? rowIndex + 2 : 0;
+            if (useResidentId && rid) {
+              if (damageVal && damageCol) updatesByResidentId.push({ resident_id: rid, column: damageCol, value: damageVal });
+              if (addressPlanVal && addressPlanCol) updatesByResidentId.push({ resident_id: rid, column: addressPlanCol, value: addressPlanVal });
+              if (rebuildVal && rebuildCol) updatesByResidentId.push({ resident_id: rid, column: rebuildCol, value: rebuildVal });
+            } else if (rowNum) {
+              if (damageVal && damageColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(damageColIndex) + rowNum, values: [[damageVal]] });
+              if (addressPlanVal && addressPlanColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(addressPlanColIndex) + rowNum, values: [[addressPlanVal]] });
+              if (rebuildVal && rebuildColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(rebuildColIndex) + rowNum, values: [[rebuildVal]] });
             }
           });
         });
-        if (updates.length === 0) return;
+        if (updates.length === 0 && updatesByResidentId.length === 0) return;
         applyBtn.disabled = true;
         if (statusMsg) statusMsg.textContent = 'Saving…';
         try {
-          const res = await fetch('/api/sheets/batch-update', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sheetId: currentSheetId,
-              valueInputOption: 'USER_ENTERED',
-              data: updates
-            })
-          });
+          const res = updatesByResidentId.length > 0
+            ? await fetch('/api/sheets/batch-update-by-resident-id', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sheetId: currentSheetId, sheetName: 'Sheet1', valueInputOption: 'USER_ENTERED', updates: updatesByResidentId })
+              })
+            : await fetch('/api/sheets/batch-update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sheetId: currentSheetId, valueInputOption: 'USER_ENTERED', data: updates })
+              });
           if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             throw new Error(err.message || err.error || 'Failed to save');

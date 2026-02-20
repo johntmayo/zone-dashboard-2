@@ -649,6 +649,79 @@ app.post('/api/sheets/batch-update', async (req, res) => {
   }
 });
 
+// Convert 0-based column index to Sheets column letter (0 -> A, 25 -> Z, 26 -> AA)
+function indexToColumnLetter(index) {
+  let letter = '';
+  let n = index;
+  while (n >= 0) {
+    letter = String.fromCharCode((n % 26) + 65) + letter;
+    n = Math.floor(n / 26) - 1;
+  }
+  return letter;
+}
+
+// POST /api/sheets/batch-update-by-resident-id - resolve row by resident_id then batch update (sort-safe)
+app.post('/api/sheets/batch-update-by-resident-id', async (req, res) => {
+  const { sheetId, sheetName = 'Sheet1', valueInputOption = 'USER_ENTERED', updates } = req.body || {};
+  if (!sheetId || !updates || !Array.isArray(updates) || updates.length === 0) {
+    return res.status(400).json({ error: 'sheetId and updates (array of { resident_id, column, value }) required' });
+  }
+  try {
+    const sheets = await getSheetsClient();
+    const residentIdCol = 'resident_id';
+
+    const [headerRes, dataRes] = await Promise.all([
+      sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${sheetName}!1:1` }),
+      sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${sheetName}!A2:ZZ` })
+    ]);
+    const headers = (headerRes.data.values && headerRes.data.values[0]) ? headerRes.data.values[0] : [];
+    const rows = (dataRes.data.values) ? dataRes.data.values : [];
+
+    const residentIdColIndex = headers.findIndex(h => String(h || '').trim().toLowerCase() === residentIdCol);
+    if (residentIdColIndex === -1) {
+      return res.status(400).json({ error: 'Sheet has no resident_id column' });
+    }
+
+    const residentIdToRowNumber = new Map();
+    rows.forEach((row, i) => {
+      const rid = row[residentIdColIndex] != null ? String(row[residentIdColIndex]).trim() : '';
+      if (rid) residentIdToRowNumber.set(rid, i + 2);
+    });
+
+    const data = [];
+    for (const u of updates) {
+      const resident_id = u.resident_id != null ? String(u.resident_id).trim() : '';
+      const column = u.column;
+      const value = u.value;
+      if (!resident_id || column === undefined) continue;
+      const rowNum = residentIdToRowNumber.get(resident_id);
+      if (rowNum == null) {
+        console.warn('resident_id not found in sheet:', resident_id);
+        continue;
+      }
+      const colIndex = headers.findIndex(h => String(h || '').trim() === String(column).trim());
+      if (colIndex === -1) continue;
+      const colLetter = indexToColumnLetter(colIndex);
+      data.push({ range: `${sheetName}!${colLetter}${rowNum}`, values: [[value]] });
+    }
+
+    if (data.length === 0) {
+      return res.status(400).json({ error: 'No valid updates after resolving resident_id' });
+    }
+
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: sheetId,
+      requestBody: { valueInputOption, data }
+    });
+    res.json({ success: true });
+  } catch (err) {
+    const status = sheetsErrorStatus(err);
+    const message = err.message || (err.response && err.response.data && err.response.data.error && err.response.data.error.message) || 'Sheets API error';
+    console.error('Sheets batch-update-by-resident-id error:', message);
+    res.status(status).json({ error: 'Failed to batch update by resident_id', message });
+  }
+});
+
 // Explicitly serve standalone HTML pages so they're not caught by the SPA fallback
 app.get('/flyer_tool.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'flyer_tool.html'));
