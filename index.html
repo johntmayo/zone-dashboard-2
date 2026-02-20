@@ -734,7 +734,7 @@
     let currentUserEmail = null; // Signed-in Google account email (for NC Profile row match)
     let currentSheetId = null; // Current sheet ID for writing
     // Emergency kill switch for Add Record while stabilization/testing is in progress.
-    const ENABLE_ADD_RECORD = false;
+    const ENABLE_ADD_RECORD = true;
     let currentStreetFilter = 'all'; // Current street filter
     let currentDamageFilter = 'all'; // Current damage filter
     let currentAddressPlanFilter = 'all'; // Current Address Plan filter (only when Damage = Partial/Total Loss)
@@ -4093,9 +4093,14 @@
       const printBtn = document.getElementById('btnPrintAddresses');
       const exportBtn = document.getElementById('btnExportAddresses');
       const addRecordBtn = document.getElementById('btnAddRecord');
-      if (addRecordBtn && !ENABLE_ADD_RECORD) {
-        addRecordBtn.style.display = 'none';
-        addRecordBtn.setAttribute('aria-hidden', 'true');
+      if (addRecordBtn) {
+        if (!ENABLE_ADD_RECORD) {
+          addRecordBtn.style.display = 'none';
+          addRecordBtn.setAttribute('aria-hidden', 'true');
+        } else {
+          addRecordBtn.style.display = '';
+          addRecordBtn.removeAttribute('aria-hidden');
+        }
       }
       
       if (printBtn && !printBtn.hasAttribute('data-handler-attached')) {
