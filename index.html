@@ -3057,6 +3057,22 @@
       });
     }
 
+    // Parse "City, ST 12345" or "City, State 12345" into { city, state, zip }
+    function parseCityStateZip(str) {
+      if (!str || typeof str !== 'string') return { city: '', state: '', zip: '' };
+      const s = str.trim();
+      const zipMatch = s.match(/\d{5}(-\d{4})?/);
+      const zip = zipMatch ? zipMatch[0] : '';
+      let rest = zip ? s.replace(zip, '').replace(/,\s*$|^\s*,/, '').trim() : s;
+      const parts = rest.split(',').map(p => p.trim()).filter(Boolean);
+      if (parts.length === 0) return { city: '', state: zip ? '' : rest, zip };
+      if (parts.length === 1) return { city: parts[0], state: '', zip };
+      const statePart = parts[parts.length - 1];
+      const city = parts.slice(0, -1).join(', ').trim();
+      const state = statePart;
+      return { city, state, zip };
+    }
+
     // Get predominant city, state, zip from sheet for pre-filling Add Record
     function getPredominantLocation() {
       if (!sheetData || !sheetData.headers || !sheetData.data || !sheetData.data.length) return { city: '', state: '', zip: '' };
@@ -3115,6 +3131,9 @@
       const nameCol = headers.find(h => { const l = h.toLowerCase(); return l.includes('resident name') || l === 'name'; }) || headers.find(h => /name/i.test(h));
       const latCol = headers.find(h => /latitude|^lat$/i.test(h));
       const lonCol = headers.find(h => /longitude|^lon$|^lng$/i.test(h));
+      const cityCol = headers.find(h => /^city$/i.test(h));
+      const stateCol = headers.find(h => /^state$/i.test(h));
+      const zipCol = headers.find(h => /zip|postal/i.test(h));
       let zoneCol = headers.find(h => /zone\s*name|zonename/i.test(h));
       if (!zoneCol) zoneCol = headers.find(h => h.toLowerCase().includes('zone'));
       const damageCol = findColumn(headers, 'damage');
@@ -3419,6 +3438,10 @@
           if (addressCol) rowValuesByColumn[addressCol] = addressString || '';
           if (nameCol) rowValuesByColumn[nameCol] = personName || '';
           if (zoneCol && currentZoneName) rowValuesByColumn[zoneCol] = currentZoneName;
+          const parsed = parseCityStateZip(cityState);
+          if (cityCol) rowValuesByColumn[cityCol] = parsed.city || '';
+          if (stateCol) rowValuesByColumn[stateCol] = parsed.state || '';
+          if (zipCol) rowValuesByColumn[zipCol] = parsed.zip || '';
           Object.assign(rowValuesByColumn, collectPersonDetails('addRecord'));
           Object.assign(rowValuesByColumn, collectAddressDetails());
           let lat = '', lon = '';
@@ -3476,6 +3499,10 @@
             if (addressCol) rowValuesByColumn[addressCol] = addressString || '';
             if (nameCol) rowValuesByColumn[nameCol] = personName;
             if (zoneCol && currentZoneName) rowValuesByColumn[zoneCol] = currentZoneName;
+            const parsed = parseCityStateZip(cityState);
+            if (cityCol) rowValuesByColumn[cityCol] = parsed.city || '';
+            if (stateCol) rowValuesByColumn[stateCol] = parsed.state || '';
+            if (zipCol) rowValuesByColumn[zipCol] = parsed.zip || '';
             Object.assign(rowValuesByColumn, collectPersonDetails('addRecordP'));
             let lat = '', lon = '';
             const geocodeQuery = addressString && (addressString + (cityState ? ', ' + cityState : ''));
