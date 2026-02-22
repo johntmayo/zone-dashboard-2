@@ -770,6 +770,7 @@
     const datasetOverlayVisibility = {}; // Visibility state by overlay key
     const datasetOverlayLabelLayers = {}; // Label/card layers by overlay key
     const datasetOverlayLabelFeatureCache = {}; // Cached label features (e.g., census tracts) by overlay key
+    const datasetOverlayPointFeatureCache = {}; // Cached sampled point features by overlay key
     const cachedOverlayTilesetMetadata = {}; // Mapbox TileJSON metadata cache by tileset id
     let datasetOverlayLabelRefreshHandler = null; // Shared zoom/move handler for overlay labels
     let currentTileLayer = null; // Current map tile layer
@@ -1002,7 +1003,7 @@
         displayName: 'Sold Properties',
         tilesetId: 'altagether.22jor7jm',
         sourceLayer: 'ANFS_geocoded_addresses_2-8savad',
-        layerType: 'circle',
+        layerType: 'squareMarkers',
         defaultVisible: false,
         style: {
           color: '#7C2D12',
@@ -8260,6 +8261,219 @@
       `;
     }
 
+    function toOverlayDisplayLabel(rawKey) {
+      return String(rawKey || '')
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+    }
+
+    function buildSoldPropertiesPopupHtml(props) {
+      const safeProps = (props && typeof props === 'object') ? props : {};
+      const title = getFirstOverlayProperty(safeProps, [
+        'Address',
+        'address',
+        'Property Address',
+        'property_address',
+        'Site Address',
+        'site_address'
+      ]) || 'Sold Property';
+      const hiddenKeys = new Set([
+        'tilequery',
+        'mapbox_clip_start',
+        'mapbox_clip_end',
+        'layer'
+      ]);
+      const preferredOrder = [
+        'Address',
+        'Property Address',
+        'Site Address',
+        'Sale Date',
+        'Sale Price',
+        'APN',
+        'Parcel',
+        'City',
+        'State',
+        'Zip',
+        'Beds',
+        'Baths',
+        'SqFt'
+      ];
+      const entries = Object.entries(safeProps)
+        .filter(([key, value]) => {
+          if (!key || hiddenKeys.has(key)) return false;
+          if (value === null || value === undefined) return false;
+          const trimmed = String(value).trim();
+          return trimmed !== '';
+        })
+        .sort((a, b) => {
+          const aKey = String(a[0] || '');
+          const bKey = String(b[0] || '');
+          const aIdx = preferredOrder.findIndex((k) => k.toLowerCase() === aKey.toLowerCase());
+          const bIdx = preferredOrder.findIndex((k) => k.toLowerCase() === bKey.toLowerCase());
+          const aRank = aIdx === -1 ? 999 : aIdx;
+          const bRank = bIdx === -1 ? 999 : bIdx;
+          if (aRank !== bRank) return aRank - bRank;
+          return aKey.localeCompare(bKey);
+        });
+
+      return `
+        <div style="min-width:240px; line-height:1.35;">
+          <div style="font-size:15px; font-weight:700; letter-spacing:0.2px; color:#7C2D12;">${escapeOverlayHtml(title)}</div>
+          <div style="margin-top:8px;">
+            ${entries.length
+              ? entries.map(([key, value]) => `
+                  <div style="margin:2px 0;">
+                    <strong>${escapeOverlayHtml(toOverlayDisplayLabel(key))}:</strong> ${escapeOverlayHtml(String(value))}
+                  </div>
+                `).join('')
+              : '<div style="color:#4a4a4a;">No property details available.</div>'}
+          </div>
+        </div>
+      `;
+    }
+
+    function getOverlayPointFeatureKey(feature) {
+      const props = feature?.properties || {};
+      const candidates = [
+        feature?.id,
+        props.id,
+        props.ID,
+        props.objectid,
+        props.OBJECTID,
+        props.address,
+        props.Address,
+        props.property_address,
+        props['Property Address'],
+        props.APN,
+        props.apn
+      ];
+      const first = candidates.find((v) => String(v || '').trim() !== '');
+      if (first !== undefined) return String(first).trim();
+      return JSON.stringify(props);
+    }
+
+    function getOverlayFeatureLatLng(feature, fallbackLat, fallbackLng) {
+      const coords = feature?.geometry?.coordinates;
+      if (Array.isArray(coords) && coords.length >= 2) {
+        const lng = Number(coords[0]);
+        const lat = Number(coords[1]);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          return { lat, lng };
+        }
+      }
+      return { lat: fallbackLat, lng: fallbackLng };
+    }
+
+    async function collectOverlayPointFeatures(overlayKey, overlayConfig) {
+      if (datasetOverlayPointFeatureCache[overlayKey]) {
+        return datasetOverlayPointFeatureCache[overlayKey];
+      }
+      const metadata = await fetchOverlayTilesetMetadata(overlayConfig.tilesetId);
+      const bounds = metadata?.bounds;
+      if (!Array.isArray(bounds) || bounds.length < 4) return [];
+      const west = Number(bounds[0]);
+      const south = Number(bounds[1]);
+      const east = Number(bounds[2]);
+      const north = Number(bounds[3]);
+      if (![west, south, east, north].every(Number.isFinite) || east <= west || north <= south) return [];
+
+      const entriesByKey = new Map();
+      const mergeFeaturesAtPoint = (features, fallbackLat, fallbackLng) => {
+        if (!Array.isArray(features)) return;
+        features.forEach((feature) => {
+          const key = getOverlayPointFeatureKey(feature);
+          if (!key) return;
+          const distance = Number(feature?.distance);
+          const point = getOverlayFeatureLatLng(feature, fallbackLat, fallbackLng);
+          const existing = entriesByKey.get(key);
+          if (!existing) {
+            entriesByKey.set(key, {
+              feature,
+              lat: point.lat,
+              lng: point.lng,
+              distance: Number.isFinite(distance) ? distance : Number.POSITIVE_INFINITY
+            });
+            return;
+          }
+          const currentDistance = Number.isFinite(distance) ? distance : Number.POSITIVE_INFINITY;
+          if (currentDistance <= existing.distance) {
+            existing.feature = feature;
+            existing.lat = point.lat;
+            existing.lng = point.lng;
+            existing.distance = currentDistance;
+          }
+        });
+      };
+
+      const scanGrid = async (rows, cols, options = {}) => {
+        const latStep = (north - south) / Math.max(rows - 1, 1);
+        const lngStep = (east - west) / Math.max(cols - 1, 1);
+        const tasks = [];
+        for (let r = 0; r < rows; r += 1) {
+          const lat = south + (latStep * r);
+          for (let c = 0; c < cols; c += 1) {
+            const lng = west + (lngStep * c);
+            tasks.push(fetchOverlayTilequeryFeatures(overlayConfig, lng, lat, {
+              radiusMeters: Number.isFinite(options.radiusMeters) ? options.radiusMeters : 0,
+              limit: Number.isFinite(options.limit) ? options.limit : 20
+            }).then((features) => ({ features, lat, lng })));
+          }
+        }
+        const results = await Promise.all(tasks);
+        results.forEach(({ features, lat, lng }) => mergeFeaturesAtPoint(features, lat, lng));
+      };
+
+      await scanGrid(10, 10, { radiusMeters: 0, limit: 20 });
+      if (entriesByKey.size < 20) {
+        await scanGrid(14, 14, { radiusMeters: 140, limit: 28 });
+      }
+
+      const entries = Array.from(entriesByKey.values()).map((entry) => ({
+        feature: entry.feature,
+        lat: entry.lat,
+        lng: entry.lng
+      }));
+      datasetOverlayPointFeatureCache[overlayKey] = entries;
+      return entries;
+    }
+
+    async function buildSquarePointOverlayLayer(overlayKey, overlayConfig, paneName) {
+      const pointEntries = await collectOverlayPointFeatures(overlayKey, overlayConfig);
+      if (!pointEntries.length) return null;
+      const baseStyle = overlayConfig.style || {};
+      const markerSize = Math.max(8, (Number(baseStyle.radius) || 5) * 2);
+      const fillColor = baseStyle.fillColor || baseStyle.color || '#EA580C';
+      const borderColor = baseStyle.color || '#7C2D12';
+      const borderWidth = Math.max(1, Number(baseStyle.weight) || 1);
+      const fillOpacity = Math.max(0.05, Math.min(1, Number(baseStyle.fillOpacity) || 0.85));
+      const markers = pointEntries.map((entry) => {
+        const props = entry?.feature?.properties || {};
+        const marker = L.marker([entry.lat, entry.lng], {
+          pane: paneName || undefined,
+          keyboard: true,
+          icon: L.divIcon({
+            className: 'overlay-square-marker',
+            html: `<div style="width:${markerSize}px;height:${markerSize}px;border:${borderWidth}px solid ${borderColor};background:${fillColor};opacity:${fillOpacity};border-radius:1px;box-sizing:border-box;"></div>`,
+            iconSize: [markerSize, markerSize],
+            iconAnchor: [Math.round(markerSize / 2), Math.round(markerSize / 2)],
+            popupAnchor: [0, -Math.round(markerSize / 2)]
+          })
+        });
+        marker.on('click', () => {
+          const popupHtml = buildSoldPropertiesPopupHtml(props);
+          if (!popupHtml.trim()) return;
+          L.popup({ maxWidth: 360 })
+            .setLatLng([entry.lat, entry.lng])
+            .setContent(popupHtml)
+            .openOn(zoneMap);
+        });
+        return marker;
+      });
+      return L.layerGroup(markers);
+    }
+
     async function collectCensusLabelFeatures(overlayKey, overlayConfig, metadata) {
       if (datasetOverlayLabelFeatureCache[overlayKey]) {
         return datasetOverlayLabelFeatureCache[overlayKey];
@@ -8478,6 +8692,10 @@
       }
       const overlayOrderIndex = Math.max(0, MAPBOX_DATASET_OVERLAY_ORDER.indexOf(overlayKey));
       zoneMap.getPane(paneName).style.zIndex = String(430 + overlayOrderIndex);
+
+      if (overlayConfig.layerType === 'squareMarkers') {
+        return buildSquarePointOverlayLayer(overlayKey, overlayConfig, paneName);
+      }
 
       const baseStyle = overlayConfig.style || {};
       const vectorStyle = overlayConfig.layerType === 'line'
