@@ -8269,9 +8269,59 @@
         .replace(/\b\w/g, (char) => char.toUpperCase());
     }
 
+    function formatOverlayDate(rawValue) {
+      const text = String(rawValue || '').trim();
+      if (!text) return '';
+      const slashMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+      if (slashMatch) {
+        const month = Number(slashMatch[1]);
+        const day = Number(slashMatch[2]);
+        const yearRaw = Number(slashMatch[3]);
+        const year = yearRaw < 100 ? (2000 + yearRaw) : yearRaw;
+        const parsed = new Date(year, month - 1, day);
+        if (
+          Number.isFinite(month) && Number.isFinite(day) && Number.isFinite(year) &&
+          parsed.getFullYear() === year &&
+          parsed.getMonth() === month - 1 &&
+          parsed.getDate() === day
+        ) {
+          return parsed.toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric'
+          });
+        }
+      }
+      const parsed = new Date(text);
+      if (Number.isNaN(parsed.getTime())) return text;
+      return parsed.toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+
     function buildSoldPropertiesPopupHtml(props) {
       const safeProps = (props && typeof props === 'object') ? props : {};
-      const title = getFirstOverlayProperty(safeProps, [
+      const house = getFirstOverlayProperty(safeProps, [
+        'house',
+        'House',
+        'HOUSE',
+        'house_number',
+        'House Number',
+        'Street Number'
+      ]);
+      const street = getFirstOverlayProperty(safeProps, [
+        'street',
+        'Street',
+        'STREET',
+        'street_name',
+        'Street Name'
+      ]);
+      const composedAddress = [String(house || '').trim(), String(street || '').trim()]
+        .filter(Boolean)
+        .join(' ');
+      const fallbackTitle = getFirstOverlayProperty(safeProps, [
         'Address',
         'address',
         'Property Address',
@@ -8279,11 +8329,35 @@
         'Site Address',
         'site_address'
       ]) || 'Sold Property';
+      const title = composedAddress || fallbackTitle;
+      const soldDateRaw = getFirstOverlayProperty(safeProps, [
+        'sold_date',
+        'Sold Date',
+        'Sale Date',
+        'sale_date',
+        'SOLD_DATE'
+      ]);
+      const soldDateDisplay = formatOverlayDate(soldDateRaw);
       const hiddenKeys = new Set([
         'tilequery',
         'mapbox_clip_start',
         'mapbox_clip_end',
-        'layer'
+        'layer',
+        'lat',
+        'latitude',
+        'lng',
+        'lon',
+        'long',
+        'longitude',
+        'city',
+        'state',
+        'zip',
+        'zipcode',
+        'sold_date',
+        'sale_date',
+        'Sold Date',
+        'Sale Date',
+        'SOLD_DATE'
       ]);
       const preferredOrder = [
         'Address',
@@ -8321,6 +8395,9 @@
       return `
         <div style="min-width:240px; line-height:1.35;">
           <div style="font-size:15px; font-weight:700; letter-spacing:0.2px; color:#7C2D12;">${escapeOverlayHtml(title)}</div>
+          ${soldDateDisplay
+            ? `<div style="margin-top:4px; font-weight:700; color:#b91c1c;">Sold ${escapeOverlayHtml(soldDateDisplay)}</div>`
+            : ''}
           <div style="margin-top:8px;">
             ${entries.length
               ? entries.map(([key, value]) => `
