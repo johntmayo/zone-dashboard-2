@@ -1003,7 +1003,7 @@
         displayName: 'Sold Properties',
         tilesetId: 'altagether.22jor7jm',
         sourceLayer: 'ANFS_geocoded_addresses_2-8savad',
-        layerType: 'squareMarkers',
+        layerType: 'circle',
         defaultVisible: false,
         style: {
           color: '#7C2D12',
@@ -8804,7 +8804,7 @@
       const vectorTileUrl = `https://api.mapbox.com/v4/${encodeURIComponent(overlayConfig.tilesetId)}/{z}/{x}/{y}.vector.pbf?access_token=${encodeURIComponent(MAPBOX_CONFIG.accessToken)}`;
       const layer = L.vectorGrid.protobuf(vectorTileUrl, {
         pane: paneName,
-        interactive: overlayKey === 'censusTracts',
+        interactive: overlayKey === 'censusTracts' || overlayKey === 'soldProperties',
         maxNativeZoom: 22,
         attribution: '© Mapbox',
         vectorTileLayerStyles: {
@@ -8818,6 +8818,16 @@
           const popupHtml = buildCensusPopupHtml(overlayConfig, props);
           if (!popupHtml.trim() || !event?.latlng) return;
           L.popup({ maxWidth: 340 })
+            .setLatLng(event.latlng)
+            .setContent(popupHtml)
+            .openOn(zoneMap);
+        });
+      } else if (overlayKey === 'soldProperties') {
+        layer.on('click', (event) => {
+          const props = event?.layer?.properties || event?.properties || {};
+          const popupHtml = buildSoldPropertiesPopupHtml(props);
+          if (!popupHtml.trim() || !event?.latlng) return;
+          L.popup({ maxWidth: 360 })
             .setLatLng(event.latlng)
             .setContent(popupHtml)
             .openOn(zoneMap);
