@@ -8444,33 +8444,45 @@
     }
 
     function getOverlayEventLatLng(event, props = {}) {
-      const eventLat = Number(event?.latlng?.lat);
-      const eventLng = Number(event?.latlng?.lng);
+      const parseOverlayNumber = (value) => {
+        if (typeof value === 'number') {
+          return Number.isFinite(value) ? value : NaN;
+        }
+        const raw = String(value ?? '').trim();
+        if (!raw) return NaN;
+        const match = raw.match(/-?\d+(?:\.\d+)?/);
+        if (!match) return NaN;
+        const parsed = Number(match[0]);
+        return Number.isFinite(parsed) ? parsed : NaN;
+      };
+
+      const eventLat = parseOverlayNumber(event?.latlng?.lat);
+      const eventLng = parseOverlayNumber(event?.latlng?.lng);
       if (Number.isFinite(eventLat) && Number.isFinite(eventLng)) {
         return L.latLng(eventLat, eventLng);
       }
 
-      const layerLat = Number(event?.layer?.latlng?.lat ?? event?.layer?._latlng?.lat);
-      const layerLng = Number(event?.layer?.latlng?.lng ?? event?.layer?._latlng?.lng);
+      const layerLat = parseOverlayNumber(event?.layer?.latlng?.lat ?? event?.layer?._latlng?.lat);
+      const layerLng = parseOverlayNumber(event?.layer?.latlng?.lng ?? event?.layer?._latlng?.lng);
       if (Number.isFinite(layerLat) && Number.isFinite(layerLng)) {
         return L.latLng(layerLat, layerLng);
       }
 
-      const propLat = Number(
+      const propLat = parseOverlayNumber(
         props.lat ?? props.latitude ?? props.Latitude ?? props.LAT ?? props.y ?? props.Y
       );
-      const propLng = Number(
+      const propLng = parseOverlayNumber(
         props.lng ?? props.lon ?? props.long ?? props.longitude ?? props.Longitude ?? props.LON ?? props.x ?? props.X
       );
       if (Number.isFinite(propLat) && Number.isFinite(propLng)) {
         return L.latLng(propLat, propLng);
       }
 
-      if (event?.originalEvent && zoneMap && typeof zoneMap.mouseEventToLatLng === 'function') {
-        try {
-          return zoneMap.mouseEventToLatLng(event.originalEvent);
-        } catch (_error) {
-          return null;
+      // As a safe last resort, anchor popup at map center instead of throwing.
+      if (zoneMap && typeof zoneMap.getCenter === 'function') {
+        const center = zoneMap.getCenter();
+        if (center && Number.isFinite(center.lat) && Number.isFinite(center.lng)) {
+          return center;
         }
       }
       return null;
