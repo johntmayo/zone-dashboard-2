@@ -8443,6 +8443,39 @@
       return { lat: fallbackLat, lng: fallbackLng };
     }
 
+    function getOverlayEventLatLng(event, props = {}) {
+      const eventLat = Number(event?.latlng?.lat);
+      const eventLng = Number(event?.latlng?.lng);
+      if (Number.isFinite(eventLat) && Number.isFinite(eventLng)) {
+        return L.latLng(eventLat, eventLng);
+      }
+
+      const layerLat = Number(event?.layer?.latlng?.lat ?? event?.layer?._latlng?.lat);
+      const layerLng = Number(event?.layer?.latlng?.lng ?? event?.layer?._latlng?.lng);
+      if (Number.isFinite(layerLat) && Number.isFinite(layerLng)) {
+        return L.latLng(layerLat, layerLng);
+      }
+
+      const propLat = Number(
+        props.lat ?? props.latitude ?? props.Latitude ?? props.LAT ?? props.y ?? props.Y
+      );
+      const propLng = Number(
+        props.lng ?? props.lon ?? props.long ?? props.longitude ?? props.Longitude ?? props.LON ?? props.x ?? props.X
+      );
+      if (Number.isFinite(propLat) && Number.isFinite(propLng)) {
+        return L.latLng(propLat, propLng);
+      }
+
+      if (event?.originalEvent && zoneMap && typeof zoneMap.mouseEventToLatLng === 'function') {
+        try {
+          return zoneMap.mouseEventToLatLng(event.originalEvent);
+        } catch (_error) {
+          return null;
+        }
+      }
+      return null;
+    }
+
     async function collectOverlayPointFeatures(overlayKey, overlayConfig) {
       if (datasetOverlayPointFeatureCache[overlayKey]) {
         return datasetOverlayPointFeatureCache[overlayKey];
@@ -8816,9 +8849,10 @@
         layer.on('click', (event) => {
           const props = event?.layer?.properties || event?.properties || {};
           const popupHtml = buildCensusPopupHtml(overlayConfig, props);
-          if (!popupHtml.trim() || !event?.latlng) return;
+          const popupLatLng = getOverlayEventLatLng(event, props);
+          if (!popupHtml.trim() || !popupLatLng) return;
           L.popup({ maxWidth: 340 })
-            .setLatLng(event.latlng)
+            .setLatLng(popupLatLng)
             .setContent(popupHtml)
             .openOn(zoneMap);
         });
@@ -8826,9 +8860,10 @@
         layer.on('click', (event) => {
           const props = event?.layer?.properties || event?.properties || {};
           const popupHtml = buildSoldPropertiesPopupHtml(props);
-          if (!popupHtml.trim() || !event?.latlng) return;
+          const popupLatLng = getOverlayEventLatLng(event, props);
+          if (!popupHtml.trim() || !popupLatLng) return;
           L.popup({ maxWidth: 360 })
-            .setLatLng(event.latlng)
+            .setLatLng(popupLatLng)
             .setContent(popupHtml)
             .openOn(zoneMap);
         });
