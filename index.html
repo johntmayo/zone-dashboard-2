@@ -19,6 +19,23 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <link rel="stylesheet" href="public/css/styles.css">
   <script src="public/js/utils.js"></script>
+  <!-- Google Analytics 4 (loads only when GA_MEASUREMENT_ID is set) -->
+  <script>
+    (function() {
+      fetch('/api/ga-config').then(function(r) { return r.json(); }).then(function(config) {
+        if (!config.measurementId) return;
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=' + config.measurementId;
+        document.head.appendChild(s);
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){ dataLayer.push(arguments); }
+        window.gtag = gtag;
+        gtag('js', new Date());
+        gtag('config', config.measurementId, { send_page_view: true });
+      }).catch(function() {});
+    })();
+  </script>
 </head>
 
 <body>
@@ -321,8 +338,7 @@
         <h2 style="margin: 0; color: var(--primary-dark); font-size: 1.8rem; letter-spacing: 0.5px; font-family: 'Chivo', sans-serif;">Neighbors</h2>
         <div class="people-view-actions">
           <button class="btn-print-export" id="btnAddRecord" style="display:none;" aria-hidden="true">➕ Add Record</button>
-          <button class="btn-print-export" id="btnPrintAddresses">🖨️ Print</button>
-          <button class="btn-print-export" id="btnExportAddresses">📥 Export CSV</button>
+          <button class="btn-print-export" id="btnExport">Export</button>
         </div>
       </div>
       <div id="peopleTableView"></div>
@@ -4132,10 +4148,9 @@
       setupPrintExportHandlers();
     }
     
-    // Setup print and export button handlers
+    // Setup print/export and add-record button handlers
     function setupPrintExportHandlers() {
-      const printBtn = document.getElementById('btnPrintAddresses');
-      const exportBtn = document.getElementById('btnExportAddresses');
+      const exportBtn = document.getElementById('btnExport');
       const addRecordBtn = document.getElementById('btnAddRecord');
       if (addRecordBtn) {
         if (!ENABLE_ADD_RECORD) {
@@ -4147,19 +4162,11 @@
         }
       }
       
-      if (printBtn && !printBtn.hasAttribute('data-handler-attached')) {
-        printBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          printAddresses();
-        });
-        printBtn.setAttribute('data-handler-attached', 'true');
-      }
       if (exportBtn && !exportBtn.hasAttribute('data-handler-attached')) {
         exportBtn.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          exportAddressesToCSV();
+          showExportModal();
         });
         exportBtn.setAttribute('data-handler-attached', 'true');
       }
@@ -4171,6 +4178,181 @@
         });
         addRecordBtn.setAttribute('data-handler-attached', 'true');
       }
+    }
+    
+    // Return human-readable list of currently applied filters (for export modal call-out)
+    function getAppliedFiltersSummary() {
+      const parts = [];
+      if (currentStreetFilter !== 'all') {
+        parts.push('Street: ' + (currentStreetFilter || '(not set)'));
+      }
+      if (currentDamageFilter !== 'all') {
+        parts.push('Damage: ' + (currentDamageFilter === '' ? '(not set)' : currentDamageFilter));
+      }
+      if (currentAddressPlanFilter !== 'all') {
+        parts.push('Address Plan: ' + (currentAddressPlanFilter === '' ? '(not set)' : currentAddressPlanFilter));
+      }
+      if (currentRebuildFilter !== 'all') {
+        parts.push('Build Status: ' + currentRebuildFilter);
+      }
+      if (currentCaptainFilter !== 'all') {
+        parts.push('Captain: ' + (currentCaptainFilter === '' ? '(not specified)' : currentCaptainFilter));
+      }
+      if (typeof currentPersonSearch === 'string' && currentPersonSearch.trim() !== '') {
+        parts.push('Search: "' + currentPersonSearch.trim() + '"');
+      }
+      if (showContactedAddresses && !showUncontactedAddresses) {
+        parts.push('Contact: contacted only');
+      } else if (showUncontactedAddresses && !showContactedAddresses) {
+        parts.push('Contact: uncontacted only');
+      }
+      return parts;
+    }
+    
+    // Get unique emails from currently filtered addresses (for export modal "copy email blob")
+    function getFilteredEmails() {
+      if (!sheetData || !sheetData.addressMap) return [];
+      const headers = sheetData.headers;
+      const emailCol = headers.find(h => {
+        const lower = h.toLowerCase();
+        return lower.includes('email address') || (lower.includes('email') && !lower.includes('nc email'));
+      });
+      if (!emailCol) return [];
+      const filteredAddresses = getFilteredAddresses();
+      const emailSet = new Set();
+      filteredAddresses.forEach(addr => {
+        const rows = sheetData.addressMap.get(addr);
+        if (!rows) return;
+        rows.forEach(row => {
+          const email = (row[emailCol] || '').trim();
+          if (email && email.includes('@')) emailSet.add(email.toLowerCase());
+        });
+      });
+      return Array.from(emailSet).sort();
+    }
+    
+    // Show export modal: Print, Export CSV, or Copy email blob (same width as Share Newsletter modal)
+    function showExportModal() {
+      const filteredAddresses = getFilteredAddresses();
+      const appliedFilters = getAppliedFiltersSummary();
+      const hasFilters = appliedFilters.length > 0;
+      const filterCalloutHtml = hasFilters
+        ? '<div class="export-modal-filters-callout">' +
+            '<strong>Reminder:</strong> You are exporting the <strong>filtered</strong> list. ' +
+            'Current filters: ' + appliedFilters.map(f => escapeHtml(f)).join('; ') + '.'
+          + '</div>'
+        : '<div class="export-modal-filters-callout export-modal-filters-callout--none">No filters applied — you are exporting all neighbors in this sheet.</div>';
+      
+      const emailBlobEmails = getFilteredEmails();
+      const emailBlobCount = emailBlobEmails.length;
+      const emailBlobText = emailBlobEmails.join(', ');
+      
+      const modalHTML = `
+        <div class="newsletter-modal-overlay" id="exportModalOverlay">
+          <div class="newsletter-modal">
+            <button class="newsletter-modal-close" id="exportModalClose" aria-label="Close">&times;</button>
+            <div class="newsletter-modal-header">
+              <h3 class="newsletter-modal-title">Export</h3>
+              <p class="newsletter-modal-subtitle">Choose how to export your neighbors list. Export uses the same filtered list you see in the table.</p>
+            </div>
+            <div class="newsletter-modal-content">
+              ${filterCalloutHtml}
+              <div class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">Export options</h4>
+                <div class="newsletter-modal-instructions">
+                  <p><strong>Print</strong> — Open a print-friendly call sheet in a new window.</p>
+                  <p><strong>Export CSV</strong> — Download a spreadsheet file of the filtered list.</p>
+                  <p><strong>Copy email blob</strong> — Copy a comma-separated list of email addresses to paste into your email client.</p>
+                </div>
+              </div>
+            </div>
+            <div class="newsletter-modal-actions">
+              <button type="button" class="btn-copy-emails" id="exportModalPrintBtn">Print</button>
+              <button type="button" class="btn-newsletter-link export-modal-btn-csv" id="exportModalCsvBtn">Export CSV</button>
+              <button type="button" class="btn-copy-emails" id="exportModalEmailBlobBtn" ${emailBlobCount === 0 ? 'disabled title="No email addresses in the filtered list."' : ''}>Copy email blob</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      const existing = document.getElementById('exportModalOverlay');
+      if (existing) existing.remove();
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+      
+      const overlay = document.getElementById('exportModalOverlay');
+      const closeBtn = document.getElementById('exportModalClose');
+      const printBtn = document.getElementById('exportModalPrintBtn');
+      const csvBtn = document.getElementById('exportModalCsvBtn');
+      const emailBlobBtn = document.getElementById('exportModalEmailBlobBtn');
+      
+      function closeModal() {
+        if (overlay && overlay.parentNode) overlay.remove();
+        document.removeEventListener('keydown', escapeHandler);
+      }
+      
+      function escapeHandler(e) {
+        if (e.key === 'Escape' && overlay && document.body.contains(overlay)) {
+          closeModal();
+        }
+      }
+      
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeModal();
+      });
+      closeBtn.addEventListener('click', closeModal);
+      
+      printBtn.addEventListener('click', () => {
+        if (filteredAddresses.length === 0) {
+          alert('No addresses to print. Please adjust your filters.');
+          return;
+        }
+        printAddresses();
+        closeModal();
+      });
+      
+      csvBtn.addEventListener('click', () => {
+        if (filteredAddresses.length === 0) {
+          alert('No addresses to export. Please adjust your filters.');
+          return;
+        }
+        exportAddressesToCSV();
+        closeModal();
+      });
+      
+      if (emailBlobBtn && emailBlobCount > 0) {
+        emailBlobBtn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(emailBlobText);
+            emailBlobBtn.textContent = '✓ Copied!';
+            emailBlobBtn.style.background = 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)';
+            setTimeout(() => {
+              emailBlobBtn.textContent = 'Copy email blob';
+              emailBlobBtn.style.background = '';
+            }, 2000);
+          } catch (err) {
+            const ta = document.createElement('textarea');
+            ta.value = emailBlobText;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+              document.execCommand('copy');
+              emailBlobBtn.textContent = '✓ Copied!';
+              emailBlobBtn.style.background = 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)';
+              setTimeout(() => {
+                emailBlobBtn.textContent = 'Copy email blob';
+                emailBlobBtn.style.background = '';
+              }, 2000);
+            } catch (e2) {
+              alert('Failed to copy. Please select the emails manually.');
+            }
+            document.body.removeChild(ta);
+          }
+        });
+      }
+      
+      document.addEventListener('keydown', escapeHandler);
     }
     
     // Get filtered addresses (same logic as displayAddressTable)

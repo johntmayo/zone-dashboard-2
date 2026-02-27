@@ -29,6 +29,13 @@ app.get('/api/mapbox-token', (req, res) => {
   res.json({ token });
 });
 
+// Expose Google Analytics Measurement ID when set (optional; no tracking if unset).
+app.get('/api/ga-config', (req, res) => {
+  const measurementId = (process.env.GA_MEASUREMENT_ID || '').trim();
+  res.set('Cache-Control', 'no-store');
+  res.json({ measurementId });
+});
+
 // Service account auth for Sheets API (single server-side identity)
 let sheetsClientCache = null;
 function getSheetsClient() {

@@ -1402,6 +1402,33 @@
       border-top: 1px solid var(--border-soft);
     }
 
+    /* Export modal: filter reminder call-out */
+    .export-modal-filters-callout {
+      background: rgba(255, 152, 0, 0.08);
+      border-left: 4px solid #f57c00;
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 24px;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      color: var(--text);
+    }
+    .export-modal-filters-callout--none {
+      background: rgba(96, 108, 56, 0.06);
+      border-left-color: var(--primary);
+    }
+    .export-modal-btn-csv {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark, #c45a11) 100%) !important;
+      color: white !important;
+      border: none;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .export-modal-btn-csv:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(196, 90, 17, 0.3);
+    }
+
     .btn-copy-emails {
       background: var(--brand-primary-dark);
       color: white;
