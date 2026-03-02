@@ -1207,7 +1207,7 @@
         availableSheets = [];
         welcomeAuthState = 'idle';
         welcomeAuthMessage = '';
-        loadAuthorizedSheet(normalizedSheets[0]);
+        loadAuthorizedSheet(normalizedSheets[0].url);
       } else if (normalizedSheets.length > 1) {
         showZonePicker(normalizedSheets);
       } else {

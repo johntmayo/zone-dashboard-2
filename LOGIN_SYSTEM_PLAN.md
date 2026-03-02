@@ -294,6 +294,19 @@ The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()
 ### PHASE 5 — Testing & Validation
 **Goal:** Verify all paths work correctly before pushing.
 
+**Validation notes (2026-03-02):**
+- Backend auth mapping checks passed locally on `http://localhost:8016`:
+  - `GET /api/user-sheets` with no email returns `400` (`no_email`)
+  - unregistered email returns `403` (`not_registered`)
+  - a configured single-zone user returns `200` with exactly one sheet
+- URL hardening checks passed for `/api/user-sheets`:
+  - pasted URL variants (`/edit?...`, `open?id=...`, fragment/query noise) normalize to canonical `https://docs.google.com/spreadsheets/d/<ID>/edit`
+  - invalid non-Sheets values fail clearly with `users_config_error` and index details
+- End-to-end UI checks that require successful sheet reads remain blocked until one of these env vars is set locally:
+  - `GOOGLE_SERVICE_ACCOUNT_JSON_B64`
+  - `GOOGLE_SERVICE_ACCOUNT_JSON`
+  - `GOOGLE_APPLICATION_CREDENTIALS`
+
 - [ ] **5.1** Test: unregistered email
   - Sign in with an email NOT in users.json
   - Should see "not registered" message, no zone picker, no URL paste

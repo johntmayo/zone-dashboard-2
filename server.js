@@ -64,15 +64,39 @@ function readUsersMap() {
   return usersMap;
 }
 
+function extractGoogleSheetId(rawValue) {
+  const value = String(rawValue || '').trim().replace(/^['"]|['"]$/g, '');
+  if (!value) return null;
+
+  const standardMatch = value.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/i);
+  if (standardMatch && standardMatch[1]) return standardMatch[1];
+
+  // Some share links use ?id=<SHEET_ID> instead of /d/<SHEET_ID>/...
+  const queryIdMatch = value.match(/[?&]id=([a-zA-Z0-9-_]+)/i);
+  if (queryIdMatch && queryIdMatch[1]) return queryIdMatch[1];
+
+  // Keep compatibility with published links (d/e style) if admins paste them.
+  const publishedMatch = value.match(/\/spreadsheets\/d\/e\/([a-zA-Z0-9-_]+)/i);
+  if (publishedMatch && publishedMatch[1]) return publishedMatch[1];
+
+  return null;
+}
+
+function toCanonicalSheetUrl(rawValue) {
+  const sheetId = extractGoogleSheetId(rawValue);
+  if (!sheetId) return null;
+  return `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+}
+
 function normalizeUserSheetEntry(entry) {
   if (typeof entry === 'string') {
-    const url = entry.trim();
+    const url = toCanonicalSheetUrl(entry);
     if (!url) return null;
     return { url, name: url };
   }
 
   if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
-    const url = String(entry.url || '').trim();
+    const url = toCanonicalSheetUrl(entry.url);
     if (!url) return null;
     const rawName = String(entry.name || '').trim();
     return { url, name: rawName || url };
