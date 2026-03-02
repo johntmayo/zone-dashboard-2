@@ -233,7 +233,7 @@ The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()
 ### PHASE 3 — Zone Picker UI
 **Goal:** When a user has multiple sheets, show a clean picker in the welcome overlay instead of Step 2.
 
-- [ ] **3.1** Replace Step 2 HTML in `welcomeOverlay` with a zone picker step
+- [x] **3.1** Replace Step 2 HTML in `welcomeOverlay` with a zone picker step
   - Remove the URL paste input and Load button from the welcome overlay (keep the bottom-left nav input for now — see Phase 4)
   - Add a new `welcomeStep2` variant that shows zone buttons
   - Zone label: use the zone name from `users.json` if we store it there, OR load it dynamically from the sheet metadata. **Simpler approach:** store a display name alongside each URL in users.json.
@@ -253,13 +253,13 @@ The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()
   Server returns `{ sheets: [{ url, name }, ...] }`.
   For backward compat: if an entry is a plain string (not an object), treat it as `{ url: entry, name: entry }`.
 
-- [ ] **3.2** Build zone picker step HTML dynamically in JS
+- [x] **3.2** Build zone picker step HTML dynamically in JS
   - In `updateWelcomeMessage()` or a new `showZonePicker(sheets)` function
   - Render a list of `<button>` elements, one per zone
   - Each button shows `sheet.name` (or a truncated URL if no name)
   - On click: set `currentSheetUrl = sheet.url`, save to localStorage, call `loadAddressData(sheet.url)`, hide overlay
 
-- [ ] **3.3** CSS for zone picker buttons
+- [x] **3.3** CSS for zone picker buttons
   - Style as a vertical list inside the welcome overlay
   - Match existing button styles from the welcome overlay (`.welcome-load-btn` style)
   - Keep it simple — no need for search/filter at this stage

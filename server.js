@@ -64,6 +64,23 @@ function readUsersMap() {
   return usersMap;
 }
 
+function normalizeUserSheetEntry(entry) {
+  if (typeof entry === 'string') {
+    const url = entry.trim();
+    if (!url) return null;
+    return { url, name: url };
+  }
+
+  if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+    const url = String(entry.url || '').trim();
+    if (!url) return null;
+    const rawName = String(entry.name || '').trim();
+    return { url, name: rawName || url };
+  }
+
+  return null;
+}
+
 function logUsersConfigStatusAtStartup() {
   try {
     const usersMap = readUsersMap();
@@ -86,10 +103,17 @@ app.get('/api/user-sheets', (req, res) => {
 
   try {
     const usersMap = readUsersMap();
-    const sheets = usersMap[emailParam];
-    if (!Array.isArray(sheets)) {
+    const rawSheets = usersMap[emailParam];
+    if (!Array.isArray(rawSheets)) {
       return res.status(403).json({ error: 'not_registered' });
     }
+    const sheets = rawSheets.map((entry, index) => {
+      const normalized = normalizeUserSheetEntry(entry);
+      if (!normalized) {
+        throw new Error(`users.json entry for "${emailParam}" has invalid sheet value at index ${index}.`);
+      }
+      return normalized;
+    });
     return res.status(200).json({ sheets });
   } catch (err) {
     const message = err && err.code === 'ENOENT'
