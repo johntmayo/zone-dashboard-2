@@ -155,7 +155,7 @@ A simple additional step in the welcome overlay (after Step 1 completes):
 ### PHASE 1 — Backend: users.json + API endpoint
 **Goal:** Create the data file and server endpoint. No client changes yet.
 
-- [ ] **1.1** Create `users.json` at project root with placeholder entries
+- [x] **1.1** Create `users.json` at project root with placeholder entries
   ```json
   {
     "_note": "Map email (lowercase) to array of Google Sheets URLs this user can access.",
@@ -166,7 +166,7 @@ A simple additional step in the welcome overlay (after Step 1 completes):
   ```
   Note: `_note` key is informational; server should ignore keys starting with `_`.
 
-- [ ] **1.2** Add `GET /api/user-sheets` to `server.js`
+- [x] **1.2** Add `GET /api/user-sheets` to `server.js`
   - Read `users.json` synchronously at request time (not cached — keeps changes live without restart)
   - Normalize email param to lowercase, strip whitespace
   - Reject missing email with 400
@@ -174,13 +174,13 @@ A simple additional step in the welcome overlay (after Step 1 completes):
   - Return 200 + `{ sheets: [...urls] }` for known email
   - Wrap in try/catch — if `users.json` is missing or malformed, return 500 with a clear message
 
-- [ ] **1.3** Add startup validation in `server.js`
+- [x] **1.3** Add startup validation in `server.js`
   - On server start, attempt to read and JSON-parse `users.json`
   - If file is missing: log a warning (don't crash — server should still start)
   - If file is present but malformed JSON: log an error with the parse error message
   - Log count of registered users on successful load
 
-- [ ] **1.4** Add `users.json` to `.gitignore` (it will contain real email addresses)
+- [x] **1.4** Add `users.json` to `.gitignore` (it will contain real email addresses)
   - Check if `.gitignore` exists; if not, create it
   - Add the line `users.json`
 

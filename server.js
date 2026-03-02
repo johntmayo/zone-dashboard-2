@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const { google } = require('googleapis');
 
 const app = express();
@@ -34,6 +35,69 @@ app.get('/api/ga-config', (req, res) => {
   const measurementId = (process.env.GA_MEASUREMENT_ID || '').trim();
   res.set('Cache-Control', 'no-store');
   res.json({ measurementId });
+});
+
+const USERS_FILE_PATH = path.join(__dirname, 'users.json');
+
+function readUsersMap() {
+  const raw = fs.readFileSync(USERS_FILE_PATH, 'utf8');
+  const parsed = JSON.parse(raw);
+  const usersMap = {};
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('users.json must contain a JSON object mapping emails to arrays of sheet URLs.');
+  }
+
+  for (const [key, value] of Object.entries(parsed)) {
+    if (String(key).startsWith('_')) continue;
+
+    const normalizedEmail = String(key).trim().toLowerCase();
+    if (!normalizedEmail) continue;
+
+    if (!Array.isArray(value)) {
+      throw new Error(`users.json entry for "${normalizedEmail}" must be an array of sheet URLs.`);
+    }
+
+    usersMap[normalizedEmail] = value;
+  }
+
+  return usersMap;
+}
+
+function logUsersConfigStatusAtStartup() {
+  try {
+    const usersMap = readUsersMap();
+    const registeredUsersCount = Object.keys(usersMap).length;
+    console.log(`users.json loaded successfully. Registered users: ${registeredUsersCount}`);
+  } catch (err) {
+    if (err && err.code === 'ENOENT') {
+      console.warn('users.json not found. /api/user-sheets will return server errors until users.json is created.');
+      return;
+    }
+    console.error(`users.json is malformed or unreadable: ${err.message}`);
+  }
+}
+
+app.get('/api/user-sheets', (req, res) => {
+  const emailParam = (req.query.email || '').toString().trim().toLowerCase();
+  if (!emailParam) {
+    return res.status(400).json({ error: 'no_email' });
+  }
+
+  try {
+    const usersMap = readUsersMap();
+    const sheets = usersMap[emailParam];
+    if (!Array.isArray(sheets)) {
+      return res.status(403).json({ error: 'not_registered' });
+    }
+    return res.status(200).json({ sheets });
+  } catch (err) {
+    const message = err && err.code === 'ENOENT'
+      ? 'users.json is missing on the server. Create users.json at the project root.'
+      : `users.json is invalid: ${err.message}`;
+    console.error('Error in /api/user-sheets:', message);
+    return res.status(500).json({ error: 'users_config_error', message });
+  }
 });
 
 // Service account auth for Sheets API (single server-side identity)
@@ -754,6 +818,7 @@ app.listen(PORT, () => {
   console.log(`Central sheet ID (announcements): ${CENTRAL_SHEET_ID}`);
   console.log(`Actions sheet ID: ${ACTIONS_SHEET_ID}`);
   console.log(`NC Directory sheet ID: ${NC_DIRECTORY_SHEET_ID}`);
-console.log(`To change sheets, update the IDs in server.js or set environment variables`);
+  console.log(`To change sheets, update the IDs in server.js or set environment variables`);
+  logUsersConfigStatusAtStartup();
 });
 
