@@ -191,13 +191,13 @@ A simple additional step in the welcome overlay (after Step 1 completes):
 
 The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()`. After fetching the user email, the current code just checks `localStorage` for a saved sheet URL. We're replacing that logic.
 
-- [ ] **2.1** After fetching user email in `signIn()` callback, call `/api/user-sheets`
+- [x] **2.1** After fetching user email in `signIn()` callback, call `/api/user-sheets`
   - Insert after line ~1210 (where `currentUserEmail` is set)
   - Call `await fetchUserSheets(currentUserEmail)`
   - The result drives what happens next (see 2.2–2.4)
   - Do NOT fall back to `localStorage` for the sheet URL at this point — the server is now authoritative
 
-- [ ] **2.2** Create `fetchUserSheets(email)` function
+- [x] **2.2** Create `fetchUserSheets(email)` function
   ```js
   async function fetchUserSheets(email) {
     const res = await fetch(`/api/user-sheets?email=${encodeURIComponent(email)}`);
@@ -207,23 +207,23 @@ The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()
   }
   ```
 
-- [ ] **2.3** Handle "not registered" outcome
+- [x] **2.3** Handle "not registered" outcome
   - Update `updateWelcomeMessage()` to accept a state parameter, or add a separate `showNotRegisteredMessage()` function
   - Show message in the welcome overlay: "Your email (`currentUserEmail`) is not registered. Contact your Altagether admin to get access."
   - Do NOT show Step 2 (neither URL paste nor zone picker)
 
-- [ ] **2.4** Handle "1 sheet" outcome
+- [x] **2.4** Handle "1 sheet" outcome
   - Set `currentSheetUrl` to `sheets[0]`
   - Save to `localStorage` as `savedSheetUrl`
   - Call `loadAddressData(sheets[0])` — same as before
   - Welcome overlay hides automatically (existing logic: `updateWelcomeMessage()` hides overlay when `currentSheetUrl` is set)
 
-- [ ] **2.5** Handle "multiple sheets" outcome
+- [x] **2.5** Handle "multiple sheets" outcome
   - Store the sheet list in a variable (e.g., `availableSheets`)
   - Show zone picker (see Phase 3)
   - Do not load any sheet until user picks one
 
-- [ ] **2.6** On-load: restore from localStorage if token still valid
+- [x] **2.6** On-load: restore from localStorage if token still valid
   - Keep existing behavior: if token valid + `savedSheetUrl` in localStorage → auto-load
   - This avoids hitting `/api/user-sheets` on every page refresh, which is good
   - Token expiry (50 min) will naturally re-trigger sign-in → re-fetch sheets

@@ -80,6 +80,7 @@
             <button class="welcome-load-btn" id="welcomeLoadBtn">Load</button>
           </div>
         </div>
+        <div class="welcome-step hidden" id="welcomeAccessNotice"></div>
         
         <div class="welcome-help-link">
           <a href="#" id="getHelpBtn">Get Help</a>
@@ -748,6 +749,9 @@
     let savedScrollPosition = 0; // Track scroll position for refresh
     let accessToken = null; // OAuth2 access token
     let currentUserEmail = null; // Signed-in Google account email (for NC Profile row match)
+    let availableSheets = []; // Sheets returned by /api/user-sheets for zone selection
+    let welcomeAuthState = 'idle'; // idle | loading | zone_picker | not_registered | server_error
+    let welcomeAuthMessage = '';
     let currentSheetId = null; // Current sheet ID for writing
     // Emergency kill switch for Add Record while stabilization/testing is in progress.
     const ENABLE_ADD_RECORD = true;
@@ -1093,6 +1097,10 @@
           }
         }, 1000);
       }
+    } else if (accessToken && currentUserEmail) {
+      // Signed in with no saved sheet: resolve sheet access from server.
+      welcomeAuthState = 'loading';
+      resolveAuthorizedSheetsForCurrentUser();
     }
 
     // Initialize sheet link label, welcome message, header title, and navigation state
@@ -1178,6 +1186,84 @@
     const NC_DIRECTORY_SHEET_ID = '1E77qmT4eGtyokaDvD2wlK3q2NeMcS4itmkbYp6Rz0qM'; // NC Directory Google Sheet (Sheet1 = captain roster)
 
     // OAuth2 Sign In
+    async function fetchUserSheets(email) {
+      try {
+        const res = await fetch(`/api/user-sheets?email=${encodeURIComponent(email)}`);
+        if (res.status === 403) return { error: 'not_registered', sheets: [] };
+        if (!res.ok) return { error: 'server_error', sheets: [] };
+        const payload = await res.json();
+        return { sheets: Array.isArray(payload?.sheets) ? payload.sheets : [] };
+      } catch (error) {
+        console.warn('Error fetching user sheets:', error);
+        return { error: 'server_error', sheets: [] };
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function normalizeSheetUrls(sheets) {
+      if (!Array.isArray(sheets)) return [];
+      return sheets
+        .map((sheet) => (typeof sheet === 'string' ? sheet.trim() : ''))
+        .filter(Boolean);
+    }
+
+    function loadAuthorizedSheet(url) {
+      currentSheetUrl = url;
+      if (input) input.value = url;
+      localStorage.setItem('savedSheetUrl', url);
+      updateSheetLinkLabel();
+      updateWelcomeMessage();
+      updateNavigationState();
+      loadAddressData(url);
+    }
+
+    function showNotRegisteredMessage() {
+      availableSheets = [];
+      welcomeAuthState = 'not_registered';
+      welcomeAuthMessage = `Your email (${currentUserEmail || 'unknown'}) is not registered. Contact your Altagether admin to get access.`;
+      updateWelcomeMessage();
+    }
+
+    function showZonePicker(sheets) {
+      availableSheets = sheets.slice();
+      welcomeAuthState = 'zone_picker';
+      welcomeAuthMessage = '';
+      updateWelcomeMessage();
+    }
+
+    async function resolveAuthorizedSheetsForCurrentUser() {
+      const sheetsResult = await fetchUserSheets(currentUserEmail);
+      const normalizedSheets = normalizeSheetUrls(sheetsResult.sheets);
+      if (sheetsResult.error === 'not_registered') {
+        showNotRegisteredMessage();
+      } else if (sheetsResult.error) {
+        availableSheets = [];
+        welcomeAuthState = 'server_error';
+        welcomeAuthMessage = 'We could not load your spreadsheet access right now. Please try again in a moment.';
+        updateWelcomeMessage();
+      } else if (normalizedSheets.length === 1) {
+        availableSheets = [];
+        welcomeAuthState = 'idle';
+        welcomeAuthMessage = '';
+        loadAuthorizedSheet(normalizedSheets[0]);
+      } else if (normalizedSheets.length > 1) {
+        showZonePicker(normalizedSheets);
+      } else {
+        availableSheets = [];
+        welcomeAuthState = 'server_error';
+        welcomeAuthMessage = 'No spreadsheet is assigned to your account yet. Contact your Altagether admin.';
+        updateWelcomeMessage();
+      }
+    }
+
     async function signIn() {
       if (OAUTH_CLIENT_ID === 'YOUR_CLIENT_ID') {
         alert('OAuth Client ID not configured. Please set OAUTH_CLIENT_ID in the code.');
@@ -1208,22 +1294,18 @@
                 if (currentUserEmail) localStorage.setItem('ncProfileUserEmail', currentUserEmail);
               }
             } catch (e) { console.warn('Could not fetch user email:', e); }
-            updateSignInUI();
-            
-            // Auto-load data after sign-in if we have a sheet URL
-            const savedSheetUrl = localStorage.getItem('savedSheetUrl');
-            const sheetUrlToLoad = currentSheetUrl || savedSheetUrl;
-            
-            if (sheetUrlToLoad) {
-              currentSheetUrl = sheetUrlToLoad;
-              // Small delay to ensure UI updates
-              setTimeout(() => {
-                loadAddressData(sheetUrlToLoad);
-              }, 500);
-            } else if (selectedAddress && currentSheetUrl) {
-              // Fallback: refresh current address if one is selected
-              loadAddressData(currentSheetUrl);
+
+            if (!currentUserEmail) {
+              welcomeAuthState = 'server_error';
+              welcomeAuthMessage = 'Could not verify your Google account email. Please try signing in again.';
+              updateSignInUI();
+              return;
             }
+
+            welcomeAuthState = 'loading';
+            welcomeAuthMessage = '';
+            updateSignInUI();
+            await resolveAuthorizedSheetsForCurrentUser();
             if (currentView === 'profile') loadProfileView();
           },
         });
@@ -1238,6 +1320,9 @@
     function signOut() {
       accessToken = null;
       currentUserEmail = null;
+      availableSheets = [];
+      welcomeAuthState = 'idle';
+      welcomeAuthMessage = '';
       localStorage.removeItem('googleOAuthToken');
       localStorage.removeItem('googleOAuthTokenExpiry');
       localStorage.removeItem('ncProfileUserEmail');
@@ -1573,6 +1658,7 @@
       const welcomeOverlay = document.getElementById('welcomeOverlay');
       const welcomeStep1 = document.getElementById('welcomeStep1');
       const welcomeStep2 = document.getElementById('welcomeStep2');
+      const welcomeAccessNotice = document.getElementById('welcomeAccessNotice');
       const welcomeStep1Status = document.getElementById('welcomeStep1Status');
       const welcomeSignInBtn = document.getElementById('welcomeSignInBtn');
       
@@ -1585,7 +1671,7 @@
         
         // Update step visibility based on sign-in state
         if (accessToken) {
-          // User is signed in - show step 2, hide step 1 button
+          // User is signed in - keep step 1 complete, then branch into auth-driven step 2 states.
           if (welcomeStep1) {
             const btnContainer = welcomeSignInBtn?.parentElement;
             if (btnContainer && welcomeSignInBtn) {
@@ -1595,8 +1681,68 @@
               welcomeStep1Status.classList.remove('hidden');
             }
           }
-          if (welcomeStep2) {
+
+          if (welcomeAccessNotice) {
+            welcomeAccessNotice.classList.add('hidden');
+            welcomeAccessNotice.textContent = '';
+            welcomeAccessNotice.innerHTML = '';
+          }
+
+          if (welcomeAuthState === 'not_registered') {
+            if (welcomeStep2) welcomeStep2.classList.add('hidden');
+            if (welcomeAccessNotice) {
+              welcomeAccessNotice.classList.remove('hidden');
+              welcomeAccessNotice.innerHTML = `<p class="welcome-step-description">${escapeHtml(welcomeAuthMessage)}</p>`;
+            }
+          } else if (welcomeAuthState === 'server_error') {
+            if (welcomeStep2) welcomeStep2.classList.add('hidden');
+            if (welcomeAccessNotice) {
+              welcomeAccessNotice.classList.remove('hidden');
+              welcomeAccessNotice.innerHTML = `<p class="welcome-step-description">${escapeHtml(welcomeAuthMessage)}</p>`;
+            }
+          } else if (welcomeStep2) {
             welcomeStep2.classList.remove('hidden');
+            if (welcomeAuthState === 'loading') {
+              welcomeStep2.innerHTML = `
+                <div class="welcome-step-header">
+                  <span class="welcome-step-number">2</span>
+                  <h3>Checking your zone access</h3>
+                </div>
+                <p class="welcome-step-description">Please wait while we load your assigned zone spreadsheet access.</p>
+              `;
+            } else if (welcomeAuthState === 'zone_picker') {
+              const buttons = availableSheets.map((sheetUrl, index) => {
+                const label = `Zone ${index + 1}`;
+                return `<button class="welcome-load-btn welcome-zone-btn" data-sheet-url="${encodeURIComponent(sheetUrl)}">${label}</button>`;
+              }).join('');
+              welcomeStep2.innerHTML = `
+                <div class="welcome-step-header">
+                  <span class="welcome-step-number">2</span>
+                  <h3>Choose your zone</h3>
+                </div>
+                <p class="welcome-step-description">Select one of your authorized zone spreadsheets.</p>
+                <div class="welcome-input-group" style="display:flex;flex-direction:column;gap:8px;">
+                  ${buttons}
+                </div>
+              `;
+              welcomeStep2.querySelectorAll('.welcome-zone-btn').forEach((button) => {
+                button.addEventListener('click', () => {
+                  const selectedUrl = decodeURIComponent(button.getAttribute('data-sheet-url') || '');
+                  if (!selectedUrl) return;
+                  welcomeAuthState = 'idle';
+                  welcomeAuthMessage = '';
+                  loadAuthorizedSheet(selectedUrl);
+                });
+              });
+            } else {
+              welcomeStep2.innerHTML = `
+                <div class="welcome-step-header">
+                  <span class="welcome-step-number">2</span>
+                  <h3>Sign-in complete</h3>
+                </div>
+                <p class="welcome-step-description">Sign in again if you need to refresh your zone access.</p>
+              `;
+            }
           }
         } else {
           // User not signed in - show step 1, hide step 2
@@ -1611,6 +1757,10 @@
           }
           if (welcomeStep2) {
             welcomeStep2.classList.add('hidden');
+          }
+          if (welcomeAccessNotice) {
+            welcomeAccessNotice.classList.add('hidden');
+            welcomeAccessNotice.textContent = '';
           }
         }
       } else {
