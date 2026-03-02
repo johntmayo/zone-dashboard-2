@@ -269,12 +269,12 @@ The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()
 ### PHASE 4 — Cleanup: Remove manual URL paste
 **Goal:** Remove the "paste your sheet URL" UI from the welcome overlay. Decide what to do with the bottom-left nav URL input.
 
-- [ ] **4.1** Remove Step 2 (URL paste) from welcome overlay HTML
+- [x] **4.1** Remove Step 2 (URL paste) from welcome overlay HTML
   - The `#welcomeStep2` div with `#welcomeSheetUrlInput` and `#welcomeLoadBtn`
   - Remove associated event listeners (they reference `welcomeLoadBtn`, `welcomeSheetUrlInput`)
   - The welcome overlay now only has Step 1 (sign in) and the new zone picker (or not-registered message)
 
-- [ ] **4.2** Evaluate bottom-left nav URL input (`#sheetUrlInput`, `#loadSheetBtn`)
+- [x] **4.2** Evaluate bottom-left nav URL input (`#sheetUrlInput`, `#loadSheetBtn`)
   - This is the "Link your zone spreadsheet" section that appears after initial load
   - Options:
     - **Remove entirely** — cleanest; users can't change their sheet (go through admin)
@@ -283,11 +283,11 @@ The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()
   - **Recommended:** Remove entirely from production. Simplest. If admin needs to test a specific sheet, they can add their email with that sheet to users.json.
   - This section is in the HTML around line 112–119, and the click handler is around line ~5940 and `#loadSheetBtn` event listener
 
-- [ ] **4.3** Update `updateWelcomeMessage()` to remove references to Step 2 URL paste elements
+- [x] **4.3** Update `updateWelcomeMessage()` to remove references to Step 2 URL paste elements
 
-- [ ] **4.4** Update `updateNavigationState()` — it currently shows/hides `sheetLinkSection`. If we remove that section, update this function accordingly.
+- [x] **4.4** Update `updateNavigationState()` — it currently shows/hides `sheetLinkSection`. If we remove that section, update this function accordingly.
 
-- [ ] **4.5** Clean up `signIn()` callback — remove the `savedSheetUrl` localStorage fallback that currently auto-loads the sheet after sign-in (replaced by the `/api/user-sheets` call)
+- [x] **4.5** Clean up `signIn()` callback — remove the `savedSheetUrl` localStorage fallback that currently auto-loads the sheet after sign-in (replaced by the `/api/user-sheets` call)
 
 ---
 
@@ -314,11 +314,11 @@ The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()
 - [ ] **5.5** Test: sign out and sign back in
   - Should clear localStorage sheet URL and re-run the `/api/user-sheets` flow
 
-- [ ] **5.6** Test: users.json missing
+- [x] **5.6** Test: users.json missing
   - Remove/rename the file, restart server
   - Sign in → should get a clear error, not a crash
 
-- [ ] **5.7** Test: users.json malformed
+- [x] **5.7** Test: users.json malformed
   - Put invalid JSON in the file
   - Sign in → should get a clear error
 

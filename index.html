@@ -109,11 +109,6 @@
         <div class="nav-logo">
           <img src="public/images/logo_white_transparent.png" alt="Altagether Logo">
         </div>
-        <div class="sheet-link-section">
-          <label class="sheet-link-label" id="sheetLinkLabel">Link your zone spreadsheet</label>
-          <input id="sheetUrlInput" class="nav-sheet-input" placeholder="Paste Google Sheet URL" />
-          <button class="nav-load-btn" id="loadSheetBtn">Load</button>
-        </div>
         <div class="nav-feedback-wrap">
           <a href="https://airtable.com/appLrjspqPboCt2ma/pagutixyE91qfPMVd/form" target="_blank" rel="noopener noreferrer" class="nav-feedback-link">Send feedback</a>
         </div>
@@ -734,7 +729,6 @@
 
   <script>
     const input = document.getElementById("sheetUrlInput");
-    const btn = document.getElementById("loadSheetBtn");
     // Refresh button removed - data auto-loads after sign-in
     const addressPanelContent = document.getElementById("addressPanelContent");
     const signInBtn = document.getElementById("signInBtn");
@@ -1085,8 +1079,8 @@
 
     // Load saved sheet URL from localStorage
     const savedSheetUrl = localStorage.getItem('savedSheetUrl');
-    if (savedSheetUrl && input) {
-      input.value = savedSheetUrl;
+    if (savedSheetUrl) {
+      if (input) input.value = savedSheetUrl;
       currentSheetUrl = savedSheetUrl;
       // Auto-load the sheet if user is signed in (wait a bit for OAuth to initialize)
       if (accessToken) {
@@ -1115,58 +1109,6 @@
       getHelpBtn.addEventListener('click', (e) => {
         e.preventDefault();
         window.open('about.html', '_blank', 'noopener,noreferrer');
-      });
-    }
-
-    // Welcome popup load button handler
-    const welcomeLoadBtn = document.getElementById('welcomeLoadBtn');
-    const welcomeSheetUrlInput = document.getElementById('welcomeSheetUrlInput');
-    if (welcomeLoadBtn && welcomeSheetUrlInput) {
-      welcomeLoadBtn.addEventListener('click', () => {
-        // Validate sign-in first
-        if (!accessToken) {
-          alert('Please sign in with Google first before loading your spreadsheet.');
-          // Show step 1 if hidden
-          const welcomeStep1 = document.getElementById('welcomeStep1');
-          if (welcomeStep1) {
-            welcomeStep1.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-          return;
-        }
-
-        let url = welcomeSheetUrlInput.value.trim();
-        if (!url) {
-          alert('Please enter a Google Sheets URL.');
-          return;
-        }
-
-        if (url.includes("/view")) {
-          url = url.replace("/view", "/edit");
-        }
-
-        // Update main input field
-        if (input) {
-          input.value = url;
-        }
-
-        currentSheetUrl = url;
-        // Save to localStorage
-        localStorage.setItem('savedSheetUrl', url);
-        
-        // Update UI
-        updateSheetLinkLabel();
-        updateWelcomeMessage();
-        updateNavigationState();
-        
-        // Load the address data
-        loadAddressData(url);
-      });
-
-      // Also allow Enter key to trigger load
-      welcomeSheetUrlInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          welcomeLoadBtn.click();
-        }
       });
     }
 
@@ -1811,16 +1753,11 @@
     function updateNavigationState() {
       const leftNav = document.querySelector('.left-nav');
       const navItems = document.querySelectorAll('.nav-item[data-view]');
-      const sheetLinkSection = document.querySelector('.sheet-link-section');
       
       if (!currentSheetUrl) {
         // No spreadsheet linked - disable all navigation except Home
         if (leftNav) {
           leftNav.classList.add('disabled');
-        }
-        // Hide the sheet link section in left nav when welcome overlay is shown
-        if (sheetLinkSection) {
-          sheetLinkSection.classList.add('hidden');
         }
         navItems.forEach(item => {
           const viewName = item.getAttribute('data-view');
@@ -1836,10 +1773,6 @@
         // Spreadsheet linked - enable all navigation
         if (leftNav) {
           leftNav.classList.remove('disabled');
-        }
-        // Show the sheet link section for changing spreadsheet
-        if (sheetLinkSection) {
-          sheetLinkSection.classList.remove('hidden');
         }
         navItems.forEach(item => {
           item.disabled = false;
@@ -6080,37 +6013,6 @@
         }
       }, 0);
     }
-
-    // Load sheet button handler
-    btn.addEventListener("click", () => {
-      // Validate sign-in first
-      if (!accessToken) {
-        alert('Please sign in with Google first before loading your spreadsheet.');
-        return;
-      }
-
-      let url = input.value.trim();
-      if (!url) {
-        alert('Please enter a Google Sheets URL.');
-        return;
-      }
-
-      if (url.includes("/view")) {
-        url = url.replace("/view", "/edit");
-      }
-
-      currentSheetUrl = url;
-      // Save to localStorage
-      localStorage.setItem('savedSheetUrl', url);
-      
-      // Update UI
-      updateSheetLinkLabel();
-      updateWelcomeMessage();
-      updateNavigationState();
-      
-      // Load the address data
-      loadAddressData(url);
-    });
 
     // Refresh button handler
     // Refresh button removed - data auto-loads after sign-in
