@@ -155,7 +155,7 @@ A simple additional step in the welcome overlay (after Step 1 completes):
 ### PHASE 1 — Backend: users.json + API endpoint
 **Goal:** Create the data file and server endpoint. No client changes yet.
 
-- [ ] **1.1** Create `users.json` at project root with placeholder entries
+- [x] **1.1** Create `users.json` at project root with placeholder entries
   ```json
   {
     "_note": "Map email (lowercase) to array of Google Sheets URLs this user can access.",
@@ -166,7 +166,7 @@ A simple additional step in the welcome overlay (after Step 1 completes):
   ```
   Note: `_note` key is informational; server should ignore keys starting with `_`.
 
-- [ ] **1.2** Add `GET /api/user-sheets` to `server.js`
+- [x] **1.2** Add `GET /api/user-sheets` to `server.js`
   - Read `users.json` synchronously at request time (not cached — keeps changes live without restart)
   - Normalize email param to lowercase, strip whitespace
   - Reject missing email with 400
@@ -174,13 +174,13 @@ A simple additional step in the welcome overlay (after Step 1 completes):
   - Return 200 + `{ sheets: [...urls] }` for known email
   - Wrap in try/catch — if `users.json` is missing or malformed, return 500 with a clear message
 
-- [ ] **1.3** Add startup validation in `server.js`
+- [x] **1.3** Add startup validation in `server.js`
   - On server start, attempt to read and JSON-parse `users.json`
   - If file is missing: log a warning (don't crash — server should still start)
   - If file is present but malformed JSON: log an error with the parse error message
   - Log count of registered users on successful load
 
-- [ ] **1.4** Add `users.json` to `.gitignore` (it will contain real email addresses)
+- [x] **1.4** Add `users.json` to `.gitignore` (it will contain real email addresses)
   - Check if `.gitignore` exists; if not, create it
   - Add the line `users.json`
 
@@ -191,13 +191,13 @@ A simple additional step in the welcome overlay (after Step 1 completes):
 
 The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()`. After fetching the user email, the current code just checks `localStorage` for a saved sheet URL. We're replacing that logic.
 
-- [ ] **2.1** After fetching user email in `signIn()` callback, call `/api/user-sheets`
+- [x] **2.1** After fetching user email in `signIn()` callback, call `/api/user-sheets`
   - Insert after line ~1210 (where `currentUserEmail` is set)
   - Call `await fetchUserSheets(currentUserEmail)`
   - The result drives what happens next (see 2.2–2.4)
   - Do NOT fall back to `localStorage` for the sheet URL at this point — the server is now authoritative
 
-- [ ] **2.2** Create `fetchUserSheets(email)` function
+- [x] **2.2** Create `fetchUserSheets(email)` function
   ```js
   async function fetchUserSheets(email) {
     const res = await fetch(`/api/user-sheets?email=${encodeURIComponent(email)}`);
@@ -207,23 +207,23 @@ The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()
   }
   ```
 
-- [ ] **2.3** Handle "not registered" outcome
+- [x] **2.3** Handle "not registered" outcome
   - Update `updateWelcomeMessage()` to accept a state parameter, or add a separate `showNotRegisteredMessage()` function
   - Show message in the welcome overlay: "Your email (`currentUserEmail`) is not registered. Contact your Altagether admin to get access."
   - Do NOT show Step 2 (neither URL paste nor zone picker)
 
-- [ ] **2.4** Handle "1 sheet" outcome
+- [x] **2.4** Handle "1 sheet" outcome
   - Set `currentSheetUrl` to `sheets[0]`
   - Save to `localStorage` as `savedSheetUrl`
   - Call `loadAddressData(sheets[0])` — same as before
   - Welcome overlay hides automatically (existing logic: `updateWelcomeMessage()` hides overlay when `currentSheetUrl` is set)
 
-- [ ] **2.5** Handle "multiple sheets" outcome
+- [x] **2.5** Handle "multiple sheets" outcome
   - Store the sheet list in a variable (e.g., `availableSheets`)
   - Show zone picker (see Phase 3)
   - Do not load any sheet until user picks one
 
-- [ ] **2.6** On-load: restore from localStorage if token still valid
+- [x] **2.6** On-load: restore from localStorage if token still valid
   - Keep existing behavior: if token valid + `savedSheetUrl` in localStorage → auto-load
   - This avoids hitting `/api/user-sheets` on every page refresh, which is good
   - Token expiry (50 min) will naturally re-trigger sign-in → re-fetch sheets
@@ -233,7 +233,7 @@ The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()
 ### PHASE 3 — Zone Picker UI
 **Goal:** When a user has multiple sheets, show a clean picker in the welcome overlay instead of Step 2.
 
-- [ ] **3.1** Replace Step 2 HTML in `welcomeOverlay` with a zone picker step
+- [x] **3.1** Replace Step 2 HTML in `welcomeOverlay` with a zone picker step
   - Remove the URL paste input and Load button from the welcome overlay (keep the bottom-left nav input for now — see Phase 4)
   - Add a new `welcomeStep2` variant that shows zone buttons
   - Zone label: use the zone name from `users.json` if we store it there, OR load it dynamically from the sheet metadata. **Simpler approach:** store a display name alongside each URL in users.json.
@@ -253,13 +253,13 @@ The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()
   Server returns `{ sheets: [{ url, name }, ...] }`.
   For backward compat: if an entry is a plain string (not an object), treat it as `{ url: entry, name: entry }`.
 
-- [ ] **3.2** Build zone picker step HTML dynamically in JS
+- [x] **3.2** Build zone picker step HTML dynamically in JS
   - In `updateWelcomeMessage()` or a new `showZonePicker(sheets)` function
   - Render a list of `<button>` elements, one per zone
   - Each button shows `sheet.name` (or a truncated URL if no name)
   - On click: set `currentSheetUrl = sheet.url`, save to localStorage, call `loadAddressData(sheet.url)`, hide overlay
 
-- [ ] **3.3** CSS for zone picker buttons
+- [x] **3.3** CSS for zone picker buttons
   - Style as a vertical list inside the welcome overlay
   - Match existing button styles from the welcome overlay (`.welcome-load-btn` style)
   - Keep it simple — no need for search/filter at this stage
@@ -269,12 +269,12 @@ The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()
 ### PHASE 4 — Cleanup: Remove manual URL paste
 **Goal:** Remove the "paste your sheet URL" UI from the welcome overlay. Decide what to do with the bottom-left nav URL input.
 
-- [ ] **4.1** Remove Step 2 (URL paste) from welcome overlay HTML
+- [x] **4.1** Remove Step 2 (URL paste) from welcome overlay HTML
   - The `#welcomeStep2` div with `#welcomeSheetUrlInput` and `#welcomeLoadBtn`
   - Remove associated event listeners (they reference `welcomeLoadBtn`, `welcomeSheetUrlInput`)
   - The welcome overlay now only has Step 1 (sign in) and the new zone picker (or not-registered message)
 
-- [ ] **4.2** Evaluate bottom-left nav URL input (`#sheetUrlInput`, `#loadSheetBtn`)
+- [x] **4.2** Evaluate bottom-left nav URL input (`#sheetUrlInput`, `#loadSheetBtn`)
   - This is the "Link your zone spreadsheet" section that appears after initial load
   - Options:
     - **Remove entirely** — cleanest; users can't change their sheet (go through admin)
@@ -283,16 +283,29 @@ The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()
   - **Recommended:** Remove entirely from production. Simplest. If admin needs to test a specific sheet, they can add their email with that sheet to users.json.
   - This section is in the HTML around line 112–119, and the click handler is around line ~5940 and `#loadSheetBtn` event listener
 
-- [ ] **4.3** Update `updateWelcomeMessage()` to remove references to Step 2 URL paste elements
+- [x] **4.3** Update `updateWelcomeMessage()` to remove references to Step 2 URL paste elements
 
-- [ ] **4.4** Update `updateNavigationState()` — it currently shows/hides `sheetLinkSection`. If we remove that section, update this function accordingly.
+- [x] **4.4** Update `updateNavigationState()` — it currently shows/hides `sheetLinkSection`. If we remove that section, update this function accordingly.
 
-- [ ] **4.5** Clean up `signIn()` callback — remove the `savedSheetUrl` localStorage fallback that currently auto-loads the sheet after sign-in (replaced by the `/api/user-sheets` call)
+- [x] **4.5** Clean up `signIn()` callback — remove the `savedSheetUrl` localStorage fallback that currently auto-loads the sheet after sign-in (replaced by the `/api/user-sheets` call)
 
 ---
 
 ### PHASE 5 — Testing & Validation
 **Goal:** Verify all paths work correctly before pushing.
+
+**Validation notes (2026-03-02):**
+- Backend auth mapping checks passed locally on `http://localhost:8016`:
+  - `GET /api/user-sheets` with no email returns `400` (`no_email`)
+  - unregistered email returns `403` (`not_registered`)
+  - a configured single-zone user returns `200` with exactly one sheet
+- URL hardening checks passed for `/api/user-sheets`:
+  - pasted URL variants (`/edit?...`, `open?id=...`, fragment/query noise) normalize to canonical `https://docs.google.com/spreadsheets/d/<ID>/edit`
+  - invalid non-Sheets values fail clearly with `users_config_error` and index details
+- End-to-end UI checks that require successful sheet reads remain blocked until one of these env vars is set locally:
+  - `GOOGLE_SERVICE_ACCOUNT_JSON_B64`
+  - `GOOGLE_SERVICE_ACCOUNT_JSON`
+  - `GOOGLE_APPLICATION_CREDENTIALS`
 
 - [ ] **5.1** Test: unregistered email
   - Sign in with an email NOT in users.json
@@ -314,11 +327,11 @@ The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()
 - [ ] **5.5** Test: sign out and sign back in
   - Should clear localStorage sheet URL and re-run the `/api/user-sheets` flow
 
-- [ ] **5.6** Test: users.json missing
+- [x] **5.6** Test: users.json missing
   - Remove/rename the file, restart server
   - Sign in → should get a clear error, not a crash
 
-- [ ] **5.7** Test: users.json malformed
+- [x] **5.7** Test: users.json malformed
   - Put invalid JSON in the file
   - Sign in → should get a clear error
 
