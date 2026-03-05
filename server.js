@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const { google } = require('googleapis');
 
 const app = express();
@@ -34,6 +35,140 @@ app.get('/api/ga-config', (req, res) => {
   const measurementId = (process.env.GA_MEASUREMENT_ID || '').trim();
   res.set('Cache-Control', 'no-store');
   res.json({ measurementId });
+});
+
+const USERS_FILE_PATH = path.join(__dirname, 'users.json');
+
+function readUsersMap() {
+  let raw = '';
+  let sourceName = 'users.json';
+  const usersJsonB64 = String(process.env.USERS_JSON_B64 || '').trim();
+  const usersJsonInline = String(process.env.USERS_JSON || '').trim();
+
+  if (usersJsonB64) {
+    sourceName = 'USERS_JSON_B64';
+    try {
+      raw = Buffer.from(usersJsonB64, 'base64').toString('utf8');
+    } catch (err) {
+      throw new Error('USERS_JSON_B64 is not valid base64.');
+    }
+  } else if (usersJsonInline) {
+    sourceName = 'USERS_JSON';
+    raw = usersJsonInline;
+  } else {
+    raw = fs.readFileSync(USERS_FILE_PATH, 'utf8');
+  }
+
+  const parsed = JSON.parse(raw);
+  const usersMap = {};
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`${sourceName} must contain a JSON object mapping emails to arrays of sheet URLs.`);
+  }
+
+  for (const [key, value] of Object.entries(parsed)) {
+    if (String(key).startsWith('_')) continue;
+
+    const normalizedEmail = String(key).trim().toLowerCase();
+    if (!normalizedEmail) continue;
+
+    if (!Array.isArray(value)) {
+      throw new Error(`${sourceName} entry for "${normalizedEmail}" must be an array of sheet URLs.`);
+    }
+
+    usersMap[normalizedEmail] = value;
+  }
+
+  return usersMap;
+}
+
+function extractGoogleSheetId(rawValue) {
+  const value = String(rawValue || '').trim().replace(/^['"]|['"]$/g, '');
+  if (!value) return null;
+
+  const standardMatch = value.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/i);
+  if (standardMatch && standardMatch[1]) return standardMatch[1];
+
+  // Some share links use ?id=<SHEET_ID> instead of /d/<SHEET_ID>/...
+  const queryIdMatch = value.match(/[?&]id=([a-zA-Z0-9-_]+)/i);
+  if (queryIdMatch && queryIdMatch[1]) return queryIdMatch[1];
+
+  // Keep compatibility with published links (d/e style) if admins paste them.
+  const publishedMatch = value.match(/\/spreadsheets\/d\/e\/([a-zA-Z0-9-_]+)/i);
+  if (publishedMatch && publishedMatch[1]) return publishedMatch[1];
+
+  return null;
+}
+
+function toCanonicalSheetUrl(rawValue) {
+  const sheetId = extractGoogleSheetId(rawValue);
+  if (!sheetId) return null;
+  return `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+}
+
+function normalizeUserSheetEntry(entry) {
+  if (typeof entry === 'string') {
+    const url = toCanonicalSheetUrl(entry);
+    if (!url) return null;
+    return { url, name: url };
+  }
+
+  if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+    const url = toCanonicalSheetUrl(entry.url);
+    if (!url) return null;
+    const rawName = String(entry.name || '').trim();
+    return { url, name: rawName || url };
+  }
+
+  return null;
+}
+
+function logUsersConfigStatusAtStartup() {
+  try {
+    const usersMap = readUsersMap();
+    const registeredUsersCount = Object.keys(usersMap).length;
+    const sourceLabel = String(process.env.USERS_JSON_B64 || '').trim()
+      ? 'USERS_JSON_B64'
+      : String(process.env.USERS_JSON || '').trim()
+        ? 'USERS_JSON'
+        : 'users.json';
+    console.log(`User access config loaded from ${sourceLabel}. Registered users: ${registeredUsersCount}`);
+  } catch (err) {
+    if (err && err.code === 'ENOENT') {
+      console.warn('No users config found. Set USERS_JSON_B64, USERS_JSON, or create users.json. /api/user-sheets will return errors until one is available.');
+      return;
+    }
+    console.error(`User access config is malformed or unreadable: ${err.message}`);
+  }
+}
+
+app.get('/api/user-sheets', (req, res) => {
+  const emailParam = (req.query.email || '').toString().trim().toLowerCase();
+  if (!emailParam) {
+    return res.status(400).json({ error: 'no_email' });
+  }
+
+  try {
+    const usersMap = readUsersMap();
+    const rawSheets = usersMap[emailParam];
+    if (!Array.isArray(rawSheets)) {
+      return res.status(403).json({ error: 'not_registered' });
+    }
+    const sheets = rawSheets.map((entry, index) => {
+      const normalized = normalizeUserSheetEntry(entry);
+      if (!normalized) {
+        throw new Error(`users.json entry for "${emailParam}" has invalid sheet value at index ${index}.`);
+      }
+      return normalized;
+    });
+    return res.status(200).json({ sheets });
+  } catch (err) {
+    const message = err && err.code === 'ENOENT'
+      ? 'No users config is available on the server. Set USERS_JSON_B64, USERS_JSON, or create users.json at the project root.'
+      : `User access config is invalid: ${err.message}`;
+    console.error('Error in /api/user-sheets:', message);
+    return res.status(500).json({ error: 'users_config_error', message });
+  }
 });
 
 // Service account auth for Sheets API (single server-side identity)
@@ -754,6 +889,7 @@ app.listen(PORT, () => {
   console.log(`Central sheet ID (announcements): ${CENTRAL_SHEET_ID}`);
   console.log(`Actions sheet ID: ${ACTIONS_SHEET_ID}`);
   console.log(`NC Directory sheet ID: ${NC_DIRECTORY_SHEET_ID}`);
-console.log(`To change sheets, update the IDs in server.js or set environment variables`);
+  console.log(`To change sheets, update the IDs in server.js or set environment variables`);
+  logUsersConfigStatusAtStartup();
 });
 
