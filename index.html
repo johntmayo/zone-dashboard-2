@@ -106,6 +106,7 @@
         <a href="about.html" target="_blank" rel="noopener noreferrer" class="nav-item nav-item-link">About the Dashboard</a>
       </div>
       <div class="nav-section nav-section-bottom">
+        <button class="nav-item hidden" id="signOutBtn" type="button">Sign out</button>
         <div class="nav-logo">
           <img src="public/images/logo_white_transparent.png" alt="Altagether Logo">
         </div>
@@ -732,6 +733,7 @@
     // Refresh button removed - data auto-loads after sign-in
     const addressPanelContent = document.getElementById("addressPanelContent");
     const signInBtn = document.getElementById("signInBtn");
+    const signOutBtn = document.getElementById("signOutBtn");
     const signinPrompt = document.getElementById("signinPrompt");
 
     // Navigation state
@@ -1274,17 +1276,24 @@
     function signOut() {
       accessToken = null;
       currentUserEmail = null;
+      currentSheetUrl = '';
       availableSheets = [];
       welcomeAuthState = 'idle';
       welcomeAuthMessage = '';
+      selectedAddress = null;
       localStorage.removeItem('googleOAuthToken');
       localStorage.removeItem('googleOAuthTokenExpiry');
       localStorage.removeItem('ncProfileUserEmail');
+      localStorage.removeItem('savedSheetUrl');
+      localStorage.removeItem('currentView');
+      if (input) input.value = '';
+      sheetData = [];
+      currentSheetId = null;
+      updateSheetLinkLabel();
+      updateHeaderTitle();
+      updateNavigationState();
       updateSignInUI();
-      if (selectedAddress && currentSheetUrl) {
-        loadAddressData(currentSheetUrl);
-      }
-      if (currentView === 'profile') loadProfileView();
+      switchView('home');
     }
 
     // ---- NC Directory / My NC Profile ----
@@ -1567,10 +1576,11 @@
       if (accessToken) {
         signinPrompt.classList.add('hidden');
         if (homeSigninPrompt) homeSigninPrompt.classList.add('hidden');
-        // Could add a sign-out button here if needed
+        if (signOutBtn) signOutBtn.classList.remove('hidden');
       } else {
         // Always show sign-in prompt in floating panel when not signed in
         signinPrompt.classList.remove('hidden');
+        if (signOutBtn) signOutBtn.classList.add('hidden');
         // Show global sign-in overlay if spreadsheet is linked but not signed in (any tab)
         if (homeSigninPrompt && currentSheetUrl) {
           homeSigninPrompt.classList.remove('hidden');
@@ -1783,6 +1793,9 @@
 
     // Sign in button handler
     signInBtn.addEventListener('click', signIn);
+    if (signOutBtn) {
+      signOutBtn.addEventListener('click', signOut);
+    }
 
     // Home sign-in button handler (uses same signIn function)
     const homeSignInBtn = document.getElementById('homeSignInBtn');
