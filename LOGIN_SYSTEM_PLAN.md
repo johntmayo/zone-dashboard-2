@@ -317,7 +317,7 @@ The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()
   - Sign in with an email NOT in users.json
   - Should see "not registered" message, no zone picker, no URL paste
 
-- [ ] **5.2** Test: single-zone captain
+- [x] **5.2** Test: single-zone captain
   - Sign in with email that maps to exactly 1 sheet
   - Should auto-load the sheet immediately, welcome overlay hides
 
@@ -325,13 +325,14 @@ The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()
   - Sign in with email that maps to 2+ sheets
   - Should see zone picker, clicking a zone loads it
 
-- [ ] **5.4** Test: session restore on refresh
+- [x] **5.4** Test: session restore on refresh
   - Sign in, load a zone, refresh page
   - If token not expired: should auto-load from localStorage without showing welcome overlay
   - If token expired: should show welcome overlay → sign in again → auto-load or show picker
 
 - [ ] **5.5** Test: sign out and sign back in
   - Should clear localStorage sheet URL and re-run the `/api/user-sheets` flow
+  - _Status (2026-03-03):_ Sign-out behavior was validated (returns to sign-in screen). Full sign-out then sign-back-in sequence is still pending.
 
 - [x] **5.6** Test: users.json missing
   - Remove/rename the file, restart server
@@ -345,6 +346,7 @@ The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()
   - NC Profile view (email matching against NC Directory sheet) still works
   - Sheet reads and writes still work
   - All nav views (Map, Neighbors, Actions, Tools, Resources) still work
+  - _Status (2026-03-03):_ NC Profile + all listed nav views were validated in preview. Write-path checks are still pending.
 
 ---
 
