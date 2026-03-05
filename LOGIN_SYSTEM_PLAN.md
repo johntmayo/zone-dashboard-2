@@ -307,6 +307,12 @@ The sign-in callback is in `index.html` around line 1191–1227 inside `signIn()
   - `GOOGLE_SERVICE_ACCOUNT_JSON`
   - `GOOGLE_APPLICATION_CREDENTIALS`
 
+**Preview follow-up (2026-03-03):**
+- Added backend fallback for user access config so Vercel preview can use env vars instead of `users.json` on disk:
+  - `USERS_JSON_B64` (preferred)
+  - `USERS_JSON`
+- Local verification passed: with `users.json` temporarily removed, `/api/user-sheets` returned valid data when `USERS_JSON_B64` was set.
+
 - [ ] **5.1** Test: unregistered email
   - Sign in with an email NOT in users.json
   - Should see "not registered" message, no zone picker, no URL paste

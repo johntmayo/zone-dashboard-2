@@ -40,12 +40,30 @@ app.get('/api/ga-config', (req, res) => {
 const USERS_FILE_PATH = path.join(__dirname, 'users.json');
 
 function readUsersMap() {
-  const raw = fs.readFileSync(USERS_FILE_PATH, 'utf8');
+  let raw = '';
+  let sourceName = 'users.json';
+  const usersJsonB64 = String(process.env.USERS_JSON_B64 || '').trim();
+  const usersJsonInline = String(process.env.USERS_JSON || '').trim();
+
+  if (usersJsonB64) {
+    sourceName = 'USERS_JSON_B64';
+    try {
+      raw = Buffer.from(usersJsonB64, 'base64').toString('utf8');
+    } catch (err) {
+      throw new Error('USERS_JSON_B64 is not valid base64.');
+    }
+  } else if (usersJsonInline) {
+    sourceName = 'USERS_JSON';
+    raw = usersJsonInline;
+  } else {
+    raw = fs.readFileSync(USERS_FILE_PATH, 'utf8');
+  }
+
   const parsed = JSON.parse(raw);
   const usersMap = {};
 
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('users.json must contain a JSON object mapping emails to arrays of sheet URLs.');
+    throw new Error(`${sourceName} must contain a JSON object mapping emails to arrays of sheet URLs.`);
   }
 
   for (const [key, value] of Object.entries(parsed)) {
@@ -55,7 +73,7 @@ function readUsersMap() {
     if (!normalizedEmail) continue;
 
     if (!Array.isArray(value)) {
-      throw new Error(`users.json entry for "${normalizedEmail}" must be an array of sheet URLs.`);
+      throw new Error(`${sourceName} entry for "${normalizedEmail}" must be an array of sheet URLs.`);
     }
 
     usersMap[normalizedEmail] = value;
@@ -109,13 +127,18 @@ function logUsersConfigStatusAtStartup() {
   try {
     const usersMap = readUsersMap();
     const registeredUsersCount = Object.keys(usersMap).length;
-    console.log(`users.json loaded successfully. Registered users: ${registeredUsersCount}`);
+    const sourceLabel = String(process.env.USERS_JSON_B64 || '').trim()
+      ? 'USERS_JSON_B64'
+      : String(process.env.USERS_JSON || '').trim()
+        ? 'USERS_JSON'
+        : 'users.json';
+    console.log(`User access config loaded from ${sourceLabel}. Registered users: ${registeredUsersCount}`);
   } catch (err) {
     if (err && err.code === 'ENOENT') {
-      console.warn('users.json not found. /api/user-sheets will return server errors until users.json is created.');
+      console.warn('No users config found. Set USERS_JSON_B64, USERS_JSON, or create users.json. /api/user-sheets will return errors until one is available.');
       return;
     }
-    console.error(`users.json is malformed or unreadable: ${err.message}`);
+    console.error(`User access config is malformed or unreadable: ${err.message}`);
   }
 }
 
@@ -141,8 +164,8 @@ app.get('/api/user-sheets', (req, res) => {
     return res.status(200).json({ sheets });
   } catch (err) {
     const message = err && err.code === 'ENOENT'
-      ? 'users.json is missing on the server. Create users.json at the project root.'
-      : `users.json is invalid: ${err.message}`;
+      ? 'No users config is available on the server. Set USERS_JSON_B64, USERS_JSON, or create users.json at the project root.'
+      : `User access config is invalid: ${err.message}`;
     console.error('Error in /api/user-sheets:', message);
     return res.status(500).json({ error: 'users_config_error', message });
   }
