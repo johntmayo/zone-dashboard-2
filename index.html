@@ -245,6 +245,22 @@
                 </div>
               </div>
             </div>
+
+            <!-- Mobile-only: single 6-chart carousel replaces the dual desktop carousels -->
+            <div class="mobile-chart-carousel" id="mobileZoneChartCarousel">
+              <div class="mobile-chart-header">
+                <button class="mobile-chart-nav" id="mobileChartPrev" aria-label="Previous chart">&#8249;</button>
+                <div class="mobile-chart-meta">
+                  <div class="mobile-chart-title" id="mobileChartTitle">Addresses Contacted</div>
+                  <div class="mobile-chart-counter" id="mobileChartCounter">1 / 6</div>
+                </div>
+                <button class="mobile-chart-nav" id="mobileChartNext" aria-label="Next chart">&#8250;</button>
+              </div>
+              <div class="mobile-chart-canvas-wrap">
+                <canvas id="mobileZoneChart"></canvas>
+              </div>
+            </div>
+
             <div class="zone-overview-footer hidden" id="zoneOverviewFooter">
               <div class="stat-item">
                 <span class="stat-label">Last updated</span>
@@ -14791,6 +14807,53 @@
     window.displayAddressList = displayAddressList;
     window.toggleToolModule = toggleToolModule;
 
+    // Bridge: render any of the 6 zone charts into a given canvas (used by mobile carousel)
+    window._renderZoneChartForMobile = function(slotIndex, canvasId) {
+      if (!sheetData || !sheetData.data || !sheetData.addressMap) return;
+      const headers = sheetData.headers;
+      const data = sheetData.data;
+      const addressMap = sheetData.addressMap;
+      // builders[i] matches allCharts[i] in renderCarouselChart
+      const builders = [
+        function() { // 0: Addresses Contacted
+          const d = getAddressesContactedData(headers, data);
+          return { type: 'pie', data: { labels: ['Contacted (' + d.contacted + ')', 'Not Contacted (' + d.notContacted + ')'], datasets: [{ data: [d.contacted, d.notContacted], backgroundColor: ['#81bdc3', '#bc455a'], borderWidth: 2, borderColor: '#fff' }] }, options: {} };
+        },
+        function() { // 1: Damage Status
+          const d = getDamageStatusData(headers, data, addressMap);
+          const color = function(label) { const l = (label || '').toLowerCase(); if (l.includes('total')) return '#bc455a'; if (l.includes('partial')) return '#fdba77'; if (l.includes('standing')) return '#81bdc3'; return '#e5e5e5'; };
+          return { type: 'pie', data: { labels: d.labels.map(function(l, i) { return l + ' (' + d.data[i] + ')'; }), datasets: [{ data: d.data, backgroundColor: d.labels.map(color), borderWidth: 2, borderColor: '#fff' }] }, options: {} };
+        },
+        function() { // 2: Address Plan (Household Status)
+          const d = getHouseholdStatusData(headers, data, addressMap);
+          const colors = ['#afc892', '#81bdc3', '#fdba77', '#f6cf98', '#bc455a', '#e5e5e5', '#f9d6d3'];
+          return { type: 'doughnut', data: { labels: d.labels.map(function(l, i) { return l + ' (' + d.data[i] + ')'; }), datasets: [{ data: d.data, backgroundColor: colors.slice(0, d.labels.length), borderWidth: 2, borderColor: '#fff' }] }, options: { cutout: '60%' } };
+        },
+        function() { // 3: Streets Distribution
+          const d = getStreetsDistributionData(headers, data);
+          if (d.labels.length === 0) return null;
+          return { type: 'bar', data: { labels: d.labels, datasets: [{ label: 'Addresses', data: d.data, backgroundColor: '#81bdc3', borderColor: '#606C38', borderWidth: 1 }] }, options: { indexAxis: 'y', scales: { x: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } } } };
+        },
+        function() { // 4: People per Address
+          const d = getPeoplePerAddressData(headers, data, addressMap);
+          if (d.labels.length === 0) return null;
+          return { type: 'bar', data: { labels: d.labels, datasets: [{ label: 'Addresses', data: d.data, backgroundColor: '#afc892', borderColor: '#606C38', borderWidth: 1 }] }, options: { scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } } } };
+        },
+        function() { // 5: Build Status
+          const d = getRebuildStatusData(headers, addressMap);
+          if (d.labels.length === 0) return null;
+          const c = d.labels.map(function(label, i) { return getRebuildStageColor(label, i); });
+          return { type: 'doughnut', data: { labels: d.labels.map(function(l, i) { return l + ' (' + d.data[i] + ')'; }), datasets: [{ data: d.data, backgroundColor: c.slice(0, d.labels.length), borderWidth: 2, borderColor: '#fff' }] }, options: { cutout: '60%' } };
+        }
+      ];
+      // Mobile slot order: Contacted(0), Damage(1), Build(5), Plan(2), Streets(3), People(4)
+      const builderOrder = [0, 1, 5, 2, 3, 4];
+      const builderIndex = builderOrder[slotIndex];
+      if (builderIndex === undefined) return;
+      const chartConfig = builders[builderIndex]();
+      if (chartConfig) renderChartInCanvas(canvasId, chartConfig);
+    };
+
     // ================================================================
     // MOBILE NAVIGATION & UI
     // All interactions in this block are for mobile (≤767px).
@@ -14940,6 +15003,52 @@
           childList: true, characterData: true, subtree: true
         });
         syncZoneNames();
+      }
+
+      // ---- Mobile 6-chart carousel ----
+      var mobileChartTitles = [
+        'Addresses Contacted',
+        'Damage Status',
+        'Build Status',
+        'Address Plan',
+        'Streets Distribution',
+        'People per Address'
+      ];
+      var mobileChartIndex = 0;
+
+      function renderMobileChart(index) {
+        if (window.innerWidth > 767) return;
+        if (!window._renderZoneChartForMobile) return;
+        mobileChartIndex = index;
+        window._renderZoneChartForMobile(mobileChartIndex, 'mobileZoneChart');
+        var title = document.getElementById('mobileChartTitle');
+        if (title) title.textContent = mobileChartTitles[mobileChartIndex];
+        var counter = document.getElementById('mobileChartCounter');
+        if (counter) counter.textContent = (mobileChartIndex + 1) + ' / 6';
+      }
+
+      var mobileChartPrev = document.getElementById('mobileChartPrev');
+      var mobileChartNext = document.getElementById('mobileChartNext');
+      if (mobileChartPrev) {
+        mobileChartPrev.addEventListener('click', function() {
+          renderMobileChart((mobileChartIndex - 1 + 6) % 6);
+        });
+      }
+      if (mobileChartNext) {
+        mobileChartNext.addEventListener('click', function() {
+          renderMobileChart((mobileChartIndex + 1) % 6);
+        });
+      }
+
+      // Watch #zoneOverviewCharts: when it loses 'hidden', data is ready — render first chart
+      var zoneChartsEl = document.getElementById('zoneOverviewCharts');
+      if (zoneChartsEl) {
+        new MutationObserver(function(mutations, obs) {
+          if (!zoneChartsEl.classList.contains('hidden')) {
+            renderMobileChart(0);
+            obs.disconnect();
+          }
+        }).observe(zoneChartsEl, { attributes: true, attributeFilter: ['class'] });
       }
 
       // ---- Initial state ----
