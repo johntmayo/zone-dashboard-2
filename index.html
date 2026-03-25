@@ -123,6 +123,8 @@
 
     <!-- Floating Right Panel (Addresses/Zone Notes/Contact Mode) -->
     <div class="floating-panel" id="floatingPanel">
+      <!-- Mobile-only drag handle (hidden on desktop via CSS) -->
+      <div class="mobile-sheet-handle"></div>
       <button
         class="panel-collapse-toggle"
         id="panelCollapseToggle"
@@ -175,7 +177,9 @@
     <!-- Content Views -->
     <!-- Home Dashboard View -->
     <div class="content-view hidden" id="homeView">
-      
+      <!-- Mobile-only zone name header (hidden on desktop via CSS) -->
+      <div class="mobile-zone-header" id="mobileZoneHeader">Zone XX</div>
+
       <div class="home-dashboard">
         <div class="home-panels-grid">
           <!-- Panel A: Zone Overview -->
@@ -14813,6 +14817,15 @@
           var view = this.getAttribute('data-view');
           switchView(view);
           syncMobileNav(view);
+          // On mobile, keep the address panel closed by default when switching views.
+          // The user opens it intentionally via the List FAB.
+          if (window.innerWidth <= 767) {
+            setTimeout(function() {
+              var panel = document.getElementById('floatingPanel');
+              if (panel) panel.classList.add('hidden');
+              updateMobileListFab();
+            }, 0);
+          }
         });
       });
 
@@ -14838,6 +14851,13 @@
           switchView(view);
           syncMobileNav(view);
           closeMoreDrawer();
+          if (window.innerWidth <= 767) {
+            setTimeout(function() {
+              var panel = document.getElementById('floatingPanel');
+              if (panel) panel.classList.add('hidden');
+              updateMobileListFab();
+            }, 0);
+          }
         });
       });
 
@@ -14904,20 +14924,22 @@
         }).observe(leftNavSection, { attributes: true, subtree: true, attributeFilter: ['class'] });
       }
 
-      // ---- Sync zone name into More drawer ----
-      function syncMoreZoneName() {
+      // ---- Sync zone name into More drawer and mobile home header ----
+      function syncZoneNames() {
         var desktopZone = document.getElementById('navHeaderZone');
+        if (!desktopZone) return;
+        var name = desktopZone.textContent;
         var mobileZone = document.getElementById('mobileMoreZone');
-        if (desktopZone && mobileZone) {
-          mobileZone.textContent = desktopZone.textContent;
-        }
+        if (mobileZone) mobileZone.textContent = name;
+        var mobileHeader = document.getElementById('mobileZoneHeader');
+        if (mobileHeader) mobileHeader.textContent = name;
       }
       var zoneNameEl = document.getElementById('navHeaderZone');
       if (zoneNameEl) {
-        new MutationObserver(syncMoreZoneName).observe(zoneNameEl, {
+        new MutationObserver(syncZoneNames).observe(zoneNameEl, {
           childList: true, characterData: true, subtree: true
         });
-        syncMoreZoneName();
+        syncZoneNames();
       }
 
       // ---- Initial state ----

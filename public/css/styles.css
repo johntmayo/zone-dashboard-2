@@ -4747,6 +4747,7 @@
 }
 
 
+
 /* ================================================================
    MOBILE STYLES
    All rules in this section are scoped to max-width: 767px.
@@ -4757,7 +4758,9 @@
 .mobile-bottom-nav,
 .mobile-more-drawer,
 .mobile-list-fab,
-.mobile-panel-close {
+.mobile-panel-close,
+.mobile-sheet-handle,
+.mobile-zone-header {
   display: none;
 }
 
@@ -4835,6 +4838,7 @@
     transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: 0;
     box-shadow: 0 -4px 20px rgba(49, 64, 89, 0.18);
+    flex-direction: column;
   }
 
   /* Show panel when visible */
@@ -4845,6 +4849,17 @@
   /* Override desktop translateX collapsed behavior on mobile */
   body.panel-collapsed .floating-panel {
     transform: translateY(0) !important;
+  }
+
+  /* Mobile drag handle */
+  .mobile-sheet-handle {
+    display: block;
+    width: 36px;
+    height: 4px;
+    background: rgba(31, 41, 55, 0.2);
+    border-radius: 2px;
+    margin: 10px auto 6px;
+    flex-shrink: 0;
   }
 
   /* Hide desktop collapse toggle; show mobile close button */
@@ -4865,17 +4880,6 @@
     cursor: pointer;
     flex-shrink: 0;
     -webkit-tap-highlight-color: transparent;
-  }
-
-  /* Drag handle above panel content */
-  .address-panel-tabs::before {
-    content: '';
-    display: block;
-    width: 36px;
-    height: 4px;
-    background: rgba(31, 41, 55, 0.2);
-    border-radius: 2px;
-    margin: 10px auto 0;
   }
 
   /* Zone Notes tab: hidden on mobile (defunct feature) */
@@ -5070,6 +5074,20 @@
     display: none !important;
   }
 
+  /* ---- Mobile zone name header (home view only) ---- */
+
+  .mobile-zone-header {
+    display: block;
+    font-family: 'Chivo', sans-serif;
+    font-weight: 900;
+    font-size: 1.6rem;
+    color: var(--brand-primary-dark);
+    letter-spacing: 0.3px;
+    padding: 4px 0 12px 0;
+    border-bottom: 2px dotted var(--accent-clay);
+    margin-bottom: 16px;
+  }
+
   /* ---- Home dashboard: single column ---- */
 
   .home-panels-grid {
@@ -5084,8 +5102,46 @@
     grid-column: 1;
   }
 
+  /* Hide zone mini-map on mobile (too small to be useful) */
+  .home-panel-map {
+    display: none;
+  }
+
+  /* Chart carousels: show all slides as a flat scrollable list */
   .zone-overview-charts {
     flex-direction: column;
+    gap: 0;
+  }
+
+  .chart-carousel-wrapper {
+    width: 100%;
+  }
+
+  .chart-carousel-arrow,
+  .chart-carousel-dots {
+    display: none !important;
+  }
+
+  .chart-carousel-track {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: visible;
+    transform: none !important;
+  }
+
+  .chart-carousel-slide {
+    display: block !important;
+    opacity: 1 !important;
+    position: static !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    flex-shrink: 0;
+  }
+
+  .chart-carousel-container {
+    overflow: visible;
+    position: static;
   }
 
   .charts-grid {
@@ -5116,6 +5172,13 @@
   /* Embedded calendars: reduced height on mobile */
   .tool-module-content iframe {
     height: 380px !important;
+  }
+
+  /* ---- Map controls: hide on mobile to save real estate ---- */
+
+  .map-layers-control,
+  .color-filter-control {
+    display: none !important;
   }
 
   /* ---- Modals -> bottom sheets ---- */
