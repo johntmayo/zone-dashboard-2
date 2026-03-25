@@ -138,6 +138,7 @@
           <button class="tab-btn hidden" id="zoneNotesTab" data-tab="notes">Zone Notes</button>
           <div class="header-controls">
             <button class="btn-contact-mode" id="contactModeBtn" title="Toggle contact tracking mode">📞 Contact Mode</button>
+            <button class="mobile-panel-close" id="mobilePanelClose" aria-label="Close panel" title="Close panel">✕</button>
           </div>
         </div>
         <div class="address-panel-content" id="addressPanelContent">
@@ -727,6 +728,57 @@
     </div>
 
   </div>
+
+  <!-- ===== MOBILE NAVIGATION (hidden on desktop via CSS) ===== -->
+  <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Mobile navigation">
+    <button class="mobile-nav-tab active" data-view="home" id="mobileNavHome">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+      <span>Home</span>
+    </button>
+    <button class="mobile-nav-tab" data-view="map" id="mobileNavMap">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z"/></svg>
+      <span>Map</span>
+    </button>
+    <button class="mobile-nav-tab" data-view="people" id="mobileNavPeople">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+      <span>Neighbors</span>
+    </button>
+    <button class="mobile-nav-tab" data-view="meetups" id="mobileNavMeetups">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18 11.5c0-3.07-1.64-5.64-4.5-6.32V4.5c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.86 6 8.42 6 11.5v5l-2 2v1h16v-1l-2-2v-5zm-6 10.5c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2z"/></svg>
+      <span>Actions</span>
+    </button>
+    <button class="mobile-nav-tab" id="mobileNavMore">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+      <span>More</span>
+    </button>
+  </nav>
+
+  <!-- More Drawer (mobile only) -->
+  <div class="mobile-more-drawer hidden" id="mobileMoreDrawer">
+    <div class="mobile-more-backdrop" id="mobileMoreBackdrop"></div>
+    <div class="mobile-more-sheet">
+      <div class="mobile-more-handle"></div>
+      <div class="mobile-more-zone" id="mobileMoreZone">Zone XX</div>
+      <nav class="mobile-more-list">
+        <button class="mobile-more-item" data-view="tools">
+          <span>Tools</span><span class="mobile-more-item-arrow">›</span>
+        </button>
+        <button class="mobile-more-item" data-view="resources">
+          <span>Resources</span><span class="mobile-more-item-arrow">›</span>
+        </button>
+        <button class="mobile-more-item" data-view="profile">
+          <span>My NC Profile</span><span class="mobile-more-item-arrow">›</span>
+        </button>
+        <a href="about.html" target="_blank" rel="noopener noreferrer" class="mobile-more-item">
+          <span>About the Dashboard</span><span class="mobile-more-item-arrow">↗</span>
+        </a>
+        <button class="mobile-more-item mobile-more-item--signout" id="mobileMoreSignOut">Sign Out</button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Mobile: floating button to reopen address list on map/people view -->
+  <button class="mobile-list-fab hidden" id="mobileListFab">📋 List</button>
 
   <script>
     const input = document.getElementById("sheetUrlInput");
@@ -14734,7 +14786,146 @@
     // Make displayAddressList available globally for back button
     window.displayAddressList = displayAddressList;
     window.toggleToolModule = toggleToolModule;
-    
+
+    // ================================================================
+    // MOBILE NAVIGATION & UI
+    // All interactions in this block are for mobile (≤767px).
+    // Desktop behavior is completely unaffected.
+    // ================================================================
+    (function() {
+      'use strict';
+
+      // ---- Sync mobile bottom nav active state ----
+      function syncMobileNav(viewName) {
+        var moreViews = ['tools', 'resources', 'profile'];
+        document.querySelectorAll('.mobile-nav-tab[data-view]').forEach(function(tab) {
+          tab.classList.toggle('active', tab.getAttribute('data-view') === viewName);
+        });
+        var moreTab = document.getElementById('mobileNavMore');
+        if (moreTab) {
+          moreTab.classList.toggle('active', moreViews.indexOf(viewName) !== -1);
+        }
+      }
+
+      // ---- Bottom nav tab clicks ----
+      document.querySelectorAll('.mobile-nav-tab[data-view]').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+          var view = this.getAttribute('data-view');
+          switchView(view);
+          syncMobileNav(view);
+        });
+      });
+
+      // ---- More drawer ----
+      var moreDrawer = document.getElementById('mobileMoreDrawer');
+
+      function openMoreDrawer() {
+        if (moreDrawer) moreDrawer.classList.remove('hidden');
+      }
+      function closeMoreDrawer() {
+        if (moreDrawer) moreDrawer.classList.add('hidden');
+      }
+
+      var moreBtn = document.getElementById('mobileNavMore');
+      if (moreBtn) moreBtn.addEventListener('click', openMoreDrawer);
+
+      var moreBackdrop = document.getElementById('mobileMoreBackdrop');
+      if (moreBackdrop) moreBackdrop.addEventListener('click', closeMoreDrawer);
+
+      document.querySelectorAll('.mobile-more-item[data-view]').forEach(function(item) {
+        item.addEventListener('click', function() {
+          var view = this.getAttribute('data-view');
+          switchView(view);
+          syncMobileNav(view);
+          closeMoreDrawer();
+        });
+      });
+
+      // Sign out via More drawer
+      var moreSignOut = document.getElementById('mobileMoreSignOut');
+      if (moreSignOut) {
+        moreSignOut.addEventListener('click', function() {
+          closeMoreDrawer();
+          var signOutBtn = document.getElementById('signOutBtn');
+          if (signOutBtn) signOutBtn.click();
+        });
+      }
+
+      // ---- Mobile panel close button ----
+      var panelCloseBtn = document.getElementById('mobilePanelClose');
+      if (panelCloseBtn) {
+        panelCloseBtn.addEventListener('click', function() {
+          var panel = document.getElementById('floatingPanel');
+          if (panel) panel.classList.add('hidden');
+        });
+      }
+
+      // ---- Mobile List FAB (reopen address list) ----
+      function updateMobileListFab() {
+        if (window.innerWidth > 767) return;
+        var fab = document.getElementById('mobileListFab');
+        if (!fab) return;
+        var panel = document.getElementById('floatingPanel');
+        var isMapOrPeople = (currentView === 'map' || currentView === 'people');
+        var panelHidden = panel && panel.classList.contains('hidden');
+        if (isMapOrPeople && panelHidden) {
+          fab.classList.remove('hidden');
+        } else {
+          fab.classList.add('hidden');
+        }
+      }
+
+      var listFab = document.getElementById('mobileListFab');
+      if (listFab) {
+        listFab.addEventListener('click', function() {
+          var panel = document.getElementById('floatingPanel');
+          if (panel) panel.classList.remove('hidden');
+          updateMobileListFab();
+        });
+      }
+
+      // Watch floating panel visibility changes to show/hide FAB
+      var floatingPanel = document.getElementById('floatingPanel');
+      if (floatingPanel) {
+        new MutationObserver(updateMobileListFab).observe(floatingPanel, {
+          attributes: true, attributeFilter: ['class']
+        });
+      }
+
+      // ---- Keep mobile nav in sync with programmatic view switches ----
+      var leftNavSection = document.querySelector('.left-nav .nav-section');
+      if (leftNavSection) {
+        new MutationObserver(function() {
+          var activeNav = document.querySelector('.nav-item.active[data-view]');
+          if (activeNav) {
+            syncMobileNav(activeNav.getAttribute('data-view'));
+            updateMobileListFab();
+          }
+        }).observe(leftNavSection, { attributes: true, subtree: true, attributeFilter: ['class'] });
+      }
+
+      // ---- Sync zone name into More drawer ----
+      function syncMoreZoneName() {
+        var desktopZone = document.getElementById('navHeaderZone');
+        var mobileZone = document.getElementById('mobileMoreZone');
+        if (desktopZone && mobileZone) {
+          mobileZone.textContent = desktopZone.textContent;
+        }
+      }
+      var zoneNameEl = document.getElementById('navHeaderZone');
+      if (zoneNameEl) {
+        new MutationObserver(syncMoreZoneName).observe(zoneNameEl, {
+          childList: true, characterData: true, subtree: true
+        });
+        syncMoreZoneName();
+      }
+
+      // ---- Initial state ----
+      syncMobileNav(currentView || 'home');
+      updateMobileListFab();
+
+    })();
+
   </script>
 </body>
 </html>
