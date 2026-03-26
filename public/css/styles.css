@@ -4761,7 +4761,8 @@
 .mobile-panel-close,
 .mobile-sheet-handle,
 .mobile-zone-header,
-.mobile-chart-carousel {
+.mobile-chart-carousel,
+.mobile-map-layers-btn {
   display: none;
 }
 
@@ -4797,6 +4798,20 @@
     left: 0;
     right: 0;
     padding: 8px 12px;
+    overflow: hidden; /* clip the fade gradient */
+  }
+
+  /* Scroll hint: right-edge fade gradient */
+  .filter-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 40px;
+    background: linear-gradient(to right, transparent, var(--bg-paper, #fff));
+    pointer-events: none;
+    z-index: 1;
   }
 
   .filter-bar-content {
@@ -4804,6 +4819,13 @@
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    /* ensure content scrolls behind the fade */
+    padding-right: 24px;
+    scrollbar-width: none; /* hide scrollbar on Firefox */
+  }
+
+  .filter-bar-content::-webkit-scrollbar {
+    display: none; /* hide scrollbar on Chrome/Safari */
   }
 
   .filter-bar .filters-label {
@@ -5210,11 +5232,58 @@
     height: 380px !important;
   }
 
-  /* ---- Map controls: hide on mobile to save real estate ---- */
+  /* ---- Map controls: hidden by default, shown via toggle button ---- */
 
   .map-layers-control,
   .color-filter-control {
     display: none !important;
+  }
+
+  /* Layers toggle button */
+  .mobile-map-layers-btn {
+    display: flex;
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 500;
+    width: 40px;
+    height: 40px;
+    background: var(--bg-paper, #fff);
+    border: 2px solid var(--text-primary, #1a1a1a);
+    border-radius: 4px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    color: var(--text-primary, #1a1a1a);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-map-layers-btn.active {
+    background: var(--text-primary, #1a1a1a);
+    color: var(--bg-paper, #fff);
+  }
+
+  /* When toggle is active: show both controls as fixed overlays */
+  body.mobile-map-controls-open .map-layers-control,
+  body.mobile-map-controls-open .color-filter-control {
+    display: block !important;
+    position: fixed !important;
+    top: auto !important;
+    bottom: calc(60px + 12px) !important;
+    z-index: 600 !important;
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+
+  body.mobile-map-controls-open .map-layers-control {
+    right: 12px !important;
+    left: auto !important;
+  }
+
+  body.mobile-map-controls-open .color-filter-control {
+    left: 12px !important;
+    right: auto !important;
   }
 
   /* ---- Modals -> bottom sheets ---- */

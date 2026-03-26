@@ -119,6 +119,14 @@
     <!-- Full Screen Map -->
     <div class="map-container">
       <div id="zoneMap"></div>
+      <!-- Mobile-only: toggle map layers/color controls -->
+      <button class="mobile-map-layers-btn" id="mobileMapLayersBtn" aria-label="Map layers and colors">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+          <polyline points="2 17 12 22 22 17"/>
+          <polyline points="2 12 12 17 22 12"/>
+        </svg>
+      </button>
     </div>
 
     <!-- Floating Right Panel (Addresses/Zone Notes/Contact Mode) -->
@@ -798,7 +806,7 @@
   </div>
 
   <!-- Mobile: floating button to reopen address list on map/people view -->
-  <button class="mobile-list-fab hidden" id="mobileListFab">📋 List</button>
+  <button class="mobile-list-fab hidden" id="mobileListFab">Details</button>
 
   <script>
     const input = document.getElementById("sheetUrlInput");
@@ -14832,12 +14840,14 @@
         function() { // 3: Streets Distribution
           const d = getStreetsDistributionData(headers, data);
           if (d.labels.length === 0) return null;
-          return { type: 'bar', data: { labels: d.labels, datasets: [{ label: 'Addresses', data: d.data, backgroundColor: '#81bdc3', borderColor: '#606C38', borderWidth: 1 }] }, options: { indexAxis: 'y', scales: { x: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } } } };
+          // Truncate long street names so they don't overflow the axis
+          const truncLabel = function(s) { return s.length > 22 ? s.slice(0, 20) + '…' : s; };
+          return { type: 'bar', data: { labels: d.labels.map(truncLabel), datasets: [{ label: 'Addresses', data: d.data, backgroundColor: '#81bdc3', borderColor: '#606C38', borderWidth: 1 }] }, options: { indexAxis: 'y', scales: { x: { beginAtZero: true, ticks: { stepSize: 1, precision: 0, font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } } } };
         },
         function() { // 4: People per Address
           const d = getPeoplePerAddressData(headers, data, addressMap);
           if (d.labels.length === 0) return null;
-          return { type: 'bar', data: { labels: d.labels, datasets: [{ label: 'Addresses', data: d.data, backgroundColor: '#afc892', borderColor: '#606C38', borderWidth: 1 }] }, options: { scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } } } };
+          return { type: 'bar', data: { labels: d.labels, datasets: [{ label: 'Addresses', data: d.data, backgroundColor: '#afc892', borderColor: '#606C38', borderWidth: 1 }] }, options: { scales: { x: { ticks: { font: { size: 10 } } }, y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0, font: { size: 10 } } } } } };
         },
         function() { // 5: Build Status
           const d = getRebuildStatusData(headers, addressMap);
@@ -14850,6 +14860,16 @@
       const builderOrder = [0, 1, 5, 2, 3, 4];
       const builderIndex = builderOrder[slotIndex];
       if (builderIndex === undefined) return;
+      // Adjust canvas wrap height: horizontal bar (Streets) needs more space per row
+      const canvasWrap = document.querySelector('.mobile-chart-canvas-wrap');
+      if (canvasWrap) {
+        let h = 240;
+        if (builderIndex === 3) { // Streets Distribution (horizontal bar)
+          const sd = getStreetsDistributionData(headers, data);
+          h = Math.max(200, sd.labels.length * 30 + 52);
+        }
+        canvasWrap.style.height = h + 'px';
+      }
       const chartConfig = builders[builderIndex]();
       if (chartConfig) renderChartInCanvas(canvasId, chartConfig);
     };
@@ -15050,6 +15070,22 @@
           }
         }).observe(zoneChartsEl, { attributes: true, attributeFilter: ['class'] });
       }
+
+      // ---- Mobile map layers / color-by toggle button ----
+      var mapLayersBtn = document.getElementById('mobileMapLayersBtn');
+      if (mapLayersBtn) {
+        mapLayersBtn.addEventListener('click', function() {
+          var isOpen = document.body.classList.toggle('mobile-map-controls-open');
+          mapLayersBtn.classList.toggle('active', isOpen);
+        });
+      }
+      // Close map controls when switching away from map view
+      document.querySelectorAll('.mobile-nav-tab[data-view]').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+          document.body.classList.remove('mobile-map-controls-open');
+          if (mapLayersBtn) mapLayersBtn.classList.remove('active');
+        });
+      });
 
       // ---- Initial state ----
       syncMobileNav(currentView || 'home');
