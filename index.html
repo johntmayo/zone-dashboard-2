@@ -119,10 +119,53 @@
     <!-- Full Screen Map -->
     <div class="map-container">
       <div id="zoneMap"></div>
+      <!-- Mobile-only: toggle map layers/color controls -->
+      <button class="mobile-map-layers-btn" id="mobileMapLayersBtn" aria-label="Map layers and colors">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+          <polyline points="2 17 12 22 22 17"/>
+          <polyline points="2 12 12 17 22 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Mobile-only: unified map controls bottom sheet -->
+    <div class="mobile-map-sheet hidden" id="mobileMapSheet">
+      <div class="mobile-map-sheet-backdrop" id="mobileMapSheetBackdrop"></div>
+      <div class="mobile-map-sheet-panel">
+        <div class="mobile-map-sheet-handle"></div>
+
+        <div class="mobile-map-sheet-section">
+          <div class="mobile-map-sheet-label">Base Map</div>
+          <div class="mobile-map-toggle-row">
+            <button class="mobile-map-toggle-btn active" id="mobileBaseStreet">Street</button>
+            <button class="mobile-map-toggle-btn" id="mobileBaseSatellite">Satellite</button>
+          </div>
+        </div>
+
+        <div class="mobile-map-sheet-section">
+          <div class="mobile-map-sheet-label">Overlays</div>
+          <button class="mobile-map-layer-row" id="mobileLayerZones">Altagether Zones</button>
+          <button class="mobile-map-layer-row" id="mobileLayerCensus">Census Tracts</button>
+          <button class="mobile-map-layer-row" id="mobileLayerFire">Eaton Fire Perimeter</button>
+          <button class="mobile-map-layer-row" id="mobileLayerLincoln">Lincoln Ave Water Co</button>
+          <button class="mobile-map-layer-row" id="mobileLayerLasFlores">Las Flores Water Co</button>
+          <button class="mobile-map-layer-row" id="mobileLayerRubio">Rubio Canon Water Assn</button>
+        </div>
+
+        <div class="mobile-map-sheet-section">
+          <div class="mobile-map-sheet-label">Color By</div>
+          <button class="mobile-map-layer-row" id="mobileColorContact">Contact Status</button>
+          <button class="mobile-map-layer-row" id="mobileColorDamage">Damage Status</button>
+          <button class="mobile-map-layer-row" id="mobileColorBuild">Build Status</button>
+        </div>
+      </div>
     </div>
 
     <!-- Floating Right Panel (Addresses/Zone Notes/Contact Mode) -->
     <div class="floating-panel" id="floatingPanel">
+      <!-- Mobile-only drag handle (hidden on desktop via CSS) -->
+      <div class="mobile-sheet-handle"></div>
       <button
         class="panel-collapse-toggle"
         id="panelCollapseToggle"
@@ -138,6 +181,7 @@
           <button class="tab-btn hidden" id="zoneNotesTab" data-tab="notes">Zone Notes</button>
           <div class="header-controls">
             <button class="btn-contact-mode" id="contactModeBtn" title="Toggle contact tracking mode">📞 Contact Mode</button>
+            <button class="mobile-panel-close" id="mobilePanelClose" aria-label="Close panel" title="Close panel">✕</button>
           </div>
         </div>
         <div class="address-panel-content" id="addressPanelContent">
@@ -174,7 +218,9 @@
     <!-- Content Views -->
     <!-- Home Dashboard View -->
     <div class="content-view hidden" id="homeView">
-      
+      <!-- Mobile-only zone name header (hidden on desktop via CSS) -->
+      <div class="mobile-zone-header" id="mobileZoneHeader">Zone XX</div>
+
       <div class="home-dashboard">
         <div class="home-panels-grid">
           <!-- Panel A: Zone Overview -->
@@ -240,6 +286,22 @@
                 </div>
               </div>
             </div>
+
+            <!-- Mobile-only: single 6-chart carousel replaces the dual desktop carousels -->
+            <div class="mobile-chart-carousel" id="mobileZoneChartCarousel">
+              <div class="mobile-chart-header">
+                <button class="mobile-chart-nav" id="mobileChartPrev" aria-label="Previous chart">&#8249;</button>
+                <div class="mobile-chart-meta">
+                  <div class="mobile-chart-title" id="mobileChartTitle">Addresses Contacted</div>
+                  <div class="mobile-chart-counter" id="mobileChartCounter">1 / 6</div>
+                </div>
+                <button class="mobile-chart-nav" id="mobileChartNext" aria-label="Next chart">&#8250;</button>
+              </div>
+              <div class="mobile-chart-canvas-wrap">
+                <canvas id="mobileZoneChart"></canvas>
+              </div>
+            </div>
+
             <div class="zone-overview-footer hidden" id="zoneOverviewFooter">
               <div class="stat-item">
                 <span class="stat-label">Last updated</span>
@@ -727,6 +789,57 @@
     </div>
 
   </div>
+
+  <!-- ===== MOBILE NAVIGATION (hidden on desktop via CSS) ===== -->
+  <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Mobile navigation">
+    <button class="mobile-nav-tab active" data-view="home" id="mobileNavHome">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+      <span>Home</span>
+    </button>
+    <button class="mobile-nav-tab" data-view="map" id="mobileNavMap">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z"/></svg>
+      <span>Map</span>
+    </button>
+    <button class="mobile-nav-tab" data-view="people" id="mobileNavPeople">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+      <span>Neighbors</span>
+    </button>
+    <button class="mobile-nav-tab" data-view="meetups" id="mobileNavMeetups">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18 11.5c0-3.07-1.64-5.64-4.5-6.32V4.5c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.86 6 8.42 6 11.5v5l-2 2v1h16v-1l-2-2v-5zm-6 10.5c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2z"/></svg>
+      <span>Actions</span>
+    </button>
+    <button class="mobile-nav-tab" id="mobileNavMore">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+      <span>More</span>
+    </button>
+  </nav>
+
+  <!-- More Drawer (mobile only) -->
+  <div class="mobile-more-drawer hidden" id="mobileMoreDrawer">
+    <div class="mobile-more-backdrop" id="mobileMoreBackdrop"></div>
+    <div class="mobile-more-sheet">
+      <div class="mobile-more-handle"></div>
+      <div class="mobile-more-zone" id="mobileMoreZone">Zone XX</div>
+      <nav class="mobile-more-list">
+        <button class="mobile-more-item" data-view="tools">
+          <span>Tools</span><span class="mobile-more-item-arrow">›</span>
+        </button>
+        <button class="mobile-more-item" data-view="resources">
+          <span>Resources</span><span class="mobile-more-item-arrow">›</span>
+        </button>
+        <button class="mobile-more-item" data-view="profile">
+          <span>My NC Profile</span><span class="mobile-more-item-arrow">›</span>
+        </button>
+        <a href="about.html" target="_blank" rel="noopener noreferrer" class="mobile-more-item">
+          <span>About the Dashboard</span><span class="mobile-more-item-arrow">↗</span>
+        </a>
+        <button class="mobile-more-item mobile-more-item--signout" id="mobileMoreSignOut">Sign Out</button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Mobile: floating button to reopen address list on map/people view -->
+  <button class="mobile-list-fab hidden" id="mobileListFab">Details</button>
 
   <script>
     const input = document.getElementById("sheetUrlInput");
@@ -5085,6 +5198,11 @@
         return;
       }
 
+      // Auto-expand the panel if collapsed — selecting an address implies intent to see it
+      if (document.body.classList.contains('panel-collapsed')) {
+        setDetailsPanelCollapsed(false);
+      }
+
       // Track selected address
       selectedAddress = address;
       
@@ -7032,58 +7150,52 @@
           
           // Header
           const header = L.DomUtil.create('div', 'color-filter-header', container);
-          header.textContent = 'Color By:';
-          header.style.cssText = 'font-weight: 600; margin-bottom: 6px; color: #283618; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;';
-          
+          header.textContent = 'Color by';
+          header.style.cssText = 'height: 32px; line-height: 32px; padding: 0 10px; font-weight: 700; color: #283618; font-size: 0.7rem;';
+
+          const btnCss = 'height: 30px; line-height: 30px; text-align: left; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap; background: transparent; border: none; cursor: pointer; width: 100%;';
+
           // Contact Status button
           const contactBtn = L.DomUtil.create('button', 'color-filter-btn', container);
           contactBtn.textContent = 'Contact Status';
-          contactBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
-          contactBtn.onmouseover = () => contactBtn.style.background = '#f5f5f5';
-          contactBtn.onmouseout = () => {
-            if (homeColorMode !== 'contact') contactBtn.style.background = 'white';
-          };
-          
+          contactBtn.style.cssText = btnCss;
+          contactBtn.onmouseover = () => { if (homeColorMode !== 'contact') contactBtn.style.background = '#f3f7f2'; };
+          contactBtn.onmouseout = () => { if (homeColorMode !== 'contact') contactBtn.style.background = 'transparent'; };
+
           // Damage Status button
           const damageBtn = L.DomUtil.create('button', 'color-filter-btn', container);
           damageBtn.textContent = 'Damage Status';
-          damageBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
-          damageBtn.onmouseover = () => damageBtn.style.background = '#f5f5f5';
-          damageBtn.onmouseout = () => {
-            if (homeColorMode !== 'damage') damageBtn.style.background = 'white';
-          };
-          
+          damageBtn.style.cssText = btnCss;
+          damageBtn.onmouseover = () => { if (homeColorMode !== 'damage') damageBtn.style.background = '#f3f7f2'; };
+          damageBtn.onmouseout = () => { if (homeColorMode !== 'damage') damageBtn.style.background = 'transparent'; };
+
           // Build Status button
           const rebuildBtn = L.DomUtil.create('button', 'color-filter-btn', container);
           rebuildBtn.textContent = 'Build Status';
-          rebuildBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
-          rebuildBtn.onmouseover = () => rebuildBtn.style.background = '#f5f5f5';
-          rebuildBtn.onmouseout = () => {
-            if (homeColorMode !== 'rebuild') rebuildBtn.style.background = 'white';
-          };
-          
+          rebuildBtn.style.cssText = btnCss;
+          rebuildBtn.onmouseover = () => { if (homeColorMode !== 'rebuild') rebuildBtn.style.background = '#f3f7f2'; };
+          rebuildBtn.onmouseout = () => { if (homeColorMode !== 'rebuild') rebuildBtn.style.background = 'transparent'; };
+
           // Captain Assigned button (only if zone has multiple captains)
           let captainBtn = null;
           if (hasMultipleCaptains && captainAssignedCol) {
             captainBtn = L.DomUtil.create('button', 'color-filter-btn', container);
             captainBtn.textContent = 'Captain Assigned';
-            captainBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
-            captainBtn.onmouseover = () => captainBtn.style.background = '#f5f5f5';
-            captainBtn.onmouseout = () => {
-              if (homeColorMode !== 'captain') captainBtn.style.background = 'white';
-            };
+            captainBtn.style.cssText = btnCss;
+            captainBtn.onmouseover = () => { if (homeColorMode !== 'captain') captainBtn.style.background = '#f3f7f2'; };
+            captainBtn.onmouseout = () => { if (homeColorMode !== 'captain') captainBtn.style.background = 'transparent'; };
           }
-          
+
           // Helper function to reset all buttons
           const resetButtons = () => {
-            contactBtn.style.background = 'white';
+            contactBtn.style.background = 'transparent';
             contactBtn.style.fontWeight = 'normal';
-            damageBtn.style.background = 'white';
+            damageBtn.style.background = 'transparent';
             damageBtn.style.fontWeight = 'normal';
-            rebuildBtn.style.background = 'white';
+            rebuildBtn.style.background = 'transparent';
             rebuildBtn.style.fontWeight = 'normal';
             if (captainBtn) {
-              captainBtn.style.background = 'white';
+              captainBtn.style.background = 'transparent';
               captainBtn.style.fontWeight = 'normal';
             }
           };
@@ -7415,58 +7527,52 @@
           
           // Header
           const header = L.DomUtil.create('div', 'color-filter-header', container);
-          header.textContent = 'Color By:';
-          header.style.cssText = 'font-weight: 600; margin-bottom: 6px; color: #283618; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;';
-          
+          header.textContent = 'Color by';
+          header.style.cssText = 'height: 32px; line-height: 32px; padding: 0 10px; font-weight: 700; color: #283618; font-size: 0.7rem;';
+
+          const btnCss = 'height: 30px; line-height: 30px; text-align: left; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap; background: transparent; border: none; cursor: pointer; width: 100%;';
+
           // Contact Status button
           const contactBtn = L.DomUtil.create('button', 'color-filter-btn', container);
           contactBtn.textContent = 'Contact Status';
-          contactBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
-          contactBtn.onmouseover = () => contactBtn.style.background = '#f5f5f5';
-          contactBtn.onmouseout = () => {
-            if (currentColorMode !== 'contact') contactBtn.style.background = 'white';
-          };
-          
+          contactBtn.style.cssText = btnCss;
+          contactBtn.onmouseover = () => { if (currentColorMode !== 'contact') contactBtn.style.background = '#f3f7f2'; };
+          contactBtn.onmouseout = () => { if (currentColorMode !== 'contact') contactBtn.style.background = 'transparent'; };
+
           // Damage Status button
           const damageBtn = L.DomUtil.create('button', 'color-filter-btn', container);
           damageBtn.textContent = 'Damage Status';
-          damageBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
-          damageBtn.onmouseover = () => damageBtn.style.background = '#f5f5f5';
-          damageBtn.onmouseout = () => {
-            if (currentColorMode !== 'damage') damageBtn.style.background = 'white';
-          };
-          
+          damageBtn.style.cssText = btnCss;
+          damageBtn.onmouseover = () => { if (currentColorMode !== 'damage') damageBtn.style.background = '#f3f7f2'; };
+          damageBtn.onmouseout = () => { if (currentColorMode !== 'damage') damageBtn.style.background = 'transparent'; };
+
           // Build Status button
           const rebuildBtn = L.DomUtil.create('button', 'color-filter-btn', container);
           rebuildBtn.textContent = 'Build Status';
-          rebuildBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
-          rebuildBtn.onmouseover = () => rebuildBtn.style.background = '#f5f5f5';
-          rebuildBtn.onmouseout = () => {
-            if (currentColorMode !== 'rebuild') rebuildBtn.style.background = 'white';
-          };
-          
+          rebuildBtn.style.cssText = btnCss;
+          rebuildBtn.onmouseover = () => { if (currentColorMode !== 'rebuild') rebuildBtn.style.background = '#f3f7f2'; };
+          rebuildBtn.onmouseout = () => { if (currentColorMode !== 'rebuild') rebuildBtn.style.background = 'transparent'; };
+
           // Captain Assigned button (only if zone has multiple captains)
           let captainBtn = null;
           if (hasMultipleCaptains && captainAssignedCol) {
             captainBtn = L.DomUtil.create('button', 'color-filter-btn', container);
             captainBtn.textContent = 'Captain Assigned';
-            captainBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
-            captainBtn.onmouseover = () => captainBtn.style.background = '#f5f5f5';
-            captainBtn.onmouseout = () => {
-              if (currentColorMode !== 'captain') captainBtn.style.background = 'white';
-            };
+            captainBtn.style.cssText = btnCss;
+            captainBtn.onmouseover = () => { if (currentColorMode !== 'captain') captainBtn.style.background = '#f3f7f2'; };
+            captainBtn.onmouseout = () => { if (currentColorMode !== 'captain') captainBtn.style.background = 'transparent'; };
           }
-          
+
           // Helper function to reset all buttons
           const resetButtons = () => {
-            contactBtn.style.background = 'white';
+            contactBtn.style.background = 'transparent';
             contactBtn.style.fontWeight = 'normal';
-            damageBtn.style.background = 'white';
+            damageBtn.style.background = 'transparent';
             damageBtn.style.fontWeight = 'normal';
-            rebuildBtn.style.background = 'white';
+            rebuildBtn.style.background = 'transparent';
             rebuildBtn.style.fontWeight = 'normal';
             if (captainBtn) {
-              captainBtn.style.background = 'white';
+              captainBtn.style.background = 'transparent';
               captainBtn.style.fontWeight = 'normal';
             }
           };
@@ -9067,6 +9173,18 @@
         return null;
       }
 
+      // Pre-flight: verify the tileset is reachable before building the layer.
+      // Without this, an inaccessible tileset silently floods the console with
+      // 401/403 tile requests from L.vectorGrid.protobuf.
+      const metadata = await fetchOverlayTilesetMetadata(overlayConfig.tilesetId);
+      if (!metadata) {
+        console.warn(
+          `[overlay:${overlayKey}] Tileset "${overlayConfig.tilesetId}" is not accessible. ` +
+          'Verify it is published in Mapbox Studio and the access token has sufficient permissions (tiles:read or secret scope).'
+        );
+        return null;
+      }
+
       const paneName = `dataset-overlay-pane-${overlayKey}`;
       if (!zoneMap.getPane(paneName)) {
         zoneMap.createPane(paneName);
@@ -9114,6 +9232,10 @@
         vectorTileLayerStyles: {
           [overlayConfig.sourceLayer]: () => vectorStyle
         }
+      });
+
+      layer.on('tileerror', (err) => {
+        console.warn(`[overlay:${overlayKey}] Tile load error (status ${err?.error?.status ?? '?'}):`, err?.error?.url ?? err);
       });
 
       if (overlayKey === 'censusTracts') {
@@ -14734,7 +14856,423 @@
     // Make displayAddressList available globally for back button
     window.displayAddressList = displayAddressList;
     window.toggleToolModule = toggleToolModule;
-    
+
+    // Bridge: expose map state functions to mobile sheet
+    window._mapControls = {
+      setColorMode: function(mode) {
+        if (currentColorMode === mode) {
+          currentColorMode = null;
+          hideColorLegend();
+        } else {
+          currentColorMode = mode;
+          showColorLegend(mode);
+        }
+        recolorMarkers();
+        localStorage.setItem('currentColorMode', currentColorMode || '');
+      },
+      getColorMode: function() { return currentColorMode; },
+      setBaseMap: setBaseMapMode,
+      isSatellite: function() { return isSatelliteMode; },
+      toggleLayer: setAdditionalMapboxLayerVisible,
+      isLayerVisible: function() { return additionalMapboxLayerVisible; },
+      toggleDatasetLayer: setDatasetOverlayVisible,
+      isDatasetVisible: function(key) { return !!datasetOverlayVisibility[key]; }
+    };
+
+    // Bridge: render any of the 6 zone charts into a given canvas (used by mobile carousel)
+    window._renderZoneChartForMobile = function(slotIndex, canvasId) {
+      if (!sheetData || !sheetData.data || !sheetData.addressMap) return;
+      const headers = sheetData.headers;
+      const data = sheetData.data;
+      const addressMap = sheetData.addressMap;
+      // builders[i] matches allCharts[i] in renderCarouselChart
+      const builders = [
+        function() { // 0: Addresses Contacted
+          const d = getAddressesContactedData(headers, data);
+          return { type: 'pie', data: { labels: ['Contacted (' + d.contacted + ')', 'Not Contacted (' + d.notContacted + ')'], datasets: [{ data: [d.contacted, d.notContacted], backgroundColor: ['#81bdc3', '#bc455a'], borderWidth: 2, borderColor: '#fff' }] }, options: {} };
+        },
+        function() { // 1: Damage Status
+          const d = getDamageStatusData(headers, data, addressMap);
+          const color = function(label) { const l = (label || '').toLowerCase(); if (l.includes('total')) return '#bc455a'; if (l.includes('partial')) return '#fdba77'; if (l.includes('standing')) return '#81bdc3'; return '#e5e5e5'; };
+          return { type: 'pie', data: { labels: d.labels.map(function(l, i) { return l + ' (' + d.data[i] + ')'; }), datasets: [{ data: d.data, backgroundColor: d.labels.map(color), borderWidth: 2, borderColor: '#fff' }] }, options: {} };
+        },
+        function() { // 2: Address Plan (Household Status)
+          const d = getHouseholdStatusData(headers, data, addressMap);
+          const colors = ['#afc892', '#81bdc3', '#fdba77', '#f6cf98', '#bc455a', '#e5e5e5', '#f9d6d3'];
+          return { type: 'doughnut', data: { labels: d.labels.map(function(l, i) { return l + ' (' + d.data[i] + ')'; }), datasets: [{ data: d.data, backgroundColor: colors.slice(0, d.labels.length), borderWidth: 2, borderColor: '#fff' }] }, options: { cutout: '60%' } };
+        },
+        function() { // 3: Streets Distribution
+          const d = getStreetsDistributionData(headers, data);
+          if (d.labels.length === 0) return null;
+          // Truncate long street names so they don't overflow the axis
+          const truncLabel = function(s) { return s.length > 22 ? s.slice(0, 20) + '…' : s; };
+          return { type: 'bar', data: { labels: d.labels.map(truncLabel), datasets: [{ label: 'Addresses', data: d.data, backgroundColor: '#81bdc3', borderColor: '#606C38', borderWidth: 1 }] }, options: { indexAxis: 'y', scales: { x: { beginAtZero: true, ticks: { stepSize: 1, precision: 0, font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } } } };
+        },
+        function() { // 4: People per Address
+          const d = getPeoplePerAddressData(headers, data, addressMap);
+          if (d.labels.length === 0) return null;
+          return { type: 'bar', data: { labels: d.labels, datasets: [{ label: 'Addresses', data: d.data, backgroundColor: '#afc892', borderColor: '#606C38', borderWidth: 1 }] }, options: { scales: { x: { ticks: { font: { size: 10 } } }, y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0, font: { size: 10 } } } } } };
+        },
+        function() { // 5: Build Status
+          const d = getRebuildStatusData(headers, addressMap);
+          if (d.labels.length === 0) return null;
+          const c = d.labels.map(function(label, i) { return getRebuildStageColor(label, i); });
+          return { type: 'doughnut', data: { labels: d.labels.map(function(l, i) { return l + ' (' + d.data[i] + ')'; }), datasets: [{ data: d.data, backgroundColor: c.slice(0, d.labels.length), borderWidth: 2, borderColor: '#fff' }] }, options: { cutout: '60%' } };
+        }
+      ];
+      // Mobile slot order: Contacted(0), Damage(1), Build(5), Plan(2), Streets(3), People(4)
+      const builderOrder = [0, 1, 5, 2, 3, 4];
+      const builderIndex = builderOrder[slotIndex];
+      if (builderIndex === undefined) return;
+      // Adjust canvas wrap height: horizontal bar (Streets) needs more space per row
+      const canvasWrap = document.querySelector('.mobile-chart-canvas-wrap');
+      if (canvasWrap) {
+        let h = 240;
+        if (builderIndex === 3) { // Streets Distribution (horizontal bar)
+          const sd = getStreetsDistributionData(headers, data);
+          h = Math.max(200, sd.labels.length * 30 + 52);
+        }
+        canvasWrap.style.height = h + 'px';
+      }
+      const chartConfig = builders[builderIndex]();
+      if (chartConfig) renderChartInCanvas(canvasId, chartConfig);
+    };
+
+    // ================================================================
+    // MOBILE NAVIGATION & UI
+    // All interactions in this block are for mobile (≤767px).
+    // Desktop behavior is completely unaffected.
+    // ================================================================
+    (function() {
+      'use strict';
+
+      // ---- Sync mobile bottom nav active state ----
+      function syncMobileNav(viewName) {
+        var moreViews = ['tools', 'resources', 'profile'];
+        document.querySelectorAll('.mobile-nav-tab[data-view]').forEach(function(tab) {
+          tab.classList.toggle('active', tab.getAttribute('data-view') === viewName);
+        });
+        var moreTab = document.getElementById('mobileNavMore');
+        if (moreTab) {
+          moreTab.classList.toggle('active', moreViews.indexOf(viewName) !== -1);
+        }
+      }
+
+      // ---- Bottom nav tab clicks ----
+      document.querySelectorAll('.mobile-nav-tab[data-view]').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+          var view = this.getAttribute('data-view');
+          switchView(view);
+          syncMobileNav(view);
+          // On mobile, keep the address panel closed by default when switching views.
+          // The user opens it intentionally via the List FAB.
+          if (window.innerWidth <= 767) {
+            setTimeout(function() {
+              var panel = document.getElementById('floatingPanel');
+              if (panel) panel.classList.add('hidden');
+              updateMobileListFab();
+            }, 0);
+          }
+        });
+      });
+
+      // ---- More drawer ----
+      var moreDrawer = document.getElementById('mobileMoreDrawer');
+
+      function openMoreDrawer() {
+        if (moreDrawer) moreDrawer.classList.remove('hidden');
+      }
+      function closeMoreDrawer() {
+        if (moreDrawer) moreDrawer.classList.add('hidden');
+      }
+
+      var moreBtn = document.getElementById('mobileNavMore');
+      if (moreBtn) moreBtn.addEventListener('click', openMoreDrawer);
+
+      var moreBackdrop = document.getElementById('mobileMoreBackdrop');
+      if (moreBackdrop) moreBackdrop.addEventListener('click', closeMoreDrawer);
+
+      document.querySelectorAll('.mobile-more-item[data-view]').forEach(function(item) {
+        item.addEventListener('click', function() {
+          var view = this.getAttribute('data-view');
+          switchView(view);
+          syncMobileNav(view);
+          closeMoreDrawer();
+          if (window.innerWidth <= 767) {
+            setTimeout(function() {
+              var panel = document.getElementById('floatingPanel');
+              if (panel) panel.classList.add('hidden');
+              updateMobileListFab();
+            }, 0);
+          }
+        });
+      });
+
+      // Sign out via More drawer
+      var moreSignOut = document.getElementById('mobileMoreSignOut');
+      if (moreSignOut) {
+        moreSignOut.addEventListener('click', function() {
+          closeMoreDrawer();
+          var signOutBtn = document.getElementById('signOutBtn');
+          if (signOutBtn) signOutBtn.click();
+        });
+      }
+
+      // ---- Mobile panel close button ----
+      var panelCloseBtn = document.getElementById('mobilePanelClose');
+      if (panelCloseBtn) {
+        panelCloseBtn.addEventListener('click', function() {
+          var panel = document.getElementById('floatingPanel');
+          if (panel) panel.classList.add('hidden');
+        });
+      }
+
+      // ---- Mobile List FAB (reopen address list) ----
+      function updateMobileListFab() {
+        if (window.innerWidth > 767) return;
+        var fab = document.getElementById('mobileListFab');
+        if (!fab) return;
+        var panel = document.getElementById('floatingPanel');
+        var isMapOrPeople = (currentView === 'map' || currentView === 'people');
+        var panelHidden = panel && panel.classList.contains('hidden');
+        if (isMapOrPeople && panelHidden) {
+          fab.classList.remove('hidden');
+        } else {
+          fab.classList.add('hidden');
+        }
+      }
+
+      var listFab = document.getElementById('mobileListFab');
+      if (listFab) {
+        listFab.addEventListener('click', function() {
+          var panel = document.getElementById('floatingPanel');
+          if (panel) panel.classList.remove('hidden');
+          updateMobileListFab();
+        });
+      }
+
+      // Watch floating panel visibility changes to show/hide FAB
+      var floatingPanel = document.getElementById('floatingPanel');
+      if (floatingPanel) {
+        new MutationObserver(updateMobileListFab).observe(floatingPanel, {
+          attributes: true, attributeFilter: ['class']
+        });
+      }
+
+      // ---- Keep mobile nav in sync with programmatic view switches ----
+      var leftNavSection = document.querySelector('.left-nav .nav-section');
+      if (leftNavSection) {
+        new MutationObserver(function() {
+          var activeNav = document.querySelector('.nav-item.active[data-view]');
+          if (activeNav) {
+            syncMobileNav(activeNav.getAttribute('data-view'));
+            updateMobileListFab();
+          }
+        }).observe(leftNavSection, { attributes: true, subtree: true, attributeFilter: ['class'] });
+      }
+
+      // ---- Sync zone name into More drawer and mobile home header ----
+      function syncZoneNames() {
+        var desktopZone = document.getElementById('navHeaderZone');
+        if (!desktopZone) return;
+        var name = desktopZone.textContent;
+        var mobileZone = document.getElementById('mobileMoreZone');
+        if (mobileZone) mobileZone.textContent = name;
+        var mobileHeader = document.getElementById('mobileZoneHeader');
+        if (mobileHeader) mobileHeader.textContent = name;
+      }
+      var zoneNameEl = document.getElementById('navHeaderZone');
+      if (zoneNameEl) {
+        new MutationObserver(syncZoneNames).observe(zoneNameEl, {
+          childList: true, characterData: true, subtree: true
+        });
+        syncZoneNames();
+      }
+
+      // ---- Mobile 6-chart carousel ----
+      var mobileChartTitles = [
+        'Addresses Contacted',
+        'Damage Status',
+        'Build Status',
+        'Address Plan',
+        'Streets Distribution',
+        'People per Address'
+      ];
+      var mobileChartIndex = 0;
+
+      function renderMobileChart(index) {
+        if (window.innerWidth > 767) return;
+        if (!window._renderZoneChartForMobile) return;
+        mobileChartIndex = index;
+        window._renderZoneChartForMobile(mobileChartIndex, 'mobileZoneChart');
+        var title = document.getElementById('mobileChartTitle');
+        if (title) title.textContent = mobileChartTitles[mobileChartIndex];
+        var counter = document.getElementById('mobileChartCounter');
+        if (counter) counter.textContent = (mobileChartIndex + 1) + ' / 6';
+      }
+
+      var mobileChartPrev = document.getElementById('mobileChartPrev');
+      var mobileChartNext = document.getElementById('mobileChartNext');
+      if (mobileChartPrev) {
+        mobileChartPrev.addEventListener('click', function() {
+          renderMobileChart((mobileChartIndex - 1 + 6) % 6);
+        });
+      }
+      if (mobileChartNext) {
+        mobileChartNext.addEventListener('click', function() {
+          renderMobileChart((mobileChartIndex + 1) % 6);
+        });
+      }
+
+      // Watch #zoneOverviewCharts: when it loses 'hidden', data is ready — render first chart
+      var zoneChartsEl = document.getElementById('zoneOverviewCharts');
+      if (zoneChartsEl) {
+        new MutationObserver(function(mutations, obs) {
+          if (!zoneChartsEl.classList.contains('hidden')) {
+            renderMobileChart(0);
+            obs.disconnect();
+          }
+        }).observe(zoneChartsEl, { attributes: true, attributeFilter: ['class'] });
+      }
+
+      // ---- Mobile map controls bottom sheet ----
+      var mapLayersBtn = document.getElementById('mobileMapLayersBtn');
+      var mapSheet = document.getElementById('mobileMapSheet');
+      var mapSheetBackdrop = document.getElementById('mobileMapSheetBackdrop');
+
+      function syncMapSheetState() {
+        if (!window._mapControls) return;
+        // Base map
+        var sat = window._mapControls.isSatellite();
+        var streetBtn = document.getElementById('mobileBaseStreet');
+        var satBtn = document.getElementById('mobileBaseSatellite');
+        if (streetBtn) streetBtn.classList.toggle('active', !sat);
+        if (satBtn) satBtn.classList.toggle('active', sat);
+        // Altagether Zones overlay (additionalMapbox layer)
+        var zonesBtn = document.getElementById('mobileLayerZones');
+        if (zonesBtn) zonesBtn.classList.toggle('active', window._mapControls.isLayerVisible());
+        // Dataset overlays
+        var dsMap = {
+          mobileLayerCensus: 'censusTracts',
+          mobileLayerFire: 'eatonFirePerimeter',
+          mobileLayerLincoln: 'lincolnAveWaterCo',
+          mobileLayerLasFlores: 'lasFloresWaterCo',
+          mobileLayerRubio: 'rubioCanonWaterAssn'
+        };
+        Object.keys(dsMap).forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) el.classList.toggle('active', window._mapControls.isDatasetVisible(dsMap[id]));
+        });
+        // Color By
+        var cm = window._mapControls.getColorMode();
+        var contactEl = document.getElementById('mobileColorContact');
+        var damageEl = document.getElementById('mobileColorDamage');
+        var buildEl = document.getElementById('mobileColorBuild');
+        if (contactEl) contactEl.classList.toggle('active', cm === 'contact');
+        if (damageEl) damageEl.classList.toggle('active', cm === 'damage');
+        if (buildEl) buildEl.classList.toggle('active', cm === 'rebuild');
+      }
+
+      function openMapSheet() {
+        if (!mapSheet) return;
+        syncMapSheetState();
+        mapSheet.classList.remove('hidden');
+        if (mapLayersBtn) mapLayersBtn.classList.add('active');
+      }
+
+      function closeMapSheet() {
+        if (!mapSheet) return;
+        mapSheet.classList.add('hidden');
+        if (mapLayersBtn) mapLayersBtn.classList.remove('active');
+      }
+
+      if (mapLayersBtn) {
+        mapLayersBtn.addEventListener('click', function() {
+          if (mapSheet && mapSheet.classList.contains('hidden')) {
+            openMapSheet();
+          } else {
+            closeMapSheet();
+          }
+        });
+      }
+
+      if (mapSheetBackdrop) {
+        mapSheetBackdrop.addEventListener('click', closeMapSheet);
+      }
+
+      // Close when switching away from map view
+      document.querySelectorAll('.mobile-nav-tab[data-view]').forEach(function(tab) {
+        tab.addEventListener('click', closeMapSheet);
+      });
+
+      // Base map buttons
+      var baseStreetBtn = document.getElementById('mobileBaseStreet');
+      var baseSatBtn = document.getElementById('mobileBaseSatellite');
+      if (baseStreetBtn) {
+        baseStreetBtn.addEventListener('click', function() {
+          if (window._mapControls) window._mapControls.setBaseMap('street');
+          syncMapSheetState();
+        });
+      }
+      if (baseSatBtn) {
+        baseSatBtn.addEventListener('click', function() {
+          if (window._mapControls) window._mapControls.setBaseMap('satellite');
+          syncMapSheetState();
+        });
+      }
+
+      // Overlay: Altagether Zones
+      var layerZonesBtn = document.getElementById('mobileLayerZones');
+      if (layerZonesBtn) {
+        layerZonesBtn.addEventListener('click', function() {
+          if (window._mapControls) {
+            window._mapControls.toggleLayer(!window._mapControls.isLayerVisible());
+          }
+          syncMapSheetState();
+        });
+      }
+
+      // Dataset overlay buttons
+      var mobileDatasetBtns = {
+        mobileLayerCensus: 'censusTracts',
+        mobileLayerFire: 'eatonFirePerimeter',
+        mobileLayerLincoln: 'lincolnAveWaterCo',
+        mobileLayerLasFlores: 'lasFloresWaterCo',
+        mobileLayerRubio: 'rubioCanonWaterAssn'
+      };
+      Object.keys(mobileDatasetBtns).forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var key = mobileDatasetBtns[id];
+        el.addEventListener('click', function() {
+          if (window._mapControls) {
+            window._mapControls.toggleDatasetLayer(key, !window._mapControls.isDatasetVisible(key));
+          }
+          syncMapSheetState();
+        });
+      });
+
+      // Color By buttons
+      var colorBtns = [
+        { id: 'mobileColorContact', mode: 'contact' },
+        { id: 'mobileColorDamage', mode: 'damage' },
+        { id: 'mobileColorBuild', mode: 'rebuild' }
+      ];
+      colorBtns.forEach(function(item) {
+        var el = document.getElementById(item.id);
+        if (!el) return;
+        el.addEventListener('click', function() {
+          if (window._mapControls) window._mapControls.setColorMode(item.mode);
+          syncMapSheetState();
+        });
+      });
+
+      // ---- Initial state ----
+      syncMobileNav(currentView || 'home');
+      updateMobileListFab();
+
+    })();
+
   </script>
 </body>
 </html>
