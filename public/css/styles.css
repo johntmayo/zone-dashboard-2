@@ -4767,7 +4767,8 @@
 .mobile-sheet-handle,
 .mobile-zone-header,
 .mobile-chart-carousel,
-.mobile-map-layers-btn {
+.mobile-map-layers-btn,
+.mobile-map-sheet {
   display: none;
 }
 
@@ -5077,7 +5078,7 @@
     display: block !important;
     position: fixed;
     bottom: 76px;
-    right: 16px;
+    right: 68px;
     background: var(--brand-primary-dark);
     color: #F3F4F6;
     border: 2px solid var(--text-primary);
@@ -5269,26 +5270,136 @@
     color: var(--bg-paper, #fff);
   }
 
-  /* When toggle is active: show both controls as fixed overlays */
-  body.mobile-map-controls-open .map-layers-control,
-  body.mobile-map-controls-open .color-filter-control {
-    display: block !important;
-    position: fixed !important;
-    top: auto !important;
-    bottom: calc(60px + 12px) !important;
-    z-index: 600 !important;
-    max-height: 50vh;
+  /* ---- Unified map controls bottom sheet ---- */
+
+  .mobile-map-sheet {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 590;
+    pointer-events: none;
+  }
+
+  .mobile-map-sheet.hidden {
+    display: none !important;
+  }
+
+  .mobile-map-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    pointer-events: all;
+  }
+
+  .mobile-map-sheet-panel {
+    position: absolute;
+    bottom: 60px;
+    left: 0;
+    right: 0;
+    background: var(--bg-paper);
+    border-top: 2px solid var(--text-primary);
+    z-index: 595;
+    max-height: 70vh;
     overflow-y: auto;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    pointer-events: all;
   }
 
-  body.mobile-map-controls-open .map-layers-control {
-    right: 12px !important;
-    left: auto !important;
+  .mobile-map-sheet-handle {
+    width: 36px;
+    height: 4px;
+    background: rgba(31, 41, 55, 0.25);
+    border-radius: 2px;
+    margin: 10px auto 6px;
   }
 
-  body.mobile-map-controls-open .color-filter-control {
-    left: 12px !important;
-    right: auto !important;
+  .mobile-map-sheet-section {
+    padding: 12px 16px 8px;
+    border-bottom: 1px solid rgba(31, 41, 55, 0.08);
+  }
+
+  .mobile-map-sheet-section:last-child {
+    border-bottom: none;
+  }
+
+  .mobile-map-sheet-label {
+    font-family: 'Chivo', sans-serif;
+    font-weight: 700;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+  }
+
+  .mobile-map-toggle-row {
+    display: flex;
+    gap: 0;
+    margin-bottom: 4px;
+  }
+
+  .mobile-map-toggle-btn {
+    flex: 1;
+    height: 38px;
+    border: 2px solid var(--text-primary);
+    background: transparent;
+    font-family: 'Chivo', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-primary);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-map-toggle-btn:first-child {
+    border-right-width: 1px;
+  }
+
+  .mobile-map-toggle-btn:last-child {
+    border-left-width: 1px;
+  }
+
+  .mobile-map-toggle-btn.active {
+    background: var(--brand-primary-dark);
+    color: #fff;
+    border-color: var(--brand-primary-dark);
+  }
+
+  .mobile-map-layer-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 11px 0;
+    border: none;
+    background: transparent;
+    font-family: 'Chivo', sans-serif;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(31, 41, 55, 0.08);
+    text-align: left;
+    color: var(--text-primary);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-map-layer-row:last-child {
+    border-bottom: none;
+  }
+
+  .mobile-map-layer-row::after {
+    content: '';
+    width: 18px;
+    flex-shrink: 0;
+  }
+
+  .mobile-map-layer-row.active {
+    font-weight: 700;
+  }
+
+  .mobile-map-layer-row.active::after {
+    content: '✓';
+    color: var(--accent-gold, #c9a84c);
+    font-weight: 700;
+    font-size: 1rem;
   }
 
   /* ---- Modals -> bottom sheets ---- */

@@ -129,6 +129,39 @@
       </button>
     </div>
 
+    <!-- Mobile-only: unified map controls bottom sheet -->
+    <div class="mobile-map-sheet hidden" id="mobileMapSheet">
+      <div class="mobile-map-sheet-backdrop" id="mobileMapSheetBackdrop"></div>
+      <div class="mobile-map-sheet-panel">
+        <div class="mobile-map-sheet-handle"></div>
+
+        <div class="mobile-map-sheet-section">
+          <div class="mobile-map-sheet-label">Base Map</div>
+          <div class="mobile-map-toggle-row">
+            <button class="mobile-map-toggle-btn active" id="mobileBaseStreet">Street</button>
+            <button class="mobile-map-toggle-btn" id="mobileBaseSatellite">Satellite</button>
+          </div>
+        </div>
+
+        <div class="mobile-map-sheet-section">
+          <div class="mobile-map-sheet-label">Overlays</div>
+          <button class="mobile-map-layer-row" id="mobileLayerZones">Altagether Zones</button>
+          <button class="mobile-map-layer-row" id="mobileLayerCensus">Census Tracts</button>
+          <button class="mobile-map-layer-row" id="mobileLayerFire">Eaton Fire Perimeter</button>
+          <button class="mobile-map-layer-row" id="mobileLayerLincoln">Lincoln Ave Water Co</button>
+          <button class="mobile-map-layer-row" id="mobileLayerLasFlores">Las Flores Water Co</button>
+          <button class="mobile-map-layer-row" id="mobileLayerRubio">Rubio Canon Water Assn</button>
+        </div>
+
+        <div class="mobile-map-sheet-section">
+          <div class="mobile-map-sheet-label">Color By</div>
+          <button class="mobile-map-layer-row" id="mobileColorContact">Contact Status</button>
+          <button class="mobile-map-layer-row" id="mobileColorDamage">Damage Status</button>
+          <button class="mobile-map-layer-row" id="mobileColorBuild">Build Status</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Floating Right Panel (Addresses/Zone Notes/Contact Mode) -->
     <div class="floating-panel" id="floatingPanel">
       <!-- Mobile-only drag handle (hidden on desktop via CSS) -->
@@ -7117,58 +7150,52 @@
           
           // Header
           const header = L.DomUtil.create('div', 'color-filter-header', container);
-          header.textContent = 'Color By:';
-          header.style.cssText = 'font-weight: 600; margin-bottom: 6px; color: #283618; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;';
-          
+          header.textContent = 'Color by';
+          header.style.cssText = 'height: 32px; line-height: 32px; padding: 0 10px; font-weight: 700; color: #283618; font-size: 0.7rem;';
+
+          const btnCss = 'height: 30px; line-height: 30px; text-align: left; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap; background: transparent; border: none; cursor: pointer; width: 100%;';
+
           // Contact Status button
           const contactBtn = L.DomUtil.create('button', 'color-filter-btn', container);
           contactBtn.textContent = 'Contact Status';
-          contactBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
-          contactBtn.onmouseover = () => contactBtn.style.background = '#f5f5f5';
-          contactBtn.onmouseout = () => {
-            if (homeColorMode !== 'contact') contactBtn.style.background = 'white';
-          };
-          
+          contactBtn.style.cssText = btnCss;
+          contactBtn.onmouseover = () => { if (homeColorMode !== 'contact') contactBtn.style.background = '#f3f7f2'; };
+          contactBtn.onmouseout = () => { if (homeColorMode !== 'contact') contactBtn.style.background = 'transparent'; };
+
           // Damage Status button
           const damageBtn = L.DomUtil.create('button', 'color-filter-btn', container);
           damageBtn.textContent = 'Damage Status';
-          damageBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
-          damageBtn.onmouseover = () => damageBtn.style.background = '#f5f5f5';
-          damageBtn.onmouseout = () => {
-            if (homeColorMode !== 'damage') damageBtn.style.background = 'white';
-          };
-          
+          damageBtn.style.cssText = btnCss;
+          damageBtn.onmouseover = () => { if (homeColorMode !== 'damage') damageBtn.style.background = '#f3f7f2'; };
+          damageBtn.onmouseout = () => { if (homeColorMode !== 'damage') damageBtn.style.background = 'transparent'; };
+
           // Build Status button
           const rebuildBtn = L.DomUtil.create('button', 'color-filter-btn', container);
           rebuildBtn.textContent = 'Build Status';
-          rebuildBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
-          rebuildBtn.onmouseover = () => rebuildBtn.style.background = '#f5f5f5';
-          rebuildBtn.onmouseout = () => {
-            if (homeColorMode !== 'rebuild') rebuildBtn.style.background = 'white';
-          };
-          
+          rebuildBtn.style.cssText = btnCss;
+          rebuildBtn.onmouseover = () => { if (homeColorMode !== 'rebuild') rebuildBtn.style.background = '#f3f7f2'; };
+          rebuildBtn.onmouseout = () => { if (homeColorMode !== 'rebuild') rebuildBtn.style.background = 'transparent'; };
+
           // Captain Assigned button (only if zone has multiple captains)
           let captainBtn = null;
           if (hasMultipleCaptains && captainAssignedCol) {
             captainBtn = L.DomUtil.create('button', 'color-filter-btn', container);
             captainBtn.textContent = 'Captain Assigned';
-            captainBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
-            captainBtn.onmouseover = () => captainBtn.style.background = '#f5f5f5';
-            captainBtn.onmouseout = () => {
-              if (homeColorMode !== 'captain') captainBtn.style.background = 'white';
-            };
+            captainBtn.style.cssText = btnCss;
+            captainBtn.onmouseover = () => { if (homeColorMode !== 'captain') captainBtn.style.background = '#f3f7f2'; };
+            captainBtn.onmouseout = () => { if (homeColorMode !== 'captain') captainBtn.style.background = 'transparent'; };
           }
-          
+
           // Helper function to reset all buttons
           const resetButtons = () => {
-            contactBtn.style.background = 'white';
+            contactBtn.style.background = 'transparent';
             contactBtn.style.fontWeight = 'normal';
-            damageBtn.style.background = 'white';
+            damageBtn.style.background = 'transparent';
             damageBtn.style.fontWeight = 'normal';
-            rebuildBtn.style.background = 'white';
+            rebuildBtn.style.background = 'transparent';
             rebuildBtn.style.fontWeight = 'normal';
             if (captainBtn) {
-              captainBtn.style.background = 'white';
+              captainBtn.style.background = 'transparent';
               captainBtn.style.fontWeight = 'normal';
             }
           };
@@ -7500,58 +7527,52 @@
           
           // Header
           const header = L.DomUtil.create('div', 'color-filter-header', container);
-          header.textContent = 'Color By:';
-          header.style.cssText = 'font-weight: 600; margin-bottom: 6px; color: #283618; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;';
-          
+          header.textContent = 'Color by';
+          header.style.cssText = 'height: 32px; line-height: 32px; padding: 0 10px; font-weight: 700; color: #283618; font-size: 0.7rem;';
+
+          const btnCss = 'height: 30px; line-height: 30px; text-align: left; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap; background: transparent; border: none; cursor: pointer; width: 100%;';
+
           // Contact Status button
           const contactBtn = L.DomUtil.create('button', 'color-filter-btn', container);
           contactBtn.textContent = 'Contact Status';
-          contactBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
-          contactBtn.onmouseover = () => contactBtn.style.background = '#f5f5f5';
-          contactBtn.onmouseout = () => {
-            if (currentColorMode !== 'contact') contactBtn.style.background = 'white';
-          };
-          
+          contactBtn.style.cssText = btnCss;
+          contactBtn.onmouseover = () => { if (currentColorMode !== 'contact') contactBtn.style.background = '#f3f7f2'; };
+          contactBtn.onmouseout = () => { if (currentColorMode !== 'contact') contactBtn.style.background = 'transparent'; };
+
           // Damage Status button
           const damageBtn = L.DomUtil.create('button', 'color-filter-btn', container);
           damageBtn.textContent = 'Damage Status';
-          damageBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
-          damageBtn.onmouseover = () => damageBtn.style.background = '#f5f5f5';
-          damageBtn.onmouseout = () => {
-            if (currentColorMode !== 'damage') damageBtn.style.background = 'white';
-          };
-          
+          damageBtn.style.cssText = btnCss;
+          damageBtn.onmouseover = () => { if (currentColorMode !== 'damage') damageBtn.style.background = '#f3f7f2'; };
+          damageBtn.onmouseout = () => { if (currentColorMode !== 'damage') damageBtn.style.background = 'transparent'; };
+
           // Build Status button
           const rebuildBtn = L.DomUtil.create('button', 'color-filter-btn', container);
           rebuildBtn.textContent = 'Build Status';
-          rebuildBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
-          rebuildBtn.onmouseover = () => rebuildBtn.style.background = '#f5f5f5';
-          rebuildBtn.onmouseout = () => {
-            if (currentColorMode !== 'rebuild') rebuildBtn.style.background = 'white';
-          };
-          
+          rebuildBtn.style.cssText = btnCss;
+          rebuildBtn.onmouseover = () => { if (currentColorMode !== 'rebuild') rebuildBtn.style.background = '#f3f7f2'; };
+          rebuildBtn.onmouseout = () => { if (currentColorMode !== 'rebuild') rebuildBtn.style.background = 'transparent'; };
+
           // Captain Assigned button (only if zone has multiple captains)
           let captainBtn = null;
           if (hasMultipleCaptains && captainAssignedCol) {
             captainBtn = L.DomUtil.create('button', 'color-filter-btn', container);
             captainBtn.textContent = 'Captain Assigned';
-            captainBtn.style.cssText = 'width: 100%; padding: 6px 8px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer; font-size: 0.7rem; text-align: left; transition: all 0.2s;';
-            captainBtn.onmouseover = () => captainBtn.style.background = '#f5f5f5';
-            captainBtn.onmouseout = () => {
-              if (currentColorMode !== 'captain') captainBtn.style.background = 'white';
-            };
+            captainBtn.style.cssText = btnCss;
+            captainBtn.onmouseover = () => { if (currentColorMode !== 'captain') captainBtn.style.background = '#f3f7f2'; };
+            captainBtn.onmouseout = () => { if (currentColorMode !== 'captain') captainBtn.style.background = 'transparent'; };
           }
-          
+
           // Helper function to reset all buttons
           const resetButtons = () => {
-            contactBtn.style.background = 'white';
+            contactBtn.style.background = 'transparent';
             contactBtn.style.fontWeight = 'normal';
-            damageBtn.style.background = 'white';
+            damageBtn.style.background = 'transparent';
             damageBtn.style.fontWeight = 'normal';
-            rebuildBtn.style.background = 'white';
+            rebuildBtn.style.background = 'transparent';
             rebuildBtn.style.fontWeight = 'normal';
             if (captainBtn) {
-              captainBtn.style.background = 'white';
+              captainBtn.style.background = 'transparent';
               captainBtn.style.fontWeight = 'normal';
             }
           };
@@ -14836,6 +14857,28 @@
     window.displayAddressList = displayAddressList;
     window.toggleToolModule = toggleToolModule;
 
+    // Bridge: expose map state functions to mobile sheet
+    window._mapControls = {
+      setColorMode: function(mode) {
+        if (currentColorMode === mode) {
+          currentColorMode = null;
+          hideColorLegend();
+        } else {
+          currentColorMode = mode;
+          showColorLegend(mode);
+        }
+        recolorMarkers();
+        localStorage.setItem('currentColorMode', currentColorMode || '');
+      },
+      getColorMode: function() { return currentColorMode; },
+      setBaseMap: setBaseMapMode,
+      isSatellite: function() { return isSatelliteMode; },
+      toggleLayer: setAdditionalMapboxLayerVisible,
+      isLayerVisible: function() { return additionalMapboxLayerVisible; },
+      toggleDatasetLayer: setDatasetOverlayVisible,
+      isDatasetVisible: function(key) { return !!datasetOverlayVisibility[key]; }
+    };
+
     // Bridge: render any of the 6 zone charts into a given canvas (used by mobile carousel)
     window._renderZoneChartForMobile = function(slotIndex, canvasId) {
       if (!sheetData || !sheetData.data || !sheetData.addressMap) return;
@@ -15092,19 +15135,135 @@
         }).observe(zoneChartsEl, { attributes: true, attributeFilter: ['class'] });
       }
 
-      // ---- Mobile map layers / color-by toggle button ----
+      // ---- Mobile map controls bottom sheet ----
       var mapLayersBtn = document.getElementById('mobileMapLayersBtn');
+      var mapSheet = document.getElementById('mobileMapSheet');
+      var mapSheetBackdrop = document.getElementById('mobileMapSheetBackdrop');
+
+      function syncMapSheetState() {
+        if (!window._mapControls) return;
+        // Base map
+        var sat = window._mapControls.isSatellite();
+        var streetBtn = document.getElementById('mobileBaseStreet');
+        var satBtn = document.getElementById('mobileBaseSatellite');
+        if (streetBtn) streetBtn.classList.toggle('active', !sat);
+        if (satBtn) satBtn.classList.toggle('active', sat);
+        // Altagether Zones overlay (additionalMapbox layer)
+        var zonesBtn = document.getElementById('mobileLayerZones');
+        if (zonesBtn) zonesBtn.classList.toggle('active', window._mapControls.isLayerVisible());
+        // Dataset overlays
+        var dsMap = {
+          mobileLayerCensus: 'censusTracts',
+          mobileLayerFire: 'eatonFirePerimeter',
+          mobileLayerLincoln: 'lincolnAveWaterCo',
+          mobileLayerLasFlores: 'lasFloresWaterCo',
+          mobileLayerRubio: 'rubioCanonWaterAssn'
+        };
+        Object.keys(dsMap).forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) el.classList.toggle('active', window._mapControls.isDatasetVisible(dsMap[id]));
+        });
+        // Color By
+        var cm = window._mapControls.getColorMode();
+        var contactEl = document.getElementById('mobileColorContact');
+        var damageEl = document.getElementById('mobileColorDamage');
+        var buildEl = document.getElementById('mobileColorBuild');
+        if (contactEl) contactEl.classList.toggle('active', cm === 'contact');
+        if (damageEl) damageEl.classList.toggle('active', cm === 'damage');
+        if (buildEl) buildEl.classList.toggle('active', cm === 'rebuild');
+      }
+
+      function openMapSheet() {
+        if (!mapSheet) return;
+        syncMapSheetState();
+        mapSheet.classList.remove('hidden');
+        if (mapLayersBtn) mapLayersBtn.classList.add('active');
+      }
+
+      function closeMapSheet() {
+        if (!mapSheet) return;
+        mapSheet.classList.add('hidden');
+        if (mapLayersBtn) mapLayersBtn.classList.remove('active');
+      }
+
       if (mapLayersBtn) {
         mapLayersBtn.addEventListener('click', function() {
-          var isOpen = document.body.classList.toggle('mobile-map-controls-open');
-          mapLayersBtn.classList.toggle('active', isOpen);
+          if (mapSheet && mapSheet.classList.contains('hidden')) {
+            openMapSheet();
+          } else {
+            closeMapSheet();
+          }
         });
       }
-      // Close map controls when switching away from map view
+
+      if (mapSheetBackdrop) {
+        mapSheetBackdrop.addEventListener('click', closeMapSheet);
+      }
+
+      // Close when switching away from map view
       document.querySelectorAll('.mobile-nav-tab[data-view]').forEach(function(tab) {
-        tab.addEventListener('click', function() {
-          document.body.classList.remove('mobile-map-controls-open');
-          if (mapLayersBtn) mapLayersBtn.classList.remove('active');
+        tab.addEventListener('click', closeMapSheet);
+      });
+
+      // Base map buttons
+      var baseStreetBtn = document.getElementById('mobileBaseStreet');
+      var baseSatBtn = document.getElementById('mobileBaseSatellite');
+      if (baseStreetBtn) {
+        baseStreetBtn.addEventListener('click', function() {
+          if (window._mapControls) window._mapControls.setBaseMap('street');
+          syncMapSheetState();
+        });
+      }
+      if (baseSatBtn) {
+        baseSatBtn.addEventListener('click', function() {
+          if (window._mapControls) window._mapControls.setBaseMap('satellite');
+          syncMapSheetState();
+        });
+      }
+
+      // Overlay: Altagether Zones
+      var layerZonesBtn = document.getElementById('mobileLayerZones');
+      if (layerZonesBtn) {
+        layerZonesBtn.addEventListener('click', function() {
+          if (window._mapControls) {
+            window._mapControls.toggleLayer(!window._mapControls.isLayerVisible());
+          }
+          syncMapSheetState();
+        });
+      }
+
+      // Dataset overlay buttons
+      var mobileDatasetBtns = {
+        mobileLayerCensus: 'censusTracts',
+        mobileLayerFire: 'eatonFirePerimeter',
+        mobileLayerLincoln: 'lincolnAveWaterCo',
+        mobileLayerLasFlores: 'lasFloresWaterCo',
+        mobileLayerRubio: 'rubioCanonWaterAssn'
+      };
+      Object.keys(mobileDatasetBtns).forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var key = mobileDatasetBtns[id];
+        el.addEventListener('click', function() {
+          if (window._mapControls) {
+            window._mapControls.toggleDatasetLayer(key, !window._mapControls.isDatasetVisible(key));
+          }
+          syncMapSheetState();
+        });
+      });
+
+      // Color By buttons
+      var colorBtns = [
+        { id: 'mobileColorContact', mode: 'contact' },
+        { id: 'mobileColorDamage', mode: 'damage' },
+        { id: 'mobileColorBuild', mode: 'rebuild' }
+      ];
+      colorBtns.forEach(function(item) {
+        var el = document.getElementById(item.id);
+        if (!el) return;
+        el.addEventListener('click', function() {
+          if (window._mapControls) window._mapControls.setColorMode(item.mode);
+          syncMapSheetState();
         });
       });
 
