@@ -9152,6 +9152,18 @@
         return null;
       }
 
+      // Pre-flight: verify the tileset is reachable before building the layer.
+      // Without this, an inaccessible tileset silently floods the console with
+      // 401/403 tile requests from L.vectorGrid.protobuf.
+      const metadata = await fetchOverlayTilesetMetadata(overlayConfig.tilesetId);
+      if (!metadata) {
+        console.warn(
+          `[overlay:${overlayKey}] Tileset "${overlayConfig.tilesetId}" is not accessible. ` +
+          'Verify it is published in Mapbox Studio and the access token has sufficient permissions (tiles:read or secret scope).'
+        );
+        return null;
+      }
+
       const paneName = `dataset-overlay-pane-${overlayKey}`;
       if (!zoneMap.getPane(paneName)) {
         zoneMap.createPane(paneName);
@@ -9199,6 +9211,10 @@
         vectorTileLayerStyles: {
           [overlayConfig.sourceLayer]: () => vectorStyle
         }
+      });
+
+      layer.on('tileerror', (err) => {
+        console.warn(`[overlay:${overlayKey}] Tile load error (status ${err?.error?.status ?? '?'}):`, err?.error?.url ?? err);
       });
 
       if (overlayKey === 'censusTracts') {
