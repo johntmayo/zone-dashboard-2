@@ -5165,6 +5165,11 @@
         return;
       }
 
+      // Auto-expand the panel if collapsed — selecting an address implies intent to see it
+      if (document.body.classList.contains('panel-collapsed')) {
+        setDetailsPanelCollapsed(false);
+      }
+
       // Track selected address
       selectedAddress = address;
       

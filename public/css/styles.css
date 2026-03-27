@@ -2251,16 +2251,19 @@
 
     .person-entry {
       background: rgba(255, 255, 255, 0.7);
-      padding: 10px;
+      padding: 14px 10px 10px;
+      margin-top: 4px;
       margin-bottom: 10px;
       border-radius: 6px;
-      border-left: 3px solid var(--mint);
+      border-top: 1px solid rgba(31, 41, 55, 0.15);
     }
 
     .person-name {
-      font-weight: 600;
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: 0.015em;
       margin-bottom: 6px;
-      color: var(--plum);
+      color: var(--brand-primary-dark);
     }
 
     .person-info {
@@ -2273,7 +2276,8 @@
     }
 
     .person-info strong {
-      color: var(--river);
+      color: var(--text-secondary);
+      font-weight: 500;
     }
     
     .copy-email-btn {
@@ -2305,7 +2309,8 @@
     }
 
     .person-info-inline .person-info-item strong {
-      color: var(--river);
+      color: var(--text-secondary);
+      font-weight: 500;
     }
 
     .loading, .error, .empty {
