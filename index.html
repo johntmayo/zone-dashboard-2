@@ -5210,6 +5210,36 @@
       });
     }
 
+    function isTruthySheetCheckbox(value) {
+      const normalized = String(value || '').trim().toLowerCase();
+      return normalized === 'true' ||
+        normalized === 'yes' ||
+        (normalized !== '' && normalized !== 'false' && normalized !== 'no');
+    }
+
+    function getResidentNameColumn(headers) {
+      return headers.find(h =>
+        h.toLowerCase().includes('resident name') ||
+        (h.toLowerCase().includes('name') && !h.toLowerCase().includes('nc name'))
+      );
+    }
+
+    function getPersonQuickTagColumns(headers) {
+      const quickTagSuffixes = ['renter', 'needs follow-up', 'unable to reach'];
+      return headers.filter(col => {
+        if (!col.startsWith('Person - ')) return false;
+        const suffix = col.substring(9).trim().toLowerCase();
+        return quickTagSuffixes.includes(suffix);
+      });
+    }
+
+    function getPersonDisplayName(row, fallbackIndex, nameCol) {
+      if (nameCol && row && row[nameCol]) {
+        return row[nameCol];
+      }
+      return `Person ${fallbackIndex + 1}`;
+    }
+
     // Display details for a specific address
     function displayAddressDetails(address, preserveScroll = false) {
       if (!sheetData.addressMap || !sheetData.addressMap.has(address)) {
@@ -5234,6 +5264,9 @@
 
       const rows = sheetData.addressMap.get(address);
       const { headers, addressCol, data } = sheetData;
+      const nameCol = getResidentNameColumn(headers);
+      const formerResidentCol = findColumn(headers, ['former', 'resident'], ['note']);
+      const formerResidentNotesCol = findColumn(headers, ['former', 'resident', 'note']);
 
       // Check if zone has multiple captains (only show Captain Assigned dropdown if so)
       const ncNameCol = findColumn(headers, 'nc name');
@@ -5341,7 +5374,9 @@
         'for sale',
         'recently sold',
         'sold since fire',
-        'unit type'
+        'unit type',
+        'former resident',
+        'deceased'
       ];
 
       const isHouseOrZipField = (lower) => {
@@ -5653,9 +5688,20 @@
         h.toLowerCase().includes('contact date') ||
         h.toLowerCase().includes('contacted')
       );
+      const quickTagCols = getPersonQuickTagColumns(headers);
+      const activeRows = [];
+      const formerResidentRows = [];
+
+      rows.forEach(row => {
+        if (formerResidentCol && isTruthySheetCheckbox(row[formerResidentCol])) {
+          formerResidentRows.push(row);
+        } else {
+          activeRows.push(row);
+        }
+      });
 
       // Show person-level fields for each person
-      rows.forEach((row, index) => {
+      activeRows.forEach((row, index) => {
         // Get the original row index that was stored when grouping
         const originalRowIndex = row.__originalIndex !== undefined ? row.__originalIndex : -1;
         
@@ -5665,18 +5711,8 @@
         const contactClass = isContacted ? 'recent-contact' : (isContactMode ? 'no-contact' : '');
         
         html += `<div class="person-entry ${contactClass}">`;
-        
-        // Try to find name column - show Resident Name as the person's name
-        const nameCol = headers.find(h => 
-          h.toLowerCase().includes('resident name') || 
-          (h.toLowerCase().includes('name') && !h.toLowerCase().includes('nc name'))
-        );
-        
-        if (nameCol && row[nameCol]) {
-          html += `<div class="person-name">${row[nameCol]}</div>`;
-        } else if (rows.length > 1) {
-          html += `<div class="person-name">Person ${index + 1}</div>`;
-        }
+        const displayName = getPersonDisplayName(row, index, nameCol);
+        html += `<button type="button" class="person-name person-name-button" data-person-details-trigger="true" data-address="${address.replace(/"/g, '&quot;')}" data-original-row-index="${originalRowIndex}">${escapeHtml(displayName)}</button>`;
 
         // Contact mode: show contact button and quick notes
         if (isContactMode && accessToken) {
@@ -5882,15 +5918,10 @@
         }
         
         // Person Tags accordion: only Renter, Needs Follow-Up, Unable to reach (same style as Address Tags)
-        const personTagSuffixes = ['renter', 'needs follow-up', 'unable to reach'];
-        const personTagCols = personLevelCols.filter(col => {
-          if (!col.startsWith('Person - ')) return false;
-          const suffix = col.substring(9).trim().toLowerCase();
-          return personTagSuffixes.includes(suffix);
-        });
+        const personTagCols = personLevelCols.filter(col => quickTagCols.includes(col));
         if (personTagCols.length > 0) {
           html += '<details class="address-tags-section" style="margin-top:12px;">';
-          html += '<summary style="cursor:pointer; font-weight:700; font-family: Chivo, sans-serif;">Person Tags</summary>';
+          html += '<summary style="cursor:pointer; font-weight:700; font-family: Chivo, sans-serif;">Quick Tags</summary>';
           html += '<div style="margin-top:12px; padding-left:0;">';
           personTagCols.forEach(col => {
             html += renderField(col);
@@ -6026,8 +6057,32 @@
         `;
       }
 
+      if (formerResidentRows.length > 0) {
+        html += `
+          <div class="former-residents-section">
+            <div class="former-residents-title">Former Residents</div>
+            ${formerResidentRows.map((row, index) => {
+              const originalRowIndex = row.__originalIndex !== undefined ? row.__originalIndex : -1;
+              const displayName = getPersonDisplayName(row, index, nameCol);
+              const notesPreview = formerResidentNotesCol && row[formerResidentNotesCol]
+                ? ` title="${escapeHtmlAttr(row[formerResidentNotesCol])}"`
+                : '';
+              return `<button type="button" class="former-resident-link" data-person-details-trigger="true" data-address="${address.replace(/"/g, '&quot;')}" data-original-row-index="${originalRowIndex}"${notesPreview}>${escapeHtml(displayName)}</button>`;
+            }).join('')}
+          </div>
+        `;
+      }
+
       html += '</div>';
       addressPanelContent.innerHTML = html;
+
+      document.querySelectorAll('[data-person-details-trigger="true"]').forEach(trigger => {
+        trigger.addEventListener('click', () => {
+          const triggerAddress = trigger.getAttribute('data-address');
+          const rowIndex = parseInt(trigger.getAttribute('data-original-row-index'), 10);
+          showPersonDetailsModal(triggerAddress, rowIndex);
+        });
+      });
       
       // Add save button handlers (both top and bottom buttons)
       const saveBtn = document.getElementById('saveChangesBtn');
@@ -6161,6 +6216,391 @@
           addressPanelContent.scrollTop = 0; // Start at top for new address
         }
       }, 0);
+    }
+
+    function showPersonDetailsModal(address, originalRowIndex) {
+      if (!sheetData || !sheetData.addressMap || !sheetData.addressMap.has(address)) return;
+      const rows = sheetData.addressMap.get(address) || [];
+      const row = rows.find(r => r.__originalIndex === originalRowIndex);
+      if (!row) {
+        alert('Could not find that person in the current sheet data.');
+        return;
+      }
+
+      const headers = sheetData.headers || [];
+      const nameCol = getResidentNameColumn(headers);
+      const ageCol = headers.find(h => /^age$/i.test(h));
+      const genderCol = headers.find(h => /^gender$/i.test(h));
+      const homePhoneCol = headers.find(h => /home\s*phone/i.test(h));
+      const cellCol = headers.find(h => /cell|mobile/i.test(h));
+      const emailCol = headers.find(h => /email\s*address/i.test(h)) || headers.find(h => /^email$/i.test(h));
+      const personNotesCol = headers.find(h => /person\s*note/i.test(h));
+      const contactDateCol = findColumn(headers, ['contact', 'date']) || findColumn(headers, ['last', 'contact']);
+      const contactNotesCol = headers.find(h => /contact\s*note/i.test(h));
+      const formerResidentCol = findColumn(headers, ['former', 'resident'], ['note']);
+      const formerResidentNotesCol = findColumn(headers, ['former', 'resident', 'note']);
+      const deceasedCol = findColumn(headers, 'deceased');
+      const quickTagCols = getPersonQuickTagColumns(headers);
+      const modalHiddenKeywords = [
+        'resident_id',
+        'house #',
+        'house number',
+        'house num',
+        'street',
+        'zip',
+        'city',
+        'state',
+        'zip_code',
+        'resident name',
+        'zone',
+        'nc name',
+        'nc email',
+        'damage',
+        'address plan',
+        'household size',
+        'latitude',
+        'longitude',
+        'nc phone',
+        'first name',
+        'middle name',
+        'last name',
+        'rebuild stage',
+        'rebuild status',
+        'build stage',
+        'build status',
+        'indoors remediated',
+        'soil remediated',
+        'for sale',
+        'recently sold',
+        'sold since fire',
+        'unit type'
+      ];
+      const isHouseOrZipField = (lower) => {
+        const normalized = lower.trim();
+        const isHouseField =
+          (normalized === 'house' ||
+           normalized === 'house #' ||
+           normalized === 'house#' ||
+           normalized === 'house number' ||
+           normalized === 'house num' ||
+           normalized.includes('house #') ||
+           normalized.includes('house#')) &&
+          !normalized.includes('household') &&
+          !normalized.includes('housing');
+        const isZipField =
+          normalized === 'zip' ||
+          normalized.includes('zip code') ||
+          normalized.includes('zip_code') ||
+          normalized.includes('postal');
+        return isHouseField || isZipField;
+      };
+      const canEdit = Boolean(accessToken && currentSheetId);
+      const disabledAttr = canEdit ? '' : ' disabled';
+      const readonlyAttr = canEdit ? '' : ' readonly';
+      const rowPosition = rows.indexOf(row);
+      const displayName = getPersonDisplayName(row, rowPosition === -1 ? 0 : rowPosition, nameCol);
+      const standardCols = new Set([
+        nameCol,
+        ageCol,
+        genderCol,
+        homePhoneCol,
+        cellCol,
+        emailCol,
+        personNotesCol,
+        contactDateCol,
+        contactNotesCol,
+        formerResidentCol,
+        formerResidentNotesCol,
+        deceasedCol,
+        ...quickTagCols
+      ].filter(Boolean));
+
+      const attrValue = (value) => escapeHtmlAttr(String(value == null ? '' : value).replace(/\n/g, '&#10;'));
+      const textField = (label, col, type = 'text') => {
+        if (!col) return '';
+        const value = row[col] || '';
+        return `
+          <div class="person-details-field">
+            <p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p>
+            <input
+              type="${type}"
+              class="add-record-input person-details-input"
+              value="${escapeHtmlAttr(value)}"
+              data-person-modal-field="true"
+              data-column="${escapeHtmlAttr(col)}"
+              data-original-value="${attrValue(value)}"
+              ${disabledAttr}
+            >
+          </div>
+        `;
+      };
+      const notesField = (label, col, placeholder = 'Optional') => {
+        if (!col) return '';
+        const value = row[col] || '';
+        return `
+          <div class="person-details-field person-details-field--full">
+            <p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p>
+            <textarea
+              class="add-record-input add-record-notes person-details-input"
+              rows="4"
+              placeholder="${escapeHtmlAttr(placeholder)}"
+              data-person-modal-field="true"
+              data-column="${escapeHtmlAttr(col)}"
+              data-original-value="${attrValue(value)}"
+              ${readonlyAttr}${disabledAttr}
+            >${escapeHtml(value)}</textarea>
+          </div>
+        `;
+      };
+      const checkboxField = (label, col) => {
+        if (!col) return '';
+        const value = row[col] || '';
+        return `
+          <label class="add-record-checkbox-wrap person-details-checkbox">
+            <input
+              type="checkbox"
+              class="add-record-checkbox person-details-checkbox-input"
+              data-person-modal-field="true"
+              data-column="${escapeHtmlAttr(col)}"
+              data-original-value="${attrValue(value)}"
+              ${isTruthySheetCheckbox(value) ? 'checked' : ''}
+              ${disabledAttr}
+            >
+            <span>${escapeHtml(label)}</span>
+          </label>
+        `;
+      };
+      const additionalCols = headers.filter(col => {
+        const lower = col.toLowerCase();
+        if (standardCols.has(col)) return false;
+        if (modalHiddenKeywords.some(keyword => lower.includes(keyword)) || isHouseOrZipField(lower)) return false;
+        return Boolean(row[col] && String(row[col]).trim());
+      });
+      const renderAdditionalField = (col) => {
+        const label = col.startsWith('Person - ') ? col.substring(9) : col;
+        if (col.startsWith('Person - ')) return checkboxField(label, col);
+        if (col.toLowerCase().includes('note')) return notesField(label, col);
+        return textField(label, col);
+      };
+
+      const quickTagsHtml = quickTagCols.map(col => checkboxField(col.replace(/^Person -\s*/, ''), col)).join('');
+      const modalHTML = `
+        <div class="newsletter-modal-overlay" id="personDetailsModalOverlay" data-address="${escapeHtmlAttr(address)}" data-original-row-index="${originalRowIndex}">
+          <div class="newsletter-modal" style="max-width:560px;">
+            <button class="newsletter-modal-close" id="personDetailsModalClose">&times;</button>
+            <div class="newsletter-modal-header">
+              <h3 class="newsletter-modal-title">${escapeHtml(displayName)}</h3>
+              <p class="newsletter-modal-subtitle">${escapeHtml(address)}</p>
+            </div>
+            <div class="newsletter-modal-content">
+              <div class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">Person</h4>
+                <div class="person-details-grid">
+                  ${textField('Name', nameCol)}
+                  ${textField('Age', ageCol)}
+                  ${textField('Gender', genderCol)}
+                </div>
+              </div>
+              <div class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">Contact</h4>
+                <div class="person-details-grid">
+                  ${textField('Home phone', homePhoneCol)}
+                  ${textField('Cell', cellCol)}
+                  ${textField('Email address', emailCol, 'email')}
+                  ${textField('Contact date', contactDateCol)}
+                  ${notesField('Contact Notes', contactNotesCol, 'Quick contact notes...')}
+                </div>
+              </div>
+              ${additionalCols.length > 0 ? `
+                <div class="newsletter-modal-section">
+                  <h4 class="newsletter-modal-section-title">Additional Details</h4>
+                  <div class="person-details-grid">
+                    ${additionalCols.map(renderAdditionalField).join('')}
+                  </div>
+                </div>
+              ` : ''}
+              <div class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">All Tags</h4>
+                <div class="person-details-tags">
+                  ${quickTagsHtml}
+                  ${checkboxField('Former Resident', formerResidentCol)}
+                  ${formerResidentNotesCol ? notesField('Former Resident Notes', formerResidentNotesCol, 'Why or when they left') : ''}
+                  ${checkboxField('Deceased', deceasedCol)}
+                </div>
+              </div>
+              ${personNotesCol ? `
+                <div class="newsletter-modal-section">
+                  <h4 class="newsletter-modal-section-title">Notes</h4>
+                  <div class="person-details-grid">
+                    ${notesField('Person Notes', personNotesCol)}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+            <div class="newsletter-modal-actions">
+              ${canEdit ? `
+                <button type="button" class="btn-copy-emails" id="personDetailsSaveBtn">Save Changes</button>
+                <span class="save-status" id="personDetailsSaveStatus"></span>
+              ` : `
+                <p style="margin:0; color:var(--text-light);">Sign in with Google to edit person details.</p>
+              `}
+            </div>
+          </div>
+        </div>
+      `;
+
+      const existingModal = document.getElementById('personDetailsModalOverlay');
+      if (existingModal) existingModal.remove();
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+      const overlay = document.getElementById('personDetailsModalOverlay');
+      const closeBtn = document.getElementById('personDetailsModalClose');
+      const saveBtn = document.getElementById('personDetailsSaveBtn');
+
+      function removeModal() {
+        if (overlay && overlay.parentNode) {
+          overlay.remove();
+        }
+      }
+
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) removeModal();
+      });
+      closeBtn.addEventListener('click', removeModal);
+      document.addEventListener('keydown', function escapeHandler(e) {
+        if (e.key === 'Escape' && overlay && document.body.contains(overlay)) {
+          removeModal();
+          document.removeEventListener('keydown', escapeHandler);
+        }
+      });
+
+      if (saveBtn) {
+        saveBtn.addEventListener('click', () => savePersonDetailsModal(overlay));
+      }
+    }
+
+    async function savePersonDetailsModal(overlay) {
+      if (!overlay) return;
+      if (!accessToken || !currentSheetId) {
+        alert('Please sign in to save changes.');
+        return;
+      }
+
+      const saveBtn = overlay.querySelector('#personDetailsSaveBtn');
+      const saveStatus = overlay.querySelector('#personDetailsSaveStatus');
+      const address = overlay.getAttribute('data-address');
+      const originalRowIndex = parseInt(overlay.getAttribute('data-original-row-index'), 10);
+      const rows = sheetData.addressMap.get(address);
+      const row = rows ? rows.find(r => r.__originalIndex === originalRowIndex) : null;
+
+      if (!row) {
+        alert('Could not find the selected person row.');
+        return;
+      }
+
+      const fields = Array.from(overlay.querySelectorAll('[data-person-modal-field="true"]'));
+      if (fields.length === 0) return;
+
+      if (saveBtn) saveBtn.disabled = true;
+      if (saveStatus) {
+        saveStatus.textContent = 'Saving...';
+        saveStatus.className = 'save-status saving';
+      }
+
+      try {
+        const updates = [];
+        const updatesByResidentId = [];
+        const changedFields = [];
+
+        fields.forEach(field => {
+          const column = field.getAttribute('data-column');
+          if (!column) return;
+
+          let newValue = '';
+          let hasChanged = false;
+
+          if (field.type === 'checkbox') {
+            const originalValue = field.getAttribute('data-original-value') || '';
+            newValue = field.checked ? 'TRUE' : 'FALSE';
+            hasChanged = field.checked !== isTruthySheetCheckbox(originalValue);
+          } else {
+            const originalValue = field.getAttribute('data-original-value') || '';
+            newValue = field.value.trim();
+            hasChanged = newValue !== originalValue;
+          }
+
+          if (!hasChanged) return;
+
+          if (sheetData.useResidentId && row['resident_id']) {
+            updatesByResidentId.push({ resident_id: row['resident_id'], column, value: newValue });
+          } else if (row.__originalIndex !== undefined && row.__originalIndex !== -1) {
+            const colIndex = sheetData.headers.indexOf(column);
+            if (colIndex !== -1) {
+              const colLetter = indexToColumnLetter(colIndex);
+              const rowNumber = row.__originalIndex + 2;
+              updates.push({ range: `Sheet1!${colLetter}${rowNumber}`, values: [[newValue]] });
+            }
+          }
+
+          changedFields.push({ field, column, newValue });
+        });
+
+        if (changedFields.length === 0) {
+          if (saveStatus) {
+            saveStatus.textContent = 'No changes to save';
+            saveStatus.className = 'save-status';
+          }
+          return;
+        }
+
+        const response = updatesByResidentId.length > 0
+          ? await fetch('/api/sheets/batch-update-by-resident-id', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sheetId: currentSheetId, sheetName: 'Sheet1', valueInputOption: 'USER_ENTERED', updates: updatesByResidentId })
+            })
+          : await fetch('/api/sheets/batch-update', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sheetId: currentSheetId, valueInputOption: 'USER_ENTERED', data: updates })
+            });
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          throw new Error(error.message || error.error || 'Failed to save');
+        }
+
+        changedFields.forEach(({ field, column, newValue }) => {
+          field.setAttribute('data-original-value', newValue);
+          row[column] = newValue;
+        });
+
+        const titleEl = overlay.querySelector('.newsletter-modal-title');
+        const nameCol = getResidentNameColumn(sheetData.headers || []);
+        if (titleEl && nameCol) {
+          titleEl.textContent = row[nameCol] || titleEl.textContent;
+        }
+
+        if (saveStatus) {
+          saveStatus.textContent = 'Saved!';
+          saveStatus.className = 'save-status saved';
+        }
+
+        updateHomeDashboard();
+        if (selectedAddress === address) {
+          displayAddressDetails(address, true);
+        }
+        showAppToast('Person details saved.');
+      } catch (error) {
+        console.error('Person details save error:', error);
+        if (saveStatus) {
+          saveStatus.textContent = `Error: ${error.message}`;
+          saveStatus.className = 'save-status error';
+        }
+        alert(`Error saving person details: ${error.message}`);
+      } finally {
+        if (saveBtn) saveBtn.disabled = false;
+      }
     }
 
     // Refresh button handler

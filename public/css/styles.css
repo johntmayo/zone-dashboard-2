@@ -2266,6 +2266,63 @@
       color: var(--brand-primary-dark);
     }
 
+    .person-name-button {
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      text-align: left;
+      text-decoration: underline;
+      text-decoration-color: rgba(52, 112, 114, 0.25);
+      text-underline-offset: 0.14em;
+      transition: color 0.2s ease, text-decoration-color 0.2s ease;
+    }
+
+    .person-name-button:hover,
+    .person-name-button:focus-visible {
+      color: var(--river);
+      text-decoration-color: currentColor;
+      outline: none;
+    }
+
+    .former-residents-section {
+      margin-top: 18px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .former-residents-title {
+      font-size: 0.8em;
+      color: #999;
+      font-weight: 600;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .former-resident-link {
+      display: block;
+      width: 100%;
+      background: none;
+      border: none;
+      padding: 0;
+      margin: 0 0 4px 0;
+      text-align: left;
+      font-size: 0.8em;
+      color: #999;
+      cursor: pointer;
+      text-decoration: underline;
+      text-decoration-color: rgba(153, 153, 153, 0.45);
+      text-underline-offset: 0.12em;
+    }
+
+    .former-resident-link:hover,
+    .former-resident-link:focus-visible {
+      color: #7f7f7f;
+      text-decoration-color: currentColor;
+      outline: none;
+    }
+
     .person-info {
       font-size: 0.9rem;
       color: #143039;
@@ -4234,6 +4291,36 @@
     .add-record-notes {
       min-height: 88px;
       resize: vertical;
+    }
+
+    .person-details-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 16px;
+    }
+
+    .person-details-field {
+      flex: 1 1 220px;
+      min-width: 0;
+    }
+
+    .person-details-field--full {
+      flex-basis: 100%;
+    }
+
+    .person-details-input {
+      max-width: none;
+      margin-bottom: 0;
+    }
+
+    .person-details-tags {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .person-details-checkbox {
+      margin-bottom: 0;
     }
 
     .app-toast {
