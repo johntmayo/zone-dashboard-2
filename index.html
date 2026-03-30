@@ -12638,7 +12638,7 @@
         let html = '';
         
         if (feedItems.length > 0) {
-          const itemsHtml = feedItems.map(item => `
+          html = feedItems.map(item => `
             <div class="announcement-item">
               <div class="announcement-title"><strong>${item.label}</strong></div>
               ${item.content && item.content.length > 0 ? item.content.map(contentText => 
@@ -12646,32 +12646,8 @@
               ).join('') : ''}
             </div>
           `).join('');
-
-          html = `
-            <div class="altagether-feed">
-              <div class="altagether-feed-list">${itemsHtml}</div>
-              <div class="altagether-feed-footer">
-                <div class="altagether-feed-meta">
-                  <div class="altagether-feed-kicker">Community bulletin</div>
-                  <div class="altagether-feed-summary">${feedItems.length} update${feedItems.length === 1 ? '' : 's'} from the central Altagether feed</div>
-                </div>
-                <a href="https://altagether.org/newsletter" target="_blank" rel="noopener noreferrer" class="altagether-feed-link">Read newsletter</a>
-              </div>
-            </div>
-          `;
         } else {
-          html = `
-            <div class="altagether-feed altagether-feed--empty">
-              <div class="empty">No announcements at this time.</div>
-              <div class="altagether-feed-footer">
-                <div class="altagether-feed-meta">
-                  <div class="altagether-feed-kicker">Community bulletin</div>
-                  <div class="altagether-feed-summary">Check the latest organization-wide newsletter for new updates.</div>
-                </div>
-                <a href="https://altagether.org/newsletter" target="_blank" rel="noopener noreferrer" class="altagether-feed-link">Read newsletter</a>
-              </div>
-            </div>
-          `;
+          html = '<div class="empty">No announcements at this time.</div>';
         }
         
         content.innerHTML = html;
