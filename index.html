@@ -1243,8 +1243,12 @@
 
     // OAuth2 Sign In
     async function fetchUserSheets(email) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
       try {
-        const res = await fetch(`/api/user-sheets?email=${encodeURIComponent(email)}`);
+        const res = await fetch(`/api/user-sheets?email=${encodeURIComponent(email)}`, {
+          signal: controller.signal
+        });
         if (res.status === 403) return { error: 'not_registered', sheets: [] };
         if (!res.ok) return { error: 'server_error', sheets: [] };
         const payload = await res.json();
@@ -1252,6 +1256,8 @@
       } catch (error) {
         console.warn('Error fetching user sheets:', error);
         return { error: 'server_error', sheets: [] };
+      } finally {
+        clearTimeout(timeoutId);
       }
     }
 
@@ -1371,10 +1377,22 @@
               return;
             }
 
-            welcomeAuthState = 'loading';
-            welcomeAuthMessage = '';
-            updateSignInUI();
-            await resolveAuthorizedSheetsForCurrentUser();
+            const rememberedSheetUrl = currentSheetUrl || localStorage.getItem('savedSheetUrl') || '';
+            if (rememberedSheetUrl) {
+              currentSheetUrl = rememberedSheetUrl;
+              if (input) input.value = rememberedSheetUrl;
+              welcomeAuthState = 'idle';
+              welcomeAuthMessage = '';
+              updateSheetLinkLabel();
+              updateNavigationState();
+              updateSignInUI();
+              loadAddressData(rememberedSheetUrl);
+            } else {
+              welcomeAuthState = 'loading';
+              welcomeAuthMessage = '';
+              updateSignInUI();
+              await resolveAuthorizedSheetsForCurrentUser();
+            }
             if (currentView === 'profile') loadProfileView();
           },
         });
