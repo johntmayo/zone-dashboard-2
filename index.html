@@ -21,6 +21,11 @@
   <script src="public/js/utils.js"></script>
   <!-- Google Analytics 4 (loads only when GA_MEASUREMENT_ID is set) -->
   <script>
+    window.trackAnalyticsEvent = function(eventName, params) {
+      if (typeof window.gtag !== 'function') return;
+      window.gtag('event', eventName, params || {});
+    };
+
     (function() {
       fetch('/api/ga-config').then(function(r) { return r.json(); }).then(function(config) {
         if (!config.measurementId) return;
@@ -1201,6 +1206,7 @@
       if (accessToken) {
         setTimeout(() => {
           if (currentSheetUrl) {
+            window.trackAnalyticsEvent('sheet_loaded');
             loadAddressData(currentSheetUrl);
           }
         }, 1000);
@@ -1297,6 +1303,7 @@
       updateSheetLinkLabel();
       updateWelcomeMessage();
       updateNavigationState();
+      window.trackAnalyticsEvent('sheet_loaded');
       loadAddressData(url);
     }
 
@@ -1377,6 +1384,8 @@
               return;
             }
 
+            window.trackAnalyticsEvent('sign_in_completed');
+
             const rememberedSheetUrl = currentSheetUrl || localStorage.getItem('savedSheetUrl') || '';
             if (rememberedSheetUrl) {
               currentSheetUrl = rememberedSheetUrl;
@@ -1386,6 +1395,7 @@
               updateSheetLinkLabel();
               updateNavigationState();
               updateSignInUI();
+              window.trackAnalyticsEvent('sheet_loaded');
               loadAddressData(rememberedSheetUrl);
             } else {
               welcomeAuthState = 'loading';
@@ -4288,7 +4298,7 @@
                 ${damageCol ? `<th class="sortable" data-sort="${damageCol.toLowerCase()}" title="Click to sort">Damage ${tableSortColumn === damageCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${addressPlanCol ? `<th class="sortable" data-sort="${addressPlanCol.toLowerCase()}" title="Click to sort">Address Plan ${tableSortColumn === addressPlanCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${rebuildCol ? `<th class="sortable" data-sort="${rebuildCol.toLowerCase()}" title="Click to sort">Build Status ${tableSortColumn === rebuildCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
-                ${ageCol ? `<th class="sortable" data-sort="${ageCol.toLowerCase()}" title="Click to sort">Age ${tableSortColumn === ageCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
+                ${ageCol ? `<th class="sortable" data-sort="${ageCol.toLowerCase()}" title="Click to sort">Apprx Age ${tableSortColumn === ageCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${phoneCol ? `<th>Phone</th>` : ''}
                 ${emailCol ? `<th>Email</th>` : ''}
                 ${contactDateCol ? `<th class="sortable" data-sort="${contactDateCol.toLowerCase()}" title="Click to sort">Last Contact ${tableSortColumn === contactDateCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
@@ -5786,6 +5796,7 @@
             if (suffix.toLowerCase() === 'unable to reach') return 'Unable to reach';
             return suffix;
           }
+          if (/^age$/i.test(col)) return 'Approximate Age';
           return col;
         };
 
@@ -6352,9 +6363,15 @@
           </div>
         `;
       };
-      const checkboxField = (label, col) => {
+      const checkboxField = (label, col, options = {}) => {
         if (!col) return '';
         const value = row[col] || '';
+        const tooltipAttr = options.tooltip
+          ? ` title="${escapeHtmlAttr(options.tooltip)}"`
+          : '';
+        const roleAttr = options.role
+          ? ` data-person-modal-role="${escapeHtmlAttr(options.role)}"`
+          : '';
         return `
           <label class="add-record-checkbox-wrap person-details-checkbox">
             <input
@@ -6362,11 +6379,12 @@
               class="add-record-checkbox person-details-checkbox-input"
               data-person-modal-field="true"
               data-column="${escapeHtmlAttr(col)}"
+              ${roleAttr}
               data-original-value="${attrValue(value)}"
               ${isTruthySheetCheckbox(value) ? 'checked' : ''}
               ${disabledAttr}
             >
-            <span>${escapeHtml(label)}</span>
+            <span${tooltipAttr}>${escapeHtml(label)}</span>
           </label>
         `;
       };
@@ -6397,7 +6415,7 @@
                 <h4 class="newsletter-modal-section-title">Person</h4>
                 <div class="person-details-grid">
                   ${textField('Name', nameCol)}
-                  ${textField('Age', ageCol)}
+                  ${textField('Approximate Age', ageCol)}
                   ${textField('Gender', genderCol)}
                 </div>
               </div>
@@ -6423,9 +6441,12 @@
                 <h4 class="newsletter-modal-section-title">All Tags</h4>
                 <div class="person-details-tags">
                   ${quickTagsHtml}
-                  ${checkboxField('Former Resident', formerResidentCol)}
+                  ${checkboxField('Former Resident', formerResidentCol, {
+                    role: 'former-resident',
+                    tooltip: 'A former resident is someone who has left the community (e.g., sold their lot, moved away, given up on returning.) Do not check this for someone who is temporarily displaced.'
+                  })}
                   ${formerResidentNotesCol ? notesField('Former Resident Notes', formerResidentNotesCol, 'Why or when they left') : ''}
-                  ${checkboxField('Deceased', deceasedCol)}
+                  ${checkboxField('Deceased', deceasedCol, { role: 'deceased' })}
                 </div>
               </div>
               ${personNotesCol ? `
@@ -6440,8 +6461,10 @@
             <div class="newsletter-modal-actions">
               ${canEdit ? `
                 <button type="button" class="btn-copy-emails" id="personDetailsSaveBtn">Save Changes</button>
+                <button type="button" class="btn-modal-secondary" id="personDetailsCloseBtn">Close</button>
                 <span class="save-status" id="personDetailsSaveStatus"></span>
               ` : `
+                <button type="button" class="btn-modal-secondary" id="personDetailsCloseBtn">Close</button>
                 <p style="margin:0; color:var(--text-light);">Sign in with Google to edit person details.</p>
               `}
             </div>
@@ -6455,7 +6478,10 @@
 
       const overlay = document.getElementById('personDetailsModalOverlay');
       const closeBtn = document.getElementById('personDetailsModalClose');
+      const closeActionBtn = document.getElementById('personDetailsCloseBtn');
       const saveBtn = document.getElementById('personDetailsSaveBtn');
+      const formerResidentInput = overlay ? overlay.querySelector('[data-person-modal-role="former-resident"]') : null;
+      const deceasedInput = overlay ? overlay.querySelector('[data-person-modal-role="deceased"]') : null;
 
       function removeModal() {
         if (overlay && overlay.parentNode) {
@@ -6466,13 +6492,20 @@
       overlay.addEventListener('click', (e) => {
         if (e.target === overlay) removeModal();
       });
-      closeBtn.addEventListener('click', removeModal);
+      if (closeBtn) closeBtn.addEventListener('click', removeModal);
+      if (closeActionBtn) closeActionBtn.addEventListener('click', removeModal);
       document.addEventListener('keydown', function escapeHandler(e) {
         if (e.key === 'Escape' && overlay && document.body.contains(overlay)) {
           removeModal();
           document.removeEventListener('keydown', escapeHandler);
         }
       });
+
+      if (deceasedInput && formerResidentInput) {
+        deceasedInput.addEventListener('change', () => {
+          if (deceasedInput.checked) formerResidentInput.checked = true;
+        });
+      }
 
       if (saveBtn) {
         saveBtn.addEventListener('click', () => savePersonDetailsModal(overlay));
@@ -6621,6 +6654,7 @@
       
       // Save current view to localStorage
       localStorage.setItem('currentView', viewName);
+      window.trackAnalyticsEvent('view_changed', { view_name: viewName });
       
       // Hide all content views
       document.querySelectorAll('.content-view').forEach(view => {

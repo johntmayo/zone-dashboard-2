@@ -1446,6 +1446,23 @@
       box-shadow: 0 4px 12px rgba(96, 108, 56, 0.3);
     }
 
+    .btn-modal-secondary {
+      background: white;
+      color: var(--brand-primary-dark);
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-modal-secondary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
     .btn-newsletter-link {
       background: var(--accent-gold);
       color: white;
