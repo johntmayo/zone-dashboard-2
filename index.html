@@ -227,9 +227,16 @@
       <div class="mobile-zone-header" id="mobileZoneHeader">Zone XX</div>
 
       <div class="home-dashboard">
+        <!-- Alert Card (dynamically shown when alert is active) -->
+        <div class="alert-card-urgent hidden" id="alertCard">
+          <h3>Important Update</h3>
+          <div class="alert-content" id="alertCardContent"></div>
+          <button class="btn-acknowledge" id="alertAcknowledgeBtn">Acknowledge</button>
+        </div>
+
         <div class="home-panels-grid">
           <!-- Panel A: Zone Overview -->
-          <div class="home-panel">
+          <div class="home-panel home-panel--overview">
             <div class="home-panel-header">
               <h2>Zone Overview</h2>
             </div>
@@ -314,16 +321,9 @@
               </div>
             </div>
           </div>
-          
-          <!-- Alert Card (dynamically shown when alert is active) -->
-          <div class="alert-card-urgent hidden" id="alertCard">
-            <h3>Important Update</h3>
-            <div class="alert-content" id="alertCardContent"></div>
-            <button class="btn-acknowledge" id="alertAcknowledgeBtn">Acknowledge</button>
-          </div>
 
           <!-- Panel B: From Altagether -->
-          <div class="home-panel altagether-panel">
+          <div class="home-panel home-panel--altagether altagether-panel">
             <div class="home-panel-header">
               <h2>From Altagether</h2>
             </div>
@@ -333,7 +333,7 @@
           </div>
           
           <!-- Panel B2: Quick Actions -->
-          <div class="home-panel">
+          <div class="home-panel home-panel--actions">
             <div class="home-panel-header">
               <h2>Quick Actions</h2>
             </div>
@@ -343,7 +343,7 @@
           </div>
           
           <!-- Panel C: Zone Map -->
-          <div class="home-panel home-panel-map">
+          <div class="home-panel home-panel--map home-panel-map">
             <div class="home-panel-header">
               <h2>Zone Map</h2>
             </div>
@@ -353,7 +353,7 @@
           </div>
           
           <!-- Panel D: Build Progress Charts -->
-          <div class="home-panel home-panel-wide">
+          <div class="home-panel home-panel-wide home-panel--build">
             <div class="home-panel-header">
               <h2>Build Progress</h2>
             </div>
@@ -378,7 +378,7 @@
           </div>
           
           <!-- Panel E: Zone Leadership -->
-          <div class="home-panel">
+          <div class="home-panel home-panel--leadership">
             <div class="home-panel-header">
               <h2>Zone Leadership</h2>
             </div>
@@ -12631,26 +12631,47 @@
           alertCard.classList.add('hidden');
         }
         
+        const feedItems = Array.isArray(feed.items)
+          ? feed.items.filter(item => item && item.label)
+          : [];
+
         let html = '';
         
-        // Display each item: Label (bold) followed by Content from columns B, C, D, etc.
-        if (feed.items && feed.items.length > 0) {
-          feed.items.forEach(item => {
-            if (item.label) {
-              html += `
-                <div class="announcement-item">
-                  <div class="announcement-title"><strong>${item.label}</strong></div>
-                  ${item.content && item.content.length > 0 ? item.content.map(contentText => 
-                    `<div class="announcement-description">${linkifyText(contentText)}</div>`
-                  ).join('') : ''}
+        if (feedItems.length > 0) {
+          const itemsHtml = feedItems.map(item => `
+            <div class="announcement-item">
+              <div class="announcement-title"><strong>${item.label}</strong></div>
+              ${item.content && item.content.length > 0 ? item.content.map(contentText => 
+                `<div class="announcement-description">${linkifyText(contentText)}</div>`
+              ).join('') : ''}
+            </div>
+          `).join('');
+
+          html = `
+            <div class="altagether-feed">
+              <div class="altagether-feed-list">${itemsHtml}</div>
+              <div class="altagether-feed-footer">
+                <div class="altagether-feed-meta">
+                  <div class="altagether-feed-kicker">Community bulletin</div>
+                  <div class="altagether-feed-summary">${feedItems.length} update${feedItems.length === 1 ? '' : 's'} from the central Altagether feed</div>
                 </div>
-              `;
-            }
-          });
-        }
-        
-        if (!html) {
-          html = '<div class="empty">No announcements at this time.</div>';
+                <a href="https://altagether.org/newsletter" target="_blank" rel="noopener noreferrer" class="altagether-feed-link">Read newsletter</a>
+              </div>
+            </div>
+          `;
+        } else {
+          html = `
+            <div class="altagether-feed altagether-feed--empty">
+              <div class="empty">No announcements at this time.</div>
+              <div class="altagether-feed-footer">
+                <div class="altagether-feed-meta">
+                  <div class="altagether-feed-kicker">Community bulletin</div>
+                  <div class="altagether-feed-summary">Check the latest organization-wide newsletter for new updates.</div>
+                </div>
+                <a href="https://altagether.org/newsletter" target="_blank" rel="noopener noreferrer" class="altagether-feed-link">Read newsletter</a>
+              </div>
+            </div>
+          `;
         }
         
         content.innerHTML = html;
