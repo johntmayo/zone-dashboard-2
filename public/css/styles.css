@@ -892,21 +892,21 @@
 
     /* Home Dashboard View */
     .home-dashboard {
-      max-width: 1480px;
+      max-width: 1440px;
       margin: 0 auto;
     }
 
     .home-panels-grid {
       display: grid;
-      grid-template-columns: repeat(12, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 1.45fr) minmax(340px, 1fr);
       grid-template-areas:
-        "overview overview overview overview overview overview overview altagether altagether altagether altagether altagether"
-        "overview overview overview overview overview overview overview actions actions actions leadership leadership"
-        "map map map map map map map actions actions actions leadership leadership"
-        "build build build build build build build build build build build build";
-      grid-auto-rows: minmax(140px, auto);
-      gap: 16px;
-      margin-bottom: 16px;
+        "overview altagether"
+        "map actions"
+        "build build"
+        "leadership leadership";
+      grid-auto-rows: auto;
+      gap: 20px;
+      margin-bottom: 20px;
       align-items: stretch;
     }
 
@@ -1208,8 +1208,9 @@
         grid-template-areas:
           "overview overview"
           "altagether actions"
-          "map leadership"
-          "build build";
+          "map map"
+          "build build"
+          "leadership leadership";
         grid-auto-rows: auto;
       }
 

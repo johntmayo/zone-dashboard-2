@@ -345,7 +345,7 @@
           <!-- Panel C: Zone Map -->
           <div class="home-panel home-panel--map home-panel-map">
             <div class="home-panel-header">
-              <h2>Zone Map</h2>
+              <h2>Mini Map</h2>
             </div>
             <div class="home-panel-content home-map-container" id="homeMapContainer">
               <div id="homeMap" style="width: 100%; height: 100%;"></div>
@@ -8264,6 +8264,9 @@
       if (!mapDiv) {
         return;
       }
+
+      // Keep the mini map simple: always color by Contact Status.
+      homeColorMode = 'contact';
       
       if (!homeMap) {
         try {
@@ -8349,8 +8352,16 @@
       // Update markers on home map
       updateHomeMapMarkers();
       
-      // Create color filter control for home map
-      createHomeColorFilterControl();
+      if (homeColorFilterControl && homeMap) {
+        try {
+          homeMap.removeControl(homeColorFilterControl);
+        } catch (e) {
+          // Control might already be removed
+        }
+        homeColorFilterControl = null;
+      }
+
+      showHomeColorLegend('contact');
       
       // Load zone boundary on home map (Mapbox or KML) with delay to ensure map is ready
       if (zoneKmlUrl || (isMapboxEnabled() && currentZoneName)) {
