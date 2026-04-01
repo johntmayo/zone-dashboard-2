@@ -7419,100 +7419,85 @@
 
     // Show color legend
     function showColorLegend(mode) {
-      // Remove existing legend if any
-      if (colorLegendControl) {
-        zoneMap.removeControl(colorLegendControl);
+      const legendSection = document.getElementById('colorKeyLegendSection');
+      const legendLabel = document.getElementById('colorKeyLegendLabel');
+      const legendItems = document.getElementById('colorKeyLegendItems');
+      if (!legendSection || !legendLabel || !legendItems) return;
+      legendSection.style.display = 'block';
+
+      if (mode === 'contact') {
+        legendLabel.textContent = 'Contact Status';
+        legendItems.innerHTML = `
+          <div class="map-color-key-legend-item">
+            <div class="map-color-key-swatch" style="background: ${colorPalette['sky-blue-light']}"></div>
+            <span>Contacted</span>
+          </div>
+          <div class="map-color-key-legend-item map-color-key-legend-item-last">
+            <div class="map-color-key-swatch" style="background: ${colorPalette['dusty-mauve']}"></div>
+            <span>Not Contacted</span>
+          </div>
+        `;
+      } else if (mode === 'damage') {
+        legendLabel.textContent = 'Damage Status';
+        legendItems.innerHTML = `
+          <div class="map-color-key-legend-item">
+            <div class="map-color-key-swatch" style="background: ${colorPalette['dusty-mauve']}"></div>
+            <span>Total Loss</span>
+          </div>
+          <div class="map-color-key-legend-item">
+            <div class="map-color-key-swatch" style="background: ${colorPalette['light-caramel']}"></div>
+            <span>Partial Loss</span>
+          </div>
+          <div class="map-color-key-legend-item">
+            <div class="map-color-key-swatch" style="background: ${colorPalette['sky-blue-light']}"></div>
+            <span>Standing</span>
+          </div>
+          <div class="map-color-key-legend-item map-color-key-legend-item-last">
+            <div class="map-color-key-swatch" style="background: ${colorPalette['ash-grey']}"></div>
+            <span>Unknown</span>
+          </div>
+        `;
+      } else if (mode === 'rebuild') {
+        const rebuildColorMapping = getRebuildColorMapping();
+        const stages = Object.keys(rebuildColorMapping);
+        legendLabel.textContent = 'Build Status';
+        legendItems.innerHTML = stages.map(stage => `
+          <div class="map-color-key-legend-item">
+            <div class="map-color-key-swatch" style="background: ${rebuildColorMapping[stage]}"></div>
+            <span>${escapeHtml(stage)}</span>
+          </div>
+        `).join('') + `
+          <div class="map-color-key-legend-item map-color-key-legend-item-last">
+            <div class="map-color-key-swatch" style="background: ${colorPalette['ash-grey']}"></div>
+            <span>Not set</span>
+          </div>
+        `;
+      } else if (mode === 'captain') {
+        const captainColorMapping = getCaptainColorMapping();
+        const captains = Object.keys(captainColorMapping).sort();
+        legendLabel.textContent = 'Captain Assigned';
+        legendItems.innerHTML = captains.map(captain => `
+          <div class="map-color-key-legend-item">
+            <div class="map-color-key-swatch" style="background: ${captainColorMapping[captain]}"></div>
+            <span>${escapeHtml(captain)}</span>
+          </div>
+        `).join('') + `
+          <div class="map-color-key-legend-item map-color-key-legend-item-last">
+            <div class="map-color-key-swatch" style="background: ${colorPalette['ash-grey']}"></div>
+            <span>Not Assigned</span>
+          </div>
+        `;
       }
-      
-      const ColorLegendControl = L.Control.extend({
-        onAdd: function(map) {
-          const container = L.DomUtil.create('div', 'color-legend-control map-control-card');
-          
-          let html = '';
-          
-          if (mode === 'contact') {
-            html = `
-              <div style="font-weight: 600; margin-bottom: 8px; color: #283618; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Contact Status</div>
-              <div style="display: flex; align-items: center; margin-bottom: 6px;">
-                <div style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPalette['sky-blue-light']}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
-                <span style="font-size: 0.7rem;">Contacted</span>
-              </div>
-              <div style="display: flex; align-items: center;">
-                <div style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPalette['dusty-mauve']}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
-                <span style="font-size: 0.7rem;">Not Contacted</span>
-              </div>
-            `;
-          } else if (mode === 'damage') {
-            html = `
-              <div style="font-weight: 600; margin-bottom: 8px; color: #283618; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Damage Status</div>
-              <div style="display: flex; align-items: center; margin-bottom: 6px;">
-                <div style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPalette['dusty-mauve']}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
-                <span style="font-size: 0.7rem;">Total Loss</span>
-              </div>
-              <div style="display: flex; align-items: center; margin-bottom: 6px;">
-                <div style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPalette['light-caramel']}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
-                <span style="font-size: 0.7rem;">Partial Loss</span>
-              </div>
-              <div style="display: flex; align-items: center; margin-bottom: 6px;">
-                <div style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPalette['sky-blue-light']}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
-                <span style="font-size: 0.7rem;">Standing</span>
-              </div>
-              <div style="display: flex; align-items: center;">
-                <div style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPalette['ash-grey']}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
-                <span style="font-size: 0.7rem;">Unknown</span>
-              </div>
-            `;
-          } else if (mode === 'rebuild') {
-            const rebuildColorMapping = getRebuildColorMapping();
-            const stages = Object.keys(rebuildColorMapping);
-            html = `
-              <div style="font-weight: 600; margin-bottom: 8px; color: #283618; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Build Status</div>
-              ${stages.map(stage => `
-                <div style="display: flex; align-items: center; margin-bottom: 6px;">
-                  <div style="width: 16px; height: 16px; border-radius: 50%; background: ${rebuildColorMapping[stage]}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
-                  <span style="font-size: 0.7rem;">${escapeHtml(stage)}</span>
-                </div>
-              `).join('')}
-              <div style="display: flex; align-items: center;">
-                <div style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPalette['ash-grey']}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
-                <span style="font-size: 0.7rem;">Not set</span>
-              </div>
-            `;
-          } else if (mode === 'captain') {
-            const captainColorMapping = getCaptainColorMapping();
-            const captains = Object.keys(captainColorMapping).sort();
-            html = `
-              <div style="font-weight: 600; margin-bottom: 8px; color: #283618; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Captain Assigned</div>
-              ${captains.map(captain => `
-                <div style="display: flex; align-items: center; margin-bottom: 6px;">
-                  <div style="width: 16px; height: 16px; border-radius: 50%; background: ${captainColorMapping[captain]}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
-                  <span style="font-size: 0.7rem;">${escapeHtml(captain)}</span>
-                </div>
-              `).join('')}
-              <div style="display: flex; align-items: center;">
-                <div style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPalette['ash-grey']}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
-                <span style="font-size: 0.7rem;">Not Assigned</span>
-              </div>
-            `;
-          }
-          
-          container.innerHTML = html;
-          L.DomEvent.disableClickPropagation(container);
-          
-          return container;
-        }
-      });
-      
-      colorLegendControl = new ColorLegendControl({ position: 'topleft' });
-      colorLegendControl.addTo(zoneMap);
     }
 
     // Hide color legend
     function hideColorLegend() {
-      if (colorLegendControl) {
-        zoneMap.removeControl(colorLegendControl);
-        colorLegendControl = null;
-      }
+      const legendSection = document.getElementById('colorKeyLegendSection');
+      if (legendSection) legendSection.style.display = 'none';
+      const legendItems = document.getElementById('colorKeyLegendItems');
+      if (legendItems) legendItems.innerHTML = '';
+      const legendLabel = document.getElementById('colorKeyLegendLabel');
+      if (legendLabel) legendLabel.textContent = '';
     }
 
     // Show color legend for home map
@@ -7779,65 +7764,34 @@
     // Restore color mode from localStorage
     function restoreColorMode() {
       if (!zoneMap) return;
-      
+
       const savedColorMode = localStorage.getItem('currentColorMode');
       if (!savedColorMode || savedColorMode === '') {
         currentColorMode = null;
         return;
       }
-      
-      // Find the color filter control buttons (order: Contact, Damage, Rebuild, Captain optional)
-      const controlContainer = document.querySelector('.color-filter-control');
-      if (!controlContainer) return;
-      
-      const buttons = controlContainer.querySelectorAll('button');
-      if (buttons.length < 3) return;
-      
-      const contactBtn = buttons[0];
-      const damageBtn = buttons[1];
-      const rebuildBtn = buttons[2];
-      const captainBtn = buttons.length > 3 ? buttons[3] : null;
-      
-      // Helper function to reset all buttons
-      const resetButtons = () => {
-        contactBtn.style.background = 'white';
-        contactBtn.style.fontWeight = 'normal';
-        damageBtn.style.background = 'white';
-        damageBtn.style.fontWeight = 'normal';
-        rebuildBtn.style.background = 'white';
-        rebuildBtn.style.fontWeight = 'normal';
-        if (captainBtn) {
-          captainBtn.style.background = 'white';
-          captainBtn.style.fontWeight = 'normal';
-        }
-      };
-      
-      if (savedColorMode === 'contact') {
-        currentColorMode = 'contact';
-        resetButtons();
-        contactBtn.style.background = '#e8f4f8';
-        contactBtn.style.fontWeight = '600';
-        showColorLegend('contact');
-      } else if (savedColorMode === 'damage') {
-        currentColorMode = 'damage';
-        resetButtons();
-        damageBtn.style.background = '#e8f4f8';
-        damageBtn.style.fontWeight = '600';
-        showColorLegend('damage');
-      } else if (savedColorMode === 'rebuild') {
-        currentColorMode = 'rebuild';
-        resetButtons();
-        rebuildBtn.style.background = '#e8f4f8';
-        rebuildBtn.style.fontWeight = '600';
-        showColorLegend('rebuild');
-      } else if (savedColorMode === 'captain' && captainBtn) {
-        currentColorMode = 'captain';
-        resetButtons();
-        captainBtn.style.background = '#e8f4f8';
-        captainBtn.style.fontWeight = '600';
-        showColorLegend('captain');
+
+      currentColorMode = savedColorMode;
+
+      // Update active states on mode buttons using their IDs
+      ['contact', 'damage', 'rebuild', 'captain'].forEach(mode => {
+        const id = 'colorBy' + mode.charAt(0).toUpperCase() + mode.slice(1) + 'Btn';
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        if (mode === savedColorMode) btn.classList.add('active');
+        else btn.classList.remove('active');
+      });
+
+      // Auto-expand the panel so the active selection is visible
+      const panel = document.getElementById('colorKeyPanel');
+      const expandBtn = document.getElementById('colorKeyExpandBtn');
+      if (panel && expandBtn) {
+        panel.style.display = 'block';
+        expandBtn.innerHTML = 'Color Key &#9662;';
       }
-      
+
+      showColorLegend(savedColorMode);
+
       // Recolor markers after a short delay
       setTimeout(() => {
         recolorMarkers();
@@ -7870,15 +7824,15 @@
       // Check if control instance exists and is on the map
       if (colorFilterControl) {
         // Check if the control's DOM element still exists
-        const existingControl = document.querySelector('.color-filter-control');
+        const existingControl = document.querySelector('.map-color-key-control');
         if (existingControl) {
           // Control DOM exists, check if it's properly attached
           const mapContainer = zoneMap.getContainer();
           const controlContainer = existingControl.closest('.leaflet-control-container');
-          
+
           if (controlContainer && mapContainer.contains(controlContainer)) {
             // Check if control has the right number of buttons (Contact, Damage, Rebuild, + optional Captain)
-            const buttons = existingControl.querySelectorAll('button');
+            const buttons = existingControl.querySelectorAll('.map-color-by-item-btn');
             const hasCaptainBtn = buttons.length > 3;
             
             // If captain button state doesn't match, recreate the control
@@ -7902,11 +7856,11 @@
       }
       
       // Check if control exists in DOM but we don't have a reference
-      const existingControl = document.querySelector('.color-filter-control');
+      const existingControl = document.querySelector('.map-color-key-control');
       if (existingControl) {
         const mapContainer = zoneMap.getContainer();
         const controlContainer = existingControl.closest('.leaflet-control-container');
-        
+
         if (controlContainer && mapContainer.contains(controlContainer)) {
           // Control exists and is attached, we're good
           if (controlContainer.style.display === 'none') {
@@ -7927,8 +7881,8 @@
         createColorFilterControl();
         // After creating, verify it was actually added and has functional buttons
         setTimeout(() => {
-          const newControl = document.querySelector('.color-filter-control');
-          const buttons = newControl ? newControl.querySelectorAll('button') : [];
+          const newControl = document.querySelector('.map-color-key-control');
+          const buttons = newControl ? newControl.querySelectorAll('.map-color-by-item-btn') : [];
           if (!newControl || buttons.length < 3) {
             // Control creation failed or buttons missing (need at least Contact, Damage, Rebuild), try again
             if (newControl && newControl.parentNode) {
@@ -7964,7 +7918,7 @@
       // Only run watchdog when on map view
       colorFilterWatchdog = setInterval(() => {
         if (currentView === 'map' && zoneMap) {
-          const control = document.querySelector('.color-filter-control');
+          const control = document.querySelector('.map-color-key-control');
           if (!control) {
             // Control is missing, recreate it
             ensureColorFilterControl();
@@ -8002,7 +7956,7 @@
         const ncPhoneCol = findColumn(headers, 'nc phone');
         const ncEmailCol = findColumn(headers, 'nc email');
         captainAssignedCol = findColumn(headers, 'captain assigned');
-        
+
         if (ncNameCol && captainAssignedCol) {
           const firstRow = sheetData.data[0];
           const ncName = firstRow[ncNameCol] ? (firstRow[ncNameCol] || '').trim() : '';
@@ -8012,144 +7966,120 @@
           hasMultipleCaptains = captains.length > 1;
         }
       }
-      
-      const ColorFilterControl = L.Control.extend({
+
+      const ColorKeyControl = L.Control.extend({
         onAdd: function(map) {
-          const container = L.DomUtil.create('div', 'color-filter-control map-control-card');
-          
-          // Header
-          const header = L.DomUtil.create('div', 'color-filter-header', container);
-          header.textContent = 'Color by';
-          header.style.cssText = 'height: 32px; line-height: 32px; padding: 0 10px; font-weight: 700; color: #283618; font-size: 0.7rem;';
+          const container = L.DomUtil.create('div', 'leaflet-control map-color-key-control map-control-card');
 
-          const btnCss = 'height: 30px; line-height: 30px; text-align: left; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap; background: transparent; border: none; cursor: pointer; width: 100%;';
+          // Expand button (like "Layers ▸")
+          const expandBtn = L.DomUtil.create('a', 'map-color-key-expand-btn', container);
+          expandBtn.id = 'colorKeyExpandBtn';
+          expandBtn.href = '#';
+          expandBtn.style.cssText = 'min-width: 138px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; font-weight: 700; white-space: nowrap;';
+          expandBtn.innerHTML = 'Color Key &#9656;';
 
-          // Contact Status button
-          const contactBtn = L.DomUtil.create('button', 'color-filter-btn', container);
+          // Panel (hidden by default)
+          const panel = L.DomUtil.create('div', 'map-color-key-panel', container);
+          panel.id = 'colorKeyPanel';
+          panel.style.display = 'none';
+
+          // "COLOR BY" group label
+          const colorByLabel = L.DomUtil.create('div', 'map-layer-group-label', panel);
+          colorByLabel.textContent = 'Color by';
+
+          const itemBtnCss = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
+
+          // Mode buttons (styled like overlay buttons in Layers panel)
+          const contactBtn = L.DomUtil.create('a', 'map-color-by-item-btn', panel);
+          contactBtn.id = 'colorByContactBtn';
+          contactBtn.href = '#';
           contactBtn.textContent = 'Contact Status';
-          contactBtn.style.cssText = btnCss;
-          contactBtn.onmouseover = () => { if (currentColorMode !== 'contact') contactBtn.style.background = '#f3f7f2'; };
-          contactBtn.onmouseout = () => { if (currentColorMode !== 'contact') contactBtn.style.background = 'transparent'; };
+          contactBtn.style.cssText = itemBtnCss;
 
-          // Damage Status button
-          const damageBtn = L.DomUtil.create('button', 'color-filter-btn', container);
+          const damageBtn = L.DomUtil.create('a', 'map-color-by-item-btn', panel);
+          damageBtn.id = 'colorByDamageBtn';
+          damageBtn.href = '#';
           damageBtn.textContent = 'Damage Status';
-          damageBtn.style.cssText = btnCss;
-          damageBtn.onmouseover = () => { if (currentColorMode !== 'damage') damageBtn.style.background = '#f3f7f2'; };
-          damageBtn.onmouseout = () => { if (currentColorMode !== 'damage') damageBtn.style.background = 'transparent'; };
+          damageBtn.style.cssText = itemBtnCss;
 
-          // Build Status button
-          const rebuildBtn = L.DomUtil.create('button', 'color-filter-btn', container);
+          const rebuildBtn = L.DomUtil.create('a', 'map-color-by-item-btn', panel);
+          rebuildBtn.id = 'colorByRebuildBtn';
+          rebuildBtn.href = '#';
           rebuildBtn.textContent = 'Build Status';
-          rebuildBtn.style.cssText = btnCss;
-          rebuildBtn.onmouseover = () => { if (currentColorMode !== 'rebuild') rebuildBtn.style.background = '#f3f7f2'; };
-          rebuildBtn.onmouseout = () => { if (currentColorMode !== 'rebuild') rebuildBtn.style.background = 'transparent'; };
+          rebuildBtn.style.cssText = itemBtnCss;
 
-          // Captain Assigned button (only if zone has multiple captains)
           let captainBtn = null;
           if (hasMultipleCaptains && captainAssignedCol) {
-            captainBtn = L.DomUtil.create('button', 'color-filter-btn', container);
+            captainBtn = L.DomUtil.create('a', 'map-color-by-item-btn', panel);
+            captainBtn.id = 'colorByCaptainBtn';
+            captainBtn.href = '#';
             captainBtn.textContent = 'Captain Assigned';
-            captainBtn.style.cssText = btnCss;
-            captainBtn.onmouseover = () => { if (currentColorMode !== 'captain') captainBtn.style.background = '#f3f7f2'; };
-            captainBtn.onmouseout = () => { if (currentColorMode !== 'captain') captainBtn.style.background = 'transparent'; };
+            captainBtn.style.cssText = itemBtnCss;
           }
 
-          // Helper function to reset all buttons
-          const resetButtons = () => {
-            contactBtn.style.background = 'transparent';
-            contactBtn.style.fontWeight = 'normal';
-            damageBtn.style.background = 'transparent';
-            damageBtn.style.fontWeight = 'normal';
-            rebuildBtn.style.background = 'transparent';
-            rebuildBtn.style.fontWeight = 'normal';
-            if (captainBtn) {
-              captainBtn.style.background = 'transparent';
-              captainBtn.style.fontWeight = 'normal';
-            }
+          // Legend section (shown inline when a mode is selected)
+          const legendSection = L.DomUtil.create('div', 'map-color-key-legend-section', panel);
+          legendSection.id = 'colorKeyLegendSection';
+          legendSection.style.display = 'none';
+
+          const legendLabel = L.DomUtil.create('div', 'map-layer-group-label', legendSection);
+          legendLabel.id = 'colorKeyLegendLabel';
+
+          const legendItems = L.DomUtil.create('div', 'map-color-key-legend-items', legendSection);
+          legendItems.id = 'colorKeyLegendItems';
+
+          // Helper: sync active class on mode buttons
+          const updateButtonStates = () => {
+            [
+              { btn: contactBtn, mode: 'contact' },
+              { btn: damageBtn, mode: 'damage' },
+              { btn: rebuildBtn, mode: 'rebuild' },
+              { btn: captainBtn, mode: 'captain' }
+            ].forEach(({ btn, mode }) => {
+              if (!btn) return;
+              if (currentColorMode === mode) btn.classList.add('active');
+              else btn.classList.remove('active');
+            });
           };
-          
-          // Click handlers
-          contactBtn.onclick = () => {
-            if (currentColorMode === 'contact') {
-              currentColorMode = null;
-              resetButtons();
-              hideColorLegend();
-              localStorage.setItem('currentColorMode', '');
-            } else {
-              currentColorMode = 'contact';
-              resetButtons();
-              contactBtn.style.background = '#e8f4f8';
-              contactBtn.style.fontWeight = '600';
-              showColorLegend('contact');
-              localStorage.setItem('currentColorMode', 'contact');
-            }
-            recolorMarkers();
-          };
-          
-          damageBtn.onclick = () => {
-            if (currentColorMode === 'damage') {
-              currentColorMode = null;
-              resetButtons();
-              hideColorLegend();
-              localStorage.setItem('currentColorMode', '');
-            } else {
-              currentColorMode = 'damage';
-              resetButtons();
-              damageBtn.style.background = '#e8f4f8';
-              damageBtn.style.fontWeight = '600';
-              showColorLegend('damage');
-              localStorage.setItem('currentColorMode', 'damage');
-            }
-            recolorMarkers();
-          };
-          
-          rebuildBtn.onclick = () => {
-            if (currentColorMode === 'rebuild') {
-              currentColorMode = null;
-              resetButtons();
-              hideColorLegend();
-              localStorage.setItem('currentColorMode', '');
-            } else {
-              currentColorMode = 'rebuild';
-              resetButtons();
-              rebuildBtn.style.background = '#e8f4f8';
-              rebuildBtn.style.fontWeight = '600';
-              showColorLegend('rebuild');
-              localStorage.setItem('currentColorMode', 'rebuild');
-            }
-            recolorMarkers();
-          };
-          
-          if (captainBtn) {
-            captainBtn.onclick = () => {
-              if (currentColorMode === 'captain') {
-                currentColorMode = null;
-                resetButtons();
-                hideColorLegend();
-                localStorage.setItem('currentColorMode', '');
-              } else {
-                currentColorMode = 'captain';
-                resetButtons();
-                captainBtn.style.background = '#e8f4f8';
-                captainBtn.style.fontWeight = '600';
-                showColorLegend('captain');
-                localStorage.setItem('currentColorMode', 'captain');
-              }
-              recolorMarkers();
-            };
-          }
-          
-          // Don't restore color mode here - let restoreColorMode() handle it after control is fully added
-          // This ensures buttons are fully ready and attached before trying to restore state
-          
+
+          // Expand/collapse toggle
           L.DomEvent.disableClickPropagation(container);
-          
+          L.DomEvent.on(expandBtn, 'click', L.DomEvent.stop);
+          L.DomEvent.on(expandBtn, 'click', () => {
+            const isOpen = panel.style.display !== 'none';
+            panel.style.display = isOpen ? 'none' : 'block';
+            expandBtn.innerHTML = isOpen ? 'Color Key &#9656;' : 'Color Key &#9662;';
+          });
+
+          // Mode button click handler factory
+          const handleModeClick = (btn, mode) => {
+            L.DomEvent.on(btn, 'click', L.DomEvent.stop);
+            L.DomEvent.on(btn, 'click', () => {
+              if (currentColorMode === mode) {
+                currentColorMode = null;
+                localStorage.setItem('currentColorMode', '');
+                hideColorLegend();
+              } else {
+                currentColorMode = mode;
+                localStorage.setItem('currentColorMode', mode);
+                showColorLegend(mode);
+              }
+              updateButtonStates();
+              recolorMarkers();
+            });
+          };
+
+          handleModeClick(contactBtn, 'contact');
+          handleModeClick(damageBtn, 'damage');
+          handleModeClick(rebuildBtn, 'rebuild');
+          if (captainBtn) handleModeClick(captainBtn, 'captain');
+
+          // Don't restore color mode here — let restoreColorMode() handle it after control is fully added
           return container;
         }
       });
-      
-      // Remove old control if it exists
+
+      // Remove old controls if they exist
       if (colorFilterControl && zoneMap) {
         try {
           zoneMap.removeControl(colorFilterControl);
@@ -8158,11 +8088,17 @@
         }
         colorFilterControl = null;
       }
-      
+      if (colorLegendControl && zoneMap) {
+        try {
+          zoneMap.removeControl(colorLegendControl);
+        } catch (e) {}
+        colorLegendControl = null;
+      }
+
       // Create and store the control instance
-      colorFilterControl = new ColorFilterControl({ position: 'topleft' });
+      colorFilterControl = new ColorKeyControl({ position: 'topleft' });
       colorFilterControl.addTo(zoneMap);
-      
+
       // After control is added, restore color mode (buttons will be ready)
       setTimeout(() => {
         restoreColorMode();
