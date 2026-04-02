@@ -55,15 +55,13 @@
     <div class="welcome-overlay hidden" id="welcomeOverlay">
       <div class="welcome-message">
         <h2>Welcome to the Altagether Zone Dashboard</h2>
-        <p>Get started in two simple steps:</p>
-        
-        <!-- Step 1: Sign In -->
+        <p>Sign in with your Google account to access your zone.</p>
+
+        <!-- Sign In -->
         <div class="welcome-step" id="welcomeStep1">
           <div class="welcome-step-header">
-            <span class="welcome-step-number">1</span>
             <h3>Sign in with Google</h3>
           </div>
-          <p class="welcome-step-description">Sign in to access and edit your zone spreadsheet data.</p>
           <button class="btn-signin welcome-signin-btn" id="welcomeSignInBtn">
             <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#fff" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill-rule="evenodd"/><path fill="#fff" d="M9 18c2.43 0 4.467-.806 5.96-2.184l-2.908-2.258c-.806.54-1.837.86-3.052.86-2.347 0-4.33-1.584-5.04-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill-rule="evenodd"/><path fill="#fff" d="M3.96 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.348 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.003-2.332z" fill-rule="evenodd"/><path fill="#fff" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.96 7.293C4.67 5.163 6.653 3.58 9 3.58z" fill-rule="evenodd"/></svg>
             Sign in with Google
@@ -73,17 +71,8 @@
           </div>
         </div>
 
-        <!-- Step 2: Choose your zone -->
-        <div class="welcome-step hidden" id="welcomeStep2">
-          <div class="welcome-step-header">
-            <span class="welcome-step-number">2</span>
-            <h3>Choose your zone</h3>
-          </div>
-          <p class="welcome-step-description">Select one of your authorized zone spreadsheets.</p>
-          <div class="welcome-zone-list" id="welcomeZoneList">
-            <p class="welcome-step-description">Sign in to load your available zones.</p>
-          </div>
-        </div>
+        <!-- Zone picker (shown only for multi-zone users; content is dynamically generated) -->
+        <div class="welcome-step hidden" id="welcomeStep2"></div>
         <div class="welcome-step hidden" id="welcomeAccessNotice"></div>
         
         <div class="welcome-help-link">
@@ -243,6 +232,18 @@
           <div style="display: flex; gap: 0.75rem; align-items: center; flex-shrink: 0;">
             <button type="button" id="profileNudgeBtn" class="btn-save" style="white-space: nowrap;">Set up my profile</button>
             <button type="button" id="profileNudgeDismiss" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.85rem; padding: 0.25rem; text-decoration: underline;">Not now</button>
+          </div>
+        </div>
+
+        <!-- Zone Setup Panel (shown when address damage data is sparse) -->
+        <div id="zoneSetupPanel" class="hidden" style="margin-bottom: 1rem; padding: 1.25rem 1.5rem; background: var(--bg-card); border: var(--border-thickness) solid var(--border-color); box-shadow: 4px 4px 0px #D9DBDB;">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 0;">
+              <p style="font-weight: 700; margin: 0 0 0.25rem; font-family: 'Chivo', sans-serif;">Your zone data needs a few things</p>
+              <p id="zoneSetupMessage" style="color: var(--text-secondary); margin: 0 0 1rem; font-size: 0.9rem;"></p>
+              <div id="zoneSetupItems" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
+            </div>
+            <button type="button" id="zoneSetupDismiss" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.85rem; padding: 0.25rem; text-decoration: underline; flex-shrink: 0; align-self: flex-start;">Not right now</button>
           </div>
         </div>
 
@@ -2984,6 +2985,79 @@
         displayAddressDetails(address);
       }, 100);
     }
+
+    // Zone Setup Panel — surfaces missing damage data on first load
+    function updateZoneSetupPanel() {
+      const panel = document.getElementById('zoneSetupPanel');
+      if (!panel) return;
+
+      // Don't show if user already dismissed for this zone
+      const dismissKey = 'zoneSetupDismissed_' + (currentSheetUrl || '');
+      if (localStorage.getItem(dismissKey)) return;
+
+      if (!sheetData || !sheetData.addressMap) return;
+
+      const { addressMap, headers } = sheetData;
+      if (!headers || addressMap.size === 0) return;
+
+      // Find damage column
+      const damageCol = headers.find(h => {
+        const lower = (h || '').toLowerCase();
+        return lower.includes('damage') || lower === 'status';
+      });
+
+      const TAGGED_VALUES = new Set(['standing home', 'partial loss', 'total loss']);
+      let totalAddresses = 0;
+      let untaggedCount = 0;
+
+      addressMap.forEach((rows) => {
+        totalAddresses++;
+        const row = rows[0];
+        const val = damageCol ? (row[damageCol] || '').trim().toLowerCase() : '';
+        if (!val || !TAGGED_VALUES.has(val)) untaggedCount++;
+      });
+
+      // Only show when more than 30% of addresses have no damage status
+      if (totalAddresses === 0 || untaggedCount / totalAddresses < 0.3) return;
+
+      const taggedCount = totalAddresses - untaggedCount;
+      const pct = Math.round((taggedCount / totalAddresses) * 100);
+
+      const messageEl = document.getElementById('zoneSetupMessage');
+      const itemsEl = document.getElementById('zoneSetupItems');
+      if (!messageEl || !itemsEl) return;
+
+      if (taggedCount === 0) {
+        messageEl.textContent = `Your zone has ${totalAddresses} address${totalAddresses !== 1 ? 'es' : ''} — none have damage information yet. Adding that data is the most important first step.`;
+      } else {
+        messageEl.textContent = `${untaggedCount} of ${totalAddresses} addresses (${100 - pct}%) are still missing damage information.`;
+      }
+
+      itemsEl.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+          <button type="button" id="zoneSetupBatchTagBtn" class="btn-save" style="white-space: nowrap;">Open Batch Tagging</button>
+          <span style="font-size: 0.85rem; color: var(--text-secondary);">Tag damage status for many addresses at once — the fastest way to fill in your zone.</span>
+        </div>
+      `;
+
+      panel.classList.remove('hidden');
+
+      // Wire up CTA — navigate to Tools and scroll to Batch Tagging
+      document.getElementById('zoneSetupBatchTagBtn')?.addEventListener('click', () => {
+        switchView('tools');
+        setTimeout(() => {
+          const batchTool = document.getElementById('batchTaggingTool');
+          if (batchTool) batchTool.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
+      });
+    }
+
+    document.getElementById('zoneSetupDismiss')?.addEventListener('click', () => {
+      const dismissKey = 'zoneSetupDismissed_' + (currentSheetUrl || '');
+      localStorage.setItem(dismissKey, '1');
+      const panel = document.getElementById('zoneSetupPanel');
+      if (panel) panel.classList.add('hidden');
+    });
 
     // Display quick actions panel
     function displayQuickActions() {
@@ -11638,6 +11712,7 @@
       }
       fetchAndDisplayCentralFeed();
       displayQuickActions();
+      updateZoneSetupPanel();
       updateZoneLeadership();
       
       // Update Actions page if it's currently visible
