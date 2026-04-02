@@ -1,3 +1,4 @@
+require('dotenv').config(); // loads .env for local development (no effect in production)
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
