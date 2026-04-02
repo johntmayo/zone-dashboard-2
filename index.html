@@ -234,6 +234,18 @@
           <button class="btn-acknowledge" id="alertAcknowledgeBtn">Acknowledge</button>
         </div>
 
+        <!-- NC Directory nudge (shown when signed in but no directory profile exists) -->
+        <div id="profileNudgeCard" class="hidden" style="margin-bottom: 1rem; padding: 1.25rem 1.5rem; background: var(--bg-card); border: var(--border-thickness) solid var(--border-color); box-shadow: 4px 4px 0px #D9DBDB; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+          <div>
+            <p style="font-weight: 700; margin: 0 0 0.2rem; font-family: 'Chivo', sans-serif;">You're not in the NC Directory yet</p>
+            <p style="color: var(--text-secondary); margin: 0; font-size: 0.9rem;">Add yourself so other captains can find you and know what you can help with.</p>
+          </div>
+          <div style="display: flex; gap: 0.75rem; align-items: center; flex-shrink: 0;">
+            <button type="button" id="profileNudgeBtn" class="btn-save" style="white-space: nowrap;">Set up my profile</button>
+            <button type="button" id="profileNudgeDismiss" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.85rem; padding: 0.25rem; text-decoration: underline;">Not now</button>
+          </div>
+        </div>
+
         <div class="home-panels-grid">
           <!-- Panel A: Zone Overview -->
           <div class="home-panel home-panel--overview">
@@ -765,9 +777,31 @@
         <p><strong>Sign in to edit your profile</strong></p>
         <p>Use the &quot;Sign in with Google&quot; button above, then return here.</p>
       </div>
-      <div id="profileNotFound" class="hidden" style="padding: 1.5rem; background: #FEF3C7; border: 2px solid var(--accent-gold); border-radius: 8px; max-width: 500px;">
-        <p><strong>No profile found</strong></p>
-        <p>In order to manage your profile on this page, the <a href="https://docs.google.com/spreadsheets/d/1E77qmT4eGtyokaDvD2wlK3q2NeMcS4itmkbYp6Rz0qM/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer">directory spreadsheet</a> needs to have the Google address you used to log into the dashboard listed in the green column. Add that email address, and then refresh this screen.</p>
+      <!-- Profile creation wizard (shown when no directory row exists for this captain) -->
+      <div id="profileWizard" class="hidden" style="max-width: 540px;">
+        <div style="background: var(--bg-card); border: var(--border-thickness) solid var(--border-color); box-shadow: 6px 6px 0px #D9DBDB; padding: 1.75rem;">
+          <h3 style="margin: 0 0 0.5rem; font-family: 'Chivo', sans-serif; font-weight: 900; text-transform: uppercase; letter-spacing: 0.3px;">Add yourself to the NC Directory</h3>
+          <p style="color: var(--text-secondary); margin: 0 0 1.5rem;">Let other neighborhood captains know who you are and how to reach you. You can fill in more details after you're listed.</p>
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <div>
+              <label for="wizardName" style="font-weight: 600; display: block; margin-bottom: 0.3rem;">Your name <span style="color: var(--accent-clay);">*</span></label>
+              <input type="text" id="wizardName" placeholder="Full name" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px; box-sizing: border-box; font-size: 1rem;">
+            </div>
+            <div>
+              <label for="wizardPhone" style="font-weight: 600; display: block; margin-bottom: 0.3rem;">Phone number</label>
+              <input type="text" id="wizardPhone" placeholder="(XXX) XXX-XXXX" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px; box-sizing: border-box; font-size: 1rem;">
+            </div>
+            <div>
+              <label for="wizardEmail" style="font-weight: 600; display: block; margin-bottom: 0.3rem;">Preferred contact email</label>
+              <input type="email" id="wizardEmail" placeholder="email@example.com" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px; box-sizing: border-box; font-size: 1rem;">
+              <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0.3rem 0 0;">Can be different from your Google sign-in email.</p>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap;">
+            <button type="button" id="wizardSubmitBtn" class="btn-save">Add me to the directory</button>
+            <span id="wizardStatus" style="font-size: 0.9rem; color: var(--text-secondary);"></span>
+          </div>
+        </div>
       </div>
       <div id="profileFormContainer" class="hidden" style="max-width: 700px;">
         <form id="ncProfileForm" style="display: flex; flex-direction: column; gap: 1rem;">
@@ -1404,6 +1438,7 @@
               await resolveAuthorizedSheetsForCurrentUser();
             }
             if (currentView === 'profile') loadProfileView();
+            checkProfileAndMaybeNudge();
           },
         });
         tokenClient.requestAccessToken({ prompt: 'consent' });
@@ -1425,6 +1460,7 @@
       localStorage.removeItem('googleOAuthToken');
       localStorage.removeItem('googleOAuthTokenExpiry');
       localStorage.removeItem('ncProfileUserEmail');
+      localStorage.removeItem('ncProfileExists');
       localStorage.removeItem('savedSheetUrl');
       localStorage.removeItem('currentView');
       if (input) input.value = '';
@@ -1495,10 +1531,10 @@
 
     async function loadProfileView() {
       const signinEl = document.getElementById('profileSigninPrompt');
-      const notFoundEl = document.getElementById('profileNotFound');
+      const wizardEl = document.getElementById('profileWizard');
       const formEl = document.getElementById('profileFormContainer');
       if (signinEl) signinEl.classList.add('hidden');
-      if (notFoundEl) notFoundEl.classList.add('hidden');
+      if (wizardEl) wizardEl.classList.add('hidden');
       if (formEl) formEl.classList.add('hidden');
 
       if (!accessToken) {
@@ -1518,9 +1554,9 @@
         } catch (e) { console.warn('Could not fetch user email:', e); }
       }
       if (!currentUserEmail) {
-        if (notFoundEl) {
-          notFoundEl.innerHTML = '<p><strong>Could not determine your Google email.</strong></p><p>Your sign-in may not include email access (for example if you signed in before we added profile support). Sign out and sign in again so we can link your account to your NC profile.</p><button type="button" class="btn-signin" id="profileSignOutAndInAgain" style="margin-top: 0.5rem;">Sign out and sign in again</button>';
-          notFoundEl.classList.remove('hidden');
+        if (signinEl) {
+          signinEl.innerHTML = '<p><strong>Could not determine your Google email.</strong></p><p>Your sign-in may not include email access. Sign out and sign in again so we can link your account to your NC profile.</p><button type="button" class="btn-signin" id="profileSignOutAndInAgain" style="margin-top: 0.5rem;">Sign out and sign in again</button>';
+          signinEl.classList.remove('hidden');
           document.getElementById('profileSignOutAndInAgain')?.addEventListener('click', () => {
             signOut();
             setTimeout(() => signIn(), 300);
@@ -1532,7 +1568,7 @@
       try {
         const values = await fetchViaOAuth(NC_DIRECTORY_SHEET_ID, 'A1:P500', 'Sheet1');
         if (!values || values.length < 2) {
-          if (notFoundEl) { notFoundEl.querySelector('p:last-child').textContent = 'NC Directory is empty or unavailable.'; notFoundEl.classList.remove('hidden'); }
+          showProfileWizard();
           return;
         }
         const headers = values[0].map(h => (h || '').trim());
@@ -1544,9 +1580,10 @@
         const googleEmailCol = headers.find(h => h === 'Google email') || 'Google email';
         const matchIndex = rows.findIndex(r => (r[googleEmailCol] || '').trim().toLowerCase() === currentUserEmail);
         if (matchIndex === -1) {
-          if (notFoundEl) notFoundEl.classList.remove('hidden');
+          showProfileWizard();
           return;
         }
+        localStorage.setItem('ncProfileExists', '1');
         ncProfileRowIndex = matchIndex + 2;
         ncProfileRowData = rows[matchIndex];
         ncProfileHeaders = headers;
@@ -1554,7 +1591,11 @@
         if (formEl) formEl.classList.remove('hidden');
       } catch (err) {
         console.error('NC Profile load error:', err);
-        if (notFoundEl) { notFoundEl.querySelector('p:last-child').textContent = 'Error loading directory: ' + (err.message || 'Please try again.'); notFoundEl.classList.remove('hidden'); }
+        if (wizardEl) {
+          const statusEl = wizardEl.querySelector('#wizardStatus') || document.getElementById('wizardStatus');
+          if (statusEl) statusEl.textContent = 'Error loading directory: ' + (err.message || 'Please try again.');
+          wizardEl.classList.remove('hidden');
+        }
       }
     }
 
@@ -1709,6 +1750,101 @@
     }
 
     document.getElementById('ncProfileSaveBtn')?.addEventListener('click', saveNcProfile);
+
+    // ---- Profile creation wizard ----
+
+    function showProfileWizard() {
+      const wizardEl = document.getElementById('profileWizard');
+      if (!wizardEl) return;
+      const emailInput = document.getElementById('wizardEmail');
+      if (emailInput && currentUserEmail && !emailInput.value) emailInput.value = currentUserEmail;
+      wizardEl.classList.remove('hidden');
+    }
+
+    async function submitProfileWizard() {
+      const name = (document.getElementById('wizardName')?.value || '').trim();
+      const statusEl = document.getElementById('wizardStatus');
+      if (!name) {
+        if (statusEl) statusEl.textContent = 'Please enter your name.';
+        return;
+      }
+      const phone = (document.getElementById('wizardPhone')?.value || '').trim();
+      const email = (document.getElementById('wizardEmail')?.value || '').trim();
+      const btn = document.getElementById('wizardSubmitBtn');
+      if (btn) btn.disabled = true;
+      if (statusEl) { statusEl.textContent = 'Adding you to the directory…'; statusEl.style.color = 'var(--text-secondary)'; }
+
+      // Build a row matching NC_PROFILE_HEADERS column order
+      const newRow = NC_PROFILE_HEADERS.map(h => {
+        if (h === 'Name') return name;
+        if (h === 'Phone') return phone;
+        if (h === 'Preferred email') return email;
+        if (h === 'Google email') return currentUserEmail || '';
+        return '';
+      });
+
+      try {
+        const res = await fetch('/api/sheets/append', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sheetId: NC_DIRECTORY_SHEET_ID, values: [newRow], sheetName: 'Sheet1' })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || 'Could not create profile');
+        }
+        localStorage.setItem('ncProfileExists', '1');
+        hideProfileNudge();
+        document.getElementById('profileWizard')?.classList.add('hidden');
+        // Reload profile view — will now find the new row
+        await loadProfileView();
+      } catch (e) {
+        if (statusEl) { statusEl.textContent = 'Error: ' + (e.message || 'Please try again.'); statusEl.style.color = 'var(--accent-clay)'; }
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    document.getElementById('wizardSubmitBtn')?.addEventListener('click', submitProfileWizard);
+
+    // ---- Home view profile nudge ----
+
+    async function checkProfileAndMaybeNudge() {
+      if (!currentUserEmail) return;
+      if (sessionStorage.getItem('profileNudgeDismissed')) return;
+      if (localStorage.getItem('ncProfileExists') === '1') return;
+      try {
+        const values = await fetchViaOAuth(NC_DIRECTORY_SHEET_ID, 'A1:P500', 'Sheet1');
+        if (!values || values.length < 2) return;
+        const headers = values[0].map(h => (h || '').trim());
+        const googleEmailColIdx = headers.indexOf('Google email');
+        if (googleEmailColIdx === -1) return;
+        const found = values.slice(1).some(r => (r[googleEmailColIdx] || '').trim().toLowerCase() === currentUserEmail);
+        if (found) {
+          localStorage.setItem('ncProfileExists', '1');
+        } else {
+          showProfileNudge();
+        }
+      } catch (e) {
+        // Silent fail — don't surface an error for a background check
+      }
+    }
+
+    function showProfileNudge() {
+      const card = document.getElementById('profileNudgeCard');
+      if (card) card.classList.remove('hidden');
+    }
+
+    function hideProfileNudge() {
+      const card = document.getElementById('profileNudgeCard');
+      if (card) card.classList.add('hidden');
+      sessionStorage.setItem('profileNudgeDismissed', '1');
+    }
+
+    document.getElementById('profileNudgeBtn')?.addEventListener('click', () => {
+      hideProfileNudge();
+      switchView('profile');
+    });
+    document.getElementById('profileNudgeDismiss')?.addEventListener('click', hideProfileNudge);
 
     // Update sign-in UI
     function updateSignInUI() {
