@@ -1932,15 +1932,32 @@
 
           if (welcomeAuthState === 'not_registered') {
             if (welcomeStep2) welcomeStep2.classList.add('hidden');
+            // Hide the "✓ Signed in" — they authenticated but aren't authorized
+            if (welcomeStep1Status) welcomeStep1Status.classList.add('hidden');
+            if (welcomeSignInBtn) welcomeSignInBtn.classList.remove('hidden');
             if (welcomeAccessNotice) {
               welcomeAccessNotice.classList.remove('hidden');
-              welcomeAccessNotice.innerHTML = `<p class="welcome-step-description">${escapeHtml(welcomeAuthMessage)}</p>`;
+              welcomeAccessNotice.innerHTML = `
+                <p class="welcome-step-description">${escapeHtml(welcomeAuthMessage)}</p>
+                <p class="welcome-step-description" style="margin-top:0.5rem;">Wrong account? <button type="button" id="welcomeSwitchAccountBtn" style="background:none;border:none;padding:0;color:inherit;text-decoration:underline;cursor:pointer;font-size:inherit;">Sign in with a different account</button></p>
+              `;
+              document.getElementById('welcomeSwitchAccountBtn')?.addEventListener('click', () => {
+                signOut();
+              });
             }
           } else if (welcomeAuthState === 'server_error') {
             if (welcomeStep2) welcomeStep2.classList.add('hidden');
             if (welcomeAccessNotice) {
               welcomeAccessNotice.classList.remove('hidden');
-              welcomeAccessNotice.innerHTML = `<p class="welcome-step-description">${escapeHtml(welcomeAuthMessage)}</p>`;
+              welcomeAccessNotice.innerHTML = `
+                <p class="welcome-step-description">${escapeHtml(welcomeAuthMessage)}</p>
+                <p class="welcome-step-description" style="margin-top:0.5rem;"><button type="button" id="welcomeRetryBtn" style="background:none;border:none;padding:0;color:inherit;text-decoration:underline;cursor:pointer;font-size:inherit;">Try again</button></p>
+              `;
+              document.getElementById('welcomeRetryBtn')?.addEventListener('click', () => {
+                welcomeAuthState = 'loading';
+                updateWelcomeMessage();
+                resolveAuthorizedSheetsForCurrentUser();
+              });
             }
           } else if (welcomeStep2) {
             welcomeStep2.classList.remove('hidden');
