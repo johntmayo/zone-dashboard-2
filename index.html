@@ -5525,11 +5525,12 @@
         captainAssignedCol = findColumn(headers, 'captain assigned');
       }
 
-      // Find relevant columns (exclude address column itself and backend-only resident_id)
-      const detailCols = headers.filter(h => 
-        h !== addressCol && 
+      // Find relevant columns (exclude address column itself, backend-only resident_id, and _-prefixed internal columns)
+      const detailCols = headers.filter(h =>
+        h !== addressCol &&
         h.toLowerCase() !== 'address' &&
         h.toLowerCase() !== 'resident_id' &&
+        !h.startsWith('_') &&
         rows.some(row => row[h] && row[h].trim())
       );
       
@@ -5643,6 +5644,8 @@
       
       const personLevelCols = headers.filter(h => {
         const lower = h.toLowerCase();
+        // Skip _-prefixed internal columns
+        if (h.startsWith('_')) return false;
         // Skip hidden fields
         if (hiddenFromPersonView.some(field => lower.includes(field)) || isHouseOrZipField(lower)) return false;
         // Skip Contact Notes - it's shown separately in contact mode
@@ -6617,6 +6620,7 @@
       };
       const additionalCols = headers.filter(col => {
         const lower = col.toLowerCase();
+        if (col.startsWith('_')) return false;
         if (standardCols.has(col)) return false;
         if (modalHiddenKeywords.some(keyword => lower.includes(keyword)) || isHouseOrZipField(lower)) return false;
         return Boolean(row[col] && String(row[col]).trim());
