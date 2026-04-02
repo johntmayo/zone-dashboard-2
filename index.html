@@ -1784,7 +1784,7 @@
       });
 
       try {
-        const res = await fetch('/api/sheets/append', {
+        const res = await fetch('/api/sheets/append-record', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sheetId: NC_DIRECTORY_SHEET_ID, values: [newRow], sheetName: 'Sheet1' })
