@@ -141,9 +141,20 @@
     .accordion.open .accordion-header::after { transform: rotate(-180deg); }
     .accordion-body { max-height: 0; overflow: hidden; transition: max-height 0.2s ease-out; }
     .accordion.open .accordion-body { max-height: 500px; overflow-y: auto; }
-    .accordion-inner { padding: 0.5rem 0.75rem 1rem; border-top: 1px solid var(--border-color); }
+    .accordion-inner { padding: 0.85rem 0.85rem 1rem; border-top: 1px solid var(--border-color); }
     .accordion-inner label { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; font-size: 0.9rem; font-family: 'Merriweather', serif; cursor: pointer; }
     .accordion-inner input[type="checkbox"] { margin: 0; }
+    .interest-filter-groups { display: grid; gap: 0.85rem; }
+    .interest-filter-group { border: 1px solid #ECE7DD; border-radius: 10px; background: #FCFBF8; padding: 0.75rem; }
+    .interest-filter-group-title { margin: 0 0 0.2rem; font-family: 'Chivo', sans-serif; font-size: 0.88rem; font-weight: 800; color: var(--brand-primary-dark); letter-spacing: 0.02em; }
+    .interest-filter-group-copy { margin: 0 0 0.55rem; color: var(--text-secondary); font-size: 0.78rem; line-height: 1.45; }
+    .interest-filter-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem 0.75rem; }
+    .interest-filter-option { min-width: 0; }
+    .interest-filter-option span:last-child { line-height: 1.35; }
+    .interest-groups-block { display: grid; gap: 0.55rem; }
+    .interest-group { display: grid; gap: 0.2rem; }
+    .interest-group-label { font-size: 0.76rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .tags--interest { margin-top: 0; }
     .results-bar {
       display: flex;
       flex-wrap: wrap;
@@ -220,6 +231,7 @@
       .card { padding: 1rem; }
       .intro-blurb { padding: 1rem; font-size: 0.9rem; }
       .filter-chips { flex-direction: column; align-items: flex-start; }
+      .interest-filter-grid { grid-template-columns: 1fr; }
       .results-bar { flex-direction: column; align-items: stretch; }
       .card .contact .copy-email-btn { opacity: 1; }
     }
@@ -321,6 +333,39 @@
       const LANGUAGES_KEY = 'Languages Spoken';
       const HOUSING_KEY = 'Housing Arrangement';
       const DAMAGE_KEY = 'Damage to home';
+      const NC_INTEREST_AREA_GROUPS = [
+        {
+          label: 'Rebuilding & Housing',
+          description: 'Homes, rebuilding paths, and resilient construction choices.',
+          options: ['Standing homes', 'Rebuilding', 'Home hardening', 'Insurance', 'Owner/Builder', 'Alternative Building', 'Passive homes', 'Modular, Prefab, and Factory-Built Homes']
+        },
+        {
+          label: 'Community Planning & Preservation',
+          description: 'Land use, culture, memory, and long-range neighborhood vision.',
+          options: ['Community visioning', 'Community Land Trusts', 'Commercial redevelopment', 'Architectural heritage', 'Town history & stories', 'Arts']
+        },
+        {
+          label: 'Neighbor Support & Institutions',
+          description: 'People-facing issues, institutions, and mutual support networks.',
+          options: ['Crime & Safety', 'Mental health', 'Renter issues', 'Landlord issues', 'Schools & Children', 'Faith communities', 'Event planning']
+        },
+        {
+          label: 'Environment & Resilience',
+          description: 'Landscape, ecology, climate adaptation, and disaster readiness.',
+          options: ['Bioremediation', 'Trees & plants', 'Solar power', 'Disaster preparedness']
+        },
+        {
+          label: 'Infrastructure & Utilities',
+          description: 'The systems that keep neighborhoods functioning.',
+          options: ['Private Road', 'Septic to Sewer', 'Telecom issues', 'Utilities - All', 'Utilities - Electric', 'Utilities - Gas', 'Utilities - Water']
+        },
+        {
+          label: 'Coordination & Tools',
+          description: 'Practical collaboration tools and ways to work together.',
+          options: ['Group purchasing power', 'New tech tools & platforms']
+        }
+      ];
+      const NC_INTEREST_AREA_ORDER = NC_INTEREST_AREA_GROUPS.flatMap(group => group.options);
 
       const copyIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
       let allCaptains = [];
@@ -364,6 +409,52 @@
         }
         result.push(current.trim());
         return result.filter(Boolean);
+      }
+
+      function sortInterestAreas(values) {
+        const order = new Map(NC_INTEREST_AREA_ORDER.map((value, index) => [value, index]));
+        return [...new Set((values || []).filter(Boolean))].sort((a, b) => {
+          const aIndex = order.has(a) ? order.get(a) : Number.MAX_SAFE_INTEGER;
+          const bIndex = order.has(b) ? order.get(b) : Number.MAX_SAFE_INTEGER;
+          if (aIndex !== bIndex) return aIndex - bIndex;
+          return a.localeCompare(b);
+        });
+      }
+
+      function collectInterestOptions() {
+        const collected = [];
+        allCaptains.forEach(c => {
+          parseMultiSelect(c[INTEREST_AREAS_KEY]).forEach(value => collected.push(value));
+        });
+        return sortInterestAreas([...NC_INTEREST_AREA_ORDER, ...collected]);
+      }
+
+      function getInterestAreaGroups(extraValues = []) {
+        const allOptions = sortInterestAreas([...collectInterestOptions(), ...(extraValues || [])]);
+        const allSet = new Set(allOptions);
+        const knownSet = new Set(NC_INTEREST_AREA_ORDER);
+        const groups = NC_INTEREST_AREA_GROUPS.map(group => ({
+          label: group.label,
+          description: group.description,
+          options: group.options.filter(option => allSet.has(option))
+        })).filter(group => group.options.length > 0);
+        const extras = allOptions.filter(option => !knownSet.has(option));
+        if (extras.length) {
+          groups.push({
+            label: 'Other Existing Values',
+            description: 'These are preserved from the spreadsheet so older entries remain visible.',
+            options: extras
+          });
+        }
+        return groups;
+      }
+
+      function groupSelectedInterests(interests) {
+        const selectedSet = new Set(interests || []);
+        return getInterestAreaGroups(interests).map(group => ({
+          label: group.label,
+          options: group.options.filter(option => selectedSet.has(option))
+        })).filter(group => group.options.length > 0);
       }
 
       function normalizePhone(val) {
@@ -569,6 +660,7 @@
           const phone = normalizePhone(c[PHONE_KEY]);
           const wg = parseMultiSelect(c[WORKING_GROUP_KEY]);
           const interests = parseMultiSelect(c[INTEREST_AREAS_KEY]);
+          const groupedInterests = groupSelectedInterests(interests);
           const badges = parseMultiSelect(c[BADGES_KEY]);
           const skills = (c[SKILLS_KEY] || '').trim();
           const location = (c[LOCATION_KEY] || '').trim();
@@ -585,7 +677,7 @@
             (notesBio ? '<div class="notes-bio">' + escapeHtml(notesBio) + '</div>' : '') +
             (askMeAbout ? '<div class="tags-label">Ask Me About:</div><div class="ask-me-about">' + escapeHtml(askMeAbout) + '</div>' : '') +
             (wg.length ? '<div class="tags-label">Working groups:</div><div class="tags">' + wg.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
-            (interests.length ? '<div class="tags-label">Interest areas:</div><div class="tags">' + interests.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
+            (groupedInterests.length ? '<div class="tags-label">Interest areas:</div><div class="interest-groups-block">' + groupedInterests.map(group => '<div class="interest-group"><div class="interest-group-label">' + escapeHtml(group.label) + '</div><div class="tags tags--interest">' + group.options.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div></div>').join('') + '</div>' : '') +
             (badges.length ? '<div class="tags">' + badges.map(x => { const t = (x || '').trim(); const special = t === '1 Year of Service' ? ' badge-1year' : (t === 'Working Group Chair' ? ' badge-chair' : (t === 'Newsletter' ? ' badge-newsletter' : (t.toLowerCase() === 'dena native' ? ' badge-dena-native' : ''))); return '<span class="tag badge' + special + '">' + escapeHtml(x) + '</span>'; }).join('') + '</div>' : '') +
             '</div>';
         }).join('');
@@ -621,10 +713,11 @@
       }
 
       function collectOptions(key) {
+        if (key === INTEREST_AREAS_KEY) return collectInterestOptions();
         const set = new Set();
         allCaptains.forEach(c => {
           const val = c[key];
-          if (key === WORKING_GROUP_KEY || key === INTEREST_AREAS_KEY || key === WATER_DISTRICT_KEY) parseMultiSelect(val).forEach(x => set.add(x));
+          if (key === WORKING_GROUP_KEY || key === WATER_DISTRICT_KEY) parseMultiSelect(val).forEach(x => set.add(x));
           else if (val && String(val).trim()) set.add(String(val).trim());
         });
         return [...set].sort();
@@ -666,11 +759,11 @@
         const container = document.getElementById('interestCheckboxes');
         const accordion = document.getElementById('interestAccordion');
         const header = document.getElementById('interestAccordionHeader');
-        const options = collectOptions(INTEREST_AREAS_KEY);
+        const groups = getInterestAreaGroups();
         container.innerHTML = '';
         accordion.style.display = 'block';
-        header.addEventListener('click', () => accordion.classList.toggle('open'));
-        if (!options.length) {
+        header.onclick = () => accordion.classList.toggle('open');
+        if (!groups.length) {
           const msg = document.createElement('p');
           msg.className = 'accordion-empty';
           msg.textContent = 'No interest areas in the directory yet.';
@@ -680,21 +773,43 @@
           container.appendChild(msg);
           return;
         }
-        options.forEach(o => {
-          const label = document.createElement('label');
-          const cb = document.createElement('input');
-          cb.type = 'checkbox';
-          cb.value = o;
-          if (activeInterests.has(o)) cb.checked = true;
-          cb.addEventListener('change', () => {
-            if (cb.checked) activeInterests.add(o);
-            else activeInterests.delete(o);
-            applyFilters();
+        const groupsWrap = document.createElement('div');
+        groupsWrap.className = 'interest-filter-groups';
+        groups.forEach(group => {
+          const groupEl = document.createElement('section');
+          groupEl.className = 'interest-filter-group';
+          const title = document.createElement('h4');
+          title.className = 'interest-filter-group-title';
+          title.textContent = group.label;
+          groupEl.appendChild(title);
+          if (group.description) {
+            const copy = document.createElement('p');
+            copy.className = 'interest-filter-group-copy';
+            copy.textContent = group.description;
+            groupEl.appendChild(copy);
+          }
+          const grid = document.createElement('div');
+          grid.className = 'interest-filter-grid';
+          group.options.forEach(o => {
+            const label = document.createElement('label');
+            label.className = 'interest-filter-option';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = o;
+            if (activeInterests.has(o)) cb.checked = true;
+            cb.addEventListener('change', () => {
+              if (cb.checked) activeInterests.add(o);
+              else activeInterests.delete(o);
+              applyFilters();
+            });
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(o));
+            grid.appendChild(label);
           });
-          label.appendChild(cb);
-          label.appendChild(document.createTextNode(o));
-          container.appendChild(label);
+          groupEl.appendChild(grid);
+          groupsWrap.appendChild(groupEl);
         });
+        container.appendChild(groupsWrap);
       }
 
       function showError(msg) {

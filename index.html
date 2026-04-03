@@ -770,61 +770,150 @@
     </div>
 
     <!-- My NC Profile View (NC Directory) -->
-    <div class="content-view hidden" id="profileView">
-      <h2 class="page-title">My NC Profile</h2>
-      <p style="color: var(--text-secondary); margin-bottom: 0.4rem; max-width: 700px;">Here you can update your Neighborhood Captain profile. Changes will be saved to the <a href="nc-directory.html" target="_blank" rel="noopener noreferrer">Neighborhood Captain Directory</a>.</p>
-      <p style="color: var(--text-secondary); margin-bottom: 1rem; max-width: 700px;">You can also update your profile the old fashioned way in the <a href="https://docs.google.com/spreadsheets/d/1E77qmT4eGtyokaDvD2wlK3q2NeMcS4itmkbYp6Rz0qM/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer">directory spreadsheet</a>.</p>
-      <div id="profileSigninPrompt" class="hidden" style="padding: 1.5rem; background: var(--bg-card); border: 2px solid var(--border-color); border-radius: 8px; max-width: 500px;">
+    <div class="content-view hidden profile-view" id="profileView">
+      <div class="profile-page-header">
+        <h2 class="page-title">My NC Profile</h2>
+        <div class="profile-page-intro">
+          <p class="profile-page-lead">Update your public Neighborhood Captain profile here. Changes sync with the <a href="nc-directory.html" target="_blank" rel="noopener noreferrer">Neighborhood Captain Directory</a> and stay compatible with the <a href="https://docs.google.com/spreadsheets/d/1E77qmT4eGtyokaDvD2wlK3q2NeMcS4itmkbYp6Rz0qM/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer">directory spreadsheet</a>.</p>
+          <p class="profile-page-note">Interest area labels below are intentionally matched to the spreadsheet dropdown values so volunteers can edit their profile in either place without drift.</p>
+        </div>
+      </div>
+      <div id="profileSigninPrompt" class="hidden profile-prompt-card">
         <p><strong>Sign in to edit your profile</strong></p>
-        <p>Use the &quot;Sign in with Google&quot; button above, then return here.</p>
+        <p>Use the "Sign in with Google" button above, then return here.</p>
       </div>
       <!-- Profile creation wizard (shown when no directory row exists for this captain) -->
-      <div id="profileWizard" class="hidden" style="max-width: 540px;">
-        <div style="background: var(--bg-card); border: var(--border-thickness) solid var(--border-color); box-shadow: 6px 6px 0px #D9DBDB; padding: 1.75rem;">
-          <h3 style="margin: 0 0 0.5rem; font-family: 'Chivo', sans-serif; font-weight: 900; text-transform: uppercase; letter-spacing: 0.3px;">Add yourself to the NC Directory</h3>
-          <p style="color: var(--text-secondary); margin: 0 0 1.5rem;">Let other neighborhood captains know who you are and how to reach you. You can fill in more details after you're listed.</p>
-          <div style="display: flex; flex-direction: column; gap: 1rem;">
-            <div>
-              <label for="wizardName" style="font-weight: 600; display: block; margin-bottom: 0.3rem;">Your name <span style="color: var(--accent-clay);">*</span></label>
-              <input type="text" id="wizardName" placeholder="Full name" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px; box-sizing: border-box; font-size: 1rem;">
+      <div id="profileWizard" class="hidden profile-shell profile-shell--narrow">
+        <div class="profile-card profile-card--hero">
+          <div class="profile-card-kicker">Neighborhood Captain Directory</div>
+          <h3 class="profile-card-title">Add yourself to the directory</h3>
+          <p class="profile-card-copy">Let other neighborhood captains know who you are and how to reach you. You can fill in more details after you are listed.</p>
+          <div class="profile-grid profile-grid--single">
+            <div class="profile-field">
+              <label class="profile-label" for="wizardName">Your name <span class="profile-required">*</span></label>
+              <input type="text" id="wizardName" class="profile-input" placeholder="Full name">
             </div>
-            <div>
-              <label for="wizardPhone" style="font-weight: 600; display: block; margin-bottom: 0.3rem;">Phone number</label>
-              <input type="text" id="wizardPhone" placeholder="(XXX) XXX-XXXX" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px; box-sizing: border-box; font-size: 1rem;">
+            <div class="profile-field">
+              <label class="profile-label" for="wizardPhone">Phone number</label>
+              <input type="text" id="wizardPhone" class="profile-input" placeholder="(XXX) XXX-XXXX">
             </div>
-            <div>
-              <label for="wizardEmail" style="font-weight: 600; display: block; margin-bottom: 0.3rem;">Preferred contact email</label>
-              <input type="email" id="wizardEmail" placeholder="email@example.com" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px; box-sizing: border-box; font-size: 1rem;">
-              <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0.3rem 0 0;">Can be different from your Google sign-in email.</p>
+            <div class="profile-field">
+              <label class="profile-label" for="wizardEmail">Preferred contact email</label>
+              <input type="email" id="wizardEmail" class="profile-input" placeholder="email@example.com">
+              <p class="profile-field-help">This can be different from your Google sign-in email.</p>
             </div>
           </div>
-          <div style="display: flex; align-items: center; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap;">
+          <div class="profile-form-actions">
             <button type="button" id="wizardSubmitBtn" class="btn-save">Add me to the directory</button>
-            <span id="wizardStatus" style="font-size: 0.9rem; color: var(--text-secondary);"></span>
+            <span id="wizardStatus" class="profile-status-text"></span>
           </div>
         </div>
       </div>
-      <div id="profileFormContainer" class="hidden" style="max-width: 700px;">
-        <form id="ncProfileForm" style="display: flex; flex-direction: column; gap: 1rem;">
-          <div><label for="ncName" style="font-weight: 600;">Name</label><br><input type="text" id="ncName" name="Name" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
-          <div><label for="ncZone" style="font-weight: 600;">Zone</label><br><input type="text" id="ncZone" name="Zone" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
-          <div><label for="ncLocation" style="font-weight: 600;">Location</label><br><input type="text" id="ncLocation" name="Location" placeholder="Describe your location" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
-          <div><label for="ncCensusTract" style="font-weight: 600;">Predominant Census Tract of Zone</label><br><select id="ncCensusTract" name="Predominant Census Tract of Zone" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></select></div>
-          <div><label for="ncPhone" style="font-weight: 600;">Phone</label><br><input type="text" id="ncPhone" name="Phone" placeholder="(XXX) XXX-XXXX" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
-          <div><label for="ncPreferredEmail" style="font-weight: 600;">Preferred email</label><br><input type="email" id="ncPreferredEmail" name="Preferred email" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
-          <div><label style="font-weight: 600;">Working Group Participation</label><br><div id="ncWorkingGroups" style="display: flex; flex-wrap: wrap; gap: 0.5rem;"></div></div>
-          <div><label for="ncHousing" style="font-weight: 600;">Housing Arrangement</label><br><select id="ncHousing" name="Housing Arrangement" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></select></div>
-          <div><label for="ncDamage" style="font-weight: 600;">Damage to home</label><br><select id="ncDamage" name="Damage to home" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></select></div>
-          <div><label for="ncNotesBio" style="font-weight: 600;">Notes/Bio</label><br><textarea id="ncNotesBio" name="Notes/Bio" rows="3" placeholder="A little about your background or interests" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></textarea></div>
-          <div><label style="font-weight: 600;">Interest Areas</label><br><div id="ncInterestAreas" style="display: flex; flex-wrap: wrap; gap: 0.5rem;"></div></div>
-          <div><label for="ncExpertiseAskMe" style="font-weight: 600;">Expertise (Ask Me About...)</label><br><input type="text" id="ncExpertiseAskMe" name="Expertise (Ask Me About...)" placeholder="Things you're knowledgeable about" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
-          <div><label for="ncLanguages" style="font-weight: 600;">Languages Spoken</label><br><input type="text" id="ncLanguages" name="Languages Spoken" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></div>
-          <div><label for="ncWaterDistrict" style="font-weight: 600;">Water Districts in Zone</label><br><select id="ncWaterDistrict" name="Water Districts in Zone" style="width: 100%; padding: 0.5rem; border: 2px solid var(--border-color); border-radius: 4px;"></select></div>
-          <div><label style="display:inline-flex;align-items:center;gap:0.5rem;cursor:pointer;"><input type="checkbox" id="ncDenaNative" name="dena native"> I'm a dena native</label></div>
-          <div id="ncBadgesReadOnly" class="hidden" style="font-size: 0.9rem; color: var(--text-secondary);"></div>
-          <button type="button" id="ncProfileSaveBtn" class="btn-save" style="align-self: flex-start;">Save profile</button>
+      <div id="profileFormContainer" class="hidden profile-shell">
+        <div class="profile-card profile-card--hero">
+          <div class="profile-card-kicker">Neighborhood Captain Directory</div>
+          <h3 class="profile-card-title">Keep your directory card current</h3>
+          <p class="profile-card-copy">This page is designed to feel easier to scan than the spreadsheet while still writing the same values back into it. Save here, edit there, or move between both as needed.</p>
+        </div>
+        <form id="ncProfileForm" class="profile-form">
+          <section class="profile-card">
+            <div class="profile-section-header">
+              <h3>Basics</h3>
+              <p>Core details that help other captains recognize you and your zone.</p>
+            </div>
+            <div class="profile-grid profile-grid--two">
+              <div class="profile-field">
+                <label class="profile-label" for="ncName">Name</label>
+                <input type="text" id="ncName" name="Name" class="profile-input">
+              </div>
+              <div class="profile-field">
+                <label class="profile-label" for="ncZone">Zone</label>
+                <input type="text" id="ncZone" name="Zone" class="profile-input">
+              </div>
+              <div class="profile-field profile-field--span-2">
+                <label class="profile-label" for="ncLocation">Location</label>
+                <input type="text" id="ncLocation" name="Location" class="profile-input" placeholder="Describe your location">
+              </div>
+              <div class="profile-field">
+                <label class="profile-label" for="ncCensusTract">Predominant Census Tract of Zone</label>
+                <select id="ncCensusTract" name="Predominant Census Tract of Zone" class="profile-select"></select>
+              </div>
+              <div class="profile-field">
+                <label class="profile-label" for="ncWaterDistrict">Water Districts in Zone</label>
+                <select id="ncWaterDistrict" name="Water Districts in Zone" class="profile-select"></select>
+              </div>
+            </div>
+          </section>
+          <section class="profile-card">
+            <div class="profile-section-header">
+              <h3>Contact & Introduction</h3>
+              <p>How people can reach you and what they should know about your perspective.</p>
+            </div>
+            <div class="profile-grid profile-grid--two">
+              <div class="profile-field">
+                <label class="profile-label" for="ncPhone">Phone</label>
+                <input type="text" id="ncPhone" name="Phone" class="profile-input" placeholder="(XXX) XXX-XXXX">
+              </div>
+              <div class="profile-field">
+                <label class="profile-label" for="ncPreferredEmail">Preferred email</label>
+                <input type="email" id="ncPreferredEmail" name="Preferred email" class="profile-input">
+              </div>
+              <div class="profile-field">
+                <label class="profile-label" for="ncLanguages">Languages Spoken</label>
+                <input type="text" id="ncLanguages" name="Languages Spoken" class="profile-input" placeholder="English, Spanish, Armenian...">
+              </div>
+              <div class="profile-field">
+                <label class="profile-label" for="ncExpertiseAskMe">Expertise (Ask Me About...)</label>
+                <input type="text" id="ncExpertiseAskMe" name="Expertise (Ask Me About...)" class="profile-input" placeholder="Things you are knowledgeable about">
+              </div>
+              <div class="profile-field profile-field--span-2">
+                <label class="profile-label" for="ncNotesBio">Notes/Bio</label>
+                <textarea id="ncNotesBio" name="Notes/Bio" rows="4" class="profile-textarea" placeholder="A few lines about your background, lived experience, or what kind of neighbor-to-neighbor work you care about."></textarea>
+              </div>
+            </div>
+          </section>
+          <section class="profile-card">
+            <div class="profile-section-header">
+              <h3>Home Context</h3>
+              <p>Optional context that can help other captains understand your situation.</p>
+            </div>
+            <div class="profile-grid profile-grid--two">
+              <div class="profile-field">
+                <label class="profile-label" for="ncHousing">Housing Arrangement</label>
+                <select id="ncHousing" name="Housing Arrangement" class="profile-select"></select>
+              </div>
+              <div class="profile-field">
+                <label class="profile-label" for="ncDamage">Damage to home</label>
+                <select id="ncDamage" name="Damage to home" class="profile-select"></select>
+              </div>
+              <div class="profile-field profile-field--span-2">
+                <label class="profile-check profile-check--single" for="ncDenaNative">
+                  <input type="checkbox" id="ncDenaNative" name="dena native">
+                  <span>I'm a dena native</span>
+                </label>
+              </div>
+              <div id="ncBadgesReadOnly" class="hidden profile-badges-readonly profile-field--span-2"></div>
+            </div>
+          </section>
+          <section class="profile-card">
+            <div class="profile-section-header">
+              <h3>Working Group Participation</h3>
+              <p>Select any formal working groups you are already participating in.</p>
+            </div>
+            <div id="ncWorkingGroups" class="profile-choice-grid"></div>
+          </section>
+          <section class="profile-card">
+            <div class="profile-section-header">
+              <h3>Interest Areas</h3>
+              <p>These match the spreadsheet dropdown vocabulary exactly. Pick as many as apply.</p>
+            </div>
+            <div id="ncInterestAreas" class="profile-interest-groups"></div>
+          </section>
+          <div class="profile-form-actions">
+            <button type="button" id="ncProfileSaveBtn" class="btn-save">Save profile</button>
+            <p id="profileSaveStatus" class="hidden profile-status-text"></p>
+          </div>
         </form>
-        <p id="profileSaveStatus" class="hidden" style="margin-top: 0.5rem; font-size: 0.9rem;"></p>
       </div>
     </div>
 
@@ -1482,8 +1571,41 @@
       'Damage to home': ['Standing home', 'Partial loss', 'Total loss'],
       'Water Districts in Zone': ['Rubio Cañon', 'Lincoln Avenue', 'Las Flores', 'TBD'],
       'Working Group Participation': ['Home Hardening & Fire-Resistant Neighborhoods', 'Bioremediation + Native Plants', 'Political Advocacy', 'Group Purchasing Power', 'Altagether Rebuilding Working Group', 'School Redevelopment'],
-      'Interest Areas': ['Standing homes', 'Trees & plants', 'Bioremediation', 'Mental health', 'Insurance', 'Community visioning', 'Modular, Prefab, and Factory-Built Homes', 'Community Land Trusts', 'Schools & Children', 'Crime & Safety', 'Renter issues', 'Landlord issues', 'Rebuilding', 'Group purchasing power', 'Disaster preparedness', 'Architectural heritage', 'Commercial redevelopment', 'Faith institutions', 'Town history & stories', 'New tech tools & platforms', 'Event planning', 'Owner/Builder', 'Alternative Building', 'Solar power', 'Utilities', 'Water issues', 'Electric issues', 'Gas issues', 'Telecom issues']
+      'Interest Areas': ['Alternative Building', 'Architectural heritage', 'Arts', 'Bioremediation', 'Community Land Trusts', 'Commercial redevelopment', 'Community visioning', 'Crime & Safety', 'Disaster preparedness', 'Event planning', 'Faith communities', 'Group purchasing power', 'Home hardening', 'Insurance', 'Landlord issues', 'Mental health', 'Modular, Prefab, and Factory-Built Homes', 'Owner/Builder', 'New tech tools & platforms', 'Passive homes', 'Private Road', 'Rebuilding', 'Renter issues', 'Schools & Children', 'Septic to Sewer', 'Solar power', 'Standing homes', 'Telecom issues', 'Town history & stories', 'Trees & plants', 'Utilities - All', 'Utilities - Electric', 'Utilities - Gas', 'Utilities - Water']
     };
+    const NC_INTEREST_AREA_GROUPS = [
+      {
+        label: 'Rebuilding & Housing',
+        description: 'How you think about homes, rebuilding paths, and resilient construction.',
+        options: ['Standing homes', 'Rebuilding', 'Home hardening', 'Insurance', 'Owner/Builder', 'Alternative Building', 'Passive homes', 'Modular, Prefab, and Factory-Built Homes']
+      },
+      {
+        label: 'Community Planning & Preservation',
+        description: 'Land use, culture, memory, and the long-range shape of the neighborhood.',
+        options: ['Community visioning', 'Community Land Trusts', 'Commercial redevelopment', 'Architectural heritage', 'Town history & stories', 'Arts']
+      },
+      {
+        label: 'Neighbor Support & Institutions',
+        description: 'People-facing issues, local institutions, and mutual support networks.',
+        options: ['Crime & Safety', 'Mental health', 'Renter issues', 'Landlord issues', 'Schools & Children', 'Faith communities', 'Event planning']
+      },
+      {
+        label: 'Environment & Resilience',
+        description: 'Landscape, ecology, climate adaptation, and disaster readiness.',
+        options: ['Bioremediation', 'Trees & plants', 'Solar power', 'Disaster preparedness']
+      },
+      {
+        label: 'Infrastructure & Utilities',
+        description: 'The physical systems that keep neighborhoods functioning.',
+        options: ['Private Road', 'Septic to Sewer', 'Telecom issues', 'Utilities - All', 'Utilities - Electric', 'Utilities - Gas', 'Utilities - Water']
+      },
+      {
+        label: 'Coordination & Tools',
+        description: 'Practical collaboration tools and ways to work together.',
+        options: ['Group purchasing power', 'New tech tools & platforms']
+      }
+    ];
+    const NC_INTEREST_AREA_ORDER = NC_INTEREST_AREA_GROUPS.flatMap(group => group.options);
     let ncProfileRowIndex = null;
     let ncProfileRowData = null;
     let ncProfileHeaders = null;
@@ -1528,6 +1650,76 @@
       }
       result.push(current.trim());
       return result.filter(Boolean);
+    }
+
+    function sortInterestAreas(values) {
+      const order = new Map(NC_INTEREST_AREA_ORDER.map((value, index) => [value, index]));
+      return [...new Set((values || []).filter(Boolean))].sort((a, b) => {
+        const aIndex = order.has(a) ? order.get(a) : Number.MAX_SAFE_INTEGER;
+        const bIndex = order.has(b) ? order.get(b) : Number.MAX_SAFE_INTEGER;
+        if (aIndex !== bIndex) return aIndex - bIndex;
+        return a.localeCompare(b);
+      });
+    }
+
+    function getAllInterestAreaOptions(extraValues = []) {
+      return sortInterestAreas([...(NC_PROFILE_OPTIONS['Interest Areas'] || []), ...(extraValues || [])]);
+    }
+
+    function getInterestAreaGroups(extraValues = []) {
+      const allOptions = getAllInterestAreaOptions(extraValues);
+      const allSet = new Set(allOptions);
+      const knownSet = new Set(NC_INTEREST_AREA_ORDER);
+      const groups = NC_INTEREST_AREA_GROUPS.map(group => ({
+        label: group.label,
+        description: group.description,
+        options: group.options.filter(option => allSet.has(option))
+      })).filter(group => group.options.length > 0);
+      const extras = allOptions.filter(option => !knownSet.has(option));
+      if (extras.length) {
+        groups.push({
+          label: 'Other Existing Values',
+          description: 'These are preserved from the spreadsheet so nothing gets lost while the taxonomy evolves.',
+          options: extras
+        });
+      }
+      return groups;
+    }
+
+    function renderProfileChoiceOptions(options, selectedValues, inputName, idPrefix) {
+      const selectedSet = new Set(selectedValues || []);
+      return (options || []).map(opt => {
+        const id = idPrefix + opt.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40);
+        const checked = selectedSet.has(opt) ? ' checked' : '';
+        return '<label class="profile-choice" for="' + id + '">' +
+          '<input type="checkbox" name="' + escapeHtmlAttr(inputName) + '" value="' + escapeHtmlAttr(opt) + '" id="' + id + '"' + checked + '>' +
+          '<span>' + escapeHtml(opt) + '</span>' +
+          '</label>';
+      }).join('');
+    }
+
+    function renderProfileWorkingGroups(selectedValues) {
+      const wgContainer = document.getElementById('ncWorkingGroups');
+      if (!wgContainer) return;
+      const options = [...new Set([...(NC_PROFILE_OPTIONS['Working Group Participation'] || []), ...(selectedValues || [])])];
+      wgContainer.innerHTML = renderProfileChoiceOptions(options, selectedValues, 'Working Group Participation', 'ncWg_');
+    }
+
+    function renderProfileInterestAreas(selectedValues) {
+      const iaContainer = document.getElementById('ncInterestAreas');
+      if (!iaContainer) return;
+      const groups = getInterestAreaGroups(selectedValues);
+      iaContainer.innerHTML = groups.map(group => {
+        return '<section class="profile-choice-section">' +
+          '<div class="profile-choice-section-head">' +
+          '<div class="profile-choice-section-title">' + escapeHtml(group.label) + '</div>' +
+          (group.description ? '<p class="profile-choice-section-copy">' + escapeHtml(group.description) + '</p>' : '') +
+          '</div>' +
+          '<div class="profile-choice-grid profile-choice-grid--compact">' +
+          renderProfileChoiceOptions(group.options, selectedValues, 'Interest Areas', 'ncIa_') +
+          '</div>' +
+          '</section>';
+      }).join('');
     }
 
     async function loadProfileView() {
@@ -1638,24 +1830,8 @@
       const ncExpertiseAskMe = document.getElementById('ncExpertiseAskMe');
       if (ncExpertiseAskMe) ncExpertiseAskMe.value = (row['Expertise (Ask Me About...)'] || '').trim();
       document.getElementById('ncLanguages').value = (row['Languages Spoken'] || '').trim();
-      const wgContainer = document.getElementById('ncWorkingGroups');
-      if (wgContainer) {
-        const selected = parseMultiSelect(row['Working Group Participation']);
-        wgContainer.innerHTML = (opts['Working Group Participation'] || []).map(opt => {
-          const id = 'ncWg_' + opt.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
-          const checked = selected.includes(opt) ? ' checked' : '';
-          return '<label style="display:inline-flex;align-items:center;gap:0.35rem;margin-right:0.5rem;"><input type="checkbox" name="Working Group Participation" value="' + escapeHtmlAttr(opt) + '" id="' + id + '"' + checked + '> ' + escapeHtml(opt) + '</label>';
-        }).join('');
-      }
-      const iaContainer = document.getElementById('ncInterestAreas');
-      if (iaContainer) {
-        const selected = parseMultiSelect(row['Interest Areas']);
-        iaContainer.innerHTML = (opts['Interest Areas'] || []).map(opt => {
-          const id = 'ncIa_' + opt.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 30);
-          const checked = selected.includes(opt) ? ' checked' : '';
-          return '<label style="display:inline-flex;align-items:center;gap:0.35rem;margin-right:0.5rem;"><input type="checkbox" name="Interest Areas" value="' + escapeHtmlAttr(opt) + '" id="' + id + '"' + checked + '> ' + escapeHtml(opt) + '</label>';
-        }).join('');
-      }
+      renderProfileWorkingGroups(parseMultiSelect(row['Working Group Participation']));
+      renderProfileInterestAreas(parseMultiSelect(row['Interest Areas']));
       const ncDenaNative = document.getElementById('ncDenaNative');
       if (ncDenaNative) {
         const badges = parseMultiSelect(row['Badges'] || '');
