@@ -1217,6 +1217,12 @@
             'Las Flores Water Company': { lat: 34.19933, lng: -118.13328 },
             'Rubio Canon Land and Water Association': { lat: 34.18509, lng: -118.13096 },
             'Rubio Cañon Land and Water Association': { lat: 34.18509, lng: -118.13096 }
+          },
+          // Preferred override: pin by final display text shown on the map.
+          manualPlacementsByDisplayName: {
+            'Lincoln Ave': { lat: 34.19975, lng: -118.15092 },
+            'Las Flores': { lat: 34.19933, lng: -118.13328 },
+            'Rubio Cañon': { lat: 34.18509, lng: -118.13096 }
           }
         },
         labelTitlePropertyKeys: [
@@ -10170,6 +10176,19 @@
       return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
     }
 
+    function resolveWaterDistrictDisplayNameLatLng(displayName, overlayConfig) {
+      const byName = overlayConfig?.label?.manualPlacementsByDisplayName;
+      if (!byName || typeof byName !== 'object') return null;
+      const target = normalizeWaterDistrictPlacementKey(displayName);
+      for (const [k, pt] of Object.entries(byName)) {
+        if (normalizeWaterDistrictPlacementKey(k) !== target) continue;
+        const lat = Number(pt.lat);
+        const lng = Number(pt.lng != null ? pt.lng : pt.lon);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+      }
+      return null;
+    }
+
     function resolveWaterDistrictManualLabelLatLng(feature, overlayConfig) {
       const labelCfg = overlayConfig?.label;
       if (!labelCfg) return null;
@@ -10449,9 +10468,23 @@
             firstEntryByText.set(text, entry);
           }
         });
+        const placed = [];
         const markers = Array.from(firstEntryByText.entries()).map(([text, entry]) => {
+          const byDisplayName = resolveWaterDistrictDisplayNameLatLng(text, overlayConfig);
+          let lat = Number(byDisplayName?.lat ?? entry?.lat);
+          let lng = Number(byDisplayName?.lng ?? entry?.lng);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            lat = centerLat;
+            lng = centerLng;
+          }
+          // Safety net: if two labels land nearly identical, nudge later ones apart.
+          while (placed.some((p) => Math.abs(p.lat - lat) < 0.00035 && Math.abs(p.lng - lng) < 0.00035)) {
+            lat += 0.00032;
+            lng += 0.00018;
+          }
+          placed.push({ lat, lng });
           const labelHtml = `<div class="overlay-water-badge">${escapeOverlayHtml(text)}</div>`;
-          return L.marker([entry.lat, entry.lng], {
+          return L.marker([lat, lng], {
             pane: labelPane || undefined,
             icon: L.divIcon({
               className: 'overlay-water-badge-wrapper',
