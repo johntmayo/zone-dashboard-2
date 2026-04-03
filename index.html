@@ -5697,7 +5697,7 @@
           ` : ''}
         </div>
         <div class="address-details active">
-          <h3><button type="button" id="addressHeadingBtn" data-address="${address.replace(/"/g, '&quot;')}" style="background:none;border:none;padding:0;margin:0;font:inherit;font-size:inherit;font-weight:inherit;color:inherit;cursor:pointer;text-align:left;text-decoration:underline dotted;text-underline-offset:3px;" title="Click to move this address's pin on the map">${escapeHtml(address)}</button></h3>
+          <h3>${escapeHtml(address)}</h3>
       `;
 
       // Collect unique values for dropdown fields from ALL data
@@ -6343,12 +6343,6 @@
         });
       });
 
-      // Clickable address heading → Move Pin modal
-      document.getElementById('addressHeadingBtn')?.addEventListener('click', () => {
-        const addr = document.getElementById('addressHeadingBtn')?.getAttribute('data-address');
-        if (addr) openMovePinModal(addr);
-      });
-      
       // Add save button handlers (both top and bottom buttons)
       const saveBtn = document.getElementById('saveChangesBtn');
       if (saveBtn) {
