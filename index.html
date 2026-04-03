@@ -1212,7 +1212,8 @@
           // Fixed label anchors (match AGENCYNAME from tile data; matching is case-insensitive).
           manualPlacementsByObjectId: {},
           manualPlacementsByAgency: {
-            'Lincoln Ave': { lat: 34.19975, lng: -118.15092 },
+            'Lincoln Avenue Water Company': { lat: 34.19975, lng: -118.15092 },
+            'Lincoln Avenue Water Company - Corrected': { lat: 34.19975, lng: -118.15092 },
             'Las Flores Water Company': { lat: 34.19933, lng: -118.13328 },
             'Rubio Canon Land and Water Association': { lat: 34.18509, lng: -118.13096 },
             'Rubio Cañon Land and Water Association': { lat: 34.18509, lng: -118.13096 }
@@ -10234,8 +10235,20 @@
         ...getWaterDistrictAgencyPropertyKeys(overlayConfig),
         ...(overlayConfig?.labelTitlePropertyKeys || [])
       ];
-      const name = getFirstOverlayProperty(props, keys);
-      if (name) return name;
+      const rawName = String(getFirstOverlayProperty(props, keys) || '').trim();
+      if (rawName) {
+        const normalized = rawName.toLowerCase().replace(/\s+/g, ' ');
+        if (normalized === 'lincoln avenue water company' || normalized === 'lincoln avenue water company - corrected') {
+          return 'Lincoln Ave';
+        }
+        if (normalized === 'las flores water company') {
+          return 'Las Flores';
+        }
+        if (normalized === 'rubio canon land and water association' || normalized === 'rubio cañon land and water association') {
+          return 'Rubio Cañon';
+        }
+        return rawName;
+      }
       return overlayConfig?.displayName || 'Water district';
     }
 
