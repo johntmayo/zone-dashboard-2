@@ -10439,8 +10439,17 @@
         const markerDefs = wdEntries.length
           ? wdEntries
           : [{ feature: { properties: {} }, lat: centerLat, lng: centerLng }];
-        const markers = markerDefs.map((entry) => {
+        // Some districts can have multiple polygon features in the tileset.
+        // Render one badge per visible district name to avoid overlapping duplicates.
+        const firstEntryByText = new Map();
+        markerDefs.forEach((entry) => {
           const text = getWaterDistrictDisplayName(entry?.feature || { properties: {} }, overlayConfig);
+          if (!text) return;
+          if (!firstEntryByText.has(text)) {
+            firstEntryByText.set(text, entry);
+          }
+        });
+        const markers = Array.from(firstEntryByText.entries()).map(([text, entry]) => {
           const labelHtml = `<div class="overlay-water-badge">${escapeOverlayHtml(text)}</div>`;
           return L.marker([entry.lat, entry.lng], {
             pane: labelPane || undefined,
