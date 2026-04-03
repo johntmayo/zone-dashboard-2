@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Outreach Helper | Altagether</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/x-icon" href="public/images/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-paper: #FDFBF7;
+      --bg-card: #FFFFFF;
+      --brand-primary-dark: #314059;
+      --text-primary: #1F2937;
+      --text-secondary: #4B5563;
+      --accent-gold: #F59E0B;
+      --accent-clay: #BC5838;
+      --accent-green: #283618;
+      --border-color: #E5E7EB;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background: var(--bg-paper);
+      color: var(--text-primary);
+      font-family: 'Merriweather', serif;
+    }
+    h1, h2, h3, h4, .nav-item, .btn {
+      font-family: 'Chivo', sans-serif;
+      font-weight: 700;
+    }
+    .header {
+      background: var(--brand-primary-dark);
+      color: white;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      border-bottom: 3px solid var(--text-primary);
+    }
+    .header img { height: 40px; }
+    .header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 1.5rem;
+      display: grid;
+      gap: 1.25rem;
+    }
+    .intro-blurb {
+      margin: 0;
+      font-size: 0.98rem;
+      line-height: 1.6;
+      max-width: 54rem;
+      color: var(--text-secondary);
+    }
+    .section-card {
+      background: var(--bg-card);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.2rem;
+      box-shadow: 4px 4px 0 var(--border-color);
+    }
+    .section-title {
+      margin: 0 0 0.2rem;
+      font-size: 1.1rem;
+      color: var(--brand-primary-dark);
+    }
+    .section-subtitle {
+      margin: 0 0 1rem;
+      font-size: 0.92rem;
+      color: var(--text-secondary);
+    }
+    .option-grid {
+      display: grid;
+      gap: 0.75rem;
+    }
+    .option-grid.use-cases { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .option-grid.formats { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .option-btn {
+      appearance: none;
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      text-align: left;
+      padding: 0.9rem 1rem;
+      cursor: pointer;
+      font-family: 'Merriweather', serif;
+      font-size: 0.96rem;
+      line-height: 1.45;
+      transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+    }
+    .option-btn:hover {
+      background: #F9FAFB;
+      border-color: #D1D5DB;
+      transform: translateY(-1px);
+    }
+    .option-btn.active {
+      background: #FEF3C7;
+      border-color: var(--brand-primary-dark);
+      color: var(--text-primary);
+      box-shadow: 0 0 0 1px rgba(49, 64, 89, 0.1) inset;
+    }
+    .draft-shell {
+      display: grid;
+      gap: 1rem;
+    }
+    .draft-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    .draft-toggle {
+      display: inline-flex;
+      border: 2px solid var(--border-color);
+      border-radius: 4px;
+      overflow: hidden;
+      background: var(--bg-card);
+    }
+    .toggle-btn {
+      border: 0;
+      background: transparent;
+      color: var(--text-secondary);
+      padding: 0.45rem 0.8rem;
+      cursor: pointer;
+      font-family: 'Merriweather', serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    .toggle-btn:hover { background: #F9FAFB; color: var(--text-primary); }
+    .toggle-btn.active {
+      background: var(--accent-gold);
+      color: var(--text-primary);
+    }
+    .draft-card {
+      background: #FFFEFC;
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    .draft-text {
+      margin: 0;
+      white-space: pre-wrap;
+      font-size: 0.96rem;
+      line-height: 1.62;
+      color: var(--text-primary);
+    }
+    .coach-tip {
+      background: linear-gradient(135deg, #FEF3C7 0%, #FEF9E7 100%);
+      border: 2px solid #FCD34D;
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      color: #4B5563;
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+    .coach-tip strong {
+      color: var(--brand-primary-dark);
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.92rem;
+      margin-right: 0.2rem;
+    }
+    .fields-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem 1rem;
+    }
+    .field-wrap { display: grid; gap: 0.3rem; }
+    .field-wrap label {
+      font-size: 0.86rem;
+      color: var(--text-secondary);
+    }
+    .field-wrap input,
+    .field-wrap textarea {
+      width: 100%;
+      border: 2px solid var(--border-color);
+      border-radius: 4px;
+      background: white;
+      color: var(--text-primary);
+      font-size: 0.95rem;
+      font-family: 'Merriweather', serif;
+      padding: 0.55rem 0.75rem;
+    }
+    .field-wrap textarea {
+      min-height: 90px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+    .field-wrap input:focus,
+    .field-wrap textarea:focus,
+    .option-btn:focus-visible,
+    .toggle-btn:focus-visible,
+    .action-btn:focus-visible,
+    .modal-close:focus-visible {
+      outline: 2px solid var(--brand-primary-dark);
+      outline-offset: 2px;
+    }
+    .action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      align-items: center;
+    }
+    .action-btn {
+      border: 2px solid var(--brand-primary-dark);
+      border-radius: 4px;
+      padding: 0.58rem 0.95rem;
+      background: white;
+      color: var(--brand-primary-dark);
+      cursor: pointer;
+      font-size: 0.92rem;
+      font-weight: 600;
+      font-family: 'Merriweather', serif;
+    }
+    .action-btn:hover {
+      background: var(--brand-primary-dark);
+      color: white;
+    }
+    .action-btn.primary {
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+    }
+    .action-btn.primary:hover {
+      background: var(--accent-green);
+      color: white;
+    }
+    .action-feedback {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      min-height: 1em;
+    }
+    .bottom-note {
+      margin: 0;
+      font-size: 0.93rem;
+      color: var(--text-secondary);
+    }
+    .muted { color: var(--text-secondary); }
+    .hidden { display: none !important; }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 1rem;
+    }
+    .modal {
+      width: 100%;
+      max-width: 520px;
+      background: white;
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+      padding: 1.1rem 1.2rem 1rem;
+    }
+    .modal h3 {
+      margin: 0 0 0.55rem;
+      color: var(--brand-primary-dark);
+      font-size: 1.1rem;
+    }
+    .modal p {
+      margin: 0;
+      color: var(--text-secondary);
+      line-height: 1.55;
+      font-size: 0.95rem;
+    }
+    .modal-close {
+      margin-top: 0.9rem;
+      border: 0;
+      background: transparent;
+      color: var(--brand-primary-dark);
+      font-size: 0.92rem;
+      cursor: pointer;
+      padding: 0.2rem 0;
+      text-decoration: underline;
+      font-family: 'Merriweather', serif;
+    }
+
+    #printView { display: none; }
+    @media print {
+      body { background: white; color: black; }
+      body * { visibility: hidden; }
+      #printView, #printView * { visibility: visible; }
+      #printView {
+        display: block !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        padding: 0.6in;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      #printView h1 {
+        margin: 0 0 0.2in;
+        font-size: 18pt;
+        font-family: Arial, sans-serif;
+      }
+      #printMeta {
+        margin: 0 0 0.25in;
+        color: #333;
+        font-size: 10pt;
+        font-family: Arial, sans-serif;
+      }
+      #printDraft {
+        margin: 0;
+        white-space: pre-wrap;
+        line-height: 1.45;
+        font-size: 12pt;
+      }
+    }
+    @media (max-width: 800px) {
+      .container { padding: 1rem; gap: 1rem; }
+      .fields-grid { grid-template-columns: 1fr; }
+      .header h1 { font-size: 1.28rem; }
+      .section-card { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <img src="public/images/logo_white_transparent.png" alt="Altagether" />
+    <h1>Outreach Helper</h1>
+  </header>
+
+  <main class="container">
+    <section class="section-card">
+      <h2 class="section-title">Outreach Helper</h2>
+      <p class="intro-blurb">Simple language and printable materials to help you connect with neighbors.</p>
+    </section>
+
+    <section class="section-card" aria-labelledby="step1Heading">
+      <h3 class="section-title" id="step1Heading">Step 1: What are you trying to do?</h3>
+      <p class="section-subtitle">Pick the closest match and we will generate language right away.</p>
+      <div class="option-grid use-cases" id="useCaseOptions"></div>
+    </section>
+
+    <section class="section-card" aria-labelledby="step2Heading">
+      <h3 class="section-title" id="step2Heading">Step 2: How do you want to communicate?</h3>
+      <p class="section-subtitle">Choose a format. You can still copy or print any draft no matter what you select.</p>
+      <div class="option-grid formats" id="formatOptions"></div>
+    </section>
+
+    <section class="section-card draft-shell" aria-labelledby="step3Heading">
+      <div class="draft-header">
+        <div>
+          <h3 class="section-title" id="step3Heading">Step 3: Here is your draft</h3>
+          <p class="section-subtitle" id="draftContextLabel"></p>
+        </div>
+        <div class="draft-toggle" role="tablist" aria-label="Draft versions">
+          <button class="toggle-btn active" id="draftDefaultBtn" type="button" data-variant="default" role="tab" aria-selected="true">Default</button>
+          <button class="toggle-btn" id="draftAlternateBtn" type="button" data-variant="alternate" role="tab" aria-selected="false">Alternate</button>
+        </div>
+      </div>
+      <div class="draft-card" aria-live="polite">
+        <p id="renderedDraft" class="draft-text"></p>
+      </div>
+      <div class="coach-tip"><strong>Coaching tip:</strong><span id="coachingTip"></span></div>
+
+      <div>
+        <h4 class="section-title" style="font-size:1rem;margin-bottom:0.45rem;">Fill in details</h4>
+        <p class="section-subtitle">Edits update the draft live. If a field is blank, placeholders stay visible so you know what to customize.</p>
+        <div class="fields-grid">
+          <div class="field-wrap">
+            <label for="fieldYourName">Your name</label>
+            <input id="fieldYourName" type="text" autocomplete="name" />
+          </div>
+          <div class="field-wrap">
+            <label for="fieldStreet">Street / address reference</label>
+            <input id="fieldStreet" type="text" autocomplete="street-address" />
+          </div>
+          <div class="field-wrap">
+            <label for="fieldPhone">Phone</label>
+            <input id="fieldPhone" type="text" autocomplete="tel" />
+          </div>
+          <div class="field-wrap">
+            <label for="fieldEmail">Email</label>
+            <input id="fieldEmail" type="email" autocomplete="email" />
+          </div>
+          <div class="field-wrap">
+            <label for="fieldNeighborName">Neighbor name (optional)</label>
+            <input id="fieldNeighborName" type="text" />
+          </div>
+          <div class="field-wrap">
+            <label for="fieldGroup">Neighborhood group / link (optional)</label>
+            <input id="fieldGroup" type="text" />
+          </div>
+          <div class="field-wrap" style="grid-column:1 / -1;">
+            <label for="fieldPersonalNote">Personal note (optional)</label>
+            <textarea id="fieldPersonalNote" placeholder="Add one personal line if helpful."></textarea>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-card" aria-labelledby="step4Heading">
+      <h3 class="section-title" id="step4Heading">Step 4: Output actions</h3>
+      <p class="section-subtitle">Use whichever output helps for this moment.</p>
+      <div class="action-row">
+        <button type="button" class="action-btn primary" id="copyBtn">Copy text</button>
+        <button type="button" class="action-btn" id="printBtn">Print this</button>
+        <button type="button" class="action-btn" id="templateBtn">Open editable template</button>
+      </div>
+      <p class="action-feedback" id="actionFeedback" aria-live="polite"></p>
+    </section>
+
+    <p class="bottom-note">Simple is enough. A short, neighborly message can open the door.</p>
+  </main>
+
+  <div class="modal-overlay hidden" id="templateModal" role="dialog" aria-modal="true" aria-labelledby="templateModalTitle">
+    <div class="modal">
+      <h3 id="templateModalTitle">Editable template (coming soon)</h3>
+      <p>Editable template support can connect to Google Docs or Google Slides in a future version.</p>
+      <button type="button" id="closeTemplateModal" class="modal-close">Close</button>
+    </div>
+  </div>
+
+  <section id="printView" aria-hidden="true">
+    <h1>Outreach Helper Draft</h1>
+    <p id="printMeta"></p>
+    <pre id="printDraft"></pre>
+  </section>
+
+  <script>
+    (function () {
+      const USE_CASES = [
+        { id: 'introduce', label: 'Introduce myself to a neighbor' },
+        { id: 'invite', label: 'Invite someone to stay connected' },
+        { id: 'followup', label: 'Follow up with someone I already reached' }
+      ];
+
+      const FORMATS = [
+        { id: 'text', label: 'Text' },
+        { id: 'email', label: 'Email' },
+        { id: 'phone', label: 'Phone / voicemail' },
+        { id: 'printable', label: 'Printable note' }
+      ];
+
+      const COPY_LIBRARY = {
+        introduce: {
+          text: {
+            default: "Hi [Neighbor Name], my name is [Your Name], and I'm your neighbor from [Street / Area]. I'm also a Neighborhood Captain with Altagether. I wanted to introduce myself and reach out in case it's helpful to stay connected with someone nearby. Altagether is a grassroots network of Altadena neighbors helping people stay connected, share information and resources, and support each other through recovery. If you'd ever like to connect, ask a question, or be looped into neighborhood updates, feel free to text me here or email me at [Email].",
+            alternate: "Hi neighbor, I'm [Your Name] from [Street / Area]. I'm reaching out because I'm a Neighborhood Captain with Altagether and wanted to introduce myself. I'm helping neighbors stay connected and share information and resources as we all move through recovery. If it would be helpful to be in touch, you can reach me at [Phone] or [Email].",
+            tip: "You do not need to make this perfect. A simple introduction is enough."
+          },
+          email: {
+            default: "Subject: Neighbor introduction\n\nHi [Neighbor Name],\n\nMy name is [Your Name], and I'm your neighbor from [Street / Area]. I'm also a Neighborhood Captain with Altagether, and I wanted to introduce myself and reach out in case it's helpful to stay connected.\n\nAltagether is a grassroots network of Altadena neighbors helping people stay connected, share information and resources, and support each other through recovery.\n\nI'm here as a local point person for this part of the neighborhood. If you ever want to connect, ask a question, share an update, or make sure you're looped in, please feel free to reach out.\n\nYou can reach me at:\n[Phone]\n[Email]\n\nWith care,\n[Your Name]",
+            alternate: "Subject: Hello from a neighbor nearby\n\nHi [Neighbor Name],\n\nI wanted to say hello and introduce myself. I'm [Your Name] from [Street / Area], and I'm a Neighborhood Captain with Altagether.\n\nI'm helping connect neighbors so people can stay in touch, share information and resources, and support each other through recovery.\n\nI don't have all the answers, but I'm happy to help however I can and make sure folks are not going through this alone.\n\nFeel free to reach out any time:\n[Phone]\n[Email]\n\nBest,\n[Your Name]",
+            tip: "You do not need to explain everything about Altagether. Focus on introducing yourself."
+          },
+          phone: {
+            default: "Hi, this is [Your Name]. I'm your neighbor from [Street / Area], and I'm also a Neighborhood Captain with Altagether. I just wanted to introduce myself and reach out. Altagether is a grassroots network of Altadena neighbors helping people stay connected, share information and resources, and support each other through recovery. If it would be helpful to be in touch, feel free to call or text me back at [Phone]. Again, this is [Your Name] at [Phone]. Thanks.",
+            alternate: "Hi, this is [Your Name], your neighbor from [Street / Area]. I wanted to introduce myself and let you know I'm one of the Neighborhood Captains working with Altagether. I'm helping neighbors stay connected and support each other through recovery. If you'd like to connect, you can reach me at [Phone]. Again, that's [Phone]. Thanks so much.",
+            tip: "Keep it short, warm, and easy to respond to."
+          },
+          printable: {
+            default: "Hi Neighbor,\n\nMy name is [Your Name], and I'm your neighbor from [Street / Area]. I'm also a Neighborhood Captain with Altagether, and I wanted to introduce myself and reach out.\n\nAltagether is a grassroots network of Altadena neighbors helping people stay connected, share information and resources, and support each other through recovery.\n\nIf it would be helpful to be connected with someone nearby, please feel free to reach out. I'm happy to help however I can, answer questions if I'm able, or make sure you're looped into neighborhood updates.\n\n[Phone]\n[Email]\n\nWith care,\n[Your Name]",
+            alternate: "Hi Neighbor,\n\nI'm [Your Name] from [Street / Area]. I'm reaching out as a Neighborhood Captain with Altagether to help neighbors stay connected, share information and resources, and support one another through recovery.\n\nI know this process can feel isolating and overwhelming. I don't have all the answers, but I'm here to help however I can and to make sure neighbors have a way to stay connected to one another.\n\nPlease feel free to reach out:\n[Phone]\n[Email]\n\n[Your Name]",
+            tip: "The goal is just to open the door. Keep it short and neighborly."
+          }
+        },
+        invite: {
+          text: {
+            default: "Hi [Neighbor Name], it was good connecting. If you'd like, I can add you to our neighborhood [text thread / email list / WhatsApp group] so you can stay in the loop on updates, resources, and what neighbors are sharing. No pressure at all.",
+            alternate: "Hi [Neighbor Name], I'm helping keep neighbors connected and wanted to see if you'd like to be added to our neighborhood [group / updates list]. It's just a simple way to stay in touch and share useful info. Happy to add you if you want.",
+            tip: "Keep the invitation light. People are more likely to say yes when there's no pressure."
+          },
+          email: {
+            default: "Subject: Want to stay connected with neighbors?\n\nHi [Neighbor Name],\n\nI wanted to follow up and see whether you'd like to be added to our neighborhood [email list / text thread / WhatsApp group / updates list].\n\nIt's a simple way for neighbors to stay in touch, share information and resources, and hear about anything relevant going on nearby.\n\nIf you'd like to be included, just let me know and I'll add you.\n\nBest,\n[Your Name]\n[Phone]\n[Email]",
+            alternate: "Subject: Neighborhood updates\n\nHi [Neighbor Name],\n\nI'm helping keep neighbors connected, and I wanted to invite you to join our neighborhood [group / updates list / recurring meeting] if that would be useful.\n\nIt's a low-key way to stay looped in and connected with others nearby.\n\nIf you want to join, just reply and I'll send the details.\n\nTake care,\n[Your Name]",
+            tip: "Focus on the benefit: staying connected and in the loop."
+          },
+          phone: {
+            default: "Hi, this is [Your Name] from [Street / Area]. I wanted to follow up and see if you'd like to be added to our neighborhood [text thread / email list / WhatsApp group / updates list]. It's just a simple way for neighbors to stay connected, share information and resources, and stay in the loop. If you're interested, feel free to call or text me back at [Phone]. Thanks.",
+            alternate: "Hi, this is [Your Name]. I'm reaching out to see if you'd like to be included in our neighborhood updates. We're just trying to make it easier for neighbors to stay in touch and share useful information. If you want to join, you can call or text me at [Phone]. Thanks.",
+            tip: "A simple invitation is enough. You do not need to sell it."
+          },
+          printable: {
+            default: "Hi Neighbor,\n\nI'm helping keep neighbors connected and wanted to invite you to join our neighborhood [text thread / email list / WhatsApp group / updates list].\n\nIt's a simple way to stay in touch, share information and resources, and hear about anything relevant going on nearby.\n\nIf you'd like to be included, feel free to reach out:\n[Phone]\n[Email]\n\n[Your Name]",
+            alternate: "Hi Neighbor,\n\nIf you'd like to stay in the loop with neighbors nearby, I'd be happy to add you to our neighborhood [group / updates list].\n\nWe're using it to stay connected, share useful information, and support one another through recovery.\n\nReach me here if you'd like to join:\n[Phone]\n[Email]\n\n[Your Name]",
+            tip: "Make it easy and low-pressure."
+          }
+        },
+        followup: {
+          text: {
+            default: "Hi [Neighbor Name], just wanted to check in and see how you're doing. No need for a long response. I just wanted to reach out and let you know I'm thinking of you and am here if it's ever helpful to connect.",
+            alternate: "Hi [Neighbor Name], I wanted to circle back and see how things are going for you. If there's anything you're needing, or if you just want to stay in touch, feel free to reach out.",
+            tip: "A short follow-up goes a long way."
+          },
+          email: {
+            default: "Subject: Just checking in\n\nHi [Neighbor Name],\n\nI wanted to follow up and see how you're doing.\n\nNo pressure to respond at length. I just wanted to check in, let you know I'm thinking of you, and remind you that I'm here if it would ever be helpful to connect.\n\nTake care,\n[Your Name]\n[Phone]\n[Email]",
+            alternate: "Subject: Checking in\n\nHi [Neighbor Name],\n\nI wanted to circle back and see how things are going for you.\n\nIf there's anything you're needing, or if you'd like to stay in touch or be looped into neighborhood updates, feel free to reach out anytime.\n\nWarmly,\n[Your Name]",
+            tip: "You do not need a major reason to reach out again."
+          },
+          phone: {
+            default: "Hi, this is [Your Name]. I just wanted to check in and see how you're doing. No need to call back unless it would be helpful, but I wanted to reach out and let you know I'm here if you need anything or want to connect. You can reach me at [Phone]. Thanks.",
+            alternate: "Hi, this is [Your Name] from [Street / Area]. I wanted to circle back and check in. If it would be helpful to connect or if there's anything you need, feel free to call or text me at [Phone]. Take care.",
+            tip: "Follow-up can be brief. The point is to keep the connection warm."
+          },
+          printable: {
+            default: "Hi Neighbor,\n\nJust wanted to check in and see how you're doing.\n\nNo pressure to respond. I simply wanted to reach out, remind you that someone nearby is thinking of you, and let you know I'm here if it would ever be helpful to connect.\n\nYou can reach me at:\n[Phone]\n[Email]\n\nTake care,\n[Your Name]",
+            alternate: "Hi Neighbor,\n\nI wanted to circle back and say hello.\n\nIf there's anything you need, if you have a question, or if you'd just like to stay connected with neighbors nearby, feel free to reach out.\n\n[Phone]\n[Email]\n\n[Your Name]",
+            tip: "Keep it simple. A follow-up note does not need to do a lot."
+          }
+        }
+      };
+
+      const state = {
+        useCase: 'introduce',
+        format: 'text',
+        variant: 'default',
+        fields: {
+          yourName: '',
+          streetArea: '',
+          phone: '',
+          email: '',
+          neighborName: '',
+          groupLink: '',
+          personalNote: ''
+        }
+      };
+
+      const refs = {
+        useCaseOptions: document.getElementById('useCaseOptions'),
+        formatOptions: document.getElementById('formatOptions'),
+        defaultToggle: document.getElementById('draftDefaultBtn'),
+        alternateToggle: document.getElementById('draftAlternateBtn'),
+        draftContextLabel: document.getElementById('draftContextLabel'),
+        renderedDraft: document.getElementById('renderedDraft'),
+        coachingTip: document.getElementById('coachingTip'),
+        copyBtn: document.getElementById('copyBtn'),
+        printBtn: document.getElementById('printBtn'),
+        templateBtn: document.getElementById('templateBtn'),
+        actionFeedback: document.getElementById('actionFeedback'),
+        templateModal: document.getElementById('templateModal'),
+        closeTemplateModal: document.getElementById('closeTemplateModal'),
+        printMeta: document.getElementById('printMeta'),
+        printDraft: document.getElementById('printDraft'),
+        fieldYourName: document.getElementById('fieldYourName'),
+        fieldStreet: document.getElementById('fieldStreet'),
+        fieldPhone: document.getElementById('fieldPhone'),
+        fieldEmail: document.getElementById('fieldEmail'),
+        fieldNeighborName: document.getElementById('fieldNeighborName'),
+        fieldGroup: document.getElementById('fieldGroup'),
+        fieldPersonalNote: document.getElementById('fieldPersonalNote')
+      };
+
+      function titleCaseLabel(id, options) {
+        const match = options.find(item => item.id === id);
+        return match ? match.label : id;
+      }
+
+      function appendPersonalNote(text) {
+        const note = state.fields.personalNote.trim();
+        if (!note) return text;
+        return text + "\n\nPersonal note:\n" + note;
+      }
+
+      function valueOrBracket(value, bracketText) {
+        const trimmed = String(value || '').trim();
+        return trimmed ? trimmed : bracketText;
+      }
+
+      function resolvePlaceholder(rawPlaceholder) {
+        const normalized = rawPlaceholder.toLowerCase().replace(/\s+/g, ' ').trim();
+        if (normalized.includes('your name')) return valueOrBracket(state.fields.yourName, "[" + rawPlaceholder + "]");
+        if (normalized.includes('street / area') || normalized.includes('street / address reference')) {
+          return valueOrBracket(state.fields.streetArea, "[" + rawPlaceholder + "]");
+        }
+        if (normalized === 'phone') return valueOrBracket(state.fields.phone, "[" + rawPlaceholder + "]");
+        if (normalized === 'email') return valueOrBracket(state.fields.email, "[" + rawPlaceholder + "]");
+        if (normalized.includes('neighbor name')) return valueOrBracket(state.fields.neighborName, "[" + rawPlaceholder + "]");
+        if (
+          normalized.includes('group') ||
+          normalized.includes('list') ||
+          normalized.includes('thread') ||
+          normalized.includes('whatsapp') ||
+          normalized.includes('recurring meeting')
+        ) {
+          return valueOrBracket(state.fields.groupLink, "[" + rawPlaceholder + "]");
+        }
+        return "[" + rawPlaceholder + "]";
+      }
+
+      function renderWithFields(sourceText) {
+        return sourceText.replace(/\[([^\]]+)\]/g, function (_, token) {
+          return resolvePlaceholder(token);
+        });
+      }
+
+      function getCurrentCopyItem() {
+        const useCaseBucket = COPY_LIBRARY[state.useCase] || {};
+        return useCaseBucket[state.format] || null;
+      }
+
+      function getRenderedDraftText() {
+        const copyItem = getCurrentCopyItem();
+        if (!copyItem) return "Draft not available yet for this combination.";
+        const raw = copyItem[state.variant] || copyItem.default || "";
+        return appendPersonalNote(renderWithFields(raw));
+      }
+
+      function updateOptionButtons() {
+        refs.useCaseOptions.querySelectorAll('button').forEach(function (btn) {
+          btn.classList.toggle('active', btn.dataset.value === state.useCase);
+          btn.setAttribute('aria-pressed', btn.dataset.value === state.useCase ? 'true' : 'false');
+        });
+        refs.formatOptions.querySelectorAll('button').forEach(function (btn) {
+          btn.classList.toggle('active', btn.dataset.value === state.format);
+          btn.setAttribute('aria-pressed', btn.dataset.value === state.format ? 'true' : 'false');
+        });
+      }
+
+      function updateVariantButtons() {
+        const isDefault = state.variant === 'default';
+        refs.defaultToggle.classList.toggle('active', isDefault);
+        refs.defaultToggle.setAttribute('aria-selected', isDefault ? 'true' : 'false');
+        refs.alternateToggle.classList.toggle('active', !isDefault);
+        refs.alternateToggle.setAttribute('aria-selected', !isDefault ? 'true' : 'false');
+      }
+
+      function renderAll() {
+        updateOptionButtons();
+        updateVariantButtons();
+        const copyItem = getCurrentCopyItem();
+        const tip = copyItem ? copyItem.tip : "Keep it simple and neighborly.";
+        refs.coachingTip.textContent = tip;
+        refs.draftContextLabel.textContent = titleCaseLabel(state.useCase, USE_CASES) + " - " + titleCaseLabel(state.format, FORMATS);
+        refs.renderedDraft.textContent = getRenderedDraftText();
+      }
+
+      function buildOptionButtons() {
+        refs.useCaseOptions.innerHTML = "";
+        USE_CASES.forEach(function (item) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'option-btn';
+          btn.textContent = item.label;
+          btn.dataset.value = item.id;
+          btn.setAttribute('aria-pressed', item.id === state.useCase ? 'true' : 'false');
+          btn.addEventListener('click', function () {
+            state.useCase = item.id;
+            state.variant = 'default';
+            renderAll();
+          });
+          refs.useCaseOptions.appendChild(btn);
+        });
+
+        refs.formatOptions.innerHTML = "";
+        FORMATS.forEach(function (item) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'option-btn';
+          btn.textContent = item.label;
+          btn.dataset.value = item.id;
+          btn.setAttribute('aria-pressed', item.id === state.format ? 'true' : 'false');
+          btn.addEventListener('click', function () {
+            state.format = item.id;
+            state.variant = 'default';
+            renderAll();
+          });
+          refs.formatOptions.appendChild(btn);
+        });
+      }
+
+      function wireFields() {
+        const fieldMap = [
+          { el: refs.fieldYourName, key: 'yourName' },
+          { el: refs.fieldStreet, key: 'streetArea' },
+          { el: refs.fieldPhone, key: 'phone' },
+          { el: refs.fieldEmail, key: 'email' },
+          { el: refs.fieldNeighborName, key: 'neighborName' },
+          { el: refs.fieldGroup, key: 'groupLink' },
+          { el: refs.fieldPersonalNote, key: 'personalNote' }
+        ];
+        fieldMap.forEach(function (entry) {
+          entry.el.addEventListener('input', function () {
+            state.fields[entry.key] = entry.el.value;
+            renderAll();
+          });
+        });
+      }
+
+      function setFeedback(message) {
+        refs.actionFeedback.textContent = message;
+      }
+
+      async function handleCopy() {
+        const text = getRenderedDraftText();
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+          } else {
+            const helper = document.createElement('textarea');
+            helper.value = text;
+            helper.setAttribute('readonly', '');
+            helper.style.position = 'absolute';
+            helper.style.left = '-9999px';
+            document.body.appendChild(helper);
+            helper.select();
+            document.execCommand('copy');
+            document.body.removeChild(helper);
+          }
+          setFeedback("Draft copied to clipboard.");
+        } catch (err) {
+          setFeedback("Copy failed. You can still select and copy the text manually.");
+        }
+      }
+
+      function preparePrintView() {
+        refs.printMeta.textContent = titleCaseLabel(state.useCase, USE_CASES) + " | " + titleCaseLabel(state.format, FORMATS) + " | " + (state.variant === 'default' ? 'Default' : 'Alternate');
+        refs.printDraft.textContent = getRenderedDraftText();
+      }
+
+      function handlePrint() {
+        preparePrintView();
+        window.print();
+      }
+
+      function openTemplateStub() {
+        refs.templateModal.classList.remove('hidden');
+        console.info("Editable template support can connect to Google Docs or Google Slides in a future version.");
+      }
+
+      function closeTemplateStub() {
+        refs.templateModal.classList.add('hidden');
+      }
+
+      function wireActions() {
+        refs.defaultToggle.addEventListener('click', function () {
+          state.variant = 'default';
+          renderAll();
+        });
+        refs.alternateToggle.addEventListener('click', function () {
+          state.variant = 'alternate';
+          renderAll();
+        });
+        refs.copyBtn.addEventListener('click', handleCopy);
+        refs.printBtn.addEventListener('click', handlePrint);
+        refs.templateBtn.addEventListener('click', openTemplateStub);
+        refs.closeTemplateModal.addEventListener('click', closeTemplateStub);
+        refs.templateModal.addEventListener('click', function (event) {
+          if (event.target === refs.templateModal) closeTemplateStub();
+        });
+      }
+
+      function init() {
+        buildOptionButtons();
+        wireFields();
+        wireActions();
+        renderAll();
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
