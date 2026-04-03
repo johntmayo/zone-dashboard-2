@@ -119,12 +119,8 @@ There are two overlay systems on the main map:
   - Fill layer, click popup, badge labels (`censusBadge`) using tilequery/metadata helpers.
 - `eatonFirePerimeter`
   - Fill layer.
-- `lincolnAveWaterCo`
-  - Fill layer + water company badge label.
-- `lasFloresWaterCo`
-  - Fill layer + water company badge label.
-- `rubioCanonWaterAssn`
-  - Fill layer + water company badge label.
+- `altadenaWaterDistricts`
+  - Single combined tileset for Lincoln Ave / Las Flores / Rubio Cañon water service areas; fill layer + per-feature water badges (`waterDistrictBadges`) from tilequery.
 - `soldProperties`
   - Circle-style overlay config exists, but inclusion is gated by `ENABLE_SOLD_PROPERTIES_OVERLAY = false` (currently hidden from active order unless flag is changed).
 

@@ -142,9 +142,7 @@
           <button class="mobile-map-layer-row" id="mobileLayerZones">Altagether Zones</button>
           <button class="mobile-map-layer-row" id="mobileLayerCensus">Census Tracts</button>
           <button class="mobile-map-layer-row" id="mobileLayerFire">Eaton Fire Perimeter</button>
-          <button class="mobile-map-layer-row" id="mobileLayerLincoln">Lincoln Ave Water Co</button>
-          <button class="mobile-map-layer-row" id="mobileLayerLasFlores">Las Flores Water Co</button>
-          <button class="mobile-map-layer-row" id="mobileLayerRubio">Rubio Canon Water Assn</button>
+          <button class="mobile-map-layer-row" id="mobileLayerWaterDistricts">Altadena Water Districts</button>
         </div>
 
         <div class="mobile-map-sheet-section">
@@ -1179,10 +1177,11 @@
           fillOpacity: 0.32
         }
       },
-      lincolnAveWaterCo: {
-        displayName: 'Lincoln Ave Water Co approx.',
-        tilesetId: 'altagether.1boflh8l',
-        sourceLayer: 'Lincoln_Avenue_Water_Company_-5psyio',
+      altadenaWaterDistricts: {
+        displayName: 'Altadena Water Districts',
+        tilesetId: 'altagether.2i16btfz',
+        // Must match the vector layer id inside the tileset (see Mapbox Studio → tileset → layer, or TileJSON vector_layers).
+        sourceLayer: 'Altadena_Water_Districts-b0e5c1',
         layerType: 'fill',
         defaultVisible: false,
         style: {
@@ -1199,57 +1198,20 @@
         label: {
           enabled: true,
           minZoom: 13,
-          type: 'waterCompanyBadge',
-          text: 'Lincoln Ave Water Co approx.'
-        }
-      },
-      lasFloresWaterCo: {
-        displayName: 'Las Flores Water Co',
-        tilesetId: 'altagether.9d7wai0g',
-        sourceLayer: 'Las_Flores_Water_Company-dt5eg0',
-        layerType: 'fill',
-        defaultVisible: false,
-        style: {
-          color: '#3B82F6',
-          weight: 2,
-          opacity: 0.9,
-          fillColor: '#93C5FD',
-          fillOpacity: 0.2
+          type: 'waterDistrictBadges',
+          tilequeryRadiusMeters: 2000
         },
-        hoverStyle: {
-          weight: 3,
-          fillOpacity: 0.28
-        },
-        label: {
-          enabled: true,
-          minZoom: 13,
-          type: 'waterCompanyBadge',
-          text: 'Las Flores Water Co'
-        }
-      },
-      rubioCanonWaterAssn: {
-        displayName: 'Rubio Canon Water Assn',
-        tilesetId: 'altagether.5zl309g2',
-        sourceLayer: 'Rubio_Canon_Land_and_Water_As-6k6a82',
-        layerType: 'fill',
-        defaultVisible: false,
-        style: {
-          color: '#3B82F6',
-          weight: 2,
-          opacity: 0.9,
-          fillColor: '#93C5FD',
-          fillOpacity: 0.2
-        },
-        hoverStyle: {
-          weight: 3,
-          fillOpacity: 0.28
-        },
-        label: {
-          enabled: true,
-          minZoom: 13,
-          type: 'waterCompanyBadge',
-          text: 'Rubio Canon Water Assn'
-        }
+        labelTitlePropertyKeys: [
+          'name',
+          'Name',
+          'NAME',
+          'district',
+          'District',
+          'water_district',
+          'Water_District',
+          'label',
+          'Label'
+        ]
       },
       soldProperties: {
         displayName: 'Sold Properties',
@@ -1271,9 +1233,7 @@
     const MAPBOX_DATASET_OVERLAY_ORDER = [
       'censusTracts',
       'eatonFirePerimeter',
-      'lincolnAveWaterCo',
-      'lasFloresWaterCo',
-      'rubioCanonWaterAssn',
+      'altadenaWaterDistricts',
       ...(ENABLE_SOLD_PROPERTIES_OVERLAY ? ['soldProperties'] : [])
     ];
     MAPBOX_DATASET_OVERLAY_ORDER.forEach((overlayKey) => {
@@ -9562,6 +9522,19 @@
       }
     }
 
+    function resolveOverlaySourceLayer(overlayConfig, metadata) {
+      const configured = (overlayConfig?.sourceLayer || '').trim();
+      const layers = metadata?.vector_layers;
+      if (!Array.isArray(layers) || !layers.length) return configured || null;
+      if (configured && layers.some((l) => l && l.id === configured)) return configured;
+      if (layers.length === 1) return layers[0].id;
+      console.warn(
+        `[overlay] sourceLayer "${configured}" not found in tileset vector_layers; ` +
+        `expected one of: ${layers.map((l) => l.id).join(', ')}`
+      );
+      return configured || layers[0].id;
+    }
+
     async function fetchOverlayTilequeryFeatures(overlayConfig, centerLng, centerLat, options = {}) {
       if (!overlayConfig?.tilesetId || !overlayConfig?.sourceLayer || !MAPBOX_CONFIG.accessToken) return null;
       try {
@@ -10107,6 +10080,151 @@
       return entries;
     }
 
+    function buildWaterDistrictFeatureKey(feature, overlayConfig) {
+      const props = feature?.properties || {};
+      const keys = overlayConfig?.labelTitlePropertyKeys || [
+        'name', 'Name', 'NAME', 'district', 'District', 'water_district', 'Water_District'
+      ];
+      const name = getFirstOverlayProperty(props, keys);
+      const id = String(
+        feature?.id ?? props.OBJECTID ?? props.objectid ?? props.id ?? props.fid ?? props.FID ?? ''
+      ).trim();
+      return name || id || '';
+    }
+
+    function getWaterDistrictDisplayName(feature, overlayConfig) {
+      const key = buildWaterDistrictFeatureKey(feature, overlayConfig);
+      if (key) return key;
+      return overlayConfig?.displayName || 'Water District';
+    }
+
+    async function collectWaterDistrictLabelFeatures(overlayKey, overlayConfig, metadata) {
+      if (datasetOverlayLabelFeatureCache[overlayKey]) {
+        return datasetOverlayLabelFeatureCache[overlayKey];
+      }
+
+      const sourceLayer = resolveOverlaySourceLayer(overlayConfig, metadata);
+      if (!sourceLayer) return [];
+
+      const tilequeryConfig = { ...overlayConfig, sourceLayer };
+      const bounds = metadata?.bounds;
+      if (!Array.isArray(bounds) || bounds.length < 4) return [];
+      const west = Number(bounds[0]);
+      const south = Number(bounds[1]);
+      const east = Number(bounds[2]);
+      const north = Number(bounds[3]);
+      if (![west, south, east, north].every(Number.isFinite) || east <= west || north <= south) return [];
+
+      const entriesByKey = new Map();
+      const radiusMeters = Number.isFinite(overlayConfig?.label?.tilequeryRadiusMeters)
+        ? overlayConfig.label.tilequeryRadiusMeters
+        : 2000;
+
+      const mergeFeaturesAtPoint = (features, lat, lng) => {
+        if (!features) return;
+        features.forEach((feature) => {
+          const key = buildWaterDistrictFeatureKey(feature, overlayConfig);
+          if (!key) return;
+          const existing = entriesByKey.get(key);
+          const distance = Number(feature?.distance);
+          const samplePoint = {
+            lat,
+            lng,
+            distance: Number.isFinite(distance) ? distance : 0
+          };
+          if (!existing) {
+            entriesByKey.set(key, {
+              feature,
+              samples: [samplePoint]
+            });
+            return;
+          }
+          existing.feature = existing.feature || feature;
+          existing.samples.push(samplePoint);
+        });
+      };
+
+      const scanGrid = async (samplesX, samplesY, options = {}) => {
+        const lngStep = (east - west) / (samplesX + 1);
+        const latStep = (north - south) / (samplesY + 1);
+        const points = [];
+        for (let y = 1; y <= samplesY; y++) {
+          for (let x = 1; x <= samplesX; x++) {
+            points.push({
+              lng: west + (lngStep * x),
+              lat: south + (latStep * y)
+            });
+          }
+        }
+
+        const chunkSize = 18;
+        for (let i = 0; i < points.length; i += chunkSize) {
+          const chunk = points.slice(i, i + chunkSize);
+          const results = await Promise.all(
+            chunk.map(async (point) => {
+              const features = await fetchOverlayTilequeryFeatures(
+                tilequeryConfig,
+                point.lng,
+                point.lat,
+                {
+                  radiusMeters: Number.isFinite(options.radiusMeters) ? options.radiusMeters : radiusMeters,
+                  limit: Number.isFinite(options.limit) ? options.limit : 10
+                }
+              );
+              return { point, features };
+            })
+          );
+          results.forEach(({ point, features }) => {
+            mergeFeaturesAtPoint(features, point.lat, point.lng);
+          });
+        }
+      };
+
+      await scanGrid(8, 8, { radiusMeters: radiusMeters, limit: 10 });
+      if (entriesByKey.size < 3) {
+        await scanGrid(12, 12, { radiusMeters: Math.max(radiusMeters, 160), limit: 16 });
+      }
+
+      const entries = Array.from(entriesByKey.values()).map((entry) => {
+        const samples = Array.isArray(entry.samples) ? entry.samples : [];
+        if (!samples.length) {
+          return {
+            feature: entry.feature,
+            lat: (south + north) / 2,
+            lng: (west + east) / 2
+          };
+        }
+        const zeroDistanceSamples = samples.filter((sample) => Number(sample.distance) <= 0.0001);
+        const preferred = zeroDistanceSamples.length ? zeroDistanceSamples : samples;
+        const minDistance = Math.min(...preferred.map((sample) => Number.isFinite(sample.distance) ? sample.distance : 0));
+        const distanceWindowSamples = preferred.filter((sample) => {
+          const d = Number.isFinite(sample.distance) ? sample.distance : 0;
+          return d <= (minDistance + 40);
+        });
+        const pool = distanceWindowSamples.length ? distanceWindowSamples : preferred;
+        const latMean = pool.reduce((sum, sample) => sum + sample.lat, 0) / pool.length;
+        const lngMean = pool.reduce((sum, sample) => sum + sample.lng, 0) / pool.length;
+        let best = pool[0];
+        let bestDistSq = Number.POSITIVE_INFINITY;
+        pool.forEach((sample) => {
+          const dLat = sample.lat - latMean;
+          const dLng = sample.lng - lngMean;
+          const dSq = (dLat * dLat) + (dLng * dLng);
+          if (dSq < bestDistSq) {
+            best = sample;
+            bestDistSq = dSq;
+          }
+        });
+        return {
+          feature: entry.feature,
+          lat: best.lat,
+          lng: best.lng
+        };
+      });
+      datasetOverlayLabelFeatureCache[overlayKey] = entries;
+      return entries;
+    }
+
     function getOverlayLabelMinZoom(overlayKey) {
       const overlayConfig = MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey];
       const minZoom = overlayConfig?.label?.minZoom;
@@ -10144,6 +10262,28 @@
             pane: labelPane || undefined,
             icon: L.divIcon({
               className: 'overlay-floating-card-wrapper',
+              html: labelHtml,
+              iconSize: null
+            }),
+            interactive: false,
+            keyboard: false
+          });
+        });
+        return L.layerGroup(markers);
+      }
+
+      if (overlayConfig.label.type === 'waterDistrictBadges') {
+        const wdEntries = await collectWaterDistrictLabelFeatures(overlayKey, overlayConfig, metadata);
+        const markerDefs = wdEntries.length
+          ? wdEntries
+          : [{ feature: { properties: {} }, lat: centerLat, lng: centerLng }];
+        const markers = markerDefs.map((entry) => {
+          const text = getWaterDistrictDisplayName(entry?.feature || { properties: {} }, overlayConfig);
+          const labelHtml = `<div class="overlay-water-badge">${escapeOverlayHtml(text)}</div>`;
+          return L.marker([entry.lat, entry.lng], {
+            pane: labelPane || undefined,
+            icon: L.divIcon({
+              className: 'overlay-water-badge-wrapper',
               html: labelHtml,
               iconSize: null
             }),
@@ -10215,6 +10355,12 @@
         return null;
       }
 
+      const resolvedSourceLayer = resolveOverlaySourceLayer(overlayConfig, metadata);
+      if (!resolvedSourceLayer) {
+        console.warn(`[overlay:${overlayKey}] Could not resolve vector sourceLayer for tileset "${overlayConfig.tilesetId}".`);
+        return null;
+      }
+
       const paneName = `dataset-overlay-pane-${overlayKey}`;
       if (!zoneMap.getPane(paneName)) {
         zoneMap.createPane(paneName);
@@ -10260,7 +10406,7 @@
         maxNativeZoom: 22,
         attribution: '© Mapbox',
         vectorTileLayerStyles: {
-          [overlayConfig.sourceLayer]: () => vectorStyle
+          [resolvedSourceLayer]: () => vectorStyle
         }
       });
 
@@ -16183,9 +16329,7 @@
         var dsMap = {
           mobileLayerCensus: 'censusTracts',
           mobileLayerFire: 'eatonFirePerimeter',
-          mobileLayerLincoln: 'lincolnAveWaterCo',
-          mobileLayerLasFlores: 'lasFloresWaterCo',
-          mobileLayerRubio: 'rubioCanonWaterAssn'
+          mobileLayerWaterDistricts: 'altadenaWaterDistricts'
         };
         Object.keys(dsMap).forEach(function(id) {
           var el = document.getElementById(id);
@@ -16264,9 +16408,7 @@
       var mobileDatasetBtns = {
         mobileLayerCensus: 'censusTracts',
         mobileLayerFire: 'eatonFirePerimeter',
-        mobileLayerLincoln: 'lincolnAveWaterCo',
-        mobileLayerLasFlores: 'lasFloresWaterCo',
-        mobileLayerRubio: 'rubioCanonWaterAssn'
+        mobileLayerWaterDistricts: 'altadenaWaterDistricts'
       };
       Object.keys(mobileDatasetBtns).forEach(function(id) {
         var el = document.getElementById(id);
