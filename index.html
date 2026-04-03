@@ -5544,7 +5544,8 @@
         'rebuild stage',
         'rebuild status',
         'build stage',
-        'build status'
+        'build status',
+        'apn'
       ];
       
       // Add Captain Assigned if zone has multiple captains and column exists
@@ -5573,7 +5574,8 @@
           'rebuild status',
           'rebuild stage',
           'address notes',
-          'household size'
+          'household size',
+          'apn'
         ];
         const forceAddressLevel = forceAddressLevelFields.some(field => lower.includes(field));
         return isSameForAll || forceAddressLevel;
@@ -5582,6 +5584,7 @@
       // Fields to hide from person view (address-level; address is shown as header)
       const hiddenFromPersonView = [
         'resident_id', // Backend only, never display
+        'apn',        // Address/parcel-level — shown in address section, not per-person
         'house #',
         'house number',
         'house num',
@@ -5694,7 +5697,7 @@
           ` : ''}
         </div>
         <div class="address-details active">
-          <h3>${address}</h3>
+          <h3><button type="button" id="addressHeadingBtn" data-address="${address.replace(/"/g, '&quot;')}" style="background:none;border:none;padding:0;margin:0;font:inherit;font-size:inherit;font-weight:inherit;color:inherit;cursor:pointer;text-align:left;text-decoration:underline dotted;text-underline-offset:3px;" title="Click to move this address's pin on the map">${escapeHtml(address)}</button></h3>
       `;
 
       // Collect unique values for dropdown fields from ALL data
@@ -5739,6 +5742,7 @@
           const firstRowValue = rows[0] ? (rows[0][col] || '') : '';
           const lower = col.toLowerCase();
           const isNotes = lower.includes('note');
+          const isApn = lower === 'apn';
           const isDamage = lower.includes('damage');
           const isAddressPlan = lower.includes('address') && lower.includes('plan') && !lower.includes('note');
           const isStatus = isAddressPlan;
@@ -5757,7 +5761,22 @@
           }
           
           if (isEditable) {
-            if (isNotes) {
+            if (isApn) {
+              // APN: editable text input with tooltip explaining what it is
+              html += `<div class="person-info" style="align-items:center; gap:6px;">
+                <strong>
+                  <abbr title="Assessor Parcel Number — the official LA County identifier for this property. Useful for looking up parcel records, permits, and ownership history." style="text-decoration:underline dotted; cursor:help;">APN</abbr>:
+                </strong>
+                <input type="text" class="editable-inline apn-input"
+                       data-address="${address.replace(/"/g, '&quot;')}"
+                       data-address-level="true"
+                       data-column="${col}"
+                       data-original-value="${firstRowValue.replace(/"/g, '&quot;')}"
+                       value="${firstRowValue.replace(/"/g, '&quot;')}"
+                       placeholder="e.g. 5829-019-029"
+                       style="font-size:0.9rem; padding:2px 6px; border:1px solid #ccc; border-radius:4px; width:140px;">
+              </div>`;
+            } else if (isNotes) {
               // Notes: expandable textarea
               html += `<div class="person-info">
                 <strong>${col}:</strong>
@@ -6158,16 +6177,15 @@
           html += renderField(emailCol);
         }
         
-        // Person Tags accordion: only Renter, Needs Follow-Up, Unable to reach (same style as Address Tags)
+        // Person Tags: Renter, Needs Follow-Up, Unable to reach — shown inline, no accordion
         const personTagCols = personLevelCols.filter(col => quickTagCols.includes(col));
         if (personTagCols.length > 0) {
-          html += '<details class="address-tags-section" style="margin-top:12px;">';
-          html += '<summary style="cursor:pointer; font-weight:700; font-family: Chivo, sans-serif;">Quick Tags</summary>';
-          html += '<div style="margin-top:12px; padding-left:0;">';
+          html += '<div style="margin-top:10px; border-top:1px solid rgba(0,0,0,0.07); padding-top:8px;">';
+          html += '<p style="margin:0 0 6px; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-secondary); font-family:Chivo,sans-serif;">Quick Tags</p>';
           personTagCols.forEach(col => {
             html += renderField(col);
           });
-          html += '</div></details>';
+          html += '</div>';
         }
         
         // Remaining person-level fields (non-notes first), then Person Notes last
@@ -6324,6 +6342,12 @@
           showPersonDetailsModal(triggerAddress, rowIndex);
         });
       });
+
+      // Clickable address heading → Move Pin modal
+      document.getElementById('addressHeadingBtn')?.addEventListener('click', () => {
+        const addr = document.getElementById('addressHeadingBtn')?.getAttribute('data-address');
+        if (addr) openMovePinModal(addr);
+      });
       
       // Add save button handlers (both top and bottom buttons)
       const saveBtn = document.getElementById('saveChangesBtn');
@@ -6459,6 +6483,175 @@
       }, 0);
     }
 
+    // ── Move Pin Modal ─────────────────────────────────────────────────────────
+    function openMovePinModal(address) {
+      if (!sheetData || !sheetData.addressMap || !sheetData.addressMap.has(address)) return;
+      const rows = sheetData.addressMap.get(address) || [];
+      if (!rows.length) return;
+      const headers = sheetData.headers || [];
+
+      // Detect lat/lon columns
+      const latCol = headers.find(h => /latitude|^lat$/i.test(h));
+      const lonCol = headers.find(h => /longitude|^lon$|^lng$/i.test(h));
+
+      // Get current coordinates from first row
+      const firstRow = rows[0];
+      const currentLat = latCol ? parseFloat(firstRow[latCol]) : NaN;
+      const currentLon = lonCol ? parseFloat(firstRow[lonCol]) : NaN;
+      const hasCoords = !isNaN(currentLat) && !isNaN(currentLon);
+      const defaultCenter = [34.19, -118.15];
+      const center = hasCoords ? [currentLat, currentLon] : defaultCenter;
+
+      // Remove any existing move-pin modal
+      document.getElementById('movePinModalOverlay')?.remove();
+
+      const modalHTML = `
+        <div class="newsletter-modal-overlay" id="movePinModalOverlay">
+          <div class="newsletter-modal" style="max-width:520px;">
+            <button class="newsletter-modal-close" id="movePinModalClose">&times;</button>
+            <div class="newsletter-modal-header">
+              <h3 class="newsletter-modal-title">Move Pin — ${escapeHtml(address)}</h3>
+              <p class="newsletter-modal-subtitle">Drag the marker or click the map to reposition this address's pin. Updates all ${rows.length} row${rows.length !== 1 ? 's' : ''} for this address.</p>
+            </div>
+            <div class="newsletter-modal-content">
+              <div id="movePinMap" style="height:300px; width:100%; border-radius:6px; margin-bottom:12px;"></div>
+              <p id="movePinCoords" style="font-size:0.85rem; color:var(--text-secondary); margin:0 0 16px;"></p>
+              <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <button type="button" id="movePinSaveBtn" class="btn-save">Save new location</button>
+                <button type="button" id="movePinCancelBtn" style="background:none;border:none;cursor:pointer;text-decoration:underline;color:var(--text-secondary);font-size:0.9rem;">Cancel</button>
+                <span id="movePinStatus" style="font-size:0.85rem; color:var(--text-secondary);"></span>
+              </div>
+            </div>
+          </div>
+        </div>`;
+
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+      const overlay = document.getElementById('movePinModalOverlay');
+      const coordsEl = document.getElementById('movePinCoords');
+      const saveBtn = document.getElementById('movePinSaveBtn');
+      const statusEl = document.getElementById('movePinStatus');
+
+      let movePinLat = hasCoords ? currentLat : null;
+      let movePinLon = hasCoords ? currentLon : null;
+
+      function updateCoordsDisplay() {
+        if (movePinLat != null && movePinLon != null) {
+          coordsEl.textContent = `Lat: ${movePinLat.toFixed(6)}, Lng: ${movePinLon.toFixed(6)}`;
+        } else {
+          coordsEl.textContent = 'Click the map to place a pin.';
+        }
+      }
+      updateCoordsDisplay();
+
+      // Init Leaflet map
+      let mpMap = null, mpMarker = null;
+      if (typeof L !== 'undefined') {
+        mpMap = L.map('movePinMap', { attributionControl: false }).setView(center, hasCoords ? 17 : 12);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(mpMap);
+        if (hasCoords) {
+          mpMarker = L.marker(center, { draggable: true }).addTo(mpMap);
+          mpMarker.on('dragend', () => {
+            const pos = mpMarker.getLatLng();
+            movePinLat = pos.lat;
+            movePinLon = pos.lng;
+            updateCoordsDisplay();
+          });
+        }
+        mpMap.on('click', (e) => {
+          movePinLat = e.latlng.lat;
+          movePinLon = e.latlng.lng;
+          if (mpMarker) {
+            mpMarker.setLatLng(e.latlng);
+          } else {
+            mpMarker = L.marker(e.latlng, { draggable: true }).addTo(mpMap);
+            mpMarker.on('dragend', () => {
+              const pos = mpMarker.getLatLng();
+              movePinLat = pos.lat;
+              movePinLon = pos.lng;
+              updateCoordsDisplay();
+            });
+          }
+          updateCoordsDisplay();
+        });
+      }
+
+      function closeModal() {
+        if (mpMap) { mpMap.remove(); mpMap = null; }
+        overlay.remove();
+      }
+
+      document.getElementById('movePinModalClose').addEventListener('click', closeModal);
+      document.getElementById('movePinCancelBtn').addEventListener('click', closeModal);
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+
+      saveBtn.addEventListener('click', async () => {
+        if (movePinLat == null || movePinLon == null) {
+          statusEl.textContent = 'Place a pin on the map first.';
+          return;
+        }
+        if (!latCol || !lonCol) {
+          statusEl.textContent = 'No lat/lon columns found in this spreadsheet.';
+          return;
+        }
+        if (!accessToken) {
+          statusEl.textContent = 'Sign in to save changes.';
+          return;
+        }
+        saveBtn.disabled = true;
+        statusEl.textContent = 'Saving…';
+
+        const latColIdx = headers.indexOf(latCol);
+        const lonColIdx = headers.indexOf(lonCol);
+        const updates = [];
+        const updatesByResidentId = [];
+        const useResidentId = sheetData.useResidentId;
+
+        rows.forEach(row => {
+          if (useResidentId && row['resident_id']) {
+            updatesByResidentId.push({ resident_id: row['resident_id'], column: latCol, value: String(movePinLat) });
+            updatesByResidentId.push({ resident_id: row['resident_id'], column: lonCol, value: String(movePinLon) });
+          } else if (row.__originalIndex !== undefined) {
+            const rowNum = row.__originalIndex + 2;
+            updates.push({ range: `Sheet1!${indexToColumnLetter(latColIdx)}${rowNum}`, values: [[String(movePinLat)]] });
+            updates.push({ range: `Sheet1!${indexToColumnLetter(lonColIdx)}${rowNum}`, values: [[String(movePinLon)]] });
+          }
+        });
+
+        try {
+          const endpoint = updatesByResidentId.length > 0
+            ? '/api/sheets/batch-update-by-resident-id'
+            : '/api/sheets/batch-update';
+          const body = updatesByResidentId.length > 0
+            ? { sheetId: currentSheetId, sheetName: 'Sheet1', valueInputOption: 'USER_ENTERED', updates: updatesByResidentId }
+            : { sheetId: currentSheetId, valueInputOption: 'USER_ENTERED', data: updates };
+
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || 'Save failed');
+          }
+          // Update in-memory data
+          rows.forEach(row => {
+            if (latCol) row[latCol] = String(movePinLat);
+            if (lonCol) row[lonCol] = String(movePinLon);
+          });
+          closeModal();
+          // Reload map markers so the moved pin appears immediately
+          if (currentSheetUrl) loadAddressData(currentSheetUrl);
+        } catch (e) {
+          statusEl.textContent = 'Error: ' + (e.message || 'Please try again.');
+          statusEl.style.color = 'var(--accent-clay)';
+          saveBtn.disabled = false;
+        }
+      });
+    }
+    // ── End Move Pin Modal ─────────────────────────────────────────────────────
+
     function showPersonDetailsModal(address, originalRowIndex) {
       if (!sheetData || !sheetData.addressMap || !sheetData.addressMap.has(address)) return;
       const rows = sheetData.addressMap.get(address) || [];
@@ -6484,6 +6677,7 @@
       const quickTagCols = getPersonQuickTagColumns(headers);
       const modalHiddenKeywords = [
         'resident_id',
+        'apn',
         'house #',
         'house number',
         'house num',
@@ -7139,8 +7333,8 @@
       const saveBtn = document.getElementById('saveChangesBtn');
       const saveStatus = document.getElementById('saveStatus');
       const saveStatusTop = document.getElementById('saveStatusTop');
-      // Get all editable elements: Notes fields (textareas), inline fields, dropdowns, checkboxes, and Quick Contact Notes
-      const editableFields = document.querySelectorAll('.editable-field[contenteditable="true"], .editable-inline[contenteditable="true"], .editable-notes, .contact-notes-quick');
+      // Get all editable elements: Notes fields (textareas), inline fields, dropdowns, checkboxes, text inputs (e.g. APN), and Quick Contact Notes
+      const editableFields = document.querySelectorAll('.editable-field[contenteditable="true"], .editable-inline[contenteditable="true"], .editable-notes, .contact-notes-quick, .apn-input');
       const editableDropdowns = document.querySelectorAll('.editable-dropdown');
       const editableCheckboxes = document.querySelectorAll('.editable-checkbox');
       
@@ -7182,7 +7376,7 @@
         }
 
         editableFields.forEach(field => {
-          const newValue = field.tagName === 'TEXTAREA' ? field.value.trim() : field.textContent.trim();
+          const newValue = (field.tagName === 'TEXTAREA' || field.tagName === 'INPUT') ? field.value.trim() : field.textContent.trim();
           const originalValue = field.getAttribute('data-original-value') || '';
           const column = field.getAttribute('data-column');
           const isAddressLevel = field.getAttribute('data-address-level') === 'true';
@@ -7276,7 +7470,7 @@
 
         // Update original values and in-memory data structure
         editableFields.forEach(field => {
-          const value = field.tagName === 'TEXTAREA' ? field.value.trim() : field.textContent.trim();
+          const value = (field.tagName === 'TEXTAREA' || field.tagName === 'INPUT') ? field.value.trim() : field.textContent.trim();
           // Escape HTML entities for data attribute
           const escapedValue = value.replace(/"/g, '&quot;').replace(/\n/g, '&#10;');
           field.setAttribute('data-original-value', escapedValue);
