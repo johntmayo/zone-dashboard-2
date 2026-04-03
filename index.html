@@ -1196,17 +1196,32 @@
           fillColor: '#93C5FD',
           fillOpacity: 0.2
         },
+        // Used for vector hover (setFeatureStyle); keep this bold so disjoint polygons read clearly.
         hoverStyle: {
-          weight: 3,
-          fillOpacity: 0.28
+          color: '#172554',
+          weight: 4,
+          opacity: 1,
+          fillColor: '#1E40AF',
+          fillOpacity: 0.58
         },
         label: {
           enabled: true,
           minZoom: 13,
           type: 'waterDistrictBadges',
-          tilequeryRadiusMeters: 2000
+          tilequeryRadiusMeters: 2000,
+          // Fixed label anchors (match AGENCYNAME from tile data; matching is case-insensitive).
+          manualPlacementsByObjectId: {},
+          manualPlacementsByAgency: {
+            'Lincoln Avenue Water Company': { lat: 34.19975, lng: -118.15092 },
+            'Las Flores Water Company': { lat: 34.19933, lng: -118.13328 },
+            'Rubio Canon Land and Water Association': { lat: 34.18509, lng: -118.13096 },
+            'Rubio Cañon Land and Water Association': { lat: 34.18509, lng: -118.13096 }
+          }
         },
         labelTitlePropertyKeys: [
+          'AGENCYNAME',
+          'AgencyName',
+          'agencyname',
           'name',
           'Name',
           'NAME',
@@ -10085,22 +10100,143 @@
       return entries;
     }
 
-    function buildWaterDistrictFeatureKey(feature, overlayConfig) {
+    const WD_AGENCY_PROP_KEYS = ['AGENCYNAME', 'AgencyName', 'agencyname', 'Agency_Name', 'agency_name'];
+
+    function getWaterDistrictAgencyPropertyKeys(overlayConfig) {
+      const extra = overlayConfig?.label?.agencyPropertyKeys;
+      if (Array.isArray(extra) && extra.length) {
+        return [...WD_AGENCY_PROP_KEYS, ...extra];
+      }
+      return WD_AGENCY_PROP_KEYS;
+    }
+
+    /** Stable id per polygon for labels + VectorGrid hover (prefer OBJECTID from your tileset). */
+    function buildWaterDistrictPolygonKey(feature) {
       const props = feature?.properties || {};
-      const keys = overlayConfig?.labelTitlePropertyKeys || [
-        'name', 'Name', 'NAME', 'district', 'District', 'water_district', 'Water_District'
-      ];
-      const name = getFirstOverlayProperty(props, keys);
-      const id = String(
-        feature?.id ?? props.OBJECTID ?? props.objectid ?? props.id ?? props.fid ?? props.FID ?? ''
-      ).trim();
-      return name || id || '';
+      const oid = props.OBJECTID ?? props.objectid ?? props.OBJECT_ID ?? props.FID ?? props.fid
+        ?? props.FEATURE_ID ?? props.feature_id ?? props.id ?? props.ID;
+      if (oid != null && String(oid).trim() !== '') {
+        return `wd-${String(oid).trim()}`;
+      }
+      const gjId = feature?.id;
+      if (gjId != null && String(gjId).trim() !== '') return `wd-gj-${String(gjId).trim()}`;
+      return '';
+    }
+
+    function tileGeomFirstPointKey(feat) {
+      const g = feat && feat.geometry;
+      if (!g || !g.length || !g[0] || !g[0].length) return '';
+      const p = g[0][0];
+      if (p && typeof p.x === 'number' && typeof p.y === 'number') return `${Math.round(p.x)}:${Math.round(p.y)}`;
+      return '';
+    }
+
+    /** Same id scheme as buildWaterDistrictPolygonKey when OBJECTID exists; else tile-geometry fallback for VectorGrid getFeatureId. */
+    function getWaterDistrictVectorFeatureId(feat) {
+      const props = feat && feat.properties ? feat.properties : {};
+      const oid = props.OBJECTID ?? props.objectid ?? props.OBJECT_ID ?? props.FID ?? props.fid
+        ?? props.FEATURE_ID ?? props.feature_id ?? props.id ?? props.ID;
+      if (oid != null && String(oid).trim() !== '') {
+        return `wd-${String(oid).trim()}`;
+      }
+      const agency = String(getFirstOverlayProperty(props, WD_AGENCY_PROP_KEYS) || '').trim();
+      const geoKey = tileGeomFirstPointKey(feat);
+      if (geoKey) return `wd-${agency || 'poly'}-${geoKey}`;
+      return `wd-${agency || 'unknown'}`;
+    }
+
+    /** Interactive sublayer (FillSymbolizer): match VectorGrid id when OBJECTID is present. */
+    function getWaterDistrictInteractiveLayerId(leafletLayer) {
+      const props = leafletLayer && leafletLayer.properties;
+      if (!props || typeof props !== 'object') return null;
+      const oid = props.OBJECTID ?? props.objectid ?? props.OBJECT_ID ?? props.FID ?? props.fid
+        ?? props.FEATURE_ID ?? props.feature_id ?? props.id ?? props.ID;
+      if (oid != null && String(oid).trim() !== '') {
+        return `wd-${String(oid).trim()}`;
+      }
+      const parts = leafletLayer._parts;
+      if (parts && parts[0] && parts[0][0]) {
+        const pt = parts[0][0];
+        const agency = String(getFirstOverlayProperty(props, WD_AGENCY_PROP_KEYS) || '').trim();
+        const x = Math.round(pt.x ?? pt[0] ?? 0);
+        const y = Math.round(pt.y ?? pt[1] ?? 0);
+        return `wd-${agency || 'poly'}-${x}:${y}`;
+      }
+      return null;
+    }
+
+    function normalizeWaterDistrictPlacementKey(s) {
+      return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    }
+
+    function resolveWaterDistrictManualLabelLatLng(feature, overlayConfig) {
+      const labelCfg = overlayConfig?.label;
+      if (!labelCfg) return null;
+      const props = feature?.properties || {};
+      const byOid = labelCfg.manualPlacementsByObjectId;
+      if (byOid && typeof byOid === 'object') {
+        const oid = String(props.OBJECTID ?? props.objectid ?? props.FID ?? props.fid ?? '').trim();
+        if (oid && byOid[oid]) {
+          const pt = byOid[oid];
+          const lat = Number(pt.lat);
+          const lng = Number(pt.lng != null ? pt.lng : pt.lon);
+          if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+        }
+      }
+      const byAgency = labelCfg.manualPlacementsByAgency;
+      if (byAgency && typeof byAgency === 'object') {
+        const agency = getFirstOverlayProperty(props, getWaterDistrictAgencyPropertyKeys(overlayConfig));
+        const nk = normalizeWaterDistrictPlacementKey(agency);
+        for (const [k, pt] of Object.entries(byAgency)) {
+          if (normalizeWaterDistrictPlacementKey(k) === nk) {
+            const lat = Number(pt.lat);
+            const lng = Number(pt.lng != null ? pt.lng : pt.lon);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+          }
+        }
+      }
+      return null;
+    }
+
+    function attachWaterDistrictVectorHover(vectorLayer, overlayConfig) {
+      const hoverOpt = overlayConfig.hoverStyle || {};
+      const hoverStyle = {
+        color: hoverOpt.color || '#172554',
+        weight: Math.max(3, Number(hoverOpt.weight) || 4),
+        opacity: Number.isFinite(hoverOpt.opacity) ? hoverOpt.opacity : 1,
+        fillColor: hoverOpt.fillColor || '#1E40AF',
+        fillOpacity: Math.min(0.85, Number(hoverOpt.fillOpacity) || 0.58),
+        fill: true
+      };
+      let hoveredId = null;
+      vectorLayer.on('mouseover', (e) => {
+        const id = getWaterDistrictInteractiveLayerId(e.layer);
+        if (!id) return;
+        if (hoveredId && hoveredId !== id) {
+          vectorLayer.resetFeatureStyle(hoveredId);
+        }
+        hoveredId = id;
+        vectorLayer.setFeatureStyle(id, hoverStyle);
+      });
+      vectorLayer.on('mouseout', (e) => {
+        const id = getWaterDistrictInteractiveLayerId(e.layer);
+        if (!id) return;
+        requestAnimationFrame(() => {
+          vectorLayer.resetFeatureStyle(id);
+          if (hoveredId === id) hoveredId = null;
+        });
+      });
     }
 
     function getWaterDistrictDisplayName(feature, overlayConfig) {
-      const key = buildWaterDistrictFeatureKey(feature, overlayConfig);
-      if (key) return key;
-      return overlayConfig?.displayName || 'Water District';
+      const props = feature?.properties || {};
+      const keys = [
+        ...getWaterDistrictAgencyPropertyKeys(overlayConfig),
+        ...(overlayConfig?.labelTitlePropertyKeys || [])
+      ];
+      const name = getFirstOverlayProperty(props, keys);
+      if (name) return name;
+      return overlayConfig?.displayName || 'Water district';
     }
 
     async function collectWaterDistrictLabelFeatures(overlayKey, overlayConfig, metadata) {
@@ -10128,7 +10264,7 @@
       const mergeFeaturesAtPoint = (features, lat, lng) => {
         if (!features) return;
         features.forEach((feature) => {
-          const key = buildWaterDistrictFeatureKey(feature, overlayConfig);
+          const key = buildWaterDistrictPolygonKey(feature);
           if (!key) return;
           const existing = entriesByKey.get(key);
           const distance = Number(feature?.distance);
@@ -10173,7 +10309,7 @@
                 point.lat,
                 {
                   radiusMeters: Number.isFinite(options.radiusMeters) ? options.radiusMeters : radiusMeters,
-                  limit: Number.isFinite(options.limit) ? options.limit : 10
+                  limit: Number.isFinite(options.limit) ? options.limit : 25
                 }
               );
               return { point, features };
@@ -10185,12 +10321,20 @@
         }
       };
 
-      await scanGrid(8, 8, { radiusMeters: radiusMeters, limit: 10 });
+      await scanGrid(10, 10, { radiusMeters: radiusMeters, limit: 25 });
       if (entriesByKey.size < 3) {
-        await scanGrid(12, 12, { radiusMeters: Math.max(radiusMeters, 160), limit: 16 });
+        await scanGrid(14, 14, { radiusMeters: Math.max(radiusMeters, 200), limit: 30 });
       }
 
       const entries = Array.from(entriesByKey.values()).map((entry) => {
+        const manual = resolveWaterDistrictManualLabelLatLng(entry.feature, overlayConfig);
+        if (manual) {
+          return {
+            feature: entry.feature,
+            lat: manual.lat,
+            lng: manual.lng
+          };
+        }
         const samples = Array.isArray(entry.samples) ? entry.samples : [];
         if (!samples.length) {
           return {
@@ -10405,19 +10549,28 @@
             };
 
       const vectorTileUrl = `https://api.mapbox.com/v4/${encodeURIComponent(overlayConfig.tilesetId)}/{z}/{x}/{y}.vector.pbf?access_token=${encodeURIComponent(MAPBOX_CONFIG.accessToken)}`;
-      const layer = L.vectorGrid.protobuf(vectorTileUrl, {
+      const isWaterDistrictsVector = overlayKey === 'altadenaWaterDistricts';
+      const vectorGridOptions = {
         pane: paneName,
-        interactive: overlayKey === 'censusTracts' || overlayKey === 'soldProperties',
+        interactive: overlayKey === 'censusTracts' || overlayKey === 'soldProperties' || isWaterDistrictsVector,
         maxNativeZoom: 22,
         attribution: '© Mapbox',
         vectorTileLayerStyles: {
           [resolvedSourceLayer]: () => vectorStyle
         }
-      });
+      };
+      if (isWaterDistrictsVector) {
+        vectorGridOptions.getFeatureId = getWaterDistrictVectorFeatureId;
+      }
+      const layer = L.vectorGrid.protobuf(vectorTileUrl, vectorGridOptions);
 
       layer.on('tileerror', (err) => {
         console.warn(`[overlay:${overlayKey}] Tile load error (status ${err?.error?.status ?? '?'}):`, err?.error?.url ?? err);
       });
+
+      if (isWaterDistrictsVector) {
+        attachWaterDistrictVectorHover(layer, overlayConfig);
+      }
 
       if (overlayKey === 'censusTracts') {
         layer.on('click', (event) => {

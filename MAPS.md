@@ -120,7 +120,7 @@ There are two overlay systems on the main map:
 - `eatonFirePerimeter`
   - Fill layer.
 - `altadenaWaterDistricts`
-  - Single combined tileset for Lincoln Ave / Las Flores / Rubio Cañon water service areas; fill layer + per-feature water badges (`waterDistrictBadges`) from tilequery.
+  - Single combined tileset for Lincoln Ave / Las Flores / Rubio Cañon water service areas; fill layer with **interactive hover** (darker fill via VectorGrid `getFeatureId` + `setFeatureStyle`). Badge labels use **`AGENCYNAME`** from tile features; tilequery sampling is approximate—optional **`label.manualPlacementsByObjectId`** / **`manualPlacementsByAgency`** in `MAPBOX_DATASET_OVERLAY_CONFIG.altadenaWaterDistricts` fix label positions (lat/lng).
 - `soldProperties`
   - Circle-style overlay config exists, but inclusion is gated by `ENABLE_SOLD_PROPERTIES_OVERLAY = false` (currently hidden from active order unless flag is changed).
 
