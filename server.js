@@ -22,7 +22,17 @@ app.get('/', (req, res, next) => {
 });
 
 app.use('/public', express.static(path.join(__dirname, 'public'))); // Static assets at /public (css, js, images)
-app.use(express.static(path.join(__dirname))); // Serve HTML and other static files from app directory (index.html, flyer_tool.html, nc-directory.html, etc.)
+// Avoid stale single-file dashboard HTML (layers config lives inline in index.html).
+const staticRoot = path.join(__dirname);
+app.use(express.static(staticRoot, {
+  setHeaders(res, filePath) {
+    const lower = String(filePath || '').toLowerCase();
+    if (lower.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+    }
+  }
+})); // index.html, flyer_tool.html, nc-directory.html, etc.
 
 // Expose Mapbox public token to browser at runtime (from environment, never hardcoded in source).
 app.get('/api/mapbox-token', (req, res) => {
