@@ -180,8 +180,7 @@
       font-size: 0.86rem;
       color: var(--text-secondary);
     }
-    .field-wrap input,
-    .field-wrap textarea {
+    .field-wrap input {
       width: 100%;
       border: 2px solid var(--border-color);
       border-radius: 4px;
@@ -191,19 +190,40 @@
       font-family: 'Merriweather', serif;
       padding: 0.55rem 0.75rem;
     }
-    .field-wrap textarea {
-      min-height: 90px;
-      resize: vertical;
-      line-height: 1.45;
-    }
     .field-wrap input:focus,
-    .field-wrap textarea:focus,
     .option-btn:focus-visible,
     .toggle-btn:focus-visible,
     .action-btn:focus-visible,
     .modal-close:focus-visible {
       outline: 2px solid var(--brand-primary-dark);
       outline-offset: 2px;
+    }
+    .more-options {
+      margin-top: 0.65rem;
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      background: #FCFBF8;
+      padding: 0.2rem 0.8rem 0.8rem;
+    }
+    .more-options summary {
+      cursor: pointer;
+      color: var(--brand-primary-dark);
+      font-family: 'Chivo', sans-serif;
+      font-weight: 700;
+      padding: 0.55rem 0;
+      list-style: none;
+    }
+    .more-options summary::-webkit-details-marker { display: none; }
+    .more-options summary::before {
+      content: '▸';
+      margin-right: 0.35rem;
+      color: var(--text-secondary);
+    }
+    .more-options[open] summary::before { content: '▾'; }
+    .more-options-note {
+      margin: 0 0 0.55rem;
+      font-size: 0.86rem;
+      color: var(--text-secondary);
     }
     .action-row {
       display: flex;
@@ -338,7 +358,7 @@
   <main class="container">
     <section class="section-card">
       <h2 class="section-title">Outreach Helper</h2>
-      <p class="intro-blurb">Simple language and printable materials to help you connect with neighbors.</p>
+      <p class="intro-blurb">Suggested language and simple printables to help you reach out to neighbors.</p>
     </section>
 
     <section class="section-card" aria-labelledby="step1Heading">
@@ -389,19 +409,21 @@
             <label for="fieldEmail">Email</label>
             <input id="fieldEmail" type="email" autocomplete="email" />
           </div>
-          <div class="field-wrap">
-            <label for="fieldNeighborName">Neighbor name (optional)</label>
-            <input id="fieldNeighborName" type="text" />
-          </div>
-          <div class="field-wrap">
-            <label for="fieldGroup">Neighborhood group / link (optional)</label>
-            <input id="fieldGroup" type="text" />
-          </div>
-          <div class="field-wrap" style="grid-column:1 / -1;">
-            <label for="fieldPersonalNote">Personal note (optional)</label>
-            <textarea id="fieldPersonalNote" placeholder="Add one personal line if helpful."></textarea>
-          </div>
         </div>
+        <details class="more-options">
+          <summary>More options</summary>
+          <p class="more-options-note">Optional details for specific messages.</p>
+          <div class="fields-grid">
+            <div class="field-wrap">
+              <label for="fieldNeighborName">Neighbor name</label>
+              <input id="fieldNeighborName" type="text" />
+            </div>
+            <div class="field-wrap">
+              <label for="fieldGroup">Neighborhood group / link</label>
+              <input id="fieldGroup" type="text" />
+            </div>
+          </div>
+        </details>
       </div>
     </section>
 
@@ -411,7 +433,7 @@
       <div class="action-row">
         <button type="button" class="action-btn primary" id="copyBtn">Copy text</button>
         <button type="button" class="action-btn" id="printBtn">Print this</button>
-        <button type="button" class="action-btn" id="templateBtn">Open editable template</button>
+        <button type="button" class="action-btn" id="templateBtn">Customize in Google Docs/Slides</button>
       </div>
       <p class="action-feedback" id="actionFeedback" aria-live="polite"></p>
     </section>
@@ -421,14 +443,14 @@
 
   <div class="modal-overlay hidden" id="templateModal" role="dialog" aria-modal="true" aria-labelledby="templateModalTitle">
     <div class="modal">
-      <h3 id="templateModalTitle">Editable template (coming soon)</h3>
-      <p>Editable template support can connect to Google Docs or Google Slides in a future version.</p>
+      <h3 id="templateModalTitle">Google Docs/Slides customization (coming soon)</h3>
+      <p>Customize in Google Docs or Google Slides will be available in a future version.</p>
       <button type="button" id="closeTemplateModal" class="modal-close">Close</button>
     </div>
   </div>
 
   <section id="printView" aria-hidden="true">
-    <h1>Outreach Helper Draft</h1>
+    <h1>Neighbor Outreach Message</h1>
     <p id="printMeta"></p>
     <pre id="printDraft"></pre>
   </section>
@@ -451,8 +473,8 @@
       const COPY_LIBRARY = {
         introduce: {
           text: {
-            default: "Hi [Neighbor Name], my name is [Your Name], and I'm your neighbor from [Street / Area]. I'm also a Neighborhood Captain with Altagether. I wanted to introduce myself and reach out in case it's helpful to stay connected with someone nearby. Altagether is a grassroots network of Altadena neighbors helping people stay connected, share information and resources, and support each other through recovery. If you'd ever like to connect, ask a question, or be looped into neighborhood updates, feel free to text me here or email me at [Email].",
-            alternate: "Hi neighbor, I'm [Your Name] from [Street / Area]. I'm reaching out because I'm a Neighborhood Captain with Altagether and wanted to introduce myself. I'm helping neighbors stay connected and share information and resources as we all move through recovery. If it would be helpful to be in touch, you can reach me at [Phone] or [Email].",
+            default: "Hi [Neighbor Name], my name is [Your Name], and I'm your neighbor from [Street / Area]. I'm also a Neighborhood Captain with Altagether.\n\nI wanted to introduce myself and reach out in case it's helpful to stay connected with someone nearby. Altagether is a grassroots network of Altadena neighbors helping people stay connected, share information and resources, and support each other through recovery.\n\nIf you'd ever like to connect, ask a question, or be looped into neighborhood updates, feel free to text me here or email me at [Email].",
+            alternate: "Hi neighbor, I'm [Your Name] from [Street / Area]. I'm reaching out because I'm a Neighborhood Captain with Altagether and wanted to introduce myself.\n\nI'm helping neighbors stay connected and share information and resources as we all move through recovery.\n\nIf it would be helpful to be in touch, you can reach me at [Phone] or [Email].",
             tip: "You do not need to make this perfect. A simple introduction is enough."
           },
           email: {
@@ -473,8 +495,8 @@
         },
         invite: {
           text: {
-            default: "Hi [Neighbor Name], it was good connecting. If you'd like, I can add you to our neighborhood [text thread / email list / WhatsApp group] so you can stay in the loop on updates, resources, and what neighbors are sharing. No pressure at all.",
-            alternate: "Hi [Neighbor Name], I'm helping keep neighbors connected and wanted to see if you'd like to be added to our neighborhood [group / updates list]. It's just a simple way to stay in touch and share useful info. Happy to add you if you want.",
+            default: "Hi [Neighbor Name], it was good connecting.\n\nIf you'd like, I can add you to our neighborhood [text thread / email list / WhatsApp group] so you can stay in the loop on updates, resources, and what neighbors are sharing.\n\nNo pressure at all.",
+            alternate: "Hi [Neighbor Name], I'm helping keep neighbors connected and wanted to see if you'd like to be added to our neighborhood [group / updates list].\n\nIt's just a simple way to stay in touch and share useful info. Happy to add you if you want.",
             tip: "Keep the invitation light. People are more likely to say yes when there's no pressure."
           },
           email: {
@@ -495,8 +517,8 @@
         },
         followup: {
           text: {
-            default: "Hi [Neighbor Name], just wanted to check in and see how you're doing. No need for a long response. I just wanted to reach out and let you know I'm thinking of you and am here if it's ever helpful to connect.",
-            alternate: "Hi [Neighbor Name], I wanted to circle back and see how things are going for you. If there's anything you're needing, or if you just want to stay in touch, feel free to reach out.",
+            default: "Hi [Neighbor Name], just wanted to check in and see how you're doing.\n\nNo need for a long response. I just wanted to reach out and let you know I'm thinking of you and am here if it's ever helpful to connect.",
+            alternate: "Hi [Neighbor Name], I wanted to circle back and see how things are going for you.\n\nIf there's anything you're needing, or if you just want to stay in touch, feel free to reach out.",
             tip: "A short follow-up goes a long way."
           },
           email: {
@@ -527,8 +549,7 @@
           phone: '',
           email: '',
           neighborName: '',
-          groupLink: '',
-          personalNote: ''
+          groupLink: ''
         }
       };
 
@@ -553,8 +574,7 @@
         fieldPhone: document.getElementById('fieldPhone'),
         fieldEmail: document.getElementById('fieldEmail'),
         fieldNeighborName: document.getElementById('fieldNeighborName'),
-        fieldGroup: document.getElementById('fieldGroup'),
-        fieldPersonalNote: document.getElementById('fieldPersonalNote')
+        fieldGroup: document.getElementById('fieldGroup')
       };
 
       function titleCaseLabel(id, options) {
@@ -562,15 +582,22 @@
         return match ? match.label : id;
       }
 
-      function appendPersonalNote(text) {
-        const note = state.fields.personalNote.trim();
-        if (!note) return text;
-        return text + "\n\nPersonal note:\n" + note;
-      }
-
       function valueOrBracket(value, bracketText) {
         const trimmed = String(value || '').trim();
         return trimmed ? trimmed : bracketText;
+      }
+
+      function buildGroupLine() {
+        const groupValue = state.fields.groupLink.trim();
+        if (!groupValue) return '';
+        if (state.format === 'phone') {
+          if (state.useCase === 'introduce') return "You can also join our neighborhood group at " + groupValue + ".";
+          if (state.useCase === 'invite') return "If you'd like to stay in the loop, I can send you details here: " + groupValue + ".";
+          return "If you want to stay in the loop, here's our neighborhood group link: " + groupValue + ".";
+        }
+        if (state.useCase === 'introduce') return "You can also join our neighborhood group/link here: " + groupValue;
+        if (state.useCase === 'invite') return "If you want to stay in the loop, here's the group/link: " + groupValue;
+        return "If you'd like neighborhood updates, here's the group/link: " + groupValue;
       }
 
       function resolvePlaceholder(rawPlaceholder) {
@@ -609,7 +636,11 @@
         const copyItem = getCurrentCopyItem();
         if (!copyItem) return "Draft not available yet for this combination.";
         const raw = copyItem[state.variant] || copyItem.default || "";
-        return appendPersonalNote(renderWithFields(raw));
+        const renderedBase = renderWithFields(raw);
+        const alreadyMentionsGroupPlaceholder = /\[[^\]]*(group|list|thread|whatsapp|recurring meeting)[^\]]*\]/i.test(raw);
+        const groupLine = buildGroupLine();
+        if (alreadyMentionsGroupPlaceholder || !groupLine) return renderedBase;
+        return renderedBase + "\n\n" + groupLine;
       }
 
       function updateOptionButtons() {
@@ -682,8 +713,7 @@
           { el: refs.fieldPhone, key: 'phone' },
           { el: refs.fieldEmail, key: 'email' },
           { el: refs.fieldNeighborName, key: 'neighborName' },
-          { el: refs.fieldGroup, key: 'groupLink' },
-          { el: refs.fieldPersonalNote, key: 'personalNote' }
+          { el: refs.fieldGroup, key: 'groupLink' }
         ];
         fieldMap.forEach(function (entry) {
           entry.el.addEventListener('input', function () {
@@ -720,7 +750,7 @@
       }
 
       function preparePrintView() {
-        refs.printMeta.textContent = titleCaseLabel(state.useCase, USE_CASES) + " | " + titleCaseLabel(state.format, FORMATS) + " | " + (state.variant === 'default' ? 'Default' : 'Alternate');
+        refs.printMeta.textContent = titleCaseLabel(state.useCase, USE_CASES) + " • " + titleCaseLabel(state.format, FORMATS) + " • " + (state.variant === 'default' ? 'Default version' : 'Alternate version');
         refs.printDraft.textContent = getRenderedDraftText();
       }
 
@@ -731,7 +761,7 @@
 
       function openTemplateStub() {
         refs.templateModal.classList.remove('hidden');
-        console.info("Editable template support can connect to Google Docs or Google Slides in a future version.");
+        console.info("Customize in Google Docs/Slides will be available in a future version.");
       }
 
       function closeTemplateStub() {
