@@ -5744,10 +5744,10 @@
 
 .profile-prompt-card,
 .profile-card {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 243, 235, 0.94) 100%);
-  border: 2px solid rgba(49, 64, 89, 0.18);
-  border-radius: 16px;
-  box-shadow: 0 14px 34px rgba(49, 64, 89, 0.08);
+  background: var(--bg-card);
+  border: 2px solid var(--text-primary);
+  border-radius: 0;
+  box-shadow: 6px 6px 0px #D9DBDB;
 }
 
 .profile-prompt-card {
@@ -5776,17 +5776,6 @@
 
 .profile-card--hero {
   position: relative;
-  overflow: hidden;
-}
-
-.profile-card--hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at top right, rgba(245, 158, 11, 0.18), transparent 34%),
-    radial-gradient(circle at bottom left, rgba(52, 112, 114, 0.12), transparent 38%);
-  pointer-events: none;
 }
 
 .profile-card-kicker,
@@ -5795,10 +5784,8 @@
 }
 
 .profile-card-kicker {
-  position: relative;
-  z-index: 1;
   margin-bottom: 10px;
-  color: var(--brand-primary-dark);
+  color: var(--accent-clay);
   font-size: 0.78rem;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -5806,8 +5793,6 @@
 }
 
 .profile-card-title {
-  position: relative;
-  z-index: 1;
   margin: 0 0 8px;
   color: var(--brand-primary-dark);
   font-size: 1.45rem;
@@ -5815,8 +5800,6 @@
 }
 
 .profile-card-copy {
-  position: relative;
-  z-index: 1;
   margin: 0;
   max-width: 680px;
   color: var(--text-secondary);
@@ -5897,9 +5880,9 @@
   width: 100%;
   min-width: 0;
   padding: 0.7rem 0.82rem;
-  border: 1.5px solid rgba(49, 64, 89, 0.2);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.94);
+  border: 2px solid rgba(49, 64, 89, 0.22);
+  border-radius: 8px;
+  background: #fff;
   color: var(--text-primary);
   font-size: 0.95rem;
   font-family: 'Merriweather', serif;
@@ -5916,8 +5899,8 @@
 .profile-select:focus,
 .profile-textarea:focus {
   outline: none;
-  border-color: rgba(49, 64, 89, 0.45);
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16);
+  border-color: rgba(49, 64, 89, 0.55);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.18);
   background: #ffffff;
 }
 
@@ -5954,9 +5937,9 @@
   align-items: center;
   gap: 8px;
   padding: 8px 11px;
-  border: 1px solid rgba(49, 64, 89, 0.16);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(49, 64, 89, 0.18);
+  border-radius: 8px;
+  background: #fff;
   color: var(--text-primary);
   font-size: 0.88rem;
   line-height: 1.25;
@@ -5966,7 +5949,7 @@
 
 .profile-choice:hover {
   border-color: rgba(49, 64, 89, 0.28);
-  background: #ffffff;
+  background: #fffdf5;
   transform: translateY(-1px);
 }
 
@@ -5976,9 +5959,9 @@
 }
 
 .profile-choice:has(input:checked) {
-  border-color: rgba(40, 54, 24, 0.35);
-  background: rgba(232, 240, 220, 0.9);
-  box-shadow: inset 0 0 0 1px rgba(40, 54, 24, 0.06);
+  border-color: var(--brand-primary-dark);
+  background: #f3f1eb;
+  box-shadow: inset 0 0 0 1px rgba(49, 64, 89, 0.06);
 }
 
 .profile-interest-groups {
@@ -5987,9 +5970,9 @@
 }
 
 .profile-choice-section {
-  border: 1px solid rgba(49, 64, 89, 0.12);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(49, 64, 89, 0.14);
+  border-radius: 0;
+  background: #fdfbf7;
   padding: 14px;
 }
 
@@ -6021,7 +6004,7 @@
   .profile-card,
   .profile-prompt-card {
     padding: 18px;
-    border-radius: 14px;
+    border-radius: 0;
   }
 
   .profile-grid--two {
@@ -6040,7 +6023,7 @@
 
   .profile-choice {
     width: 100%;
-    border-radius: 14px;
+    border-radius: 8px;
   }
 
   .profile-form-actions {
