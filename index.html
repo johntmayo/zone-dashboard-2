@@ -6046,6 +6046,7 @@
             return suffix;
           }
           if (/^age$/i.test(col)) return 'Approximate Age';
+          if (lower === 'last contact date') return 'Last Contact Logged';
           return col;
         };
 

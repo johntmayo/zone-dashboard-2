@@ -4138,6 +4138,11 @@
       max-width: var(--map-control-width);
     }
 
+    .color-legend-control {
+      margin-top: 10px;
+      padding: 12px 14px;
+    }
+
     .map-layers-control {
       margin-top: 10px;
       border-radius: 8px;
