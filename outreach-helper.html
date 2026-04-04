@@ -198,33 +198,6 @@
       outline: 2px solid var(--brand-primary-dark);
       outline-offset: 2px;
     }
-    .more-options {
-      margin-top: 0.65rem;
-      border: 2px solid var(--border-color);
-      border-radius: 8px;
-      background: #FCFBF8;
-      padding: 0.2rem 0.8rem 0.8rem;
-    }
-    .more-options summary {
-      cursor: pointer;
-      color: var(--brand-primary-dark);
-      font-family: 'Chivo', sans-serif;
-      font-weight: 700;
-      padding: 0.55rem 0;
-      list-style: none;
-    }
-    .more-options summary::-webkit-details-marker { display: none; }
-    .more-options summary::before {
-      content: '▸';
-      margin-right: 0.35rem;
-      color: var(--text-secondary);
-    }
-    .more-options[open] summary::before { content: '▾'; }
-    .more-options-note {
-      margin: 0 0 0.55rem;
-      font-size: 0.86rem;
-      color: var(--text-secondary);
-    }
     .action-row {
       display: flex;
       flex-wrap: wrap;
@@ -409,21 +382,15 @@
             <label for="fieldEmail">Email</label>
             <input id="fieldEmail" type="email" autocomplete="email" />
           </div>
-        </div>
-        <details class="more-options">
-          <summary>More options</summary>
-          <p class="more-options-note">Optional details for specific messages.</p>
-          <div class="fields-grid">
-            <div class="field-wrap">
-              <label for="fieldNeighborName">Neighbor name</label>
-              <input id="fieldNeighborName" type="text" />
-            </div>
-            <div class="field-wrap">
-              <label for="fieldGroup">Neighborhood group / link</label>
-              <input id="fieldGroup" type="text" />
-            </div>
+          <div class="field-wrap">
+            <label for="fieldNeighborName">Neighbor name</label>
+            <input id="fieldNeighborName" type="text" />
           </div>
-        </details>
+          <div class="field-wrap">
+            <label for="fieldGroup">Neighborhood group / link</label>
+            <input id="fieldGroup" type="text" />
+          </div>
+        </div>
       </div>
     </section>
 
