@@ -5728,6 +5728,7 @@
       const addressLevelCols = headers.filter(h => {
         const lower = h.toLowerCase();
         if (lower === 'resident_id') return false; // Backend only, never display
+        if (lower.includes('apn status')) return false;
         // Explicitly exclude person-level notes and email address
         if (lower.includes('person note')) return false;
         if (lower.includes('email address')) return false;
@@ -5756,6 +5757,7 @@
       const hiddenFromPersonView = [
         'resident_id', // Backend only, never display
         'apn',        // Address/parcel-level — shown in address section, not per-person
+        'apn status',
         'situshouseno',
         'situsdirection',
         'situsstreet',
@@ -6987,6 +6989,7 @@
         const lower = col.toLowerCase();
         if (col.startsWith('_')) return false;
         if (standardCols.has(col)) return false;
+        if (lower.includes('apn status')) return false;
         if (lower.includes('situshouseno') || lower.includes('situsdirection') || lower.includes('situsstreet') || lower.includes('situsunit')) return false;
         if (modalHiddenKeywords.some(keyword => lower.includes(keyword)) || isHouseOrZipField(lower)) return false;
         return Boolean(row[col] && String(row[col]).trim());

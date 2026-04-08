@@ -165,6 +165,18 @@ function getTrimmedAddressValue(row, columnName) {
 }
 
 /**
+ * Normalize a header name for resilient matching
+ * @param {string} value - Header text
+ * @returns {string} Lowercase alphanumeric key
+ */
+function normalizeHeaderKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+/**
  * Identify which columns the dashboard should use for address parsing
  * Supports both the new situs columns and the legacy House/Street format.
  * @param {Array<string>} headers - Sheet headers
@@ -183,8 +195,8 @@ function findAddressColumns(headers) {
   }
 
   const findExact = (names) => {
-    const loweredNames = names.map((name) => String(name).trim().toLowerCase());
-    return headers.find((header) => loweredNames.includes(String(header || '').trim().toLowerCase())) || null;
+    const normalizedNames = names.map((name) => normalizeHeaderKey(name));
+    return headers.find((header) => normalizedNames.includes(normalizeHeaderKey(header))) || null;
   };
 
   const houseNumCol =
