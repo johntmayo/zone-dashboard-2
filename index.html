@@ -2515,65 +2515,22 @@
           return;
         }
 
-        // Find address columns - prefer separate House # and Street, fallback to Address
-        const houseNumCol = headers.find(h => {
-          const lower = h.toLowerCase();
-          // Match "House #" exactly (case-insensitive) or variations
-          return h === 'House #' || 
-                 lower === 'house #' ||
-                 lower.includes('house #') || 
-                 lower.includes('house#') ||
-                 lower === 'house number' ||
-                 lower === 'house num' ||
-                 (lower === 'house' && !lower.includes('hold')); // "house" but not "household"
-        });
-        const streetCol = headers.find(h => {
-          const lower = h.toLowerCase();
-          // Match "Street" exactly (case-insensitive) or variations
-          return h === 'Street' ||
-                 lower === 'street' ||
-                 (lower.includes('street') && !lower.includes('address'));
-        });
-        const addressCol = headers.find(h => {
-          const lower = h.toLowerCase().trim();
-          // Never treat Address Plan/Address Notes/Address status fields as the canonical address column.
-          if (lower.includes('plan') || lower.includes('note') || lower.includes('sale') || lower.includes('sold') || lower.includes('unit')) {
-            return false;
-          }
-          if (lower.includes('email') || lower.includes('phone')) {
-            return false;
-          }
-          return lower === 'address' ||
-                 lower === 'full address' ||
-                 lower === 'street address' ||
-                 lower === 'property address' ||
-                 lower === 'location';
-        });
+        const addressColumns = findAddressColumns(headers);
+        const {
+          houseNumCol,
+          directionCol,
+          streetCol,
+          unitCol,
+          addressCol
+        } = addressColumns;
 
-        // Helper function to get address string
-        const getAddressString = (row) => {
-          if (houseNumCol && streetCol) {
-            const houseNum = (row[houseNumCol] || '').trim();
-            const street = (row[streetCol] || '').trim();
-            if (houseNum && street) {
-              return `${houseNum} ${street}`;
-            } else if (street) {
-              return street;
-            } else if (houseNum) {
-              return houseNum;
-            }
-          }
-          // Fallback to Address column if it exists
-          if (addressCol) {
-            return (row[addressCol] || '').trim();
-          }
-          return null;
-        };
+        const getAddressString = (row) => buildAddressString(row, addressColumns);
+        const getStreetString = (row) => buildStreetString(row, addressColumns);
 
         // Check if we have at least one way to identify addresses
-        if (!houseNumCol && !streetCol && !addressCol) {
+        if (!addressColumns.hasAnyAddressSource) {
           const availableCols = headers.slice(0, 10).join(', ');
-          addressPanelContent.innerHTML = `<div class="error">No address columns found. Need either "House #" and "Street" columns, or an "Address" column. Available columns: ${availableCols || 'none'}</div>`;
+          addressPanelContent.innerHTML = `<div class="error">No address columns found. Need either the situs address columns, legacy "House #" and "Street" columns, or an "Address" column. Available columns: ${availableCols || 'none'}</div>`;
           return;
         }
 
@@ -2595,7 +2552,20 @@
         });
 
         // Store data globally (useResidentId: use resident_id for writes when column exists - sort-safe)
-        sheetData = { headers, data, addressMap, addressCol, houseNumCol, streetCol, getAddressString, useResidentId: headers.includes('resident_id') };
+        sheetData = {
+          headers,
+          data,
+          addressMap,
+          addressCol,
+          houseNumCol,
+          directionCol,
+          streetCol,
+          unitCol,
+          addressColumns,
+          getAddressString,
+          getStreetString,
+          useResidentId: headers.includes('resident_id')
+        };
         
         // Re-initialize Contact List Creator if user is on Tools view and data just loaded
         if (currentView === 'tools') {
@@ -2730,7 +2700,7 @@
             3. Make sure you have access to the sheet (it should be shared with you or set to "Anyone with the link can edit")<br>
             4. Refresh and try again`;
         } else {
-          helpText = `<br><br>Tips:<br>• Sign in with Google to view and edit data<br>• Make sure the sheet is shared with you or set to "Anyone with the link can edit"<br>• Make sure the sheet has an "Address" column`;
+          helpText = `<br><br>Tips:<br>• Sign in with Google to view and edit data<br>• Make sure the sheet is shared with you or set to "Anyone with the link can edit"<br>• Make sure the sheet has either the situs address columns, legacy address columns, or an "Address" column`;
         }
         
         addressPanelContent.innerHTML = `<div class="error">Error loading spreadsheet: ${errorMsg}${helpText}</div>`;
@@ -3720,7 +3690,9 @@
         const streetA = extractStreet(a);
         const streetB = extractStreet(b);
         if (streetA !== streetB) return (streetA || '').localeCompare(streetB || '');
-        return (parseHouseNumber(a) || 0) - (parseHouseNumber(b) || 0);
+        const numberDiff = (parseHouseNumber(a) || 0) - (parseHouseNumber(b) || 0);
+        if (numberDiff !== 0) return numberDiff;
+        return (a || '').localeCompare(b || '');
       });
     }
 
@@ -3791,10 +3763,15 @@
       const addresses = sortAddressesByStreetThenNumber(Array.from(sheetData.addressMap.keys()));
       const predominantLoc = getPredominantLocation();
       const cityStateZip = [predominantLoc.city, predominantLoc.state, predominantLoc.zip].filter(Boolean).join(', ');
-      const uniqueStreets = [...new Set(addresses.map(addr => extractStreet(addr)))].filter(Boolean).sort();
-      const houseNumCol = sheetData.houseNumCol || headers.find(h => /house\s*#?/i.test(h));
-      const streetCol = sheetData.streetCol || headers.find(h => h.toLowerCase() === 'street');
-      const addressCol = sheetData.addressCol;
+      const addressColumns = sheetData.addressColumns || findAddressColumns(headers);
+      const houseNumCol = addressColumns.houseNumCol;
+      const directionCol = addressColumns.directionCol;
+      const streetCol = addressColumns.streetCol;
+      const unitCol = addressColumns.unitCol;
+      const addressCol = addressColumns.addressCol;
+      const uniqueStreets = streetCol
+        ? [...new Set(sheetData.data.map(r => (r[streetCol] || '').trim()).filter(Boolean))].sort()
+        : [...new Set(addresses.map(addr => extractStreet(addr)))].filter(Boolean).sort();
       const nameCol = headers.find(h => { const l = h.toLowerCase(); return l.includes('resident name') || l === 'name'; }) || headers.find(h => /name/i.test(h));
       const latCol = headers.find(h => /latitude|^lat$/i.test(h));
       const lonCol = headers.find(h => /longitude|^lon$|^lng$/i.test(h));
@@ -3824,6 +3801,10 @@
       const contactDateCol = findColumn(headers, ['contact', 'date']) || findColumn(headers, ['last', 'contact']);
       const contactNotesCol = headers.find(h => /contact\s*note/i.test(h));
       const getUniqueValues = (col) => col ? [...new Set(sheetData.data.map(r => (r[col] || '').trim()).filter(Boolean))].sort() : [];
+      const uniqueDirections = [...new Set([
+        'N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW',
+        ...getUniqueValues(directionCol).map(v => String(v || '').trim().toUpperCase()).filter(Boolean)
+      ])];
       const field = (label, id, type = 'text', opts = '') => `<p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p><input type="${type}" id="${id}" class="add-record-input" ${opts}>`;
       const notesField = (label, id) => `<p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p><textarea id="${id}" class="add-record-input add-record-notes" rows="4" placeholder="Optional"></textarea>`;
       const selectField = (label, id, values) => `<p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p><select id="${id}" class="add-record-select"><option value="">—</option>${(values || []).map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}</select>`;
@@ -3875,6 +3856,11 @@
                 <div class="newsletter-modal-instructions">
                   <p style="margin:0 0 6px 0;"><label>House number</label></p>
                   <input type="text" id="addRecordHouseNum" class="add-record-input" placeholder="e.g. 123" style="max-width:120px; margin-bottom:10px;">
+                  <p style="margin:0 0 6px 0;"><label>Direction</label></p>
+                  <select id="addRecordDirection" class="add-record-select" style="max-width:140px; margin-bottom:10px;">
+                    <option value="">-- None --</option>
+                    ${uniqueDirections.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')}
+                  </select>
                   <p style="margin:0 0 6px 0;"><label>Street</label></p>
                   <select id="addRecordStreetSelect" class="add-record-select" style="max-width:320px; margin-bottom:10px;">
                     <option value="">-- Select street --</option>
@@ -3884,6 +3870,8 @@
                   <div id="addRecordStreetOtherWrap" class="hidden" style="margin-bottom:10px;">
                     <input type="text" id="addRecordStreetOther" class="add-record-input" placeholder="e.g. Main St" style="max-width:320px;">
                   </div>
+                  <p style="margin:0 0 6px 0;"><label>Unit</label></p>
+                  <input type="text" id="addRecordUnit" class="add-record-input" placeholder="e.g. 2 or Apt B" style="max-width:220px; margin-bottom:10px;">
                   <p style="margin:0 0 6px 0;"><label>City, State, Zip</label></p>
                   <input type="text" id="addRecordCityState" class="add-record-input" placeholder="e.g. Altadena, CA 91001" value="${escapeHtml(cityStateZip)}" style="max-width:320px; margin-bottom:10px;">
                 </div>
@@ -3915,6 +3903,11 @@
                   <div id="addRecordPersonNewWrap" class="hidden">
                     <p style="margin:0 0 6px 0;"><label>House number</label></p>
                     <input type="text" id="addRecordPersonHouseNum" class="add-record-input" placeholder="e.g. 123" style="max-width:120px; margin-bottom:8px;">
+                    <p style="margin:0 0 6px 0;"><label>Direction</label></p>
+                    <select id="addRecordPersonDirection" class="add-record-select" style="max-width:140px; margin-bottom:8px;">
+                      <option value="">-- None --</option>
+                      ${uniqueDirections.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')}
+                    </select>
                     <p style="margin:0 0 6px 0;"><label>Street</label></p>
                     <select id="addRecordPersonStreetSelect" class="add-record-select" style="max-width:320px; margin-bottom:8px;">
                       <option value="">-- Select street --</option>
@@ -3922,6 +3915,8 @@
                       <option value="__other__">Other (type new street)</option>
                     </select>
                     <div id="addRecordPersonStreetOtherWrap" class="hidden" style="margin-bottom:8px;"><input type="text" id="addRecordPersonStreetOther" class="add-record-input" placeholder="e.g. Main St" style="max-width:320px;"></div>
+                    <p style="margin:0 0 6px 0;"><label>Unit</label></p>
+                    <input type="text" id="addRecordPersonUnit" class="add-record-input" placeholder="e.g. 2 or Apt B" style="max-width:220px; margin-bottom:8px;">
                     <p style="margin:0 0 6px 0;"><label>City, State, Zip</label></p>
                     <input type="text" id="addRecordPersonCityState" class="add-record-input" placeholder="e.g. Altadena, CA 91001" value="${escapeHtml(cityStateZip)}" style="max-width:320px;">
                   </div>
@@ -4095,13 +4090,17 @@
 
         if (t === 'address') {
           const houseNum = (document.getElementById('addRecordHouseNum').value || '').trim();
+          const directionVal = (document.getElementById('addRecordDirection').value || '').trim().toUpperCase();
           const streetVal = streetSelect.value === '__other__' ? (document.getElementById('addRecordStreetOther').value || '').trim() : (streetSelect.value || '').trim();
+          const unitVal = (document.getElementById('addRecordUnit').value || '').trim();
           const cityState = (document.getElementById('addRecordCityState').value || '').trim();
           const personName = (document.getElementById('addRecordPersonName').value || '').trim();
           if (!streetVal) { alert('Please select or enter a street.'); return; }
-          const addressString = [houseNum, streetVal].filter(Boolean).join(' ');
           if (houseNumCol) rowValuesByColumn[houseNumCol] = houseNum;
+          if (directionCol) rowValuesByColumn[directionCol] = directionVal;
           if (streetCol) rowValuesByColumn[streetCol] = streetVal;
+          if (unitCol) rowValuesByColumn[unitCol] = unitVal;
+          const addressString = buildAddressString(rowValuesByColumn, addressColumns);
           if (addressCol) rowValuesByColumn[addressCol] = addressString || '';
           if (nameCol) rowValuesByColumn[nameCol] = personName || '';
           if (zoneCol && currentZoneName) rowValuesByColumn[zoneCol] = currentZoneName;
@@ -4157,12 +4156,16 @@
             Object.assign(rowValuesByColumn, collectPersonDetails('addRecordP'));
           } else if (addrType === 'new') {
             const houseNum = (document.getElementById('addRecordPersonHouseNum').value || '').trim();
+            const directionVal = (document.getElementById('addRecordPersonDirection').value || '').trim().toUpperCase();
             const streetVal = personStreetSelect.value === '__other__' ? (document.getElementById('addRecordPersonStreetOther').value || '').trim() : (personStreetSelect.value || '').trim();
+            const unitVal = (document.getElementById('addRecordPersonUnit').value || '').trim();
             const cityState = (document.getElementById('addRecordPersonCityState').value || '').trim();
             if (!streetVal) { alert('Please select or enter a street for the new address.'); return; }
-            const addressString = [houseNum, streetVal].filter(Boolean).join(' ');
             if (houseNumCol) rowValuesByColumn[houseNumCol] = houseNum;
+            if (directionCol) rowValuesByColumn[directionCol] = directionVal;
             if (streetCol) rowValuesByColumn[streetCol] = streetVal;
+            if (unitCol) rowValuesByColumn[unitCol] = unitVal;
+            const addressString = buildAddressString(rowValuesByColumn, addressColumns);
             if (addressCol) rowValuesByColumn[addressCol] = addressString || '';
             if (nameCol) rowValuesByColumn[nameCol] = personName;
             if (zoneCol && currentZoneName) rowValuesByColumn[zoneCol] = currentZoneName;
@@ -4203,7 +4206,9 @@
           } else {
             if (addressCol) rowValuesByColumn[addressCol] = '';
             if (houseNumCol) rowValuesByColumn[houseNumCol] = '';
+            if (directionCol) rowValuesByColumn[directionCol] = '';
             if (streetCol) rowValuesByColumn[streetCol] = '';
+            if (unitCol) rowValuesByColumn[unitCol] = '';
             if (nameCol) rowValuesByColumn[nameCol] = personName;
             if (zoneCol && currentZoneName) rowValuesByColumn[zoneCol] = currentZoneName;
             if (latCol) rowValuesByColumn[latCol] = '';
@@ -5662,6 +5667,13 @@
       const nameCol = getResidentNameColumn(headers);
       const formerResidentCol = findColumn(headers, ['former', 'resident'], ['note']);
       const formerResidentNotesCol = findColumn(headers, ['former', 'resident', 'note']);
+      const addressColumns = sheetData.addressColumns || findAddressColumns(headers);
+      const hiddenAddressStructureCols = new Set([
+        addressColumns.houseNumCol,
+        addressColumns.directionCol,
+        addressColumns.streetCol,
+        addressColumns.unitCol
+      ].filter(Boolean));
 
       // Check if zone has multiple captains (only show Captain Assigned dropdown if so)
       const ncNameCol = findColumn(headers, 'nc name');
@@ -5686,6 +5698,7 @@
       // Find relevant columns (exclude address column itself, backend-only resident_id, and _-prefixed internal columns)
       const detailCols = headers.filter(h =>
         h !== addressCol &&
+        !hiddenAddressStructureCols.has(h) &&
         h.toLowerCase() !== 'address' &&
         h.toLowerCase() !== 'resident_id' &&
         !h.startsWith('_') &&
@@ -5743,6 +5756,10 @@
       const hiddenFromPersonView = [
         'resident_id', // Backend only, never display
         'apn',        // Address/parcel-level — shown in address section, not per-person
+        'situshouseno',
+        'situsdirection',
+        'situsstreet',
+        'situsunit',
         'house #',
         'house number',
         'house num',
@@ -5807,6 +5824,7 @@
         const lower = h.toLowerCase();
         // Skip _-prefixed internal columns
         if (h.startsWith('_')) return false;
+        if (hiddenAddressStructureCols.has(h)) return false;
         // Skip hidden fields
         if (hiddenFromPersonView.some(field => lower.includes(field)) || isHouseOrZipField(lower)) return false;
         // Skip Contact Notes - it's shown separately in contact mode
@@ -6969,6 +6987,7 @@
         const lower = col.toLowerCase();
         if (col.startsWith('_')) return false;
         if (standardCols.has(col)) return false;
+        if (lower.includes('situshouseno') || lower.includes('situsdirection') || lower.includes('situsstreet') || lower.includes('situsunit')) return false;
         if (modalHiddenKeywords.some(keyword => lower.includes(keyword)) || isHouseOrZipField(lower)) return false;
         return Boolean(row[col] && String(row[col]).trim());
       });
@@ -11795,21 +11814,10 @@
       // 2. Households Contacted Chart
       const households = new Set();
       const householdsContacted = new Set();
-      const houseNumCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return h === 'House #' || lower === 'house #' || lower.includes('house #') || 
-               lower.includes('house#') || lower === 'house number' || lower === 'house num' ||
-               (lower === 'house' && !lower.includes('hold'));
-      });
-      const streetCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return h === 'Street' || lower === 'street' || (lower.includes('street') && !lower.includes('address'));
-      });
+      const addressColumns = findAddressColumns(headers);
 
       data.forEach(row => {
-        const houseNum = houseNumCol ? (row[houseNumCol] || '').trim() : '';
-        const street = streetCol ? (row[streetCol] || '').trim() : '';
-        const address = houseNum && street ? `${houseNum} ${street}` : '';
+        const address = buildAddressString(row, addressColumns);
         if (address) {
           households.add(address);
           const hasContact = lastContactCol && row[lastContactCol] && String(row[lastContactCol]).trim().length > 0;
@@ -12798,24 +12806,13 @@
         h.toLowerCase().includes('contact date') ||
         h.toLowerCase().includes('contacted')
       );
-      const houseNumCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return h === 'House #' || lower === 'house #' || lower.includes('house #') || 
-               lower.includes('house#') || lower === 'house number' || lower === 'house num' ||
-               (lower === 'house' && !lower.includes('hold'));
-      });
-      const streetCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return h === 'Street' || lower === 'street' || (lower.includes('street') && !lower.includes('address'));
-      });
+      const addressColumns = findAddressColumns(headers);
 
       const households = new Set();
       const householdsContacted = new Set();
 
       data.forEach(row => {
-        const houseNum = houseNumCol ? (row[houseNumCol] || '').trim() : '';
-        const street = streetCol ? (row[streetCol] || '').trim() : '';
-        const address = houseNum && street ? `${houseNum} ${street}` : '';
+        const address = buildAddressString(row, addressColumns);
         if (address) {
           households.add(address);
           const hasContact = lastContactCol && row[lastContactCol] && String(row[lastContactCol]).trim().length > 0;
@@ -12901,16 +12898,11 @@
     }
 
     function getStreetsDistributionData(headers, data) {
-      const streetCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return h === 'Street' || lower === 'street' || (lower.includes('street') && !lower.includes('address'));
-      });
-      
-      if (!streetCol) return { labels: [], data: [] };
+      const addressColumns = findAddressColumns(headers);
       
       const streetCounts = {};
       data.forEach(row => {
-        const street = row[streetCol] ? String(row[streetCol]).trim() : '';
+        const street = buildStreetString(row, addressColumns);
         if (street) {
           streetCounts[street] = (streetCounts[street] || 0) + 1;
         }

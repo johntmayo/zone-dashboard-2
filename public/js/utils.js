@@ -152,6 +152,153 @@ function normalizeStreet(street) {
 }
 
 /**
+ * Safely read and trim a cell value from a row object
+ * @param {Object} row - Row object from the sheet
+ * @param {string|null} columnName - Header name to read
+ * @returns {string} Trimmed string value
+ */
+function getTrimmedAddressValue(row, columnName) {
+  if (!row || !columnName) return '';
+  const value = row[columnName];
+  if (value == null) return '';
+  return String(value).trim();
+}
+
+/**
+ * Identify which columns the dashboard should use for address parsing
+ * Supports both the new situs columns and the legacy House/Street format.
+ * @param {Array<string>} headers - Sheet headers
+ * @returns {Object} Address column metadata
+ */
+function findAddressColumns(headers) {
+  if (!headers || !Array.isArray(headers)) {
+    return {
+      houseNumCol: null,
+      directionCol: null,
+      streetCol: null,
+      unitCol: null,
+      addressCol: null,
+      hasAnyAddressSource: false
+    };
+  }
+
+  const findExact = (names) => {
+    const loweredNames = names.map((name) => String(name).trim().toLowerCase());
+    return headers.find((header) => loweredNames.includes(String(header || '').trim().toLowerCase())) || null;
+  };
+
+  const houseNumCol =
+    findExact(['_SitusHouseNo', 'SitusHouseNo']) ||
+    headers.find((h) => {
+      const lower = String(h || '').toLowerCase();
+      return h === 'House #' ||
+             lower === 'house #' ||
+             lower.includes('house #') ||
+             lower.includes('house#') ||
+             lower === 'house number' ||
+             lower === 'house num' ||
+             (lower === 'house' && !lower.includes('hold'));
+    }) ||
+    null;
+
+  const directionCol = findExact(['_SitusDirection', 'SitusDirection']);
+
+  const streetCol =
+    findExact(['_SitusStreet', 'SitusStreet']) ||
+    headers.find((h) => {
+      const lower = String(h || '').toLowerCase();
+      return h === 'Street' ||
+             lower === 'street' ||
+             (lower.includes('street') && !lower.includes('address'));
+    }) ||
+    null;
+
+  const unitCol =
+    findExact(['_SitusUnit', 'SitusUnit', 'Unit']) ||
+    null;
+
+  const addressCol = headers.find((h) => {
+    const lower = String(h || '').toLowerCase().trim();
+    if (lower.includes('plan') || lower.includes('note') || lower.includes('sale') || lower.includes('sold') || lower.includes('unit')) {
+      return false;
+    }
+    if (lower.includes('email') || lower.includes('phone')) {
+      return false;
+    }
+    return lower === 'address' ||
+           lower === 'full address' ||
+           lower === 'street address' ||
+           lower === 'property address' ||
+           lower === 'location';
+  }) || null;
+
+  return {
+    houseNumCol,
+    directionCol,
+    streetCol,
+    unitCol,
+    addressCol,
+    hasAnyAddressSource: Boolean(houseNumCol || directionCol || streetCol || unitCol || addressCol)
+  };
+}
+
+/**
+ * Format a unit value for display in canonical addresses
+ * @param {string} unit - Unit cell value
+ * @returns {string} Normalized display string
+ */
+function formatAddressUnit(unit) {
+  const value = String(unit || '').trim();
+  if (!value) return '';
+  if (/^(unit|apt|apartment|suite|ste|#)/i.test(value)) {
+    return value.replace(/\s+/g, ' ');
+  }
+  return `Unit ${value}`;
+}
+
+/**
+ * Build the street portion of an address using direction + street columns when available
+ * @param {Object} row - Sheet row
+ * @param {Object} addressColumns - Result of findAddressColumns()
+ * @returns {string} Normalized street reference (direction included, unit excluded)
+ */
+function buildStreetString(row, addressColumns) {
+  if (!row || !addressColumns) return '';
+
+  const direction = getTrimmedAddressValue(row, addressColumns.directionCol);
+  const street = getTrimmedAddressValue(row, addressColumns.streetCol);
+  const structuredStreet = [direction, street].filter(Boolean).join(' ').trim();
+  if (structuredStreet) return normalizeStreet(structuredStreet);
+
+  const fullAddress = getTrimmedAddressValue(row, addressColumns.addressCol);
+  if (!fullAddress) return '';
+
+  const parts = fullAddress.split(/\s+/);
+  const inferredStreet = parts.length > 1 ? parts.slice(1).join(' ') : fullAddress;
+  return normalizeStreet(inferredStreet);
+}
+
+/**
+ * Build the dashboard's canonical address string from the best available columns
+ * @param {Object} row - Sheet row
+ * @param {Object} addressColumns - Result of findAddressColumns()
+ * @returns {string} Canonical address string
+ */
+function buildAddressString(row, addressColumns) {
+  if (!row || !addressColumns) return '';
+
+  const houseNumber = getTrimmedAddressValue(row, addressColumns.houseNumCol);
+  const street = buildStreetString(row, addressColumns);
+  const baseAddress = [houseNumber, street].filter(Boolean).join(' ').trim();
+  if (baseAddress) {
+    const unit = formatAddressUnit(getTrimmedAddressValue(row, addressColumns.unitCol));
+    return [baseAddress, unit].filter(Boolean).join(', ').trim();
+  }
+
+  return getTrimmedAddressValue(row, addressColumns.addressCol);
+}
+
+/**
  * Extract street name from full address
  * Note: This function depends on the global sheetData variable
  * @param {string} address - Full address string
@@ -162,11 +309,15 @@ function normalizeStreet(street) {
 function extractStreet(address) {
   let street = '';
   
-  // Use Street column if available (preferred method)
-  if (sheetData && sheetData.streetCol && sheetData.addressMap && sheetData.addressMap.has(address)) {
+  // Use structured address columns if available (preferred method)
+  if (sheetData && sheetData.addressMap && sheetData.addressMap.has(address)) {
     const rows = sheetData.addressMap.get(address);
-    if (rows && rows.length > 0 && rows[0][sheetData.streetCol]) {
-      street = rows[0][sheetData.streetCol].trim();
+    if (rows && rows.length > 0) {
+      if (typeof sheetData.getStreetString === 'function') {
+        street = sheetData.getStreetString(rows[0]);
+      } else if (sheetData.streetCol && rows[0][sheetData.streetCol]) {
+        street = rows[0][sheetData.streetCol].trim();
+      }
     }
   }
   
