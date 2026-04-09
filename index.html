@@ -3175,21 +3175,13 @@
       const { addressMap, headers } = sheetData;
       if (!headers || addressMap.size === 0) return;
 
-      // Find damage column
-      const damageCol = headers.find(h => {
-        const lower = (h || '').toLowerCase();
-        return lower.includes('damage') || lower === 'status';
-      });
-
-      const TAGGED_VALUES = new Set(['standing home', 'partial loss', 'total loss']);
       let totalAddresses = 0;
       let untaggedCount = 0;
 
-      addressMap.forEach((rows) => {
+      addressMap.forEach((rows, address) => {
         totalAddresses++;
-        const row = rows[0];
-        const val = damageCol ? (row[damageCol] || '').trim().toLowerCase() : '';
-        if (!val || !TAGGED_VALUES.has(val)) untaggedCount++;
+        const damage = getAddressDamage(address);
+        if (!damage || damage.trim() === '' || damage === '(not set)') untaggedCount++;
       });
 
       // Only show when more than 30% of addresses have no damage status
