@@ -3138,32 +3138,37 @@
 
       // Don't show if user already dismissed for this zone
       const dismissKey = 'zoneSetupDismissed_' + (currentSheetUrl || '');
-      if (localStorage.getItem(dismissKey)) return;
+      if (localStorage.getItem(dismissKey)) {
+        panel.classList.add('hidden');
+        return;
+      }
 
-      if (!sheetData || !sheetData.addressMap) return;
+      if (!sheetData || !sheetData.addressMap) {
+        panel.classList.add('hidden');
+        return;
+      }
 
       const { addressMap, headers } = sheetData;
-      if (!headers || addressMap.size === 0) return;
+      if (!headers || addressMap.size === 0) {
+        panel.classList.add('hidden');
+        return;
+      }
 
-      // Find damage column
-      const damageCol = headers.find(h => {
-        const lower = (h || '').toLowerCase();
-        return lower.includes('damage') || lower === 'status';
-      });
-
-      const TAGGED_VALUES = new Set(['standing home', 'partial loss', 'total loss']);
-      let totalAddresses = 0;
+      const totalAddresses = addressMap.size;
       let untaggedCount = 0;
 
-      addressMap.forEach((rows) => {
-        totalAddresses++;
-        const row = rows[0];
-        const val = damageCol ? (row[damageCol] || '').trim().toLowerCase() : '';
-        if (!val || !TAGGED_VALUES.has(val)) untaggedCount++;
+      addressMap.forEach((rows, address) => {
+        const damage = getAddressDamage(address);
+        if (!damage || damage.trim() === '' || damage === '(not set)') {
+          untaggedCount++;
+        }
       });
 
       // Only show when more than 30% of addresses have no damage status
-      if (totalAddresses === 0 || untaggedCount / totalAddresses < 0.3) return;
+      if (totalAddresses === 0 || untaggedCount / totalAddresses < 0.3) {
+        panel.classList.add('hidden');
+        return;
+      }
 
       const taggedCount = totalAddresses - untaggedCount;
       const pct = Math.round((taggedCount / totalAddresses) * 100);
