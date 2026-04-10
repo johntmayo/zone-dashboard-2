@@ -2945,7 +2945,7 @@
     function getResidentNameColumn(headers) {
       return headers.find(h => {
         const lower = h.toLowerCase();
-        return lower.includes('resident name') || (lower.includes('name') && !lower.includes('first') && !lower.includes('last') && !lower.includes('nc'));
+        return lower.includes('resident name') || (lower.includes('name') && !lower.includes('first') && !lower.includes('middle') && !lower.includes('last') && !lower.includes('nc'));
       });
     }
 
@@ -3668,7 +3668,7 @@
 
     // Ensure resident_id and APN are set on row values when those columns exist (Add Record)
     function ensureResidentIdAndApn(headers, valuesByColumn) {
-      if (headers.includes('resident_id') && (valuesByColumn['resident_id'] == null || valuesByColumn['resident_id'] === '')) {
+      if (headers.includes('resident_id')) {
         valuesByColumn['resident_id'] = generateResidentId();
       }
       if (headers.includes('APN') && (valuesByColumn['APN'] == null || valuesByColumn['APN'] === '')) {
@@ -3715,6 +3715,110 @@
       const city = parts.slice(0, -1).join(', ').trim();
       const state = statePart;
       return { city, state, zip };
+    }
+
+    function setAddRecordValue(valuesByColumn, column, value) {
+      if (!column) return;
+      valuesByColumn[column] = value == null ? '' : String(value).trim();
+    }
+
+    function getAddRecordZoneDefaults(headers, zoneCol) {
+      const firstRow = sheetData && sheetData.data && sheetData.data.length ? sheetData.data[0] : null;
+      return {
+        firstRow,
+        zoneCol,
+        ncNameCol: findColumn(headers, 'nc name'),
+        ncPhoneCol: findColumn(headers, 'nc phone'),
+        ncEmailCol: findColumn(headers, 'nc email')
+      };
+    }
+
+    function applyAddRecordZoneDefaults(valuesByColumn, zoneDefaults) {
+      if (!zoneDefaults) return;
+      const firstRow = zoneDefaults.firstRow || {};
+      if (zoneDefaults.zoneCol && !valuesByColumn[zoneDefaults.zoneCol]) {
+        const zoneValue = currentZoneName || firstRow[zoneDefaults.zoneCol] || '';
+        if (zoneValue) valuesByColumn[zoneDefaults.zoneCol] = String(zoneValue).trim();
+      }
+      [zoneDefaults.ncNameCol, zoneDefaults.ncPhoneCol, zoneDefaults.ncEmailCol].forEach((col) => {
+        if (!col || valuesByColumn[col]) return;
+        const value = firstRow[col] || '';
+        if (value) valuesByColumn[col] = String(value).trim();
+      });
+    }
+
+    function splitPersonName(fullName) {
+      const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+      if (parts.length === 0) return { first: '', middle: '', last: '' };
+      if (parts.length === 1) return { first: parts[0], middle: '', last: '' };
+      return {
+        first: parts[0],
+        middle: parts.slice(1, -1).join(' '),
+        last: parts[parts.length - 1]
+      };
+    }
+
+    function applyAddRecordPersonName(valuesByColumn, personName, nameColumns) {
+      const fullName = String(personName || '').trim();
+      if (!fullName) return;
+      if (nameColumns.nameCol) valuesByColumn[nameColumns.nameCol] = fullName;
+      const parts = splitPersonName(fullName);
+      if (nameColumns.firstNameCol) valuesByColumn[nameColumns.firstNameCol] = parts.first;
+      if (nameColumns.middleNameCol) valuesByColumn[nameColumns.middleNameCol] = parts.middle;
+      if (nameColumns.lastNameCol) valuesByColumn[nameColumns.lastNameCol] = parts.last;
+    }
+
+    function splitStreetInput(streetInput, streetOptionLookup, hasDirectionColumn) {
+      const fullStreet = String(streetInput || '').trim().replace(/\s+/g, ' ');
+      if (!fullStreet) return { direction: '', street: '', fullStreet: '' };
+      const lookupKey = fullStreet.toLowerCase();
+      if (streetOptionLookup && streetOptionLookup.has(lookupKey)) {
+        return { ...streetOptionLookup.get(lookupKey) };
+      }
+      if (!hasDirectionColumn) {
+        return { direction: '', street: fullStreet, fullStreet };
+      }
+      const match = fullStreet.match(/^(N|S|E|W|NE|NW|SE|SW)\.?\s+(.+)$/i);
+      if (match) {
+        return {
+          direction: match[1].toUpperCase(),
+          street: match[2].trim(),
+          fullStreet
+        };
+      }
+      return { direction: '', street: fullStreet, fullStreet };
+    }
+
+    function applyAddRecordAddressInput(valuesByColumn, inputValues, options) {
+      const houseNum = String(inputValues.houseNum || '').trim();
+      const unit = String(inputValues.unit || '').trim();
+      const cityState = String(inputValues.cityState || '').trim();
+      const streetParts = splitStreetInput(inputValues.streetInput, options.streetOptionLookup, Boolean(options.directionCol));
+
+      setAddRecordValue(valuesByColumn, options.houseNumCol, houseNum);
+      setAddRecordValue(valuesByColumn, options.directionCol, streetParts.direction);
+      setAddRecordValue(valuesByColumn, options.streetCol, streetParts.street);
+      setAddRecordValue(valuesByColumn, options.unitCol, unit);
+      setAddRecordValue(valuesByColumn, options.legacyHouseCol, houseNum);
+      setAddRecordValue(valuesByColumn, options.legacyStreetCol, streetParts.fullStreet);
+
+      const addressString = buildAddressString(valuesByColumn, options.addressColumns);
+      setAddRecordValue(valuesByColumn, options.addressCol, addressString);
+
+      const parsed = parseCityStateZip(cityState);
+      setAddRecordValue(valuesByColumn, options.cityCol, parsed.city);
+      setAddRecordValue(valuesByColumn, options.stateCol, parsed.state);
+      setAddRecordValue(valuesByColumn, options.zipCol, parsed.zip);
+
+      return addressString;
+    }
+
+    function copyAddRecordAddressFields(sourceRow, valuesByColumn, addressFieldCols) {
+      if (!sourceRow || !addressFieldCols) return;
+      addressFieldCols.forEach((col) => {
+        if (!col) return;
+        setAddRecordValue(valuesByColumn, col, sourceRow[col]);
+      });
     }
 
     // Get predominant city, state, zip from sheet for pre-filling Add Record
@@ -3774,22 +3878,45 @@
       const streetCol = addressColumns.streetCol;
       const unitCol = addressColumns.unitCol;
       const addressCol = addressColumns.addressCol;
-      const uniqueStreets = streetCol
-        ? [...new Set(sheetData.data.map(r => (r[streetCol] || '').trim()).filter(Boolean))].sort()
-        : [...new Set(addresses.map(addr => extractStreet(addr)))].filter(Boolean).sort();
-      const nameCol = headers.find(h => { const l = h.toLowerCase(); return l.includes('resident name') || l === 'name'; }) || headers.find(h => /name/i.test(h));
+      const streetOptionLookup = new Map();
+      sheetData.data.forEach((row) => {
+        const fullStreet = buildStreetString(row, addressColumns);
+        if (!fullStreet) return;
+        const lookupKey = fullStreet.toLowerCase();
+        if (streetOptionLookup.has(lookupKey)) return;
+        streetOptionLookup.set(lookupKey, {
+          fullStreet,
+          direction: getTrimmedAddressValue(row, directionCol).toUpperCase(),
+          street: getTrimmedAddressValue(row, streetCol) || fullStreet
+        });
+      });
+      const uniqueStreets = [...streetOptionLookup.values()].map(item => item.fullStreet).sort();
+      const nameCol = getResidentNameColumn(headers);
+      const firstNameCol = headers.find(h => /^first\s*name$/i.test(h));
+      const middleNameCol = headers.find(h => /^middle\s*name$/i.test(h));
+      const lastNameCol = headers.find(h => /^last\s*name$/i.test(h));
       const latCol = headers.find(h => /latitude|^lat$/i.test(h));
       const lonCol = headers.find(h => /longitude|^lon$|^lng$/i.test(h));
       const cityCol = headers.find(h => /^city$/i.test(h));
       const stateCol = headers.find(h => /^state$/i.test(h));
       const zipCol = headers.find(h => /zip|postal/i.test(h));
+      const legacyHouseCol = headers.find(h => /^house$/i.test(h) && h !== houseNumCol);
+      const legacyStreetCol = headers.find(h => /^street$/i.test(h) && h !== streetCol);
       let zoneCol = headers.find(h => /zone\s*name|zonename/i.test(h));
       if (!zoneCol) zoneCol = headers.find(h => h.toLowerCase().includes('zone'));
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
-    const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
+      const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const addressNotesCol = headers.find(h => /address\s*note/i.test(h));
       const captainCol = findColumn(headers, ['captain', 'assign']) || headers.find(h => /captain/i.test(h));
+      const apnCol = headers.find(h => /^apn$/i.test(h));
+      const ncNameCol = findColumn(headers, 'nc name');
+      const ncPhoneCol = findColumn(headers, 'nc phone');
+      const ncEmailCol = findColumn(headers, 'nc email');
+      const householdSizeCol = findColumn(headers, ['household', 'size']);
+      const addressForSaleCol = headers.find(h => /address\s*-\s*for sale|for sale/i.test(h));
+      const addressSoldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
+      const addressUnitTypeCol = headers.find(h => /address\s*-\s*unit type|unit type/i.test(h));
       const saleDateCol = headers.find(h => /sale\s*date/i.test(h));
       const saleNotesCol = headers.find(h => /sale\s*note/i.test(h));
       const newOwnerCol = headers.find(h => /new\s*owner/i.test(h));
@@ -3802,14 +3929,61 @@
       const emailCol = headers.find(h => /email\s*address/i.test(h)) || headers.find(h => /^email$/i.test(h));
       const renterCol = headers.find(h => /renter/i.test(h));
       const followUpCol = headers.find(h => /follow\s*up|needs\s*follow/i.test(h));
+      const unableToReachCol = headers.find(h => /unable\s*to\s*reach/i.test(h));
       const personNotesCol = headers.find(h => /person\s*note/i.test(h));
       const contactDateCol = findColumn(headers, ['contact', 'date']) || findColumn(headers, ['last', 'contact']);
       const contactNotesCol = headers.find(h => /contact\s*note/i.test(h));
-      const getUniqueValues = (col) => col ? [...new Set(sheetData.data.map(r => (r[col] || '').trim()).filter(Boolean))].sort() : [];
-      const uniqueDirections = [...new Set([
-        'N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW',
-        ...getUniqueValues(directionCol).map(v => String(v || '').trim().toUpperCase()).filter(Boolean)
-      ])];
+      const formerResidentCol = findColumn(headers, ['former', 'resident'], ['note']);
+      const deceasedCol = headers.find(h => /^deceased$/i.test(h) || /deceased/i.test(h));
+      const zoneDefaults = getAddRecordZoneDefaults(headers, zoneCol);
+      const nameColumns = { nameCol, firstNameCol, middleNameCol, lastNameCol };
+      const addressFieldCols = new Set([
+        houseNumCol,
+        directionCol,
+        streetCol,
+        unitCol,
+        addressCol,
+        legacyHouseCol,
+        legacyStreetCol,
+        cityCol,
+        stateCol,
+        zipCol,
+        latCol,
+        lonCol,
+        zoneCol,
+        damageCol,
+        addressPlanCol,
+        rebuildCol,
+        addressNotesCol,
+        captainCol,
+        apnCol,
+        ncNameCol,
+        ncPhoneCol,
+        ncEmailCol,
+        householdSizeCol,
+        addressForSaleCol,
+        addressSoldSinceFireCol,
+        addressUnitTypeCol,
+        saleDateCol,
+        saleNotesCol,
+        newOwnerCol,
+        indoorsCol,
+        soilCol
+      ].filter(Boolean));
+      const addressInputOptions = {
+        addressColumns,
+        houseNumCol,
+        directionCol,
+        streetCol,
+        unitCol,
+        addressCol,
+        legacyHouseCol,
+        legacyStreetCol,
+        cityCol,
+        stateCol,
+        zipCol,
+        streetOptionLookup
+      };
       const field = (label, id, type = 'text', opts = '') => `<p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p><input type="${type}" id="${id}" class="add-record-input" ${opts}>`;
       const notesField = (label, id) => `<p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p><textarea id="${id}" class="add-record-input add-record-notes" rows="4" placeholder="Optional"></textarea>`;
       const selectField = (label, id, values) => `<p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p><select id="${id}" class="add-record-select"><option value="">—</option>${(values || []).map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}</select>`;
@@ -3861,19 +4035,14 @@
                 <div class="newsletter-modal-instructions">
                   <p style="margin:0 0 6px 0;"><label>House number</label></p>
                   <input type="text" id="addRecordHouseNum" class="add-record-input" placeholder="e.g. 123" style="max-width:120px; margin-bottom:10px;">
-                  <p style="margin:0 0 6px 0;"><label>Direction</label></p>
-                  <select id="addRecordDirection" class="add-record-select" style="max-width:140px; margin-bottom:10px;">
-                    <option value="">-- None --</option>
-                    ${uniqueDirections.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')}
-                  </select>
                   <p style="margin:0 0 6px 0;"><label>Street</label></p>
                   <select id="addRecordStreetSelect" class="add-record-select" style="max-width:320px; margin-bottom:10px;">
                     <option value="">-- Select street --</option>
                     ${uniqueStreets.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
-                    <option value="__other__">Other (type new street)</option>
+                    <option value="__other__">Other (type full street)</option>
                   </select>
                   <div id="addRecordStreetOtherWrap" class="hidden" style="margin-bottom:10px;">
-                    <input type="text" id="addRecordStreetOther" class="add-record-input" placeholder="e.g. Main St" style="max-width:320px;">
+                    <input type="text" id="addRecordStreetOther" class="add-record-input" placeholder="e.g. N Madison Ave or Main St" style="max-width:320px;">
                   </div>
                   <p style="margin:0 0 6px 0;"><label>Unit</label></p>
                   <input type="text" id="addRecordUnit" class="add-record-input" placeholder="e.g. 2 or Apt B" style="max-width:220px; margin-bottom:10px;">
@@ -3908,18 +4077,13 @@
                   <div id="addRecordPersonNewWrap" class="hidden">
                     <p style="margin:0 0 6px 0;"><label>House number</label></p>
                     <input type="text" id="addRecordPersonHouseNum" class="add-record-input" placeholder="e.g. 123" style="max-width:120px; margin-bottom:8px;">
-                    <p style="margin:0 0 6px 0;"><label>Direction</label></p>
-                    <select id="addRecordPersonDirection" class="add-record-select" style="max-width:140px; margin-bottom:8px;">
-                      <option value="">-- None --</option>
-                      ${uniqueDirections.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')}
-                    </select>
                     <p style="margin:0 0 6px 0;"><label>Street</label></p>
                     <select id="addRecordPersonStreetSelect" class="add-record-select" style="max-width:320px; margin-bottom:8px;">
                       <option value="">-- Select street --</option>
                       ${uniqueStreets.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
-                      <option value="__other__">Other (type new street)</option>
+                      <option value="__other__">Other (type full street)</option>
                     </select>
-                    <div id="addRecordPersonStreetOtherWrap" class="hidden" style="margin-bottom:8px;"><input type="text" id="addRecordPersonStreetOther" class="add-record-input" placeholder="e.g. Main St" style="max-width:320px;"></div>
+                    <div id="addRecordPersonStreetOtherWrap" class="hidden" style="margin-bottom:8px;"><input type="text" id="addRecordPersonStreetOther" class="add-record-input" placeholder="e.g. N Madison Ave or Main St" style="max-width:320px;"></div>
                     <p style="margin:0 0 6px 0;"><label>Unit</label></p>
                     <input type="text" id="addRecordPersonUnit" class="add-record-input" placeholder="e.g. 2 or Apt B" style="max-width:220px; margin-bottom:8px;">
                     <p style="margin:0 0 6px 0;"><label>City, State, Zip</label></p>
@@ -4051,8 +4215,8 @@
         if (homePhoneCol) { const el = document.getElementById(prefix + 'HomePhone'); if (el && el.value) out[homePhoneCol] = el.value.trim(); }
         if (cellCol) { const el = document.getElementById(prefix + 'Cell'); if (el && el.value) out[cellCol] = el.value.trim(); }
         if (emailCol) { const el = document.getElementById(prefix + 'Email'); if (el && el.value) out[emailCol] = el.value.trim(); }
-        if (renterCol) { const el = document.getElementById(prefix + 'Renter'); if (el && el.type === 'checkbox') out[renterCol] = el.checked ? 'TRUE' : 'FALSE'; }
-        if (followUpCol) { const el = document.getElementById(prefix + 'FollowUp'); if (el && el.type === 'checkbox') out[followUpCol] = el.checked ? 'TRUE' : 'FALSE'; }
+        if (renterCol) { const el = document.getElementById(prefix + 'Renter'); if (el && el.type === 'checkbox' && el.checked) out[renterCol] = 'TRUE'; }
+        if (followUpCol) { const el = document.getElementById(prefix + 'FollowUp'); if (el && el.type === 'checkbox' && el.checked) out[followUpCol] = 'TRUE'; }
         if (personNotesCol) { const el = document.getElementById(prefix + 'PersonNotes'); if (el && el.value) out[personNotesCol] = el.value.trim(); }
         return out;
       }
@@ -4095,24 +4259,19 @@
 
         if (t === 'address') {
           const houseNum = (document.getElementById('addRecordHouseNum').value || '').trim();
-          const directionVal = (document.getElementById('addRecordDirection').value || '').trim().toUpperCase();
           const streetVal = streetSelect.value === '__other__' ? (document.getElementById('addRecordStreetOther').value || '').trim() : (streetSelect.value || '').trim();
           const unitVal = (document.getElementById('addRecordUnit').value || '').trim();
           const cityState = (document.getElementById('addRecordCityState').value || '').trim();
           const personName = (document.getElementById('addRecordPersonName').value || '').trim();
           if (!streetVal) { alert('Please select or enter a street.'); return; }
-          if (houseNumCol) rowValuesByColumn[houseNumCol] = houseNum;
-          if (directionCol) rowValuesByColumn[directionCol] = directionVal;
-          if (streetCol) rowValuesByColumn[streetCol] = streetVal;
-          if (unitCol) rowValuesByColumn[unitCol] = unitVal;
-          const addressString = buildAddressString(rowValuesByColumn, addressColumns);
-          if (addressCol) rowValuesByColumn[addressCol] = addressString || '';
-          if (nameCol) rowValuesByColumn[nameCol] = personName || '';
-          if (zoneCol && currentZoneName) rowValuesByColumn[zoneCol] = currentZoneName;
-          const parsed = parseCityStateZip(cityState);
-          if (cityCol) rowValuesByColumn[cityCol] = parsed.city || '';
-          if (stateCol) rowValuesByColumn[stateCol] = parsed.state || '';
-          if (zipCol) rowValuesByColumn[zipCol] = parsed.zip || '';
+          const addressString = applyAddRecordAddressInput(rowValuesByColumn, {
+            houseNum,
+            streetInput: streetVal,
+            unit: unitVal,
+            cityState
+          }, addressInputOptions);
+          applyAddRecordZoneDefaults(rowValuesByColumn, zoneDefaults);
+          applyAddRecordPersonName(rowValuesByColumn, personName, nameColumns);
           Object.assign(rowValuesByColumn, collectPersonDetails('addRecord'));
           Object.assign(rowValuesByColumn, collectAddressDetails());
           let lat = '', lon = '';
@@ -4156,28 +4315,24 @@
             const existingRows = sheetData.addressMap.get(existingAddr);
             if (!existingRows || !existingRows.length) { alert('Could not find that address.'); return; }
             const firstRow = existingRows[0];
-            headers.forEach(h => { rowValuesByColumn[h] = (firstRow[h] != null ? firstRow[h] : ''); });
-            rowValuesByColumn[nameCol] = personName;
+            copyAddRecordAddressFields(firstRow, rowValuesByColumn, addressFieldCols);
+            applyAddRecordZoneDefaults(rowValuesByColumn, zoneDefaults);
+            applyAddRecordPersonName(rowValuesByColumn, personName, nameColumns);
             Object.assign(rowValuesByColumn, collectPersonDetails('addRecordP'));
           } else if (addrType === 'new') {
             const houseNum = (document.getElementById('addRecordPersonHouseNum').value || '').trim();
-            const directionVal = (document.getElementById('addRecordPersonDirection').value || '').trim().toUpperCase();
             const streetVal = personStreetSelect.value === '__other__' ? (document.getElementById('addRecordPersonStreetOther').value || '').trim() : (personStreetSelect.value || '').trim();
             const unitVal = (document.getElementById('addRecordPersonUnit').value || '').trim();
             const cityState = (document.getElementById('addRecordPersonCityState').value || '').trim();
             if (!streetVal) { alert('Please select or enter a street for the new address.'); return; }
-            if (houseNumCol) rowValuesByColumn[houseNumCol] = houseNum;
-            if (directionCol) rowValuesByColumn[directionCol] = directionVal;
-            if (streetCol) rowValuesByColumn[streetCol] = streetVal;
-            if (unitCol) rowValuesByColumn[unitCol] = unitVal;
-            const addressString = buildAddressString(rowValuesByColumn, addressColumns);
-            if (addressCol) rowValuesByColumn[addressCol] = addressString || '';
-            if (nameCol) rowValuesByColumn[nameCol] = personName;
-            if (zoneCol && currentZoneName) rowValuesByColumn[zoneCol] = currentZoneName;
-            const parsed = parseCityStateZip(cityState);
-            if (cityCol) rowValuesByColumn[cityCol] = parsed.city || '';
-            if (stateCol) rowValuesByColumn[stateCol] = parsed.state || '';
-            if (zipCol) rowValuesByColumn[zipCol] = parsed.zip || '';
+            const addressString = applyAddRecordAddressInput(rowValuesByColumn, {
+              houseNum,
+              streetInput: streetVal,
+              unit: unitVal,
+              cityState
+            }, addressInputOptions);
+            applyAddRecordZoneDefaults(rowValuesByColumn, zoneDefaults);
+            applyAddRecordPersonName(rowValuesByColumn, personName, nameColumns);
             Object.assign(rowValuesByColumn, collectPersonDetails('addRecordP'));
             let lat = '', lon = '';
             const geocodeQuery = addressString && (addressString + (cityState ? ', ' + cityState : ''));
@@ -4209,15 +4364,17 @@
             if (latCol) rowValuesByColumn[latCol] = lat;
             if (lonCol) rowValuesByColumn[lonCol] = lon;
           } else {
-            if (addressCol) rowValuesByColumn[addressCol] = '';
-            if (houseNumCol) rowValuesByColumn[houseNumCol] = '';
-            if (directionCol) rowValuesByColumn[directionCol] = '';
-            if (streetCol) rowValuesByColumn[streetCol] = '';
-            if (unitCol) rowValuesByColumn[unitCol] = '';
-            if (nameCol) rowValuesByColumn[nameCol] = personName;
-            if (zoneCol && currentZoneName) rowValuesByColumn[zoneCol] = currentZoneName;
-            if (latCol) rowValuesByColumn[latCol] = '';
-            if (lonCol) rowValuesByColumn[lonCol] = '';
+            setAddRecordValue(rowValuesByColumn, addressCol, '');
+            setAddRecordValue(rowValuesByColumn, houseNumCol, '');
+            setAddRecordValue(rowValuesByColumn, directionCol, '');
+            setAddRecordValue(rowValuesByColumn, streetCol, '');
+            setAddRecordValue(rowValuesByColumn, unitCol, '');
+            setAddRecordValue(rowValuesByColumn, legacyHouseCol, '');
+            setAddRecordValue(rowValuesByColumn, legacyStreetCol, '');
+            setAddRecordValue(rowValuesByColumn, latCol, '');
+            setAddRecordValue(rowValuesByColumn, lonCol, '');
+            applyAddRecordZoneDefaults(rowValuesByColumn, zoneDefaults);
+            applyAddRecordPersonName(rowValuesByColumn, personName, nameColumns);
             Object.assign(rowValuesByColumn, collectPersonDetails('addRecordP'));
           }
         }
@@ -5625,7 +5782,11 @@
     function getResidentNameColumn(headers) {
       return headers.find(h =>
         h.toLowerCase().includes('resident name') ||
-        (h.toLowerCase().includes('name') && !h.toLowerCase().includes('nc name'))
+        (h.toLowerCase().includes('name') &&
+          !h.toLowerCase().includes('first') &&
+          !h.toLowerCase().includes('middle') &&
+          !h.toLowerCase().includes('last') &&
+          !h.toLowerCase().includes('nc name'))
       );
     }
 
