@@ -1452,76 +1452,177 @@
       }
     }
 
+    // Google OAuth: use real token lifetime (expires_in) and refresh silently before expiry.
+    const OAUTH_EXPIRY_BUFFER_SEC = 120;
+    const OAUTH_REFRESH_WHEN_REMAINING_MS = 5 * 60 * 1000;
+
+    let googleOAuthTokenClient = null;
+    let oauthPending = null;
+    let ensureGoogleTokenPromise = null;
+    let oauthRequestGeneration = 0;
+
+    function bumpOAuthRequestGeneration() {
+      oauthRequestGeneration++;
+    }
+
+    function persistGoogleAccessToken(response) {
+      if (!response || response.error || !response.access_token) return false;
+      accessToken = response.access_token;
+      const expiresInSec = Number(response.expires_in);
+      const sec = Number.isFinite(expiresInSec) && expiresInSec > 0 ? expiresInSec : 3600;
+      const effectiveSec = Math.max(60, sec - OAUTH_EXPIRY_BUFFER_SEC);
+      const expiryMs = Date.now() + effectiveSec * 1000;
+      localStorage.setItem('googleOAuthToken', accessToken);
+      localStorage.setItem('googleOAuthTokenExpiry', String(expiryMs));
+      return true;
+    }
+
+    async function completeSignInAfterToken() {
+      try {
+        const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { 'Authorization': 'Bearer ' + accessToken } });
+        if (userRes.ok) {
+          const user = await userRes.json();
+          currentUserEmail = (user.email || '').trim().toLowerCase();
+          if (currentUserEmail) localStorage.setItem('ncProfileUserEmail', currentUserEmail);
+        }
+      } catch (e) { console.warn('Could not fetch user email:', e); }
+
+      if (!currentUserEmail) {
+        welcomeAuthState = 'server_error';
+        welcomeAuthMessage = 'Could not verify your Google account email. Please try signing in again.';
+        updateSignInUI();
+        throw new Error('Could not verify email');
+      }
+
+      window.trackAnalyticsEvent('sign_in_completed');
+
+      const rememberedSheetUrl = currentSheetUrl || localStorage.getItem('savedSheetUrl') || '';
+      if (rememberedSheetUrl) {
+        currentSheetUrl = rememberedSheetUrl;
+        if (input) input.value = rememberedSheetUrl;
+        welcomeAuthState = 'idle';
+        welcomeAuthMessage = '';
+        updateSheetLinkLabel();
+        updateNavigationState();
+        updateSignInUI();
+        window.trackAnalyticsEvent('sheet_loaded');
+        loadAddressData(rememberedSheetUrl);
+      } else {
+        welcomeAuthState = 'loading';
+        welcomeAuthMessage = '';
+        updateSignInUI();
+        await resolveAuthorizedSheetsForCurrentUser();
+      }
+      if (currentView === 'profile') loadProfileView();
+      checkProfileAndMaybeNudge();
+    }
+
+    function getGoogleTokenClient() {
+      if (googleOAuthTokenClient) return googleOAuthTokenClient;
+      googleOAuthTokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: OAUTH_CLIENT_ID,
+        scope: 'https://www.googleapis.com/auth/userinfo.email openid',
+        callback: async (response) => {
+          const pending = oauthPending;
+          oauthPending = null;
+          if (!pending) {
+            return;
+          }
+          const { kind, resolve, reject, gen } = pending;
+          if (gen !== oauthRequestGeneration) {
+            reject(new Error('canceled'));
+            return;
+          }
+          if (response.error) {
+            reject(new Error(response.error));
+            return;
+          }
+          if (!persistGoogleAccessToken(response)) {
+            reject(new Error('Invalid token response'));
+            return;
+          }
+          if (kind === 'silent') {
+            resolve();
+            return;
+          }
+          try {
+            await completeSignInAfterToken();
+            resolve();
+          } catch (e) {
+            reject(e);
+          }
+        },
+      });
+      return googleOAuthTokenClient;
+    }
+
+    async function ensureValidGoogleAccessToken() {
+      if (!accessToken) return;
+      if (oauthPending && oauthPending.kind === 'signin') {
+        return;
+      }
+      const storedExpiry = localStorage.getItem('googleOAuthTokenExpiry');
+      const exp = storedExpiry ? parseInt(storedExpiry, 10) : 0;
+      if (exp && Date.now() < exp - OAUTH_REFRESH_WHEN_REMAINING_MS) {
+        return;
+      }
+
+      if (ensureGoogleTokenPromise) {
+        await ensureGoogleTokenPromise;
+        return;
+      }
+
+      ensureGoogleTokenPromise = new Promise((resolve, reject) => {
+        oauthPending = { kind: 'silent', resolve, reject, gen: oauthRequestGeneration };
+        try {
+          getGoogleTokenClient().requestAccessToken({ prompt: '' });
+        } catch (e) {
+          oauthPending = null;
+          reject(e);
+        }
+      }).finally(() => {
+        ensureGoogleTokenPromise = null;
+      });
+
+      await ensureGoogleTokenPromise;
+    }
+
     async function signIn() {
       if (OAUTH_CLIENT_ID === 'YOUR_CLIENT_ID') {
         alert('OAuth Client ID not configured. Please set OAUTH_CLIENT_ID in the code.');
         return;
       }
-      
+
+      if (oauthPending) {
+        try {
+          oauthPending.reject(new Error('canceled'));
+        } catch (e) { /* ignore */ }
+        oauthPending = null;
+      }
+      bumpOAuthRequestGeneration();
+
       try {
-        const tokenClient = google.accounts.oauth2.initTokenClient({
-          client_id: OAUTH_CLIENT_ID,
-          scope: 'https://www.googleapis.com/auth/userinfo.email openid',
-          callback: async (response) => {
-            if (response.error) {
-              console.error('Sign in error:', response.error);
-              alert('Sign in failed. Please try again.');
-              return;
-            }
-            accessToken = response.access_token;
-            // Store token with expiry (tokens last 1 hour, store for 50 minutes)
-            const expiry = Date.now() + (50 * 60 * 1000);
-            localStorage.setItem('googleOAuthToken', accessToken);
-            localStorage.setItem('googleOAuthTokenExpiry', expiry.toString());
-            // Fetch and store signed-in user email (for NC Profile row matching)
-            try {
-              const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { 'Authorization': 'Bearer ' + accessToken } });
-              if (userRes.ok) {
-                const user = await userRes.json();
-                currentUserEmail = (user.email || '').trim().toLowerCase();
-                if (currentUserEmail) localStorage.setItem('ncProfileUserEmail', currentUserEmail);
-              }
-            } catch (e) { console.warn('Could not fetch user email:', e); }
-
-            if (!currentUserEmail) {
-              welcomeAuthState = 'server_error';
-              welcomeAuthMessage = 'Could not verify your Google account email. Please try signing in again.';
-              updateSignInUI();
-              return;
-            }
-
-            window.trackAnalyticsEvent('sign_in_completed');
-
-            const rememberedSheetUrl = currentSheetUrl || localStorage.getItem('savedSheetUrl') || '';
-            if (rememberedSheetUrl) {
-              currentSheetUrl = rememberedSheetUrl;
-              if (input) input.value = rememberedSheetUrl;
-              welcomeAuthState = 'idle';
-              welcomeAuthMessage = '';
-              updateSheetLinkLabel();
-              updateNavigationState();
-              updateSignInUI();
-              window.trackAnalyticsEvent('sheet_loaded');
-              loadAddressData(rememberedSheetUrl);
-            } else {
-              welcomeAuthState = 'loading';
-              welcomeAuthMessage = '';
-              updateSignInUI();
-              await resolveAuthorizedSheetsForCurrentUser();
-            }
-            if (currentView === 'profile') loadProfileView();
-            checkProfileAndMaybeNudge();
-          },
+        await new Promise((resolve, reject) => {
+          oauthPending = { kind: 'signin', resolve, reject, gen: oauthRequestGeneration };
+          getGoogleTokenClient().requestAccessToken({ prompt: 'consent' });
         });
-        tokenClient.requestAccessToken({ prompt: 'consent' });
       } catch (error) {
         console.error('Sign in error:', error);
-        alert('Error signing in. Please try again.');
+        if (error.message !== 'Could not verify email') {
+          alert('Sign in failed. Please try again.');
+        }
       }
     }
 
     // Sign Out
     function signOut() {
+      bumpOAuthRequestGeneration();
+      if (oauthPending) {
+        try {
+          oauthPending.reject(new Error('canceled'));
+        } catch (e) { /* ignore */ }
+        oauthPending = null;
+      }
       accessToken = null;
       currentUserEmail = null;
       currentSheetUrl = '';
@@ -1713,6 +1814,15 @@
       if (formEl) formEl.classList.add('hidden');
 
       if (!accessToken) {
+        if (signinEl) signinEl.classList.remove('hidden');
+        return;
+      }
+      try {
+        await ensureValidGoogleAccessToken();
+      } catch (e) {
+        accessToken = null;
+        localStorage.removeItem('googleOAuthToken');
+        localStorage.removeItem('googleOAuthTokenExpiry');
         if (signinEl) signinEl.classList.remove('hidden');
         return;
       }
@@ -2304,15 +2414,24 @@
 
     // Fetch data via backend proxy (service account)
     async function fetchViaOAuth(sheetId, range = 'A1:ZZ1000', sheetName = null) {
-      const storedExpiry = localStorage.getItem('googleOAuthTokenExpiry');
-      if (storedExpiry && Date.now() > parseInt(storedExpiry)) {
+      if (!accessToken) {
+        throw new Error('Not signed in. Please sign in to view data.');
+      }
+      try {
+        await ensureValidGoogleAccessToken();
+      } catch (e) {
+        if (e && e.message === 'canceled') {
+          throw new Error('Not signed in. Please sign in to view data.');
+        }
         accessToken = null;
         localStorage.removeItem('googleOAuthToken');
         localStorage.removeItem('googleOAuthTokenExpiry');
         throw new Error('Your session has expired. Please sign in again.');
       }
       if (!accessToken) {
-        throw new Error('Not signed in. Please sign in to view data.');
+        localStorage.removeItem('googleOAuthToken');
+        localStorage.removeItem('googleOAuthTokenExpiry');
+        throw new Error('Your session has expired. Please sign in again.');
       }
       const response = await fetch('/api/sheets/values', {
         method: 'POST',
