@@ -1,0 +1,95 @@
+﻿Title,Type,Section,Description,Status,Priority,Submitted by,Screenshot,Timestamp,Source,John's Notes
+News feed,💡 Idea,Tools,A list of relevant news stories from the week.,Back Burner,Low,,,,JM,
+Explore possibility of user customizing their layout,,,,Back Burner,Low,,,,JM,
+Add Logo to Flyer Generator,,Tools,,Back Burner,Low,,,,JM,
+Former Residents tab,💡 Idea,,"I've added an additional tab to the backend spreadsheet called ""Former Residents"". When a person is marked as ""Moved away"" they should be moved to this tab.",Back Burner,Low,,,,JM,
+Add Newsletter Builder,💡 Idea,Actions,"Take that week's newsletter, put a checkbox next to each section, and let users decide which pieces they want to include in their zone newsletter. ???	
+
+PROMPT:
+
+
+Newsletter builder
+Spec out a web app for me that enables my volunteer neighborhood captains to create their own zone newsletters, drawing content from our Altogether town-wide newsletter, which comes out every two weeks. The format of our newsletter is built in something called Mailer Light, and it then just goes out as a big email to our list.
+
+What I want is for neighborhood captains to be able to look at the newsletter, either check a box or click and drag the items that they want to add to their newsletter, and then add custom stuff if they want to:
+- add a custom name for their newsletter
+- add a little logo if they want to
+- make the output something that's focused for their zone and small, and over which the neighborhood captain feels ownership
+
+
+I want it to be low friction and easy for the neighborhood captain to do. I want them to feel empowered and excited to do this each week. It needs to be lightweight, slick, and have a really good-looking output that's then very easy for them to copy and paste into an email or generate or print out so that they can deliver it in person to places.
+
+Spec out how this might work. It can be a standalone website/web app kind of thing, and then spec which I'll then link to from the zone dashboard. Also spec out: well, I don't know; tell me what you would need from me to make this happen. We need to think about what sorts of process changes might be needed from the newsletter editors to make this possible. We also need to consider that our newsletter editors are volunteers, and any solution here needs to be as easy as possible for them to do. Ok, in thinking about the editorial process for the newsletter, if it's possible, I don't know how we do this exactly, but maybe we can develop a web scraper feature that makes it easier for them to find news every week that people need. ",Back Burner,Low,,,,JM,
+normalize column widths,,Neighbors,"Great job. We should make all the column widths smart like we did with Address, except for Residents. What do you think? any drawbacks of this approach?
+
+DID NOT IMPLEMENT",Back Burner,Low,,,,JM,
+Resource Navigator,,Tools,,Back Burner,Low,,,,JM,
+Event Planner wizard,,,,Back Burner,Low,,,1/27/2026 4:35pm,,
+Ideas Portal / Bank,,,A place where users can suggest features and then upvote those they like.,Back Burner,Low,,,2/3/2026 4:04pm,,
+Revisit the way names are styled on the Actions tab,,Actions,Seems like overkill to have them be yellow buttons. Also it looks nuts for people with long names.,Todo,Low,john,,12/18/2025 1:54pm,,
+Maybe add ability to move a pin after the fact,,,"Angie request:
+Is there any way to fix a pin on the map? I accidentally put a pin in the wrong location on the map.",Todo,Low,,,3/31/2026 6:06pm,,
+Fix spacing around the mini map color key,,,,Todo,Low,,,4/3/2026 8:59am,,
+Add the ability to add a picture for your entry in the directory ,,,,Todo,Low,,,4/3/2026 9:16am,,
+Maybe: Cross-zone insights (opt-in),,,"If captains opt in to sharing, build:
+
+Town Overview Dashboard:
+Aggregated stats across all opt-in zones
+Trend analysis (contact rates improving? damage distribution?)
+Resource allocation insights
+""Zones needing help"" (based on contact rates, completion %)
+
+Captain-to-Captain insights:
+""Other zones with similar challenges""
+Best practices sharing (anonymized)
+Cross-zone collaboration tools",Back Burner,Medium,,,,JM,
+Power User Map,,Other/general,,Back Burner,Medium,,,1/26/2026 11:36pm,,
+Zone Notes is a defunct feature. Remove?,,,"I'm seeing errors regarding ""Zone Notes"". Zone Notes is a defunct feature. We can remove it from the platform, unless you think there is a risk of breaking things if we do that. ",Todo,Medium,,,2/4/2026 12:42pm,,
+Combine water district maps,,,,Todo,Medium,,,4/3/2026 8:42am,,
+Add SCE undergrounding map,,,,Todo,Medium,,,4/3/2026 8:43am,,
+Create a Release Roadmap - what's coming?,,,6 month timeline?,Todo,Medium,,,4/3/2026 9:09am,,
+Create an Admin mode,💡 Idea,Other/general,"So i can see every zone, every captain, access other zones, and potentially even search every person + address in our database
+	",Todo,Medium,,,4/6/2026 10:50am,,
+Add Actions in effort tiers,,Actions,"Low Lift:
+Forward newsletter
+Send group text intro
+
+Medium Lift:
+Do a 30-minute porch meetup
+Canvas 3 nearest homes
+
+High Lift
+Host a zone meetup",In progress,Medium,,,,JM,
+Develop a full tutorial mode the user can toggle on ,,About,Button in the header?,Back Burner,High,,,,JM,
+Refine the Send Newsletter action,,Actions,Expand its features if possible. Maybe add a newsletter subscriber tag to make it easy to keep track of these people. Let's add some logic to make sure we're not emailing deceased people. ,Back Burner,High,,,,JM,
+Add custom-styled hover-overs with detailed explainers.,,About,,Todo,High,,,,JM,
+Add Hover-Over Tooltips to Filters and most items in the Details panel,,Other/general,"Explain in the app what we mean by ""Contact""",Todo,High,,,,JM,
+Timing out while active?,🐛 Bug,Home,"Hiya, 
+I was actively exploring (on the RESOURCES page) and it asked me to log in again. I'm assuming that was at the one-hour mark? But I don't know if that is a bug or designed that way? Sorry, I took a screenshot (snipped it) but am too lazy to create a file to upload. I'll send you an email.",Todo,High,Steph Pinto,,2/12/2026 8:15pm,,
+Fix how interests work & display in the directory,,,"You rearranged Utilities in the Google Sheet on 3.23. You need to make sure that they all appear as options in the Profile page, and then on the Directory as well.",Todo,High,,,3/23/2026 7:59pm,,
+Add “person details” modal,,,"Add “person details” modal — 
+user can click any person’s name in the Details panel and a modal of that person pops up. Same dimensions and design as the newsletter modal and add record modal. This modal contains all the same information about the person as is shown in the Details panel, but it also includes additional features & options. While Details displays Quick Tags, the Person modal will display All Tags — Quick Tags plus additional checkboxes and dropdowns. (Note that what I am describing here includes a change to the Details panel, changing Tags to Quick Tags.)
+Within this new Person modal (but not elsewhere!) there is an option to tag the person as a “former resident”, plus a notes field alongside that checkbox. When that box is checked, this person will then no longer appear listed in the Details panel. Instead, for addresses that have a former resident associated with it, a small header “Former Residents” will appear at the bottom of the panel, with a list of each former resident underneath. All of this text should be smaller and grayed out in comparison to the main text in the Details panel. Click on a name in the former residents list to open the Person modal where User could then un-mark the person as being a former resident, thereby returning them to the normal flow within the Details panel.",Todo,High,,,3/30/2026 10:49am,,
+Devise and implement Deceased and Former Resident logic,,,Should these people count toward contact rates? Should their emails be dropped out entirely?,Todo,High,,,3/31/2026 3:39pm,,
+Build out Address Details modal,,,,Todo,High,,,4/2/2026 10:09pm,,
+"Change ""Last Contact Date:"" to ""Last Contact Logged:""",,,,Todo,High,,,4/2/2026 10:09pm,,
+Add more actions,,,,Todo,High,,,4/2/2026 10:10pm,,
+Build out an Event Planner wizard,,,Idk how the data storage element is gonna work tho,Todo,High,,,4/2/2026 10:11pm,,
+Create a drip campaign to drive and hold engagement,,,6 weeks?,Todo,High,,,4/2/2026 10:11pm,,
+Expand GA features,,,"Need to know:
+Returning users
+Time on site
+Actions performed
+Data fields updated",Todo,High,,,4/3/2026 8:59am,,
+Make it possible to add a person without an address and then have them show up in the neighbors table ,,,,,High,,,4/9/2026 10:48am,,
+Revise the Print layout,,Neighbors,It's currently not legible enough,Todo,Critical,,,,JM,
+Revise the #s at the top of the Home page,,,"In Construction
+Rebuilding
+?
+
+Maybe it's something like showing them the number of properties that are total loss and then the number of properties that are in some stage of rebuilding or are planning to rebuild. This could be genuinely kind of useful and encouraging to see at a glance but it also could be that psychological influence thing where you show somebody something wrong and they want to fix it. ",Todo,Critical,,,1/30/2026 11:48am,,
+Expand options for Batch Tag in general,,,"Contacted
+Newsletter Subscriber
+Moved Away",Todo,Critical,,,4/2/2026 10:09pm,,
+Add COMMUNICATIONS SUPPORT hub,,,Build this out ASAP,Todo,Critical,,,4/3/2026 9:08am,,
+Thank you for creating this. ,,Home,,,,,,4/7/2026 6:14pm,,
