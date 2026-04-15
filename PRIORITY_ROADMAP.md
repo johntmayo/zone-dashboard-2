@@ -160,6 +160,26 @@ I've also added items that weren't in your kanban but that the audit surfaced as
 - **Effort:** 4–6 hours
 - **Risk:** Medium — touches the core data model
 
+### 2.9 — Property Sales Data: Badge + Sale Information Section
+- **Kanban:** High priority
+- **What:** Surface post-fire property sales data in the Details panel and address list. Three components:
+  1. **"SOLD" badge** — a visible tag next to the address in both the address list and the detail view header whenever `Address - Sold Since Fire` is TRUE. Makes sold status immediately obvious without expanding anything.
+  2. **"Sale Information" section** in the Details panel — a new collapsible section (expanded by default when sale data exists, hidden when it doesn't) placed after address-level fields and before person entries. Displays: last sale date, sale price, buyer, lot size, and a running sales history log.
+  3. **Column recognition** — teach the header-matching code to recognize `Sale Price`, `Lot SqFt`, and `Sales History` alongside the already-recognized `Sale Date`, `Sale Notes`, and `New Owner`.
+- **Data design:** The master spreadsheet gets a small number of new columns:
+  - `Sale Price` — most recent sale price (enables filtering/sorting)
+  - `Lot SqFt` — stable property fact, doesn't change between sales
+  - `Sales History` — free-text running log formatted as `[YYYY-MM-DD] narrative | [YYYY-MM-DD] narrative`, newest first. This is the solution to the multiple-sales-over-time problem: the "current" columns (`Sale Date`, `Sale Price`, `New Owner`) always reflect the latest sale and power filtering/sorting, while `Sales History` preserves the full record. Buyer notes from the sales spreadsheet are folded into each log entry's narrative rather than stored as a separate column.
+  - Existing columns `Sale Date`, `Sale Notes`, `New Owner`, `Address - Sold Since Fire`, `Address - For Sale` are already recognized by the app.
+- **Column editability rules:**
+  - **System-written (not captain-editable):** `Sales History`, `Sale Date`, `Sale Price` — these are populated at merge time and reflect the official record. `Sales History` in particular should not be hand-edited; it's the immutable log.
+  - **Captain-editable:** `New Owner` (captains may learn the buyer's identity after a sale is imported as "unknown"), `Sale Notes` (the captain's living scratchpad for observations about the sale or new owner), `Address - Sold Since Fire` and `Address - For Sale` (toggles a captain can set manually if they learn about a sale before the next data merge).
+  - This separation means the system record and the captain's knowledge coexist without conflict. If `Sales History` says "sold to unknown" but a captain discovers the buyer, they update `New Owner` — the log preserves what was known at import time, the live field reflects current knowledge.
+- **Merge workflow:** Sales CSV is matched into the master spreadsheet by APN. On merge: set `Sold Since Fire` = TRUE, `For Sale` = FALSE, populate the "current" sale fields, and compose a `Sales History` entry. `Sale Notes` is left empty at merge time so captains have a clean field. Existing `Sale Notes` content is never overwritten by a merge.
+- **Future extensions:** Sold properties as a map marker color-by option; re-enabling the existing `soldProperties` Mapbox overlay with click-to-detail behavior; filtering the address list by sale status.
+- **Dependency:** None — can be built independently. Complements the Address Details modal (2.2) when that's built.
+- **Effort:** 4–6 hours for the app-side UI work (column recognition + badge + Sale Information section). Spreadsheet column additions and data merge are a separate manual/scripting step.
+
 ---
 
 ## Tier 3: Expand Capabilities
@@ -259,6 +279,7 @@ Here's how I'd spend the next 4–6 weeks if I were you:
 - 2.4 Start adding tooltips (filters first)
 
 **Week 3–4: Person & Address Experience**
+- 2.9 Property Sales Data: badge + Sale Information section (once spreadsheet merge is done)
 - 2.1 Person Details modal
 - 2.3 Former Resident + Deceased logic
 - 2.2 Address Details modal

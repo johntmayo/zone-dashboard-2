@@ -92,4 +92,5 @@ Expand options for Batch Tag in general,,,"Contacted
 Newsletter Subscriber
 Moved Away",Todo,Critical,,,4/2/2026 10:09pm,,
 Add COMMUNICATIONS SUPPORT hub,,,Build this out ASAP,Todo,Critical,,,4/3/2026 9:08am,,
+Property Sales Data: Badge + Sale Information section in Details panel,💡 Idea,Details,"Surface post-fire sales data in the UI. Add a visible SOLD badge on addresses that have sold. Build a Sale Information section in the Details panel showing sale date, price, buyer, lot size, and a running sales history log. Recognize new spreadsheet columns: Sale Price, Lot SqFt, Sales History. Data is merged into master spreadsheet by APN from a separate sales CSV.",Todo,High,john,,4/14/2026 11:00pm,,
 Thank you for creating this. ,,Home,,,,,,4/7/2026 6:14pm,,
