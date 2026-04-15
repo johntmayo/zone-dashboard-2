@@ -615,6 +615,114 @@
         <h3 class="tools-section__header">Zone Tools</h3>
         <div class="tools-grid">
           
+          <!-- Batch Tagging Module -->
+          <div class="tool-module tool-module--featured" id="batchTaggingTool">
+            <div class="tool-module-header" style="cursor: pointer;">
+              <h3>Batch Tagging <span class="tool-module-toggle">▼</span></h3>
+              <p>Select addresses or people, choose values to apply, and save — all at once.</p>
+            </div>
+            <div class="tool-module-content">
+              <div class="batch-tag-tabs" id="batchTagTabs">
+                <button class="batch-tag-tab active" data-tab="address">Address Tags</button>
+                <button class="batch-tag-tab" data-tab="person">Person Tags</button>
+              </div>
+              <div class="batch-tag-filters" id="batchTagFilters">
+                <select id="batchTagStreetFilter" class="add-record-select">
+                  <option value="all">All streets</option>
+                </select>
+                <input type="text" id="batchTagSearch" class="add-record-input" placeholder="Search address or name…" style="min-width:200px;">
+                <select id="batchTagContactFilter" class="add-record-select" style="display:none;">
+                  <option value="all">All contact statuses</option>
+                  <option value="contacted">Already contacted</option>
+                  <option value="not_contacted">Not yet contacted</option>
+                </select>
+              </div>
+              <div id="batchTabAddress" class="batch-tab-panel">
+                <div id="batchTaggingError" class="hidden" style="padding:12px; margin-bottom:16px; background:rgba(200,0,0,0.1); border:1px solid #c00; border-radius:8px; color:#c00; font-weight:600;"></div>
+                <div id="batchTaggingBody">
+                  <div style="margin-bottom:12px;">
+                    <button type="button" class="btn-copy-emails" id="batchTaggingSelectAll">Select all</button>
+                    <button type="button" class="btn-copy-emails" id="batchTaggingSelectNone" style="margin-left:8px;">Select none</button>
+                    <button type="button" class="btn-copy-emails" id="batchTaggingDrawOnMap" style="margin-left:8px;">Draw on map</button>
+                  </div>
+                  <p id="batchTaggingNoCoordsNote" class="hidden" style="margin:0 0 8px 0; font-size:0.85rem; color:var(--text-light);"></p>
+                  <div id="batchTaggingListView">
+                    <div id="batchTaggingAddressList" style="overflow-y:auto; border:1px solid var(--border-soft); border-radius:8px; padding:12px; margin-bottom:20px; background:rgba(255,255,255,0.5);">
+                      <!-- Populated by JS -->
+                    </div>
+                  </div>
+                  <div id="batchTaggingMapView" class="hidden" style="margin-bottom:20px;">
+                    <p style="margin:0 0 8px 0; font-size:0.9rem; color:var(--text-light);">Click on the map to add polygon points. Click the first point again to close the shape (or use the button). Selected addresses turn red; choose values below and click Apply when ready.</p>
+                    <div style="margin-bottom:8px;">
+                      <button type="button" class="btn-copy-emails" id="batchTaggingMapBackToList" style="margin-right:8px;">Back to list</button>
+                      <button type="button" class="btn-copy-emails" id="batchTaggingMapClosePolygon" style="margin-right:8px;">Close polygon &amp; select</button>
+                      <button type="button" class="btn-copy-emails" id="batchTaggingMapClear">Clear shape</button>
+                    </div>
+                    <div id="batchTaggingMapContainer" style="height:420px; border:1px solid var(--border-soft); border-radius:8px; overflow:hidden;"></div>
+                    <p id="batchTaggingMapStatus" style="margin:8px 0 0 0; font-size:0.9rem; color:var(--text-light);"></p>
+                  </div>
+                  <div style="display:flex; flex-wrap:wrap; gap:20px; align-items:flex-end; margin-bottom:16px;">
+                    <div>
+                      <label style="display:block; margin-bottom:4px; font-weight:600;">Damage</label>
+                      <select id="batchTaggingDamage" class="add-record-select" style="min-width:160px;"></select>
+                    </div>
+                    <div>
+                      <label style="display:block; margin-bottom:4px; font-weight:600;">Address Plan</label>
+                      <select id="batchTaggingAddressPlan" class="add-record-select" style="min-width:160px;"></select>
+                    </div>
+                    <div>
+                      <label style="display:block; margin-bottom:4px; font-weight:600;">Build Status</label>
+                      <select id="batchTaggingRebuild" class="add-record-select" style="min-width:200px;"></select>
+                    </div>
+                  </div>
+                  <button type="button" class="btn-generate-report" id="batchTaggingApply">Apply to selected addresses</button>
+                  <div id="batchTaggingStatusMsg" style="margin-top:12px; font-size:0.9rem;"></div>
+                </div>
+              </div>
+              <div id="batchTabPerson" class="batch-tab-panel hidden">
+                <div id="batchPersonError" class="hidden" style="padding:12px; margin-bottom:16px; background:rgba(200,0,0,0.1); border:1px solid #c00; border-radius:8px; color:#c00; font-weight:600;"></div>
+                <div id="batchPersonBody">
+                  <div style="margin-bottom:12px;">
+                    <button type="button" class="btn-copy-emails" id="batchPersonSelectAll">Select all</button>
+                    <button type="button" class="btn-copy-emails" id="batchPersonSelectNone" style="margin-left:8px;">Select none</button>
+                  </div>
+                  <div id="batchPersonList" style="overflow-y:auto; border:1px solid var(--border-soft); border-radius:8px; padding:12px; margin-bottom:20px; background:rgba(255,255,255,0.5);">
+                    <!-- Populated by JS -->
+                  </div>
+                  <div id="batchPersonMissingCols" class="hidden" style="margin-bottom:16px; padding:10px 14px; background:rgba(200,150,0,0.08); border:1px solid rgba(200,150,0,0.3); border-radius:6px; font-size:0.875rem; color:var(--text-secondary);"></div>
+                  <div style="display:flex; flex-wrap:wrap; gap:20px; align-items:flex-end; margin-bottom:16px;">
+                    <div>
+                      <label style="display:block; margin-bottom:4px; font-weight:600;">Log as Contacted</label>
+                      <select id="batchPersonContacted" class="add-record-select" style="min-width:160px;">
+                        <option value="">— no change —</option>
+                        <option value="log">Log contact (today's date)</option>
+                        <option value="clear">Clear contact date</option>
+                      </select>
+                    </div>
+                    <div id="batchPersonNewsletterWrap">
+                      <label style="display:block; margin-bottom:4px; font-weight:600;">Newsletter Subscriber</label>
+                      <select id="batchPersonNewsletter" class="add-record-select" style="min-width:160px;">
+                        <option value="">— no change —</option>
+                        <option value="TRUE">Yes</option>
+                        <option value="FALSE">No</option>
+                      </select>
+                    </div>
+                    <div id="batchPersonMovedAwayWrap">
+                      <label style="display:block; margin-bottom:4px; font-weight:600;">Moved Away</label>
+                      <select id="batchPersonMovedAway" class="add-record-select" style="min-width:160px;">
+                        <option value="">— no change —</option>
+                        <option value="TRUE">Yes — moved away</option>
+                        <option value="FALSE">No — still here</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button type="button" class="btn-generate-report" id="batchPersonApply">Apply to selected people</button>
+                  <div id="batchPersonStatusMsg" style="margin-top:12px; font-size:0.9rem;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Zone Analysis Generator Module -->
           <div class="tool-module tool-module--featured" id="zoneReportGenerator">
             <div class="tool-module-header" style="cursor: pointer;">
@@ -635,59 +743,6 @@
                 <div class="zone-report-content" id="zoneReportContent">
                   <!-- Report will be generated here -->
                 </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Batch Tagging Module -->
-          <div class="tool-module tool-module--featured" id="batchTaggingTool">
-            <div class="tool-module-header" style="cursor: pointer;">
-              <h3>Batch Tagging <span class="tool-module-toggle">▼</span></h3>
-              <p>Quickly set Damage, Address Plan, and Build Status for many addresses at once. Select addresses (optionally filter first in Neighbors), choose values, then Apply.</p>
-            </div>
-            <div class="tool-module-content">
-              <div id="batchTaggingError" class="hidden" style="padding:12px; margin-bottom:16px; background:rgba(200,0,0,0.1); border:1px solid #c00; border-radius:8px; color:#c00; font-weight:600;"></div>
-              <div id="batchTaggingBody">
-                <p style="margin:0 0 12px 0; color:var(--text-light);">Addresses shown match your current Neighbors filters. Check the ones you want to tag.</p>
-                <!-- List view: checkboxes -->
-                <div id="batchTaggingListView">
-                  <div style="margin-bottom:12px;">
-                    <button type="button" class="btn-copy-emails" id="batchTaggingSelectAll" style="margin-right:8px;">Select all</button>
-                    <button type="button" class="btn-copy-emails" id="batchTaggingSelectNone">Select none</button>
-                    <button type="button" class="btn-copy-emails" id="batchTaggingDrawOnMap" style="margin-left:8px;">Draw on map</button>
-                  </div>
-                  <p id="batchTaggingNoCoordsNote" class="hidden" style="margin:0 0 8px 0; font-size:0.85rem; color:var(--text-light);"></p>
-                  <div id="batchTaggingAddressList" style="max-height:280px; overflow-y:auto; border:1px solid var(--border-soft); border-radius:8px; padding:12px; margin-bottom:20px; background:rgba(255,255,255,0.5);">
-                    <!-- Populated by JS -->
-                  </div>
-                </div>
-                <!-- Map view: polygon drawing -->
-                <div id="batchTaggingMapView" class="hidden" style="margin-bottom:20px;">
-                  <p style="margin:0 0 8px 0; font-size:0.9rem; color:var(--text-light);">Click on the map to add polygon points. Click the first point again to close the shape (or use the button). Selected addresses turn red; choose values below and click Apply when ready.</p>
-                  <div style="margin-bottom:8px;">
-                    <button type="button" class="btn-copy-emails" id="batchTaggingMapBackToList" style="margin-right:8px;">Back to list</button>
-                    <button type="button" class="btn-copy-emails" id="batchTaggingMapClosePolygon" style="margin-right:8px;">Close polygon &amp; select</button>
-                    <button type="button" class="btn-copy-emails" id="batchTaggingMapClear">Clear shape</button>
-                  </div>
-                  <div id="batchTaggingMapContainer" style="height:420px; border:1px solid var(--border-soft); border-radius:8px; overflow:hidden;"></div>
-                  <p id="batchTaggingMapStatus" style="margin:8px 0 0 0; font-size:0.9rem; color:var(--text-light);"></p>
-                </div>
-                <div style="display:flex; flex-wrap:wrap; gap:20px; align-items:flex-end; margin-bottom:16px;">
-                  <div>
-                    <label style="display:block; margin-bottom:4px; font-weight:600;">Damage</label>
-                    <select id="batchTaggingDamage" class="add-record-select" style="min-width:160px;"></select>
-                  </div>
-                  <div>
-                    <label style="display:block; margin-bottom:4px; font-weight:600;">Address Plan</label>
-                    <select id="batchTaggingAddressPlan" class="add-record-select" style="min-width:160px;"></select>
-                  </div>
-                  <div>
-                    <label style="display:block; margin-bottom:4px; font-weight:600;">Build Status</label>
-                    <select id="batchTaggingRebuild" class="add-record-select" style="min-width:200px;"></select>
-                  </div>
-                </div>
-                <button type="button" class="btn-generate-report" id="batchTaggingApply">Apply to selected addresses</button>
-                <div id="batchTaggingStatusMsg" style="margin-top:12px; font-size:0.9rem;"></div>
               </div>
             </div>
           </div>
@@ -13820,9 +13875,19 @@
     function initializeBatchTagging() {
       const errEl = document.getElementById('batchTaggingError');
       const bodyEl = document.getElementById('batchTaggingBody');
+      const personErrEl = document.getElementById('batchPersonError');
+      const personBodyEl = document.getElementById('batchPersonBody');
+      const tabsEl = document.getElementById('batchTagTabs');
+      const tabButtons = tabsEl ? Array.from(tabsEl.querySelectorAll('.batch-tag-tab')) : [];
+      const streetFilter = document.getElementById('batchTagStreetFilter');
+      const searchInput = document.getElementById('batchTagSearch');
+      const contactFilter = document.getElementById('batchTagContactFilter');
+      const addressTabPanel = document.getElementById('batchTabAddress');
+      const personTabPanel = document.getElementById('batchTabPerson');
       const listView = document.getElementById('batchTaggingListView');
       const mapView = document.getElementById('batchTaggingMapView');
       const listEl = document.getElementById('batchTaggingAddressList');
+      const personListEl = document.getElementById('batchPersonList');
       const damageSelect = document.getElementById('batchTaggingDamage');
       const addressPlanSelect = document.getElementById('batchTaggingAddressPlan');
       const rebuildSelect = document.getElementById('batchTaggingRebuild');
@@ -13837,103 +13902,333 @@
       const mapClearBtn = document.getElementById('batchTaggingMapClear');
       const mapContainer = document.getElementById('batchTaggingMapContainer');
       const mapStatusEl = document.getElementById('batchTaggingMapStatus');
-      if (!listEl || !damageSelect || !addressPlanSelect || !rebuildSelect || !applyBtn) return;
-      if (errEl) { errEl.classList.add('hidden'); errEl.textContent = ''; }
+      const personSelectAllBtn = document.getElementById('batchPersonSelectAll');
+      const personSelectNoneBtn = document.getElementById('batchPersonSelectNone');
+      const personApplyBtn = document.getElementById('batchPersonApply');
+      const personStatusMsg = document.getElementById('batchPersonStatusMsg');
+      const personMissingCols = document.getElementById('batchPersonMissingCols');
+      const personContactedSelect = document.getElementById('batchPersonContacted');
+      const personNewsletterSelect = document.getElementById('batchPersonNewsletter');
+      const personMovedAwaySelect = document.getElementById('batchPersonMovedAway');
+      const personNewsletterWrap = document.getElementById('batchPersonNewsletterWrap');
+      const personMovedAwayWrap = document.getElementById('batchPersonMovedAwayWrap');
+      if (!listEl || !personListEl || !damageSelect || !addressPlanSelect || !rebuildSelect || !applyBtn || !personApplyBtn || !streetFilter || !searchInput || !contactFilter) return;
+
+      if (errEl) {
+        errEl.classList.add('hidden');
+        errEl.textContent = '';
+      }
+      if (personErrEl) {
+        personErrEl.classList.add('hidden');
+        personErrEl.textContent = '';
+      }
       if (statusMsg) statusMsg.textContent = '';
+      if (personStatusMsg) personStatusMsg.textContent = '';
+
       if (!sheetData || !sheetData.addressMap) {
-        if (errEl) { errEl.textContent = 'Please load a spreadsheet first.'; errEl.classList.remove('hidden'); }
-        if (bodyEl) bodyEl.classList.add('hidden');
-        return;
-      }
-      if (!accessToken || !currentSheetId) {
-        if (errEl) { errEl.textContent = 'Please sign in with Google to use Batch Tagging.'; errEl.classList.remove('hidden'); }
-        if (bodyEl) bodyEl.classList.add('hidden');
-        return;
-      }
-      if (bodyEl) bodyEl.classList.remove('hidden');
-      const addresses = getFilteredAddresses();
-      const headers = sheetData.headers;
-      const latCol = headers.find(h => { const l = h.toLowerCase().trim(); return l.includes('lat') || l === 'latitude'; });
-      const lonCol = headers.find(h => { const l = h.toLowerCase().trim(); return l.includes('lon') || l.includes('lng') || l === 'longitude'; });
-      const hasLatLon = !!(latCol && lonCol);
-      if (drawOnMapBtn) {
-        drawOnMapBtn.disabled = !hasLatLon;
-        drawOnMapBtn.title = hasLatLon ? 'Select addresses by drawing a shape on the map' : 'Draw on map requires Latitude and Longitude columns in your sheet';
-      }
-      if (noCoordsNote) {
-        if (hasLatLon && addresses.length > 0) {
-          const withCoords = addresses.filter(addr => {
-            const rows = sheetData.addressMap.get(addr);
-            if (!rows || !rows[0]) return false;
-            const latVal = rows[0][latCol], lonVal = rows[0][lonCol];
-            if (latVal == null || latVal === '' || lonVal == null || lonVal === '') return false;
-            const lat = parseFloat(String(latVal).trim()), lon = parseFloat(String(lonVal).trim());
-            if (isNaN(lat) || isNaN(lon) || (Math.abs(lat) < 0.0001 && Math.abs(lon) < 0.0001)) return false;
-            return true;
-          });
-          const without = addresses.length - withCoords.length;
-          if (without > 0) {
-            noCoordsNote.textContent = withCoords.length + ' address(es) with coordinates (shown on map). ' + without + ' without coordinates.';
-            noCoordsNote.classList.remove('hidden');
-          } else {
-            noCoordsNote.classList.add('hidden');
-          }
-        } else {
-          noCoordsNote.classList.add('hidden');
+        if (errEl) {
+          errEl.textContent = 'Please load a spreadsheet first.';
+          errEl.classList.remove('hidden');
         }
+        if (bodyEl) bodyEl.classList.add('hidden');
+        if (personBodyEl) personBodyEl.classList.add('hidden');
+        return;
       }
-      if (window._batchTaggingMapState && window._batchTaggingMapState.map) {
-        window._batchTaggingMapState.map.remove();
-        window._batchTaggingMapState = null;
+
+      if (!accessToken || !currentSheetId) {
+        if (errEl) {
+          errEl.textContent = 'Please sign in with Google to use Batch Tagging.';
+          errEl.classList.remove('hidden');
+        }
+        if (bodyEl) bodyEl.classList.add('hidden');
+        if (personBodyEl) personBodyEl.classList.add('hidden');
+        return;
       }
-      if (listView && mapView) {
-        listView.classList.remove('hidden');
-        mapView.classList.add('hidden');
-      }
+
+      if (bodyEl) bodyEl.classList.remove('hidden');
+      if (personBodyEl) personBodyEl.classList.remove('hidden');
+
+      const headers = Array.isArray(sheetData.headers) ? sheetData.headers : [];
+      const addressColumns = sheetData.addressColumns || findAddressColumns(headers);
+      const allAddresses = Array.from(sheetData.addressMap.keys()).sort((a, b) => a.localeCompare(b));
+      const rowByOriginalIndex = new Map();
+      (sheetData.data || []).forEach((row, rowIndex) => {
+        const originalIndex = typeof row.__originalIndex === 'number' ? row.__originalIndex : rowIndex;
+        rowByOriginalIndex.set(originalIndex, row);
+      });
+
+      const findHeaderByNormalizedName = (names) => {
+        const normalizedNames = (Array.isArray(names) ? names : [names]).map(name => normalizeHeaderKey(name));
+        return headers.find(header => normalizedNames.includes(normalizeHeaderKey(header))) || null;
+      };
+      const findHeaderByLower = (predicate) => headers.find((header) => predicate(String(header || '').trim().toLowerCase())) || null;
+      const getTrimmedCellValue = (row, columnName) => {
+        if (!row || !columnName) return '';
+        const value = row[columnName];
+        return value == null ? '' : String(value).trim();
+      };
+      const formatBatchDateDisplay = (rawValue) => {
+        const trimmed = String(rawValue || '').trim();
+        if (!trimmed) return 'Not yet contacted';
+        const parsed = parseDate(trimmed);
+        if (!parsed) return `Last contact logged: ${trimmed}`;
+        return `Last contact logged: ${parsed.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+      };
+      const formatTagValue = (value) => {
+        const trimmed = String(value || '').trim();
+        return trimmed || '—';
+      };
+      const getPersonDisplayName = (row) => {
+        const firstNameCol = findHeaderByNormalizedName(['First Name', 'Firstname']);
+        const lastNameCol = findHeaderByNormalizedName(['Last Name', 'Lastname']);
+        const nameCol = findHeaderByNormalizedName('Name');
+        const firstName = getTrimmedCellValue(row, firstNameCol);
+        const lastName = getTrimmedCellValue(row, lastNameCol);
+        if (firstName && lastName) return `${firstName} ${lastName}`.trim();
+        if (firstName) return firstName;
+        if (lastName) return lastName;
+        const singleName = getTrimmedCellValue(row, nameCol);
+        return singleName || 'Unknown';
+      };
+      const getPersonAddress = (row) => buildAddressString(row, addressColumns);
+      const contactDateCol = findHeaderByLower((lower) =>
+        lower === 'last contact date' ||
+        lower === 'last contact logged' ||
+        (lower.includes('contact') && lower.includes('date'))
+      );
+      const newsletterCol = findHeaderByNormalizedName('Newsletter Subscriber');
+      const movedAwayCol = findHeaderByNormalizedName('Moved Away');
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
+      const latCol = headers.find(h => {
+        const lower = String(h || '').toLowerCase().trim();
+        return lower.includes('lat') || lower === 'latitude';
+      });
+      const lonCol = headers.find(h => {
+        const lower = String(h || '').toLowerCase().trim();
+        return lower.includes('lon') || lower.includes('lng') || lower === 'longitude';
+      });
+      const hasLatLon = Boolean(latCol && lonCol);
+
+      const currentStreetValue = streetFilter.value || 'all';
+      const streetOptions = Array.from(new Set(
+        allAddresses
+          .map(addr => extractStreet(addr))
+          .map(street => String(street || '').trim())
+          .filter(Boolean)
+      )).sort((a, b) => a.localeCompare(b));
+      streetFilter.innerHTML = '<option value="all">All streets</option>' + streetOptions.map(street => `<option value="${escapeHtml(street)}">${escapeHtml(street)}</option>`).join('');
+      streetFilter.value = streetOptions.includes(currentStreetValue) ? currentStreetValue : 'all';
+
       const damageOpts = getFullDamageOptions();
       const addressPlanOpts = getFullAddressPlanOptions();
       const rebuildOpts = getFullRebuildStatusOptions();
       damageSelect.innerHTML = '<option value="">—</option>' + damageOpts.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
       addressPlanSelect.innerHTML = '<option value="">—</option>' + addressPlanOpts.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
       rebuildSelect.innerHTML = '<option value="">—</option>' + rebuildOpts.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
-      listEl.innerHTML = '';
-      if (addresses.length === 0) {
-        listEl.innerHTML = '<p style="margin:0; color:var(--text-light);">No addresses match your current filters. Change filters on the Neighbors page to see addresses here.</p>';
-      } else {
-        addresses.forEach(addr => {
-          const label = document.createElement('label');
-          label.style.display = 'block';
-          label.style.marginBottom = '6px';
-          label.style.cursor = 'pointer';
-          const cb = document.createElement('input');
-          cb.type = 'checkbox';
-          cb.className = 'batch-tag-address-cb';
-          cb.setAttribute('data-address', addr.replace(/"/g, '&quot;'));
-          label.appendChild(cb);
-          label.appendChild(document.createTextNode(' ' + addr));
-          listEl.appendChild(label);
-        });
-      }
-      if (selectAllBtn) selectAllBtn.onclick = () => listEl.querySelectorAll('.batch-tag-address-cb').forEach(cb => { cb.checked = true; });
-      if (selectNoneBtn) selectNoneBtn.onclick = () => listEl.querySelectorAll('.batch-tag-address-cb').forEach(cb => { cb.checked = false; });
 
-      function buildAddressToCoords() {
-        const out = {};
-        if (!hasLatLon || !sheetData || !sheetData.addressMap) return out;
-        addresses.forEach(addr => {
-          const rows = sheetData.addressMap.get(addr);
-          if (!rows || !rows[0]) return;
-          const latVal = rows[0][latCol], lonVal = rows[0][lonCol];
-          if (latVal == null || latVal === '' || lonVal == null || lonVal === '') return;
-          const lat = parseFloat(String(latVal).trim()), lon = parseFloat(String(lonVal).trim());
-          if (isNaN(lat) || isNaN(lon) || (Math.abs(lat) < 0.0001 && Math.abs(lon) < 0.0001)) return;
-          out[addr] = { lat, lon };
-        });
-        return out;
+      const missingPersonColumns = [];
+      if (!newsletterCol) missingPersonColumns.push('Newsletter Subscriber');
+      if (!movedAwayCol) missingPersonColumns.push('Moved Away');
+      if (personNewsletterWrap) {
+        personNewsletterWrap.style.opacity = newsletterCol ? '' : '0.4';
+        personNewsletterWrap.style.pointerEvents = newsletterCol ? '' : 'none';
       }
+      if (personMovedAwayWrap) {
+        personMovedAwayWrap.style.opacity = movedAwayCol ? '' : '0.4';
+        personMovedAwayWrap.style.pointerEvents = movedAwayCol ? '' : 'none';
+      }
+      if (personNewsletterSelect && !newsletterCol) personNewsletterSelect.value = '';
+      if (personMovedAwaySelect && !movedAwayCol) personMovedAwaySelect.value = '';
+      if (personMissingCols) {
+        if (missingPersonColumns.length > 0) {
+          personMissingCols.textContent = `Missing columns: ${missingPersonColumns.map(name => `"${name}"`).join(', ')}. ${missingPersonColumns.map(name => `Add a column called "${name}" to your sheet to enable this field.`).join(' ')}`;
+          personMissingCols.classList.remove('hidden');
+        } else {
+          personMissingCols.textContent = '';
+          personMissingCols.classList.add('hidden');
+        }
+      }
+
+      const getStreetFilterValue = () => (streetFilter.value || 'all').trim();
+      const getSearchValue = () => (searchInput.value || '').trim().toLowerCase();
+      const getContactFilterValue = () => (contactFilter.value || 'all').trim();
+
+      const getBatchFilteredAddresses = () => {
+        const selectedStreet = getStreetFilterValue();
+        const searchText = getSearchValue();
+        return allAddresses.filter((address) => {
+          const street = extractStreet(address);
+          if (selectedStreet !== 'all' && street !== selectedStreet) return false;
+          if (searchText && !String(address || '').toLowerCase().includes(searchText)) return false;
+          return true;
+        });
+      };
+
+      const getFilteredPeople = () => {
+        const selectedStreet = getStreetFilterValue();
+        const searchText = getSearchValue();
+        const contactStatus = getContactFilterValue();
+        return (sheetData.data || [])
+          .map((row, rowIndex) => {
+            const address = getPersonAddress(row);
+            const displayName = getPersonDisplayName(row);
+            const originalIndex = typeof row.__originalIndex === 'number' ? row.__originalIndex : rowIndex;
+            const residentId = row && row['resident_id'] != null ? String(row['resident_id']).trim() : '';
+            const lastContactRaw = getTrimmedCellValue(row, contactDateCol);
+            return { row, address, displayName, originalIndex, residentId, lastContactRaw };
+          })
+          .filter((person) => {
+            if (!person.address) return false;
+            const street = extractStreet(person.address);
+            if (selectedStreet !== 'all' && street !== selectedStreet) return false;
+            if (searchText) {
+              const nameMatch = person.displayName.toLowerCase().includes(searchText);
+              const addressMatch = person.address.toLowerCase().includes(searchText);
+              if (!nameMatch && !addressMatch) return false;
+            }
+            const hasContact = Boolean(person.lastContactRaw);
+            if (contactStatus === 'contacted' && !hasContact) return false;
+            if (contactStatus === 'not_contacted' && hasContact) return false;
+            return true;
+          })
+          .sort((a, b) => {
+            const addressCompare = a.address.localeCompare(b.address);
+            return addressCompare !== 0 ? addressCompare : a.displayName.localeCompare(b.displayName);
+          });
+      };
+
+      function destroyBatchTaggingMap() {
+        if (window._batchTaggingMapState && window._batchTaggingMapState.map) {
+          window._batchTaggingMapState.map.remove();
+        }
+        window._batchTaggingMapState = null;
+      }
+
+      function showAddressListView() {
+        if (listView) listView.classList.remove('hidden');
+        if (mapView) mapView.classList.add('hidden');
+        if (mapStatusEl) mapStatusEl.textContent = '';
+      }
+
+      function updateNoCoordsNote(filteredAddresses) {
+        if (!noCoordsNote) return;
+        if (!hasLatLon || filteredAddresses.length === 0) {
+          noCoordsNote.classList.add('hidden');
+          noCoordsNote.textContent = '';
+          return;
+        }
+        const withCoords = filteredAddresses.filter((addr) => {
+          const rows = sheetData.addressMap.get(addr);
+          if (!rows || !rows[0]) return false;
+          const latVal = rows[0][latCol];
+          const lonVal = rows[0][lonCol];
+          if (latVal == null || latVal === '' || lonVal == null || lonVal === '') return false;
+          const lat = parseFloat(String(latVal).trim());
+          const lon = parseFloat(String(lonVal).trim());
+          return !(isNaN(lat) || isNaN(lon) || (Math.abs(lat) < 0.0001 && Math.abs(lon) < 0.0001));
+        });
+        const withoutCoords = filteredAddresses.length - withCoords.length;
+        if (withoutCoords > 0) {
+          noCoordsNote.textContent = `${withCoords.length} address(es) with coordinates (shown on map). ${withoutCoords} without coordinates.`;
+          noCoordsNote.classList.remove('hidden');
+        } else {
+          noCoordsNote.classList.add('hidden');
+          noCoordsNote.textContent = '';
+        }
+      }
+
+      function renderAddressList() {
+        const filteredAddresses = getBatchFilteredAddresses();
+        listEl.innerHTML = '';
+        if (filteredAddresses.length === 0) {
+          listEl.innerHTML = '<p style="margin:0; color:var(--text-light);">No addresses match the current filters.</p>';
+        } else {
+          filteredAddresses.forEach((address) => {
+            const rows = sheetData.addressMap.get(address) || [];
+            const firstRow = rows[0] || {};
+            const label = document.createElement('label');
+            label.className = 'batch-tag-list-row';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'batch-tag-address-cb';
+            checkbox.dataset.address = address;
+
+            const main = document.createElement('span');
+            main.className = 'batch-tag-row-main';
+            main.textContent = address;
+
+            const meta = document.createElement('span');
+            meta.className = 'batch-tag-row-meta';
+            meta.textContent = `Damage: ${formatTagValue(damageCol ? firstRow[damageCol] : '')} · Address Plan: ${formatTagValue(addressPlanCol ? firstRow[addressPlanCol] : '')} · Build Status: ${formatTagValue(rebuildCol ? firstRow[rebuildCol] : '')}`;
+
+            label.appendChild(checkbox);
+            label.appendChild(main);
+            label.appendChild(meta);
+            listEl.appendChild(label);
+          });
+        }
+        updateNoCoordsNote(filteredAddresses);
+      }
+
+      function renderPersonList() {
+        const filteredPeople = getFilteredPeople();
+        personListEl.innerHTML = '';
+        if (filteredPeople.length === 0) {
+          personListEl.innerHTML = '<p style="margin:0; color:var(--text-light);">No people match the current filters.</p>';
+          return;
+        }
+
+        filteredPeople.forEach((person) => {
+          const label = document.createElement('label');
+          label.className = 'batch-tag-list-row';
+
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.className = 'batch-person-cb';
+          checkbox.dataset.rowIndex = String(person.originalIndex);
+          checkbox.dataset.residentId = person.residentId || '';
+
+          const main = document.createElement('span');
+          main.className = 'batch-tag-row-main';
+          main.textContent = person.displayName;
+
+          const address = document.createElement('span');
+          address.className = 'batch-tag-row-address';
+          address.textContent = person.address;
+
+          const meta = document.createElement('span');
+          meta.className = 'batch-tag-row-meta';
+          meta.textContent = formatBatchDateDisplay(person.lastContactRaw);
+
+          label.appendChild(checkbox);
+          label.appendChild(main);
+          label.appendChild(address);
+          label.appendChild(meta);
+          personListEl.appendChild(label);
+        });
+      }
+
+      function rerenderLists(options = {}) {
+        if (options.resetMap !== false) {
+          destroyBatchTaggingMap();
+          showAddressListView();
+        }
+        renderAddressList();
+        renderPersonList();
+      }
+
+      if (drawOnMapBtn) {
+        drawOnMapBtn.disabled = !hasLatLon;
+        drawOnMapBtn.title = hasLatLon
+          ? 'Select addresses by drawing a shape on the map'
+          : 'Draw on map requires Latitude and Longitude columns in your sheet';
+      }
+
+      destroyBatchTaggingMap();
+      showAddressListView();
 
       const CLOSE_POLYGON_CLICK_METERS = 25;
       const ADDRESS_DOT_DEFAULT = '#e5e5e5';
@@ -13941,165 +14236,274 @@
       const ADDRESS_DOT_STROKE = '#1F2937';
       const ADDRESS_DOT_STROKE_WEIGHT = 1.5;
 
+      function buildAddressToCoords() {
+        const out = {};
+        if (!hasLatLon || !sheetData || !sheetData.addressMap) return out;
+        getBatchFilteredAddresses().forEach((address) => {
+          const rows = sheetData.addressMap.get(address);
+          if (!rows || !rows[0]) return;
+          const latVal = rows[0][latCol];
+          const lonVal = rows[0][lonCol];
+          if (latVal == null || latVal === '' || lonVal == null || lonVal === '') return;
+          const lat = parseFloat(String(latVal).trim());
+          const lon = parseFloat(String(lonVal).trim());
+          if (isNaN(lat) || isNaN(lon) || (Math.abs(lat) < 0.0001 && Math.abs(lon) < 0.0001)) return;
+          out[address] = { lat, lon };
+        });
+        return out;
+      }
+
       function showMapView() {
         if (!mapContainer || typeof L === 'undefined') return;
+        destroyBatchTaggingMap();
+        const addressToCoords = buildAddressToCoords();
         listView.classList.add('hidden');
         mapView.classList.remove('hidden');
-        const addressToCoords = buildAddressToCoords();
-        if (!window._batchTaggingMapState) {
-          const defaultCenter = [34.19, -118.15];
-          const bounds = Object.values(addressToCoords).map(({ lat, lon }) => [lat, lon]);
-          const center = bounds.length ? bounds.reduce((a, b) => [a[0] + b[0], a[1] + b[1]], [0, 0]).map((v, i) => v / bounds.length) : defaultCenter;
-          const map = L.map(mapContainer, { attributionControl: false }).setView(center, bounds.length ? 15 : 11);
-          let batchTaggingTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© OpenStreetMap contributors, © CARTO', maxZoom: 22 }).addTo(map);
-          let isBatchTaggingSatellite = false;
-          const SatelliteToggleControl = L.Control.extend({
-            onAdd: function(m) {
-              const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-              L.DomEvent.disableClickPropagation(container);
-              L.DomEvent.disableScrollPropagation(container);
-              const button = L.DomUtil.create('a', 'satellite-toggle-btn', container);
-              button.href = '#';
-              button.title = 'Switch to satellite view';
-              button.innerHTML = '🛰️';
-              button.style.cssText = 'width: 30px; height: 30px; line-height: 30px; text-align: center; text-decoration: none; display: block; font-size: 18px;';
-              L.DomEvent.on(button, 'click', (ev) => {
-                L.DomEvent.preventDefault(ev);
-                L.DomEvent.stopPropagation(ev);
-                map.removeLayer(batchTaggingTileLayer);
-                if (isBatchTaggingSatellite) {
-                  batchTaggingTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© OpenStreetMap contributors, © CARTO', maxZoom: 22 });
-                  button.title = 'Switch to satellite view';
-                  isBatchTaggingSatellite = false;
-                } else {
-                  batchTaggingTileLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { subdomains: ['0', '1', '2', '3'], attribution: '© Google', maxZoom: 22 });
-                  button.title = 'Switch to street map';
-                  isBatchTaggingSatellite = true;
-                }
-                batchTaggingTileLayer.addTo(map);
-              });
-              return container;
-            }
-          });
-          new SatelliteToggleControl({ position: 'topleft' }).addTo(map);
-          if (bounds.length > 1) map.fitBounds(bounds, { padding: [20, 20], maxZoom: 17 });
-          const addressMarkersLayer = L.layerGroup().addTo(map);
-          const addressMarkers = {};
-          Object.entries(addressToCoords).forEach(([addr, { lat, lon }]) => {
-            const marker = L.circleMarker([lat, lon], {
-              radius: 6,
-              fillColor: ADDRESS_DOT_DEFAULT,
-              color: ADDRESS_DOT_STROKE,
-              weight: ADDRESS_DOT_STROKE_WEIGHT,
-              fillOpacity: 1
-            }).addTo(addressMarkersLayer).bindTooltip(addr, { permanent: false, direction: 'top' });
-            addressMarkers[addr] = marker;
-          });
-          const polygonLayer = L.layerGroup().addTo(map);
-          const latlngs = [];
-          let drawingHoverLatLng = null;
-          function updatePolygonDisplay() {
-            polygonLayer.clearLayers();
-            latlngs.forEach((ll) => {
-              L.circleMarker(ll, { radius: 8, fillColor: '#2563eb', color: '#1d4ed8', weight: 2, fillOpacity: 0.9 }).addTo(polygonLayer);
+        const defaultCenter = [34.19, -118.15];
+        const bounds = Object.values(addressToCoords).map(({ lat, lon }) => [lat, lon]);
+        const center = bounds.length
+          ? bounds.reduce((acc, point) => [acc[0] + point[0], acc[1] + point[1]], [0, 0]).map(value => value / bounds.length)
+          : defaultCenter;
+        const map = L.map(mapContainer, { attributionControl: false }).setView(center, bounds.length ? 15 : 11);
+        let batchTaggingTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          attribution: '© OpenStreetMap contributors, © CARTO',
+          maxZoom: 22
+        }).addTo(map);
+        let isBatchTaggingSatellite = false;
+        const SatelliteToggleControl = L.Control.extend({
+          onAdd: function() {
+            const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+            L.DomEvent.disableClickPropagation(container);
+            L.DomEvent.disableScrollPropagation(container);
+            const button = L.DomUtil.create('a', 'satellite-toggle-btn', container);
+            button.href = '#';
+            button.title = 'Switch to satellite view';
+            button.innerHTML = '🛰️';
+            button.style.cssText = 'width: 30px; height: 30px; line-height: 30px; text-align: center; text-decoration: none; display: block; font-size: 18px;';
+            L.DomEvent.on(button, 'click', (event) => {
+              L.DomEvent.preventDefault(event);
+              L.DomEvent.stopPropagation(event);
+              map.removeLayer(batchTaggingTileLayer);
+              if (isBatchTaggingSatellite) {
+                batchTaggingTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                  attribution: '© OpenStreetMap contributors, © CARTO',
+                  maxZoom: 22
+                });
+                button.title = 'Switch to satellite view';
+                isBatchTaggingSatellite = false;
+              } else {
+                batchTaggingTileLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+                  subdomains: ['0', '1', '2', '3'],
+                  attribution: '© Google',
+                  maxZoom: 22
+                });
+                button.title = 'Switch to street map';
+                isBatchTaggingSatellite = true;
+              }
+              batchTaggingTileLayer.addTo(map);
             });
-            if (latlngs.length >= 2) {
-              L.polyline(latlngs, { color: '#2563eb', weight: 3, opacity: 0.95 }).addTo(polygonLayer);
-            }
-            if (latlngs.length >= 1 && drawingHoverLatLng) {
-              L.polyline([latlngs[latlngs.length - 1], drawingHoverLatLng], { color: '#3b82f6', weight: 3, opacity: 0.9, dashArray: '6,6' }).addTo(polygonLayer);
-            }
-            if (latlngs.length >= 2) {
-              L.polyline([latlngs[latlngs.length - 1], latlngs[0]], { color: '#2563eb', weight: 2, opacity: 0.65, dashArray: '4,7' }).addTo(polygonLayer);
-            }
-            if (mapStatusEl) mapStatusEl.textContent = latlngs.length < 3 ? 'Click to add points (need at least 3). Click the first point again to close the shape.' : 'Click the first point again to close the shape, or add more points.';
+            return container;
           }
-          function updateAddressMarkerColors(selectedAddressSet) {
-            Object.entries(addressMarkers).forEach(([addr, marker]) => {
-              const selected = selectedAddressSet.has(addr);
-              marker.setStyle({
-                fillColor: selected ? ADDRESS_DOT_SELECTED : ADDRESS_DOT_DEFAULT,
-                color: ADDRESS_DOT_STROKE,
-                weight: ADDRESS_DOT_STROKE_WEIGHT
-              });
-            });
+        });
+        new SatelliteToggleControl({ position: 'topleft' }).addTo(map);
+        if (bounds.length > 1) map.fitBounds(bounds, { padding: [20, 20], maxZoom: 17 });
+        const addressMarkersLayer = L.layerGroup().addTo(map);
+        const addressMarkers = {};
+        Object.entries(addressToCoords).forEach(([address, { lat, lon }]) => {
+          const marker = L.circleMarker([lat, lon], {
+            radius: 6,
+            fillColor: ADDRESS_DOT_DEFAULT,
+            color: ADDRESS_DOT_STROKE,
+            weight: ADDRESS_DOT_STROKE_WEIGHT,
+            fillOpacity: 1
+          }).addTo(addressMarkersLayer).bindTooltip(address, { permanent: false, direction: 'top' });
+          addressMarkers[address] = marker;
+        });
+        const polygonLayer = L.layerGroup().addTo(map);
+        const latlngs = [];
+        let drawingHoverLatLng = null;
+
+        function updatePolygonDisplay() {
+          polygonLayer.clearLayers();
+          latlngs.forEach((latLng) => {
+            L.circleMarker(latLng, { radius: 8, fillColor: '#2563eb', color: '#1d4ed8', weight: 2, fillOpacity: 0.9 }).addTo(polygonLayer);
+          });
+          if (latlngs.length >= 2) {
+            L.polyline(latlngs, { color: '#2563eb', weight: 3, opacity: 0.95 }).addTo(polygonLayer);
           }
-          map.on('click', (e) => {
-            if (latlngs.length >= 3 && L.latLng(e.latlng).distanceTo(L.latLng(latlngs[0])) < CLOSE_POLYGON_CLICK_METERS) {
-              closePolygonAndSelect();
-              return;
-            }
-            latlngs.push(e.latlng);
-            updatePolygonDisplay();
-          });
-          map.on('mousemove', (e) => {
-            if (latlngs.length === 0) return;
-            drawingHoverLatLng = e.latlng;
-            updatePolygonDisplay();
-          });
-          map.on('mouseout', () => {
-            // Regression guard:
-            // 1) Draw 3+ points, close polygon, then move pointer from map to toolbar buttons.
-            // 2) The closed polygon must remain visible until "Clear shape" is clicked.
-            // This avoids clearing a completed polygon due to a late hover-preview mouseout.
-            if (latlngs.length === 0) return;
-            if (!drawingHoverLatLng) return;
-            drawingHoverLatLng = null;
-            updatePolygonDisplay();
-          });
-          window._batchTaggingMapState = { map, polygonLayer, latlngs, addressToCoords, addressMarkers, updatePolygonDisplay, updateAddressMarkerColors, clearDrawingHover: () => { drawingHoverLatLng = null; } };
+          if (latlngs.length >= 1 && drawingHoverLatLng) {
+            L.polyline([latlngs[latlngs.length - 1], drawingHoverLatLng], { color: '#3b82f6', weight: 3, opacity: 0.9, dashArray: '6,6' }).addTo(polygonLayer);
+          }
+          if (latlngs.length >= 2) {
+            L.polyline([latlngs[latlngs.length - 1], latlngs[0]], { color: '#2563eb', weight: 2, opacity: 0.65, dashArray: '4,7' }).addTo(polygonLayer);
+          }
+          if (mapStatusEl) {
+            mapStatusEl.textContent = latlngs.length < 3
+              ? 'Click to add points (need at least 3). Click the first point again to close the shape.'
+              : 'Click the first point again to close the shape, or add more points.';
+          }
         }
-        window._batchTaggingMapState.latlngs.length = 0;
-        if (typeof window._batchTaggingMapState.clearDrawingHover === 'function') window._batchTaggingMapState.clearDrawingHover();
-        window._batchTaggingMapState.polygonLayer.clearLayers();
-        window._batchTaggingMapState.updateAddressMarkerColors(new Set());
+
+        function updateAddressMarkerColors(selectedAddressSet) {
+          Object.entries(addressMarkers).forEach(([address, marker]) => {
+            const selected = selectedAddressSet.has(address);
+            marker.setStyle({
+              fillColor: selected ? ADDRESS_DOT_SELECTED : ADDRESS_DOT_DEFAULT,
+              color: ADDRESS_DOT_STROKE,
+              weight: ADDRESS_DOT_STROKE_WEIGHT
+            });
+          });
+        }
+
+        map.on('click', (event) => {
+          if (latlngs.length >= 3 && L.latLng(event.latlng).distanceTo(L.latLng(latlngs[0])) < CLOSE_POLYGON_CLICK_METERS) {
+            closePolygonAndSelect();
+            return;
+          }
+          latlngs.push(event.latlng);
+          updatePolygonDisplay();
+        });
+        map.on('mousemove', (event) => {
+          if (latlngs.length === 0) return;
+          drawingHoverLatLng = event.latlng;
+          updatePolygonDisplay();
+        });
+        map.on('mouseout', () => {
+          if (latlngs.length === 0 || !drawingHoverLatLng) return;
+          drawingHoverLatLng = null;
+          updatePolygonDisplay();
+        });
+
+        window._batchTaggingMapState = {
+          map,
+          polygonLayer,
+          latlngs,
+          addressToCoords,
+          addressMarkers,
+          updatePolygonDisplay,
+          updateAddressMarkerColors,
+          clearDrawingHover: () => {
+            drawingHoverLatLng = null;
+          }
+        };
         window._batchTaggingMapState.updatePolygonDisplay();
       }
 
       function closePolygonAndSelect() {
         const state = window._batchTaggingMapState;
         if (!state || state.latlngs.length < 3) {
-          if (mapStatusEl) mapStatusEl.textContent = 'Add at least 3 points, then click the first point again to close, or use "Close polygon & select".';
+          if (mapStatusEl) {
+            mapStatusEl.textContent = 'Add at least 3 points, then click the first point again to close, or use "Close polygon & select".';
+          }
           return;
         }
         const ring = state.latlngs.slice();
         ring.push(ring[0]);
         const addressesInPolygon = Object.entries(state.addressToCoords)
-          .filter(([_, { lat, lon }]) => pointInPolygon(lat, lon, ring))
-          .map(([addr]) => addr);
-        const encodedSet = new Set(addressesInPolygon.map(a => a.replace(/"/g, '&quot;')));
-        listEl.querySelectorAll('.batch-tag-address-cb').forEach(cb => { cb.checked = encodedSet.has(cb.getAttribute('data-address')); });
-        state.updateAddressMarkerColors(new Set(addressesInPolygon));
+          .filter(([, { lat, lon }]) => pointInPolygon(lat, lon, ring))
+          .map(([address]) => address);
+        const selectedSet = new Set(addressesInPolygon);
+        listEl.querySelectorAll('.batch-tag-address-cb').forEach((checkbox) => {
+          checkbox.checked = selectedSet.has(checkbox.dataset.address || '');
+        });
+        state.updateAddressMarkerColors(selectedSet);
         state.polygonLayer.clearLayers();
         L.polygon(ring, { color: '#2563eb', weight: 2, fillColor: '#2563eb', fillOpacity: 0.2 }).addTo(state.polygonLayer);
         if (typeof state.clearDrawingHover === 'function') state.clearDrawingHover();
         state.latlngs.length = 0;
-        if (mapStatusEl) mapStatusEl.textContent = addressesInPolygon.length + ' address(es) selected. Choose values below and click Apply to selected addresses when ready.';
-        showAppToast('Selected ' + addressesInPolygon.length + ' address(es). Choose values and click Apply when ready.');
+        if (mapStatusEl) {
+          mapStatusEl.textContent = `${addressesInPolygon.length} address(es) selected. Choose values below and click Apply to selected addresses when ready.`;
+        }
+        showAppToast(`Selected ${addressesInPolygon.length} address(es). Choose values and click Apply when ready.`);
       }
 
       if (drawOnMapBtn && hasLatLon) drawOnMapBtn.onclick = showMapView;
-      if (mapBackBtn) mapBackBtn.onclick = () => { if (listView) listView.classList.remove('hidden'); if (mapView) mapView.classList.add('hidden'); if (mapStatusEl) mapStatusEl.textContent = ''; };
+      if (mapBackBtn) {
+        mapBackBtn.onclick = () => {
+          destroyBatchTaggingMap();
+          showAddressListView();
+        };
+      }
       if (mapCloseBtn) mapCloseBtn.onclick = closePolygonAndSelect;
-      if (mapClearBtn) mapClearBtn.onclick = () => {
-        const state = window._batchTaggingMapState;
-        if (state) {
-          state.latlngs.length = 0;
-          if (typeof state.clearDrawingHover === 'function') state.clearDrawingHover();
-          state.polygonLayer.clearLayers();
-          state.updateAddressMarkerColors(new Set());
-          state.updatePolygonDisplay();
-          listEl.querySelectorAll('.batch-tag-address-cb').forEach(cb => { cb.checked = false; });
-        }
-        if (mapStatusEl) mapStatusEl.textContent = '';
+      if (mapClearBtn) {
+        mapClearBtn.onclick = () => {
+          const state = window._batchTaggingMapState;
+          if (state) {
+            state.latlngs.length = 0;
+            if (typeof state.clearDrawingHover === 'function') state.clearDrawingHover();
+            state.polygonLayer.clearLayers();
+            state.updateAddressMarkerColors(new Set());
+            state.updatePolygonDisplay();
+          }
+          listEl.querySelectorAll('.batch-tag-address-cb').forEach((checkbox) => {
+            checkbox.checked = false;
+          });
+          if (mapStatusEl) mapStatusEl.textContent = '';
+        };
+      }
+
+      function setActiveTab(nextTab) {
+        tabButtons.forEach((button) => {
+          button.classList.toggle('active', button.dataset.tab === nextTab);
+        });
+        if (addressTabPanel) addressTabPanel.classList.toggle('hidden', nextTab !== 'address');
+        if (personTabPanel) personTabPanel.classList.toggle('hidden', nextTab !== 'person');
+        contactFilter.style.display = nextTab === 'person' ? '' : 'none';
+      }
+
+      tabButtons.forEach((button) => {
+        button.onclick = () => setActiveTab(button.dataset.tab || 'address');
+      });
+
+      const handleSharedFilterChange = () => {
+        if (statusMsg) statusMsg.textContent = '';
+        if (personStatusMsg) personStatusMsg.textContent = '';
+        rerenderLists();
       };
+      streetFilter.onchange = handleSharedFilterChange;
+      searchInput.oninput = handleSharedFilterChange;
+      contactFilter.onchange = handleSharedFilterChange;
+
+      if (selectAllBtn) {
+        selectAllBtn.onclick = () => {
+          listEl.querySelectorAll('.batch-tag-address-cb').forEach((checkbox) => {
+            checkbox.checked = true;
+          });
+        };
+      }
+      if (selectNoneBtn) {
+        selectNoneBtn.onclick = () => {
+          listEl.querySelectorAll('.batch-tag-address-cb').forEach((checkbox) => {
+            checkbox.checked = false;
+          });
+          const state = window._batchTaggingMapState;
+          if (state) state.updateAddressMarkerColors(new Set());
+        };
+      }
+      if (personSelectAllBtn) {
+        personSelectAllBtn.onclick = () => {
+          personListEl.querySelectorAll('.batch-person-cb').forEach((checkbox) => {
+            checkbox.checked = true;
+          });
+        };
+      }
+      if (personSelectNoneBtn) {
+        personSelectNoneBtn.onclick = () => {
+          personListEl.querySelectorAll('.batch-person-cb').forEach((checkbox) => {
+            checkbox.checked = false;
+          });
+        };
+      }
 
       applyBtn.onclick = async () => {
-        const selected = Array.from(listEl.querySelectorAll('.batch-tag-address-cb:checked')).map(cb => cb.getAttribute('data-address'));
+        const selected = Array.from(listEl.querySelectorAll('.batch-tag-address-cb:checked'))
+          .map(checkbox => checkbox.dataset.address || '')
+          .filter(Boolean);
         if (selected.length === 0) {
           if (statusMsg) statusMsg.textContent = 'Select at least one address.';
           return;
         }
+
         const damageVal = (damageSelect.value || '').trim();
         const addressPlanVal = (addressPlanSelect.value || '').trim();
         const rebuildVal = (rebuildSelect.value || '').trim();
@@ -14107,31 +14511,35 @@
           if (statusMsg) statusMsg.textContent = 'Choose at least one value (Damage, Address Plan, or Build Status).';
           return;
         }
+
         const useResidentId = sheetData.useResidentId;
         const updates = [];
         const updatesByResidentId = [];
         const damageColIndex = damageCol != null ? headers.indexOf(damageCol) : -1;
         const addressPlanColIndex = addressPlanCol != null ? headers.indexOf(addressPlanCol) : -1;
         const rebuildColIndex = rebuildCol != null ? headers.indexOf(rebuildCol) : -1;
-        selected.forEach(addr => {
-          const rows = sheetData.addressMap.get(addr);
+
+        selected.forEach((address) => {
+          const rows = sheetData.addressMap.get(address);
           if (!rows) return;
-          rows.forEach(row => {
-            const rid = row['resident_id'];
+          rows.forEach((row) => {
+            const residentId = row['resident_id'];
             const rowIndex = row.__originalIndex;
-            const rowNum = rowIndex !== undefined && rowIndex !== -1 ? rowIndex + 2 : 0;
-            if (useResidentId && rid) {
-              if (damageVal && damageCol) updatesByResidentId.push({ resident_id: rid, column: damageCol, value: damageVal });
-              if (addressPlanVal && addressPlanCol) updatesByResidentId.push({ resident_id: rid, column: addressPlanCol, value: addressPlanVal });
-              if (rebuildVal && rebuildCol) updatesByResidentId.push({ resident_id: rid, column: rebuildCol, value: rebuildVal });
-            } else if (rowNum) {
-              if (damageVal && damageColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(damageColIndex) + rowNum, values: [[damageVal]] });
-              if (addressPlanVal && addressPlanColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(addressPlanColIndex) + rowNum, values: [[addressPlanVal]] });
-              if (rebuildVal && rebuildColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(rebuildColIndex) + rowNum, values: [[rebuildVal]] });
+            const rowNumber = rowIndex !== undefined && rowIndex !== -1 ? rowIndex + 2 : 0;
+            if (useResidentId && residentId) {
+              if (damageVal && damageCol) updatesByResidentId.push({ resident_id: residentId, column: damageCol, value: damageVal });
+              if (addressPlanVal && addressPlanCol) updatesByResidentId.push({ resident_id: residentId, column: addressPlanCol, value: addressPlanVal });
+              if (rebuildVal && rebuildCol) updatesByResidentId.push({ resident_id: residentId, column: rebuildCol, value: rebuildVal });
+            } else if (rowNumber) {
+              if (damageVal && damageColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(damageColIndex) + rowNumber, values: [[damageVal]] });
+              if (addressPlanVal && addressPlanColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(addressPlanColIndex) + rowNumber, values: [[addressPlanVal]] });
+              if (rebuildVal && rebuildColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(rebuildColIndex) + rowNumber, values: [[rebuildVal]] });
             }
           });
         });
+
         if (updates.length === 0 && updatesByResidentId.length === 0) return;
+
         applyBtn.disabled = true;
         if (statusMsg) statusMsg.textContent = 'Saving…';
         try {
@@ -14147,20 +14555,125 @@
                 body: JSON.stringify({ sheetId: currentSheetId, valueInputOption: 'USER_ENTERED', data: updates })
               });
           if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.message || err.error || 'Failed to save');
+            const error = await res.json().catch(() => ({}));
+            throw new Error(error.message || error.error || 'Failed to save');
           }
           if (statusMsg) statusMsg.textContent = '';
-          showAppToast('Tags applied to ' + selected.length + ' address(es).');
+          showAppToast(`Tags applied to ${selected.length} address(es).`);
           setTimeout(() => {
             if (currentSheetUrl) loadAddressData(currentSheetUrl);
           }, 400);
-        } catch (e) {
-          if (statusMsg) statusMsg.textContent = 'Error: ' + (e.message || e);
+        } catch (error) {
+          if (statusMsg) statusMsg.textContent = 'Error: ' + (error.message || error);
         } finally {
           applyBtn.disabled = false;
         }
       };
+
+      personApplyBtn.onclick = async () => {
+        const selectedPeople = Array.from(personListEl.querySelectorAll('.batch-person-cb:checked')).map((checkbox) => ({
+          rowIndex: parseInt(checkbox.dataset.rowIndex || '', 10),
+          residentId: checkbox.dataset.residentId || ''
+        })).filter((person) => !isNaN(person.rowIndex));
+
+        if (selectedPeople.length === 0) {
+          if (personStatusMsg) personStatusMsg.textContent = 'Select at least one person.';
+          return;
+        }
+
+        const contactAction = (personContactedSelect && personContactedSelect.value) ? personContactedSelect.value.trim() : '';
+        const newsletterValue = (personNewsletterSelect && personNewsletterSelect.value) ? personNewsletterSelect.value.trim() : '';
+        const movedAwayValue = (personMovedAwaySelect && personMovedAwaySelect.value) ? personMovedAwaySelect.value.trim() : '';
+
+        if (!contactAction && !newsletterValue && !movedAwayValue) {
+          if (personStatusMsg) personStatusMsg.textContent = 'Choose at least one person tag to apply.';
+          return;
+        }
+
+        if (contactAction && !contactDateCol) {
+          if (personStatusMsg) personStatusMsg.textContent = 'Could not find a Last Contact Date column in this sheet.';
+          return;
+        }
+        if (newsletterValue && !newsletterCol) {
+          if (personStatusMsg) personStatusMsg.textContent = 'Could not find a Newsletter Subscriber column in this sheet.';
+          return;
+        }
+        if (movedAwayValue && !movedAwayCol) {
+          if (personStatusMsg) personStatusMsg.textContent = 'Could not find a Moved Away column in this sheet.';
+          return;
+        }
+
+        const today = new Date();
+        const todayForSheet = `${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`;
+        const useResidentId = sheetData.useResidentId;
+        const updates = [];
+        const updatesByResidentId = [];
+        const contactColIndex = contactDateCol != null ? headers.indexOf(contactDateCol) : -1;
+        const newsletterColIndex = newsletterCol != null ? headers.indexOf(newsletterCol) : -1;
+        const movedAwayColIndex = movedAwayCol != null ? headers.indexOf(movedAwayCol) : -1;
+
+        selectedPeople.forEach(({ rowIndex, residentId }) => {
+          const row = rowByOriginalIndex.get(rowIndex);
+          const rowNumber = rowIndex + 2;
+          if (useResidentId && residentId) {
+            if (contactAction === 'log' && contactDateCol) updatesByResidentId.push({ resident_id: residentId, column: contactDateCol, value: todayForSheet });
+            if (contactAction === 'clear' && contactDateCol) updatesByResidentId.push({ resident_id: residentId, column: contactDateCol, value: '' });
+            if (newsletterValue && newsletterCol) updatesByResidentId.push({ resident_id: residentId, column: newsletterCol, value: newsletterValue });
+            if (movedAwayValue && movedAwayCol) updatesByResidentId.push({ resident_id: residentId, column: movedAwayCol, value: movedAwayValue });
+          } else if (row && rowNumber > 1) {
+            if (contactAction === 'log' && contactColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(contactColIndex) + rowNumber, values: [[todayForSheet]] });
+            if (contactAction === 'clear' && contactColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(contactColIndex) + rowNumber, values: [['']] });
+            if (newsletterValue && newsletterColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(newsletterColIndex) + rowNumber, values: [[newsletterValue]] });
+            if (movedAwayValue && movedAwayColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(movedAwayColIndex) + rowNumber, values: [[movedAwayValue]] });
+          }
+        });
+
+        if (updates.length === 0 && updatesByResidentId.length === 0) {
+          if (personStatusMsg) personStatusMsg.textContent = 'No updates could be built for the selected people.';
+          return;
+        }
+
+        personApplyBtn.disabled = true;
+        if (personStatusMsg) personStatusMsg.textContent = 'Saving…';
+        try {
+          if (updatesByResidentId.length > 0) {
+            const residentResponse = await fetch('/api/sheets/batch-update-by-resident-id', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sheetId: currentSheetId, sheetName: 'Sheet1', valueInputOption: 'USER_ENTERED', updates: updatesByResidentId })
+            });
+            if (!residentResponse.ok) {
+              const error = await residentResponse.json().catch(() => ({}));
+              throw new Error(error.message || error.error || 'Failed to save');
+            }
+          }
+
+          if (updates.length > 0) {
+            const rangeResponse = await fetch('/api/sheets/batch-update', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sheetId: currentSheetId, valueInputOption: 'USER_ENTERED', data: updates })
+            });
+            if (!rangeResponse.ok) {
+              const error = await rangeResponse.json().catch(() => ({}));
+              throw new Error(error.message || error.error || 'Failed to save');
+            }
+          }
+
+          if (personStatusMsg) personStatusMsg.textContent = '';
+          showAppToast(`Tags applied to ${selectedPeople.length} person(s).`);
+          setTimeout(() => {
+            if (currentSheetUrl) loadAddressData(currentSheetUrl);
+          }, 400);
+        } catch (error) {
+          if (personStatusMsg) personStatusMsg.textContent = 'Error: ' + (error.message || error);
+        } finally {
+          personApplyBtn.disabled = false;
+        }
+      };
+
+      setActiveTab(tabButtons.find(button => button.classList.contains('active'))?.dataset.tab || 'address');
+      rerenderLists();
     }
 
     // ============================================
