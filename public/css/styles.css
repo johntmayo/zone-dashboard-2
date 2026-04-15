@@ -978,6 +978,11 @@
     #zoneSnapshotContent {
       padding: 24px 20px 16px 20px;
     }
+
+    #zoneSnapshotContent:empty {
+      padding: 0;
+      min-height: 0;
+    }
     
     /* Tighter spacing for From Altagether panel */
     #altagetherContent {
@@ -6035,8 +6040,7 @@
 .zone-stat-cards {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0;
-  border: var(--border-thickness) solid var(--border-color);
+  gap: 2px;
   margin-bottom: 1rem;
 }
 
@@ -6046,11 +6050,6 @@
   align-items: flex-start;
   padding: 1rem 1.25rem;
   background: var(--bg-card);
-  border-right: var(--border-thickness) solid var(--border-color);
-}
-
-.zone-stat-card:last-child {
-  border-right: none;
 }
 
 .zone-stat-card--warning {
@@ -6083,15 +6082,6 @@
 @media (max-width: 768px) {
   .zone-stat-cards {
     grid-template-columns: repeat(2, 1fr);
-  }
-
-  .zone-stat-card:nth-child(2) {
-    border-right: none;
-  }
-
-  .zone-stat-card:nth-child(1),
-  .zone-stat-card:nth-child(2) {
-    border-bottom: var(--border-thickness) solid var(--border-color);
   }
 
   .zone-stat-number {
