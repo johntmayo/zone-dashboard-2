@@ -335,14 +335,11 @@
       <nav class="sidebar-nav">
         <h2>Navigation</h2>
         <ul class="nav-list">
-          <li><a href="#about-what">What This Tool Is</a></li>
-          <li><a href="#about-data-promise">The Data</a></li>
-          <li><a href="#about-intentions">Our Intentions</a></li>
-          <li><a href="#about-how-it-works">How the App Works</a></li>
-       <!--   <li><a href="#about-tutorials">Tutorials</a></li>
-          <li><a href="#about-troubleshooting">Common Issues</a></li>
-          <li><a href="#about-more-help">More Help & Community</a></li> -->
-		  <li><a href="#more-questions">More Questions</a></li>
+          <li><a href="#about-intro">Welcome</a></li>
+          <li><a href="#about-contact-status">Contact Status</a></li>
+          <li><a href="#about-data-accuracy">Data Accuracy</a></li>
+          <li><a href="#about-privacy">Privacy and Data Use</a></li>
+          <li><a href="#about-evolving">An Evolving Tool</a></li>
         </ul>
       </nav>
     </aside>
@@ -355,155 +352,34 @@
       </div>
 
       <div class="help-content">
-        <section id="about-what">
-          <h2>What This Tool Is</h2>
-          <p>The Altagether Zone Dashboard is a tool for Neighborhood Captains to visualize and track what's happening in their zones. It's also a hub for resources and tools to aid in recovery, some created by Altagether, many from other sources. Keep track of who you've contacted, the progress of recovery in your area, and more—all from a single place.</p>
-		  <p>The Zone Dashboard acts as a front-end visual interface for the data we've provided to you in spreadsheet format. Changes made in the dashboard will be reflected in your zone spreadsheet, and vice versa.</p>
+        <section id="about-intro">
+          <h2>Welcome to the Zone Dashboard!</h2>
+          <p>This dashboard is here to help you track what's happening in your zone. You can edit most fields, add missing addresses, and enter information about properties and neighbors. We also include contact information and, when available, public data such as damage status and recent sales. <em>The dashboard is meant to be actively updated by you, so the more you add, the more useful it becomes.</em></p>
         </section>
 
-        <section id="about-data-promise">
-          <h2>The Data</h2>
-          <ul>
-            <li><strong>Your data lives in a Google Sheet.</strong> The dashboard reads and writes directly to the spreadsheet. Each zone has a standalone spreadsheet that is shared only with the Neighborhood Captains in that zone.</li>
-            <li><strong>Altagether holds these Google Sheets in a secure folder.</strong> You (and any co-captains) have full edit access to the sheet and can control who else has access to it through Google's sharing settings.</li>
-            <li><strong>Access is limited to people you share with.</strong> Only people who have the spreadsheet URL—and whose spreadsheet is properly set up—can use the dashboard to view or edit that data.</li>
-            <li><strong>No hidden syncing, no silent aggregation.</strong> The app does not extract, centralize, or aggregate your data beyond what's needed to display and edit it in the dashboard.</li>
-          </ul>
+        <section id="about-contact-status">
+          <h2>Contact Status</h2>
+          <p>The dashboard does not automatically know whether you have contacted a household. One of its main purposes is to help track which households you've reached and which you have not. Please log your outreach so the dashboard reflects the real status of contact in your zone.</p>
         </section>
 
-        <section id="about-intentions">
-          <h2>Our Intentions Around Data</h2>
-          <p>This tool is not designed to extract or centralize data from Neighborhood Captains. We avoid surveillance-style defaults. Currently, sharing upward or outward is not part of this platform. If in the future we incorporate such things, it will be intentional, limited, and opt-in—and we will be transparent about these decisions and invite discussion.</p>
-		  <ul>
-		  <li><strong>We will never share your data with any person or organization without your express permission.</strong></li>
-		  <li><strong>Our intention is not to collect data. It is to give you a tool to make your volunteer work easier.</strong></li>
-		</ul>
+        <section id="about-data-accuracy">
+          <h2>Data Accuracy</h2>
+          <p>The dashboard pulls from a mix of sources, including voter rolls and LA County damage data. We've worked to make it as accurate as possible, but it will not be perfect. There may be missing addresses, missing people, or outdated information. You are the source of truth for what is happening in your zone. If something is missing, you can add it using the Add Records feature under the Neighbors tab.</p>
         </section>
 
-        <section id="about-how-it-works">
-          <h2>How the App Works</h2>
-          <ol>
-            <li><strong>Sign in with Google.</strong> This identifies who you are (for things like editing and NC Profile). The app does not store your password or gain access to your Google Drive beyond what you authorize.</li>
-            <li><strong>Point the app at your zone spreadsheet.</strong> Paste the Google Sheets URL into the input in the left nav (or in the welcome flow) and click Load.</li>
-            <li><strong>The app reads and writes directly to that sheet.</strong> All data operations go through our server, which uses a service account to talk to Google Sheets. Your Google account does not need to be added as an editor on the spreadsheet—as long as the sheet is shared with our service account and you have the URL, you can use the dashboard.</li>
-            <li><strong>Session-based access.</strong> Once you sign out or your session expires, the app has no background access to your data. You're in control.</li>
-          </ol>
-        </section>
-		
-		<section id="more-questions">
-          <h2>If You Still Have Questions</h2>
-          <p>We are happy to have a conversation with you about data security and privacy and what might make you more or less likely to use this tool. Please reach out to John Mayo at <a href="mailto:john@altagether.org">john@altagether.org</a>.</p>
-		  </section>
-
-<!--        <section id="about-tutorials">
-          <h2>Tutorials</h2>
-          <p>Short, focused walkthroughs to get you oriented. Expand any section below.</p>
-
-          <details class="about-accordion">
-            <summary>Getting started</summary>
-            <div class="about-accordion-content">
-              <p><strong>Step 1:</strong> Sign in with Google using the button in the welcome message or in the right panel.</p>
-              <p><strong>Step 2:</strong> Open your zone spreadsheet in Google Sheets, copy the URL from the browser address bar, and paste it into the dashboard. Click Load.</p>
-              <p>Once loaded, you'll see Home, Map, Neighbors, and other views in the left nav.</p>
-            </div>
-          </details>
-          <details class="about-accordion">
-            <summary>Loading your sheet</summary>
-            <div class="about-accordion-content">
-              <p>You can load a sheet from the welcome overlay (when no sheet is linked) or from the sheet input at the bottom of the left nav. Paste any valid Google Sheets URL—standard format or published—and click Load. The sheet must be shared with our service account (your zone admin typically does this once).</p>
-            </div>
-          </details>
-          <details class="about-accordion">
-            <summary>Navigating the map</summary>
-            <div class="about-accordion-content">
-              <p>On the Map view, each address appears as a marker. Use the "Color by" control (top-left) to color markers by Contact Status, Damage, Rebuild Status, or Captain. Click a marker or address in the right panel to see details. The filter bar at the top narrows which addresses are shown on both the map and the Neighbors table.</p>
-            </div>
-          </details>
-          <details class="about-accordion">
-            <summary>Common first-time mistakes</summary>
-            <div class="about-accordion-content">
-              <ul>
-                <li>Forgetting to sign in before editing—sign in first to enable Add Record, Batch Tagging, Zone Notes, etc.</li>
-                <li>Using a sheet that isn't shared with the service account—ask your admin to share the sheet with the app.</li>
-                <li>Pasting the wrong URL—make sure it's the full Google Sheets URL, not a shortened or Drive folder link.</li>
-              </ul>
-            </div>
-          </details>
+        <section id="about-privacy">
+          <h2>Privacy and Data Use</h2>
+          <p>Only you and Altagether leadership have access to the data in this dashboard. We will never share your data with any individual or organization without your explicit permission.</p>
         </section>
 
-        <section id="about-troubleshooting">
-          <h2>Common Issues</h2>
-          <dl class="about-troubleshoot-list">
-            <dt>Session expired</dt>
-            <dd>Sign out and sign back in with Google. If you were editing, your last save may have gone through—check the sheet.</dd>
-            <dt>Sheet not loading</dt>
-            <dd>Check that the URL is correct and that the sheet is shared with our service account. Try refreshing the page and pasting the URL again.</dd>
-            <dt>Permissions issues</dt>
-            <dd>You don't need to be added as an editor on the spreadsheet in Drive—you only need the URL and for the sheet to be shared with the app's service account. If you still can't load it, contact your zone admin.</dd>
-            <dt>Refreshing or re-linking sheets</dt>
-            <dd>Change the URL in the sheet input and click Load to switch to a different spreadsheet. The app will reload data from the new sheet.</dd>
-          </dl>
+        <section id="about-evolving">
+          <h2>An Evolving Tool</h2>
+          <p>We are continuing to improve the dashboard by adding features and refining what is already here. If you have ideas, notice something confusing, or run into a problem, we'd love to hear from you. You can use the link in the bottom-left corner of the screen to send us a message, or contact John directly at <a href="mailto:john@altagether.org">john@altagether.org</a>.</p>
         </section>
-
-        <section id="about-more-help">
-          <h2>More Help & Community</h2>
-          <div class="help-card">
-            <h4>Zone Dashboard Documentation</h4>
-            <p>View the complete help documentation with detailed instructions and guides.</p>
-            <a href="help.html" target="_blank" rel="noopener noreferrer" class="help-link-btn">📖 Open Full Documentation</a>
-          </div>
-          <div class="help-card">
-            <h4>Discord</h4>
-            <p>Join our Discord community for support, updates, and discussions.</p>
-            <div class="help-card-buttons">
-              <button type="button" id="discordQuickStartBtn" class="help-link-btn">🚀 Discord Quick Start</button>
-              <a href="discord-help.html" target="_blank" rel="noopener noreferrer" class="help-link-btn">📚 Discord Tutorial</a>
-            </div>
-          </div>
-        </section>
-      </div>  -->
+      </div>
     </main>
   </div>
  
 
-  <!-- Discord Quick Start Modal -->
-  <div id="discordQuickStartModal" class="discord-modal-overlay hidden">
-    <div class="discord-modal">
-      <button type="button" class="discord-modal-close" id="discordModalClose">&times;</button>
-      <div class="discord-modal-content">
-        <h2 style="margin-top: 0; margin-bottom: 16px; font-size: 1.5rem;">🚀 First Thing to Do: Join the Discord</h2>
-        <p style="margin-bottom: 12px; font-size: 1.05rem;"><strong>This is the first thing a new captain should do on Discord.</strong></p>
-        <p style="margin-bottom: 16px;">
-          Hosted within the broader <a href="https://www.efsurvivors.net/" target="_blank" rel="noopener noreferrer" style="color: var(--primary-dark); text-decoration: underline; font-weight: 600;">Eaton Fire Survivors Network</a>, Altagether's Discord channel is our shared space for chatting, trading ideas, and finding quick answers.
-        </p>
-        <div style="margin: 16px 0;">
-          <div class="step-item">
-            <span class="step-number">1</span>
-            <div class="step-content">
-              <strong>Use this link to join:</strong> <a href="https://discord.com/invite/Y5atRPvc3V" target="_blank" rel="noopener noreferrer" style="color: var(--primary-dark); text-decoration: underline; font-weight: 600;">Discord Invite</a>
-            </div>
-          </div>
-          <div class="step-item">
-            <span class="step-number">2</span>
-            <div class="step-content">
-              Then message us (<strong>@altagether_org</strong>) with your name so we can add you to the private NC channel.
-            </div>
-          </div>
-        </div>
-        <p style="margin-top: 16px; margin-bottom: 0; padding: 12px; background: rgba(96, 108, 56, 0.1); border-radius: 6px; border-left: 3px solid var(--accent);">
-          <strong>This video shows you how:</strong> <a href="https://drive.google.com/file/d/1ITF5yi1W14jenwAS92XFO3e99W5QIzGG/view?usp=drive_link" target="_blank" rel="noopener noreferrer" style="color: var(--primary-dark); text-decoration: underline; font-weight: 600;">Watch Quick-Start Training Video</a>
-        </p>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    document.getElementById('discordQuickStartBtn').addEventListener('click', function() {
-      document.getElementById('discordQuickStartModal').classList.remove('hidden');
-    });
-    document.getElementById('discordModalClose').addEventListener('click', function() {
-      document.getElementById('discordQuickStartModal').classList.add('hidden');
-    });
-  </script>
 </body>
 </html>
