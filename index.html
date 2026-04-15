@@ -12676,115 +12676,8 @@
       
       const headers = sheetData.headers;
       const data = sheetData.data;
-      const addressMap = sheetData.addressMap;
       
-      // 1. Households in your zone (count of addresses)
-      const householdsCount = addressMap.size;
-      
-      // 2. People in your zone (count unique resident names, or use "# of residents" field per address)
-      const residentsCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return lower.includes('# of residents') || 
-               lower.includes('number of residents') ||
-               (lower.includes('#') && lower.includes('resident'));
-      });
-      
-      const residentNameCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return lower.includes('resident name') || 
-               lower.includes('name') && !lower.includes('household') && !lower.includes('address');
-      });
-      
-      let peopleCount = 0;
-      if (residentsCol) {
-        // Use "# of residents" field - count per address, not per row
-        addressMap.forEach((rows, address) => {
-          const row = rows[0]; // Get first row for this address
-          const residents = parseInt(row[residentsCol]) || 0;
-          peopleCount += residents > 0 ? residents : 1;
-        });
-      } else if (residentNameCol) {
-        // Count unique resident names across all addresses
-        const uniqueResidents = new Set();
-        addressMap.forEach((rows, address) => {
-          rows.forEach(row => {
-            const name = (row[residentNameCol] || '').trim();
-            if (name) {
-              uniqueResidents.add(name.toLowerCase());
-            }
-          });
-        });
-        peopleCount = uniqueResidents.size || householdsCount;
-      } else {
-        // Fallback: 1 person per address
-        peopleCount = householdsCount;
-      }
-      
-      // 3. Homes by damage status
-      const damageCol = findColumn(headers, 'damage');
-      const damageCounts = {
-        'Total Loss': 0,
-        'Partial Loss': 0,
-        'Standing Home': 0,
-        'Unknown': 0
-      };
-      
-      if (damageCol) {
-        addressMap.forEach((rows, address) => {
-          const row = rows[0];
-          const damage = (row[damageCol] || '').trim();
-          if (damage) {
-            const damageLower = damage.toLowerCase();
-            if (damageLower.includes('total')) {
-              damageCounts['Total Loss']++;
-            } else if (damageLower.includes('partial')) {
-              damageCounts['Partial Loss']++;
-            } else if (damageLower.includes('standing')) {
-              damageCounts['Standing Home']++;
-            } else {
-              // Check if it matches one of our known values
-              if (damageCounts.hasOwnProperty(damage)) {
-                damageCounts[damage]++;
-              } else {
-                damageCounts['Unknown']++;
-              }
-            }
-          } else {
-            damageCounts['Unknown']++;
-          }
-        });
-      }
-      
-      // 4. Households not yet contacted
-      const contactStatusCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return lower.includes('contact status');
-      });
-      const contactDateCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return (lower.includes('contact') && lower.includes('date')) ||
-               lower.includes('last contact');
-      });
-      
-      let uncontactedCount = 0;
-      addressMap.forEach((rows, address) => {
-        const row = rows[0];
-        let isContacted = false;
-        
-        if (contactStatusCol && row[contactStatusCol]) {
-          const status = String(row[contactStatusCol]).toLowerCase().trim();
-          isContacted = status && !status.includes('uncontacted') && status !== 'no';
-        } else if (contactDateCol && row[contactDateCol]) {
-          const date = String(row[contactDateCol]).trim();
-          isContacted = date.length > 0;
-        }
-        
-        if (!isContacted) {
-          uncontactedCount++;
-        }
-      });
-      
-      // 5. Last updated - find most recent timestamp
+      // Last updated - find most recent timestamp
       const timestampCols = headers.filter(h => {
         const lower = h.toLowerCase();
         return lower.includes('date') || 
@@ -12818,24 +12711,7 @@
         });
       }
       
-      // Render the panel
-      content.innerHTML = `
-        <div class="stat-group">
-          <div class="stat-item">
-            <span class="stat-value">${householdsCount}</span>
-            <span class="stat-label">addresses in your zone</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-value">${peopleCount}</span>
-            <span class="stat-label">people in your zone</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-value">${uncontactedCount}</span>
-            <span class="stat-label">addresses not yet contacted</span>
-          </div>
-        </div>
-        
-      `;
+      content.innerHTML = '';
       
       // Show stat cards and charts container and render charts
       updateZoneStatCards();
