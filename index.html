@@ -251,6 +251,24 @@
             <div class="home-panel-content" id="zoneSnapshotContent">
               <div class="loading">Loading zone data...</div>
             </div>
+            <div id="zoneStatCards" class="zone-stat-cards hidden">
+              <div class="zone-stat-card">
+                <span class="zone-stat-number" id="statTotalAddresses">—</span>
+                <span class="zone-stat-label">Total Addresses</span>
+              </div>
+              <div class="zone-stat-card">
+                <span class="zone-stat-number" id="statContacted">—</span>
+                <span class="zone-stat-label">Contacted</span>
+              </div>
+              <div class="zone-stat-card zone-stat-card--warning">
+                <span class="zone-stat-number" id="statTotalLoss">—</span>
+                <span class="zone-stat-label">Total Loss / Major Damage</span>
+              </div>
+              <div class="zone-stat-card zone-stat-card--positive">
+                <span class="zone-stat-number" id="statRebuilding">—</span>
+                <span class="zone-stat-label">Rebuilding or Planning</span>
+              </div>
+            </div>
             <div class="zone-overview-charts hidden" id="zoneOverviewCharts">
               <!-- Left Chart Carousel -->
               <div class="chart-carousel-wrapper">
@@ -12819,7 +12837,8 @@
         
       `;
       
-      // Show charts container and render charts
+      // Show stat cards and charts container and render charts
+      updateZoneStatCards();
       const chartsContainer = document.getElementById('zoneOverviewCharts');
       const footerContainer = document.getElementById('zoneOverviewFooter');
       if (chartsContainer) {
@@ -13435,6 +13454,77 @@
     }
 
     // Update Zone Overview charts with carousel
+    function updateZoneStatCards() {
+      const container = document.getElementById('zoneStatCards');
+      if (!container) return;
+
+      if (!sheetData || !sheetData.addressMap || !sheetData.headers) {
+        container.classList.add('hidden');
+        return;
+      }
+
+      const headers = sheetData.headers;
+      const addressMap = sheetData.addressMap;
+      const totalAddresses = addressMap.size;
+
+      // Locate relevant columns
+      const contactCol = findColumn(headers, ['last', 'contact']) ||
+                         headers.find(h => {
+                           const l = h.toLowerCase();
+                           return l === 'last contact date' || l === 'contacted' || l.includes('contacted');
+                         }) || null;
+      const damageCol  = findColumn(headers, 'damage');
+      const buildCol   = findColumn(headers, ['build', 'status'], ['address']);
+
+      let contactedCount   = 0;
+      let totalLossCount   = 0;
+      let rebuildingCount  = 0;
+
+      addressMap.forEach((residents) => {
+        // Contacted: any resident has a non-empty contact date
+        if (contactCol) {
+          const hasContact = residents.some(row => {
+            const val = (row[contactCol] || '').trim();
+            return val !== '' && val !== '—';
+          });
+          if (hasContact) contactedCount++;
+        }
+
+        // Total Loss / Major Damage: any resident row flags this address
+        if (damageCol) {
+          const hasDamage = residents.some(row => {
+            const val = (row[damageCol] || '').toLowerCase();
+            return val === 'total loss' || val === 'major damage';
+          });
+          if (hasDamage) totalLossCount++;
+        }
+
+        // Rebuilding or Planning: any resident row matches
+        if (buildCol) {
+          const hasRebuild = residents.some(row => {
+            const val = (row[buildCol] || '').toLowerCase();
+            return val.includes('rebuilding') || val.includes('planning');
+          });
+          if (hasRebuild) rebuildingCount++;
+        }
+      });
+
+      // Format contacted as "X of Y (Z%)"
+      const contactedPct = totalAddresses > 0
+        ? Math.round((contactedCount / totalAddresses) * 100)
+        : 0;
+      const contactedDisplay = contactCol
+        ? `${contactedCount} of ${totalAddresses} (${contactedPct}%)`
+        : '—';
+
+      document.getElementById('statTotalAddresses').textContent = totalAddresses;
+      document.getElementById('statContacted').textContent      = contactedDisplay;
+      document.getElementById('statTotalLoss').textContent      = damageCol  ? totalLossCount  : '—';
+      document.getElementById('statRebuilding').textContent     = buildCol   ? rebuildingCount : '—';
+
+      container.classList.remove('hidden');
+    }
+
     function updateZoneOverviewCharts() {
       if (!sheetData || !sheetData.data || sheetData.data.length === 0) {
         return;
