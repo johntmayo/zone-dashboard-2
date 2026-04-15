@@ -266,7 +266,7 @@
               </div>
               <div class="zone-stat-card zone-stat-card--positive">
                 <span class="zone-stat-number" id="statRebuilding">—</span>
-                <span class="zone-stat-label">Rebuilding or Planning</span>
+                <span class="zone-stat-label">Planning to build</span>
               </div>
             </div>
             <div class="zone-overview-charts hidden" id="zoneOverviewCharts">
@@ -13349,12 +13349,12 @@
                            const l = h.toLowerCase();
                            return l === 'last contact date' || l === 'contacted' || l.includes('contacted');
                          }) || null;
-      const damageCol  = findColumn(headers, 'damage');
-      const buildCol   = findColumn(headers, ['build', 'status'], ['address']);
+      const damageCol      = findColumn(headers, 'damage');
+      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
 
-      let contactedCount   = 0;
-      let totalLossCount   = 0;
-      let rebuildingCount  = 0;
+      let contactedCount        = 0;
+      let totalLossCount        = 0;
+      let planningToBuildCount  = 0;
 
       addressMap.forEach((residents, address) => {
         // Contacted: any resident has a non-empty contact date
@@ -13374,13 +13374,12 @@
           }
         }
 
-        // Rebuilding or Planning: any resident row matches
-        if (buildCol) {
-          const hasRebuild = residents.some(row => {
-            const val = (row[buildCol] || '').toLowerCase();
-            return val.includes('rebuilding') || val.includes('planning');
-          });
-          if (hasRebuild) rebuildingCount++;
+        // Planning to build: Address Plan = Building (same first row as getAddressPlan / Neighbors)
+        if (addressPlanCol) {
+          const plan = getAddressPlan(address);
+          if (plan && plan.toLowerCase() === 'building') {
+            planningToBuildCount++;
+          }
         }
       });
 
@@ -13395,7 +13394,7 @@
       document.getElementById('statTotalAddresses').textContent = totalAddresses;
       document.getElementById('statContacted').textContent      = contactedDisplay;
       document.getElementById('statTotalLoss').textContent      = damageCol  ? totalLossCount  : '—';
-      document.getElementById('statRebuilding').textContent     = buildCol   ? rebuildingCount : '—';
+      document.getElementById('statRebuilding').textContent     = addressPlanCol ? planningToBuildCount : '—';
 
       container.classList.remove('hidden');
     }
