@@ -636,6 +636,15 @@
                   <option value="contacted">Already contacted</option>
                   <option value="not_contacted">Not yet contacted</option>
                 </select>
+                <select id="batchTagDamageFilter" class="add-record-select" style="display:none;">
+                  <option value="all">All damage</option>
+                </select>
+                <select id="batchTagAddressPlanFilter" class="add-record-select" style="display:none;">
+                  <option value="all">All address plans</option>
+                </select>
+                <select id="batchTagBuildStatusFilter" class="add-record-select" style="display:none;">
+                  <option value="all">All build statuses</option>
+                </select>
               </div>
               <div id="batchTabAddress" class="batch-tab-panel">
                 <div id="batchTaggingError" class="hidden" style="padding:12px; margin-bottom:16px; background:rgba(200,0,0,0.1); border:1px solid #c00; border-radius:8px; color:#c00; font-weight:600;"></div>
@@ -13924,6 +13933,9 @@
       const streetFilter = document.getElementById('batchTagStreetFilter');
       const searchInput = document.getElementById('batchTagSearch');
       const contactFilter = document.getElementById('batchTagContactFilter');
+      const damageFilter = document.getElementById('batchTagDamageFilter');
+      const addressPlanFilter = document.getElementById('batchTagAddressPlanFilter');
+      const buildStatusFilter = document.getElementById('batchTagBuildStatusFilter');
       const addressTabPanel = document.getElementById('batchTabAddress');
       const personTabPanel = document.getElementById('batchTabPerson');
       const listView = document.getElementById('batchTaggingListView');
@@ -14103,6 +14115,19 @@
         .filter((person) => person.address);
       const peopleByKey = new Map(allPeople.map((person) => [person.key, person]));
       const addressDetails = new Map();
+      const firstNonEmpty = (rows, column) => {
+        if (!column) return '';
+        for (const row of rows) {
+          const value = getTrimmedCellValue(row, column);
+          if (value) return value;
+        }
+        return '';
+      };
+      const computeAddressTagValues = (rows) => ({
+        damage: firstNonEmpty(rows, damageCol),
+        addressPlan: firstNonEmpty(rows, addressPlanCol),
+        buildStatus: firstNonEmpty(rows, rebuildCol)
+      });
       allAddresses.forEach((address) => {
         const rows = sheetData.addressMap.get(address) || [];
         const activeRows = formerResidentCol
@@ -14118,11 +14143,15 @@
         const residentSummary = residentNames.length > 0
           ? summarizeItems(residentNames, 64)
           : `${nameSourceRows.length} ${pluralize(nameSourceRows.length, 'resident')}`;
+        const tagValues = computeAddressTagValues(rows);
         addressDetails.set(address, {
           rows,
           residentNames,
           residentSummary,
-          residentSearchText: residentNames.join(' ').toLowerCase()
+          residentSearchText: residentNames.join(' ').toLowerCase(),
+          damage: tagValues.damage,
+          addressPlan: tagValues.addressPlan,
+          buildStatus: tagValues.buildStatus
         });
       });
       const selectedAddresses = new Set();
@@ -14130,6 +14159,9 @@
 
       const currentStreetValue = streetFilter.value || 'all';
       const currentContactValue = contactFilter.value || 'all';
+      const currentDamageFilterValue = damageFilter ? (damageFilter.value || 'all') : 'all';
+      const currentAddressPlanFilterValue = addressPlanFilter ? (addressPlanFilter.value || 'all') : 'all';
+      const currentBuildStatusFilterValue = buildStatusFilter ? (buildStatusFilter.value || 'all') : 'all';
       const streetOptions = Array.from(new Set(
         allAddresses
           .map((addr) => extractStreet(addr))
@@ -14146,6 +14178,44 @@
       damageSelect.innerHTML = '<option value="">—</option>' + damageOpts.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
       addressPlanSelect.innerHTML = '<option value="">—</option>' + addressPlanOpts.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
       rebuildSelect.innerHTML = '<option value="">—</option>' + rebuildOpts.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+
+      const buildTagFilterOptions = (label, opts) =>
+        `<option value="all">All ${label}</option><option value="__unset__">Not set</option>` +
+        opts.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+      const isValidFilterValue = (value, opts) => value === 'all' || value === '__unset__' || opts.includes(value);
+      if (damageFilter) {
+        if (damageCol) {
+          damageFilter.innerHTML = buildTagFilterOptions('damage', damageOpts);
+          damageFilter.value = isValidFilterValue(currentDamageFilterValue, damageOpts) ? currentDamageFilterValue : 'all';
+          damageFilter.disabled = false;
+        } else {
+          damageFilter.innerHTML = '<option value="all">All damage</option>';
+          damageFilter.value = 'all';
+          damageFilter.disabled = true;
+        }
+      }
+      if (addressPlanFilter) {
+        if (addressPlanCol) {
+          addressPlanFilter.innerHTML = buildTagFilterOptions('address plans', addressPlanOpts);
+          addressPlanFilter.value = isValidFilterValue(currentAddressPlanFilterValue, addressPlanOpts) ? currentAddressPlanFilterValue : 'all';
+          addressPlanFilter.disabled = false;
+        } else {
+          addressPlanFilter.innerHTML = '<option value="all">All address plans</option>';
+          addressPlanFilter.value = 'all';
+          addressPlanFilter.disabled = true;
+        }
+      }
+      if (buildStatusFilter) {
+        if (rebuildCol) {
+          buildStatusFilter.innerHTML = buildTagFilterOptions('build statuses', rebuildOpts);
+          buildStatusFilter.value = isValidFilterValue(currentBuildStatusFilterValue, rebuildOpts) ? currentBuildStatusFilterValue : 'all';
+          buildStatusFilter.disabled = false;
+        } else {
+          buildStatusFilter.innerHTML = '<option value="all">All build statuses</option>';
+          buildStatusFilter.value = 'all';
+          buildStatusFilter.disabled = true;
+        }
+      }
 
       const missingPersonColumns = [];
       if (!newsletterCol) missingPersonColumns.push('Newsletter Subscriber');
@@ -14173,20 +14243,36 @@
       const getStreetFilterValue = () => (streetFilter.value || 'all').trim();
       const getSearchValue = () => (searchInput.value || '').trim().toLowerCase();
       const getContactFilterValue = () => (contactFilter.value || 'all').trim();
+      const getDamageFilterValue = () => (damageFilter && !damageFilter.disabled ? (damageFilter.value || 'all').trim() : 'all');
+      const getAddressPlanFilterValue = () => (addressPlanFilter && !addressPlanFilter.disabled ? (addressPlanFilter.value || 'all').trim() : 'all');
+      const getBuildStatusFilterValue = () => (buildStatusFilter && !buildStatusFilter.disabled ? (buildStatusFilter.value || 'all').trim() : 'all');
       const addressMatchesSearch = (address, searchText) => {
         if (!searchText) return true;
         if (String(address || '').toLowerCase().includes(searchText)) return true;
         const details = addressDetails.get(address);
         return !!(details && details.residentSearchText.includes(searchText));
       };
+      const addressMatchesTagFilter = (currentValue, filterValue) => {
+        if (filterValue === 'all') return true;
+        if (filterValue === '__unset__') return !currentValue;
+        return currentValue === filterValue;
+      };
 
       const getBatchFilteredAddresses = () => {
         const selectedStreet = getStreetFilterValue();
         const searchText = getSearchValue();
+        const damageFilterVal = getDamageFilterValue();
+        const addressPlanFilterVal = getAddressPlanFilterValue();
+        const buildStatusFilterVal = getBuildStatusFilterValue();
         return allAddresses.filter((address) => {
           const street = extractStreet(address);
           if (selectedStreet !== 'all' && street !== selectedStreet) return false;
-          return addressMatchesSearch(address, searchText);
+          if (!addressMatchesSearch(address, searchText)) return false;
+          const details = addressDetails.get(address) || {};
+          if (!addressMatchesTagFilter(details.damage, damageFilterVal)) return false;
+          if (!addressMatchesTagFilter(details.addressPlan, addressPlanFilterVal)) return false;
+          if (!addressMatchesTagFilter(details.buildStatus, buildStatusFilterVal)) return false;
+          return true;
         });
       };
 
@@ -14374,13 +14460,39 @@
             main.className = 'batch-tag-row-main';
             main.textContent = address;
 
-            const residents = document.createElement('span');
-            residents.className = 'batch-tag-row-address';
-            residents.textContent = details.residentSummary || 'Residents not listed';
-            residents.title = details.residentNames.length > 0 ? details.residentNames.join(', ') : residents.textContent;
+            const residentsCell = document.createElement('span');
+            residentsCell.className = 'batch-tag-row-address';
+            const residentsLine = document.createElement('span');
+            residentsLine.className = 'batch-tag-row-residents';
+            residentsLine.textContent = details.residentSummary || 'Residents not listed';
+            residentsLine.title = details.residentNames.length > 0 ? details.residentNames.join(', ') : residentsLine.textContent;
+            residentsCell.appendChild(residentsLine);
+
+            const chips = [];
+            if (damageCol && details.damage) chips.push({ label: 'Damage', value: details.damage });
+            if (addressPlanCol && details.addressPlan) chips.push({ label: 'Plan', value: details.addressPlan });
+            if (rebuildCol && details.buildStatus) chips.push({ label: 'Build', value: details.buildStatus });
+            if (chips.length > 0) {
+              const chipsWrap = document.createElement('span');
+              chipsWrap.className = 'batch-tag-row-chips';
+              chips.forEach((chip) => {
+                const chipEl = document.createElement('span');
+                chipEl.className = 'batch-tag-row-chip';
+                const chipLabel = document.createElement('span');
+                chipLabel.className = 'batch-tag-row-chip__label';
+                chipLabel.textContent = chip.label;
+                const chipValue = document.createElement('span');
+                chipValue.className = 'batch-tag-row-chip__value';
+                chipValue.textContent = chip.value;
+                chipEl.appendChild(chipLabel);
+                chipEl.appendChild(chipValue);
+                chipsWrap.appendChild(chipEl);
+              });
+              residentsCell.appendChild(chipsWrap);
+            }
 
             rowGrid.appendChild(main);
-            rowGrid.appendChild(residents);
+            rowGrid.appendChild(residentsCell);
             label.appendChild(checkbox);
             label.appendChild(rowGrid);
             label.classList.toggle('is-selected', checkbox.checked);
@@ -14715,20 +14827,61 @@
         if (addressTabPanel) addressTabPanel.classList.toggle('hidden', nextTab !== 'address');
         if (personTabPanel) personTabPanel.classList.toggle('hidden', nextTab !== 'person');
         contactFilter.style.display = nextTab === 'person' ? '' : 'none';
+        if (damageFilter) damageFilter.style.display = nextTab === 'address' && damageCol ? '' : 'none';
+        if (addressPlanFilter) addressPlanFilter.style.display = nextTab === 'address' && addressPlanCol ? '' : 'none';
+        if (buildStatusFilter) buildStatusFilter.style.display = nextTab === 'address' && rebuildCol ? '' : 'none';
       }
 
       tabButtons.forEach((button) => {
         button.onclick = () => setActiveTab(button.dataset.tab || 'address');
       });
 
+      const setActiveFilterClass = (el, isActive) => {
+        if (!el) return;
+        el.classList.toggle('batch-tag-filter-active', Boolean(isActive));
+      };
+      const setArmedApplyClass = (el, isArmed) => {
+        if (!el) return;
+        el.classList.toggle('batch-tag-apply-armed', Boolean(isArmed));
+      };
+      const updateFilterHighlights = () => {
+        setActiveFilterClass(streetFilter, (streetFilter.value || 'all') !== 'all');
+        setActiveFilterClass(searchInput, (searchInput.value || '').trim().length > 0);
+        setActiveFilterClass(contactFilter, (contactFilter.value || 'all') !== 'all');
+        setActiveFilterClass(damageFilter, damageFilter && !damageFilter.disabled && (damageFilter.value || 'all') !== 'all');
+        setActiveFilterClass(addressPlanFilter, addressPlanFilter && !addressPlanFilter.disabled && (addressPlanFilter.value || 'all') !== 'all');
+        setActiveFilterClass(buildStatusFilter, buildStatusFilter && !buildStatusFilter.disabled && (buildStatusFilter.value || 'all') !== 'all');
+      };
+      const updateApplyHighlights = () => {
+        setArmedApplyClass(damageSelect, (damageSelect.value || '').trim() !== '');
+        setArmedApplyClass(addressPlanSelect, (addressPlanSelect.value || '').trim() !== '');
+        setArmedApplyClass(rebuildSelect, (rebuildSelect.value || '').trim() !== '');
+        setArmedApplyClass(personContactedSelect, personContactedSelect && (personContactedSelect.value || '').trim() !== '');
+        setArmedApplyClass(personNewsletterSelect, personNewsletterSelect && (personNewsletterSelect.value || '').trim() !== '');
+        setArmedApplyClass(personFormerResidentSelect, personFormerResidentSelect && (personFormerResidentSelect.value || '').trim() !== '');
+      };
+
       const handleSharedFilterChange = () => {
         if (statusMsg) statusMsg.textContent = '';
         if (personStatusMsg) personStatusMsg.textContent = '';
+        updateFilterHighlights();
         rerenderLists();
       };
       streetFilter.onchange = handleSharedFilterChange;
       searchInput.oninput = handleSharedFilterChange;
       contactFilter.onchange = handleSharedFilterChange;
+      if (damageFilter) damageFilter.onchange = handleSharedFilterChange;
+      if (addressPlanFilter) addressPlanFilter.onchange = handleSharedFilterChange;
+      if (buildStatusFilter) buildStatusFilter.onchange = handleSharedFilterChange;
+
+      [damageSelect, addressPlanSelect, rebuildSelect, personContactedSelect, personNewsletterSelect, personFormerResidentSelect].forEach((el) => {
+        if (!el) return;
+        const prev = el.onchange;
+        el.onchange = (event) => {
+          updateApplyHighlights();
+          if (typeof prev === 'function') prev.call(el, event);
+        };
+      });
 
       if (selectAllBtn) {
         selectAllBtn.onclick = () => {
@@ -14844,6 +14997,27 @@
             const error = await res.json().catch(() => ({}));
             throw new Error(error.message || error.error || 'Failed to save');
           }
+
+          selected.forEach((address) => {
+            const addrRows = sheetData.addressMap.get(address) || [];
+            addrRows.forEach((row) => {
+              if (damageVal && damageCol) row[damageCol] = damageVal;
+              if (addressPlanVal && addressPlanCol) row[addressPlanCol] = addressPlanVal;
+              if (rebuildVal && rebuildCol) row[rebuildCol] = rebuildVal;
+            });
+            const details = addressDetails.get(address);
+            if (details) {
+              if (damageVal && damageCol) details.damage = damageVal;
+              if (addressPlanVal && addressPlanCol) details.addressPlan = addressPlanVal;
+              if (rebuildVal && rebuildCol) details.buildStatus = rebuildVal;
+            }
+          });
+
+          selectedAddresses.clear();
+          renderAddressList();
+          const mapStateAfterApply = window._batchTaggingMapState;
+          if (mapStateAfterApply) mapStateAfterApply.updateAddressMarkerColors(new Set());
+
           if (statusMsg) statusMsg.textContent = '';
           showAppToast(`Tags applied to ${selected.length} address(es).`);
           setTimeout(() => {
@@ -14949,6 +15123,47 @@
             }
           }
 
+          selectedPeople.forEach(({ rowIndex, row }) => {
+            const person = peopleByKey.get(String(rowIndex));
+            if (contactAction === 'log') {
+              if (person) person.lastContactRaw = todayForSheet;
+              if (row && contactDateCol) row[contactDateCol] = todayForSheet;
+            } else if (contactAction === 'clear') {
+              if (person) person.lastContactRaw = '';
+              if (row && contactDateCol) row[contactDateCol] = '';
+            }
+            if (newsletterValue && newsletterCol && row) {
+              row[newsletterCol] = newsletterValue;
+            }
+            if (formerResidentValue && formerResidentCol) {
+              if (row) row[formerResidentCol] = formerResidentValue;
+              if (person) person.isFormerResident = formerResidentValue === 'TRUE';
+            }
+          });
+
+          if (formerResidentValue && formerResidentCol) {
+            addressDetails.forEach((details, address) => {
+              const rows = sheetData.addressMap.get(address) || [];
+              const activeRows = rows.filter((row) => !isTruthySheetCheckbox(row[formerResidentCol]));
+              const nameSourceRows = activeRows.length > 0 ? activeRows : rows;
+              const residentNames = Array.from(new Set(
+                nameSourceRows
+                  .map((row, index) => getBatchPersonDisplayName(row, index))
+                  .map((name) => String(name || '').trim())
+                  .filter(Boolean)
+              ));
+              details.residentNames = residentNames;
+              details.residentSummary = residentNames.length > 0
+                ? summarizeItems(residentNames, 64)
+                : `${nameSourceRows.length} ${pluralize(nameSourceRows.length, 'resident')}`;
+              details.residentSearchText = residentNames.join(' ').toLowerCase();
+            });
+          }
+
+          selectedPeopleKeys.clear();
+          renderPersonList();
+          renderAddressList();
+
           if (personStatusMsg) personStatusMsg.textContent = '';
           showAppToast(`Tags applied to ${selectedPeople.length} person(s).`);
           setTimeout(() => {
@@ -14962,6 +15177,8 @@
       };
 
       setActiveTab(tabButtons.find((button) => button.classList.contains('active'))?.dataset.tab || 'address');
+      updateFilterHighlights();
+      updateApplyHighlights();
       rerenderLists();
     }
 
