@@ -2783,35 +2783,46 @@
     }
 
     .batch-tag-tabs {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
+      display: inline-flex;
+      gap: 2px;
+      margin-bottom: 18px;
+      padding: 4px;
+      background: rgba(40, 54, 24, 0.06);
+      border: 1px solid rgba(40, 54, 24, 0.1);
+      border-radius: 10px;
+      max-width: 100%;
     }
 
     .batch-tag-tab {
       appearance: none;
-      border: 1px solid rgba(40, 54, 24, 0.18);
-      background: rgba(255, 255, 255, 0.78);
-      color: var(--text-primary);
-      padding: 10px 16px;
-      font: inherit;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      padding: 8px 20px;
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.9rem;
       font-weight: 700;
+      letter-spacing: 0.01em;
+      line-height: 1.2;
       cursor: pointer;
-      border-radius: 999px;
-      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+      border-radius: 7px;
+      transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
     }
 
-    .batch-tag-tab:hover {
-      transform: translateY(-1px);
-      border-color: rgba(40, 54, 24, 0.32);
+    .batch-tag-tab:hover:not(.active) {
+      color: var(--primary-dark);
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .batch-tag-tab:focus-visible {
+      outline: 2px solid var(--primary-dark);
+      outline-offset: 2px;
     }
 
     .batch-tag-tab.active {
-      border-color: var(--primary-dark);
-      background: rgba(96, 108, 56, 0.14);
+      background: #ffffff;
       color: var(--primary-dark);
-      box-shadow: inset 0 -2px 0 var(--primary-dark);
+      box-shadow: 0 1px 2px rgba(40, 54, 24, 0.12), 0 0 0 1px rgba(40, 54, 24, 0.08);
     }
 
     .batch-tag-filters {
@@ -3080,6 +3091,10 @@
 
     .batch-tag-map-view {
       margin-bottom: 0;
+    }
+
+    .batch-tag-toolbar-actions--map {
+      margin-bottom: 12px;
     }
 
     .batch-tag-map-status {
