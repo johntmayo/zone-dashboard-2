@@ -2782,6 +2782,435 @@
       box-shadow: 4px 4px 0px var(--text-primary);
     }
 
+    .batch-tag-tabs {
+      display: inline-flex;
+      gap: 2px;
+      margin-bottom: 18px;
+      padding: 4px;
+      background: rgba(40, 54, 24, 0.06);
+      border: 1px solid rgba(40, 54, 24, 0.1);
+      border-radius: 10px;
+      max-width: 100%;
+    }
+
+    .batch-tag-tab {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      padding: 8px 20px;
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      line-height: 1.2;
+      cursor: pointer;
+      border-radius: 7px;
+      transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .batch-tag-tab:hover:not(.active) {
+      color: var(--primary-dark);
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .batch-tag-tab:focus-visible {
+      outline: 2px solid var(--primary-dark);
+      outline-offset: 2px;
+    }
+
+    .batch-tag-tab.active {
+      background: #ffffff;
+      color: var(--primary-dark);
+      box-shadow: 0 1px 2px rgba(40, 54, 24, 0.12), 0 0 0 1px rgba(40, 54, 24, 0.08);
+    }
+
+    .batch-tag-filters {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+      align-items: center;
+    }
+
+    .batch-tag-filters select.batch-tag-filter-active,
+    .batch-tag-filters input.batch-tag-filter-active,
+    .batch-tag-filters select.batch-tag-filter-active:hover,
+    .batch-tag-filters input.batch-tag-filter-active:hover {
+      border: 1px solid var(--accent-gold);
+      background: rgba(245, 158, 11, 0.14);
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.14);
+    }
+
+    .batch-tag-filters select.batch-tag-filter-active:focus,
+    .batch-tag-filters input.batch-tag-filter-active:focus {
+      background: #ffffff;
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.28);
+    }
+
+    .add-record-select.batch-tag-apply-armed,
+    .add-record-select.batch-tag-apply-armed:hover {
+      border: 1px solid var(--accent-teal);
+      background: rgba(52, 112, 114, 0.1);
+      box-shadow: 0 0 0 2px rgba(52, 112, 114, 0.15);
+    }
+
+    .add-record-select.batch-tag-apply-armed:focus {
+      background: #ffffff;
+      box-shadow: 0 0 0 2px rgba(52, 112, 114, 0.28);
+    }
+
+    .batch-tab-panel {
+      display: block;
+    }
+
+    .batch-tab-panel.hidden {
+      display: none;
+    }
+
+    .batch-tag-workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.7fr) minmax(300px, 0.95fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .batch-tag-main-pane {
+      min-width: 0;
+    }
+
+    .batch-tag-action-rail {
+      position: sticky;
+      top: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .batch-tag-action-card {
+      border: 1px solid rgba(40, 54, 24, 0.12);
+      border-radius: 14px;
+      padding: 16px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(247, 244, 236, 0.88) 100%);
+      box-shadow: 0 10px 24px rgba(40, 54, 24, 0.06);
+    }
+
+    .batch-tag-action-card__eyebrow {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .batch-tag-action-card__title {
+      font-family: 'Chivo', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin-bottom: 14px;
+    }
+
+    .batch-tag-selection-count {
+      font-family: 'Chivo', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--primary-dark);
+      margin-bottom: 12px;
+    }
+
+    .batch-tag-selection-summary {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .batch-tag-selection-item {
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(40, 54, 24, 0.08);
+    }
+
+    .batch-tag-selection-item__main {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .batch-tag-selection-item__meta,
+    .batch-tag-selection-empty,
+    .batch-tag-selection-more {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .batch-tag-toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .batch-tag-toolbar-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .batch-tag-toolbar-meta {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .batch-tag-note {
+      margin: 0 0 10px 0;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    .batch-tag-surface {
+      border: 1px solid rgba(40, 54, 24, 0.12);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.7);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+      overflow: hidden;
+    }
+
+    .batch-tag-list-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+      gap: 16px;
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(40, 54, 24, 0.1);
+      background: rgba(96, 108, 56, 0.08);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    .batch-tag-list-scroll {
+      overflow-y: auto;
+      max-height: 560px;
+    }
+
+    .batch-tag-list-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      column-gap: 12px;
+      align-items: start;
+      padding: 12px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(40, 54, 24, 0.08);
+      transition: background-color 0.15s ease;
+    }
+
+    .batch-tag-list-row:hover {
+      background: rgba(96, 108, 56, 0.05);
+    }
+
+    .batch-tag-list-row.is-selected {
+      background: rgba(96, 108, 56, 0.1);
+    }
+
+    .batch-tag-list-row:last-child {
+      border-bottom: none;
+    }
+
+    .batch-tag-list-row input[type="checkbox"] {
+      margin-top: 4px;
+    }
+
+    .batch-tag-address-row-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+      gap: 16px;
+      align-items: start;
+      min-width: 0;
+    }
+
+    .batch-tag-person-row-grid {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .batch-tag-row-main {
+      font-weight: 600;
+      display: block;
+      min-width: 0;
+    }
+
+    .batch-tag-address-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .batch-tag-row-address {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+      min-width: 0;
+    }
+
+    .batch-tag-row-residents {
+      display: block;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .batch-tag-row-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 6px;
+    }
+
+    .batch-tag-row-chip {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 5px;
+      padding: 1px 7px 2px;
+      border: 1px solid rgba(40, 54, 24, 0.16);
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.55);
+      font-size: 0.72rem;
+      line-height: 1.25;
+      color: var(--text-primary);
+    }
+
+    .batch-tag-row-chip__label {
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+      font-size: 0.6rem;
+      color: var(--text-secondary);
+      opacity: 0.75;
+    }
+
+    .batch-tag-row-chip__value {
+      font-weight: 600;
+    }
+
+    .batch-tag-list-row.is-selected .batch-tag-row-chip {
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    .batch-tag-row-meta {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 1px;
+    }
+
+    .batch-tag-group {
+      border-bottom: 1px solid rgba(40, 54, 24, 0.1);
+    }
+
+    .batch-tag-group:last-child {
+      border-bottom: none;
+    }
+
+    .batch-tag-group-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid rgba(40, 54, 24, 0.08);
+      background: rgba(96, 108, 56, 0.06);
+      align-items: baseline;
+    }
+
+    .batch-tag-group-header__title {
+      font-family: 'Chivo', sans-serif;
+      font-weight: 700;
+      color: var(--primary-dark);
+    }
+
+    .batch-tag-group-header__count {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    .batch-tag-group-rows .batch-tag-list-row {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+
+    .batch-tag-field-grid {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .batch-tag-status-msg {
+      margin-top: 12px;
+      font-size: 0.9rem;
+    }
+
+    .batch-tag-empty-state {
+      padding: 18px 16px;
+      color: var(--text-secondary);
+    }
+
+    .batch-tag-map-view {
+      margin-bottom: 0;
+    }
+
+    .batch-tag-toolbar-actions--map {
+      margin-bottom: 12px;
+    }
+
+    .batch-tag-map-status {
+      margin: 8px 0 0 0;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    @media (max-width: 1120px) {
+      .batch-tag-workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .batch-tag-action-rail {
+        position: static;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .batch-tag-list-header,
+      .batch-tag-address-row-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .batch-tag-toolbar {
+        align-items: stretch;
+      }
+
+      .batch-tag-toolbar-meta {
+        width: 100%;
+      }
+
+      .batch-tag-selection-summary,
+      .batch-tag-list-scroll {
+        max-height: 380px;
+      }
+    }
+
     .list-creator-step {
       animation: fadeIn 0.3s ease;
     }
