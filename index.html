@@ -6257,6 +6257,9 @@
         }
       });
 
+      const apnColForHeader = headers.find(h => h.toLowerCase() === 'apn');
+      const apnValueForHeader = apnColForHeader && rows[0] ? String(rows[0][apnColForHeader] || '').trim() : '';
+
       let html = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px;">
           <button class="btn-back" onclick="displayAddressList(Array.from(sheetData.addressMap.keys()).sort())">← Back to List</button>
@@ -6273,7 +6276,8 @@
           ` : ''}
         </div>
         <div class="address-details active">
-          <h3>${escapeHtml(address)}</h3>
+          <h3 style="margin-bottom: 2px;">${escapeHtml(address)}</h3>
+          ${apnValueForHeader ? `<div class="apn-header-display" style="font-size: 0.75rem; color: #666; margin-bottom: 12px;"><abbr title="Assessor Parcel Number — the official LA County identifier for this property. Useful for looking up parcel records, permits, and ownership history." style="text-decoration: underline dotted; cursor: help;">APN</abbr>: ${escapeHtml(apnValueForHeader)}</div>` : ''}
       `;
 
       // Collect unique values for dropdown fields from ALL data
@@ -6335,24 +6339,14 @@
           if (isIndoorsRemediated || isSoilRemediated) {
             return;
           }
-          
+
+          // APN is shown as a read-only display under the address header, skip here
+          if (isApn) {
+            return;
+          }
+
           if (isEditable) {
-            if (isApn) {
-              // APN: editable text input with tooltip explaining what it is
-              html += `<div class="person-info" style="align-items:center; gap:6px;">
-                <strong>
-                  <abbr title="Assessor Parcel Number — the official LA County identifier for this property. Useful for looking up parcel records, permits, and ownership history." style="text-decoration:underline dotted; cursor:help;">APN</abbr>:
-                </strong>
-                <input type="text" class="editable-inline apn-input"
-                       data-address="${address.replace(/"/g, '&quot;')}"
-                       data-address-level="true"
-                       data-column="${col}"
-                       data-original-value="${firstRowValue.replace(/"/g, '&quot;')}"
-                       value="${firstRowValue.replace(/"/g, '&quot;')}"
-                       placeholder="e.g. 5829-019-029"
-                       style="font-size:0.9rem; padding:2px 6px; border:1px solid #ccc; border-radius:4px; width:140px;">
-              </div>`;
-            } else if (isNotes) {
+            if (isNotes) {
               // Notes: expandable textarea
               html += `<div class="person-info">
                 <strong>${col}:</strong>
