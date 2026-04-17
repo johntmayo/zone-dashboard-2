@@ -636,11 +636,6 @@
                   <option value="contacted">Already contacted</option>
                   <option value="not_contacted">Not yet contacted</option>
                 </select>
-                <select id="batchTagSortFilter" class="add-record-select" style="display:none;">
-                  <option value="address">Address order</option>
-                  <option value="name_asc">Names A-Z</option>
-                  <option value="name_desc">Names Z-A</option>
-                </select>
               </div>
               <div id="batchTabAddress" class="batch-tab-panel">
                 <div id="batchTaggingError" class="hidden" style="padding:12px; margin-bottom:16px; background:rgba(200,0,0,0.1); border:1px solid #c00; border-radius:8px; color:#c00; font-weight:600;"></div>
@@ -13929,7 +13924,6 @@
       const streetFilter = document.getElementById('batchTagStreetFilter');
       const searchInput = document.getElementById('batchTagSearch');
       const contactFilter = document.getElementById('batchTagContactFilter');
-      const sortFilter = document.getElementById('batchTagSortFilter');
       const addressTabPanel = document.getElementById('batchTabAddress');
       const personTabPanel = document.getElementById('batchTabPerson');
       const listView = document.getElementById('batchTaggingListView');
@@ -13966,7 +13960,7 @@
       const personFormerResidentSelect = document.getElementById('batchPersonFormerResident');
       const personNewsletterWrap = document.getElementById('batchPersonNewsletterWrap');
       const personFormerResidentWrap = document.getElementById('batchPersonFormerResidentWrap');
-      if (!listEl || !personListEl || !damageSelect || !addressPlanSelect || !rebuildSelect || !applyBtn || !personApplyBtn || !streetFilter || !searchInput || !contactFilter || !sortFilter) return;
+      if (!listEl || !personListEl || !damageSelect || !addressPlanSelect || !rebuildSelect || !applyBtn || !personApplyBtn || !streetFilter || !searchInput || !contactFilter) return;
 
       if (errEl) {
         errEl.classList.add('hidden');
@@ -14136,7 +14130,6 @@
 
       const currentStreetValue = streetFilter.value || 'all';
       const currentContactValue = contactFilter.value || 'all';
-      const currentSortValue = sortFilter.value || 'address';
       const streetOptions = Array.from(new Set(
         allAddresses
           .map((addr) => extractStreet(addr))
@@ -14146,7 +14139,6 @@
       streetFilter.innerHTML = '<option value="all">All streets</option>' + streetOptions.map((street) => `<option value="${escapeHtml(street)}">${escapeHtml(street)}</option>`).join('');
       streetFilter.value = streetOptions.includes(currentStreetValue) ? currentStreetValue : 'all';
       contactFilter.value = ['all', 'contacted', 'not_contacted'].includes(currentContactValue) ? currentContactValue : 'all';
-      sortFilter.value = ['address', 'name_asc', 'name_desc'].includes(currentSortValue) ? currentSortValue : 'address';
 
       const damageOpts = getFullDamageOptions();
       const addressPlanOpts = getFullAddressPlanOptions();
@@ -14181,7 +14173,6 @@
       const getStreetFilterValue = () => (streetFilter.value || 'all').trim();
       const getSearchValue = () => (searchInput.value || '').trim().toLowerCase();
       const getContactFilterValue = () => (contactFilter.value || 'all').trim();
-      const getSortValue = () => (sortFilter.value || 'address').trim();
       const addressMatchesSearch = (address, searchText) => {
         if (!searchText) return true;
         if (String(address || '').toLowerCase().includes(searchText)) return true;
@@ -14224,12 +14215,11 @@
           if (!groups.has(person.address)) groups.set(person.address, []);
           groups.get(person.address).push(person);
         });
-        const sortMode = getSortValue();
         return sortAddressesByStreetThenNumber(Array.from(groups.keys())).map((address) => {
           const peopleForAddress = groups.get(address).slice().sort((a, b) => {
             const comparison = a.sortName.localeCompare(b.sortName, undefined, { numeric: true, sensitivity: 'base' });
             if (comparison === 0) return a.displayName.localeCompare(b.displayName, undefined, { numeric: true, sensitivity: 'base' });
-            return sortMode === 'name_desc' ? -comparison : comparison;
+            return comparison;
           });
           return { address, people: peopleForAddress };
         });
@@ -14725,7 +14715,6 @@
         if (addressTabPanel) addressTabPanel.classList.toggle('hidden', nextTab !== 'address');
         if (personTabPanel) personTabPanel.classList.toggle('hidden', nextTab !== 'person');
         contactFilter.style.display = nextTab === 'person' ? '' : 'none';
-        sortFilter.style.display = nextTab === 'person' ? '' : 'none';
       }
 
       tabButtons.forEach((button) => {
@@ -14740,7 +14729,6 @@
       streetFilter.onchange = handleSharedFilterChange;
       searchInput.oninput = handleSharedFilterChange;
       contactFilter.onchange = handleSharedFilterChange;
-      sortFilter.onchange = handleSharedFilterChange;
 
       if (selectAllBtn) {
         selectAllBtn.onclick = () => {
