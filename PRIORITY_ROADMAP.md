@@ -76,11 +76,32 @@ I've also added items that weren't in your kanban but that the audit surfaced as
 - **Action:** Redesign the print CSS. Prioritize: address, resident name, contact status, phone/email. Use a compact table layout optimized for paper. Test at actual print size.
 - **Effort:** 3–4 hours
 
-### 1.4 — Expand Batch Tag options
+### 1.4 — Batch Tagging overhaul — **Shipped (April 2026)**
 - **Kanban:** Critical priority — Contacted, Newsletter Subscriber, Moved Away
-- **What:** The batch tagging tool currently exists but has limited tag options. Captains want to bulk-tag residents as Contacted, Newsletter Subscriber, or Moved Away.
-- **Why it matters:** Captains manage 50–200 residents. Tagging one at a time is tedious. Batch operations directly reduce the friction of the core workflow.
-- **Effort:** 3–5 hours (depends on how the tag columns are structured in sheets)
+- **Original scope:** Bulk-tag residents as Contacted, Newsletter Subscriber, or Moved Away.
+- **What actually shipped:** A full UX overhaul well beyond the original kanban scope. The batch tagging tool now supports two modes — Address Tags and Person Tags — with a shared filter bar and a dedicated two-pane workspace (scan list on the left, sticky action rail on the right). Branch: `batch-tag-overhaul`.
+  - **Layout & structure**
+    - Two-pane workspace: left scan area, right sticky action rail with Selected-summary card + Apply card.
+    - Mode switcher implemented as a **segmented toggle** (not a button pair) so it doesn't compete with the existing button families. No translate/lift on click — resolves the prior "top gets cut off" behavior.
+    - Button hierarchy formalized: **teal** = tool main action (Apply, matches Zone Analysis / Export to PDF), **navy** (`.btn-copy-emails`) = secondary/utility (Select all/none, Draw on map, Back to list), **marigold** = app-level CTAs only.
+  - **Address tab**
+    - Select addresses by checkbox or by drawing a polygon on the map (polygon preview retains the dashed cursor segment from last-placed point; map toolbar has breathing room above the map container).
+    - Apply Damage, Address Plan, and Build Status to selected addresses.
+    - Each row shows its current Damage / Plan / Build values as small low-contrast chips **under the address** — only when values exist (untagged addresses stay clutter-free).
+    - Top-bar filters: Damage, Address Plan, Build Status — each includes "Not set" so captains can easily find untagged properties. Filters hide gracefully if the underlying column is missing.
+    - Resident-name summaries replace the old blank metadata rows.
+  - **Person tab**
+    - People grouped by address (address-order sort; in-group sort is A→Z by surname).
+    - Apply "Log contact (today's date)" / clear contact, **Subscribe to updates** (display rename — the sheet column stays `Newsletter Subscriber` so no data migration), and **Former Resident** (renamed from Moved Away across labels, column detection, missing-column warnings, and write logic).
+    - Contact-status filter ("Already contacted" / "Not yet contacted") scoped to the Person tab.
+  - **Feedback clarity**
+    - **Active filters** get a yellow highlight, visually matching the Neighbors filter-bar pattern.
+    - **Armed apply-dropdowns** get a teal highlight, echoing the Apply button — clear visual signal that a value is "loaded".
+    - **Selection clears** after a successful apply (prevents accidental re-apply); filters and dropdown intent persist so you keep your working context.
+    - **Optimistic in-memory updates** — chips and "Last contact logged: …" labels refresh instantly in place after apply; a background `loadAddressData` still runs so Neighbors/Map stay in sync, but the captain is never bumped out of the tool.
+    - Person apply dropdowns now reset on every re-entry into the tool (parity with address dropdowns).
+  - **Carryover / preserved:** map/list exclusivity, core hooks (`batchTaggingTool`, `batchTaggingApply`, `batchTaggingAddressList`, `batchTaggingDrawOnMap`, `.batch-tag-address-cb[data-address]`, `.batch-person-cb[data-row-index][data-resident-id]`), helpers like `getResidentNameColumn` / `sortAddressesByStreetThenNumber` / `buildAddressString` / `extractStreet`.
+- **Effort (actual):** Multi-session iterative UX work; substantially more than the original 3–5h estimate, but delivered a production-ready tool rather than a narrow feature add.
 
 ### 1.5 — Remove Zone Notes (confirmed defunct)
 - **Kanban:** "Zone Notes is a defunct feature. Remove?" — Medium priority
@@ -274,7 +295,7 @@ Here's how I'd spend the next 4–6 weeks if I were you:
 **Week 2: Daily Workflow**
 - 1.2 Revise Home page numbers
 - 1.3 Fix print layout
-- 1.4 Expand batch tagging
+- ~~1.4 Expand batch tagging~~ — **Shipped (April 2026)**; scope expanded into a full UX overhaul.
 - 2.5 Fix interests in directory/profile
 - 2.4 Start adding tooltips (filters first)
 
