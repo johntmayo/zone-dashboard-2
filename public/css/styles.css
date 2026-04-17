@@ -2833,6 +2833,33 @@
       align-items: center;
     }
 
+    .batch-tag-filters select.batch-tag-filter-active,
+    .batch-tag-filters input.batch-tag-filter-active,
+    .batch-tag-filters select.batch-tag-filter-active:hover,
+    .batch-tag-filters input.batch-tag-filter-active:hover {
+      border: 1px solid var(--accent-gold);
+      background: rgba(245, 158, 11, 0.14);
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.14);
+    }
+
+    .batch-tag-filters select.batch-tag-filter-active:focus,
+    .batch-tag-filters input.batch-tag-filter-active:focus {
+      background: #ffffff;
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.28);
+    }
+
+    .add-record-select.batch-tag-apply-armed,
+    .add-record-select.batch-tag-apply-armed:hover {
+      border: 1px solid var(--accent-teal);
+      background: rgba(52, 112, 114, 0.1);
+      box-shadow: 0 0 0 2px rgba(52, 112, 114, 0.15);
+    }
+
+    .add-record-select.batch-tag-apply-armed:focus {
+      background: #ffffff;
+      box-shadow: 0 0 0 2px rgba(52, 112, 114, 0.28);
+    }
+
     .batch-tab-panel {
       display: block;
     }
@@ -3025,11 +3052,55 @@
     }
 
     .batch-tag-row-address {
-      display: block;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
       font-size: 0.875rem;
       color: var(--text-secondary);
       line-height: 1.45;
       min-width: 0;
+    }
+
+    .batch-tag-row-residents {
+      display: block;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .batch-tag-row-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 6px;
+    }
+
+    .batch-tag-row-chip {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 5px;
+      padding: 1px 7px 2px;
+      border: 1px solid rgba(40, 54, 24, 0.16);
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.55);
+      font-size: 0.72rem;
+      line-height: 1.25;
+      color: var(--text-primary);
+    }
+
+    .batch-tag-row-chip__label {
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+      font-size: 0.6rem;
+      color: var(--text-secondary);
+      opacity: 0.75;
+    }
+
+    .batch-tag-row-chip__value {
+      font-weight: 600;
+    }
+
+    .batch-tag-list-row.is-selected .batch-tag-row-chip {
+      background: rgba(255, 255, 255, 0.8);
     }
 
     .batch-tag-row-meta {
