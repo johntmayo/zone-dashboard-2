@@ -14228,8 +14228,9 @@
         personFormerResidentWrap.style.opacity = formerResidentCol ? '' : '0.4';
         personFormerResidentWrap.style.pointerEvents = formerResidentCol ? '' : 'none';
       }
-      if (personNewsletterSelect && !newsletterCol) personNewsletterSelect.value = '';
-      if (personFormerResidentSelect && !formerResidentCol) personFormerResidentSelect.value = '';
+      if (personContactedSelect) personContactedSelect.value = '';
+      if (personNewsletterSelect) personNewsletterSelect.value = '';
+      if (personFormerResidentSelect) personFormerResidentSelect.value = '';
       if (personMissingCols) {
         if (missingPersonColumns.length > 0) {
           personMissingCols.textContent = `Missing columns: ${missingPersonColumns.map((name) => `"${name}"`).join(', ')}. ${missingPersonColumns.map((name) => `Add a column called "${name}" to your sheet to enable this field.`).join(' ')}`;
@@ -14456,17 +14457,13 @@
             const rowGrid = document.createElement('div');
             rowGrid.className = 'batch-tag-address-row-grid';
 
+            const addressCell = document.createElement('span');
+            addressCell.className = 'batch-tag-address-cell';
+
             const main = document.createElement('span');
             main.className = 'batch-tag-row-main';
             main.textContent = address;
-
-            const residentsCell = document.createElement('span');
-            residentsCell.className = 'batch-tag-row-address';
-            const residentsLine = document.createElement('span');
-            residentsLine.className = 'batch-tag-row-residents';
-            residentsLine.textContent = details.residentSummary || 'Residents not listed';
-            residentsLine.title = details.residentNames.length > 0 ? details.residentNames.join(', ') : residentsLine.textContent;
-            residentsCell.appendChild(residentsLine);
+            addressCell.appendChild(main);
 
             const chips = [];
             if (damageCol && details.damage) chips.push({ label: 'Damage', value: details.damage });
@@ -14488,10 +14485,18 @@
                 chipEl.appendChild(chipValue);
                 chipsWrap.appendChild(chipEl);
               });
-              residentsCell.appendChild(chipsWrap);
+              addressCell.appendChild(chipsWrap);
             }
 
-            rowGrid.appendChild(main);
+            const residentsCell = document.createElement('span');
+            residentsCell.className = 'batch-tag-row-address';
+            const residentsLine = document.createElement('span');
+            residentsLine.className = 'batch-tag-row-residents';
+            residentsLine.textContent = details.residentSummary || 'Residents not listed';
+            residentsLine.title = details.residentNames.length > 0 ? details.residentNames.join(', ') : residentsLine.textContent;
+            residentsCell.appendChild(residentsLine);
+
+            rowGrid.appendChild(addressCell);
             rowGrid.appendChild(residentsCell);
             label.appendChild(checkbox);
             label.appendChild(rowGrid);

@@ -3051,6 +3051,13 @@
       min-width: 0;
     }
 
+    .batch-tag-address-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
     .batch-tag-row-address {
       display: flex;
       flex-direction: column;
