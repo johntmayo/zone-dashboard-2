@@ -2,6 +2,8 @@
 
 **For advisors and stakeholders.** This document explains who can sign in, who can edit zone data, and how spreadsheet access is controlled.
 
+> **⚠️ Migration in progress (planned April 2026):** The user-access mechanism described below (managed via `users.json` / `USERS_JSON_B64` env var) is being replaced with a Google Sheet as the live source of truth. Admins will manage users by editing a sheet; no more Vercel env var edits or redeploys per user. This document will be updated after that migration lands. For the implementation plan, see **[USER_ACCESS_SHEET_MIGRATION.md](USER_ACCESS_SHEET_MIGRATION.md)**.
+
 ---
 
 ## Summary
