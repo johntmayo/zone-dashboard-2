@@ -121,6 +121,20 @@ I've also added items that weren't in your kanban but that the audit surfaced as
 - **What:** Rewrite `README.md`. Add staleness warnings to `PLATFORM_OVERVIEW.md`, `AUTH_AND_SPREADSHEET_ACCESS.md`, `DATA_PROBLEM_HANDOFF.md`. Delete `context handoff.txt`. This is for your own sanity and for anyone else who might touch this repo.
 - **Effort:** 1–2 hours
 
+### 1.8 — Migrate user access from env var to Google Sheet
+- **Source:** April 20 2026 incident — a Drive cleanup moved zone sheets out of the shared folder, silently revoking the service account's folder-inherited access. The incident exposed two problems: a sharing fragility (tracked separately) and, more importantly, the pain of the current user-admin flow — editing `USERS_JSON_B64` in Vercel, base64-encoding, and redeploying just to add a single user.
+- **What:** Replace `USERS_JSON_B64` as the source of truth with a Google Sheet the admin edits directly. Server reads the sheet via the existing service account and caches for ~60 seconds. Each row is `(email, sheet_url, zone_name, captain_name, role, active, date_added, notes)`. No redeploy needed to add/remove users. As a secondary win, the login zone picker renders human zone names + captain names instead of raw URLs.
+- **Why this is Tier 1:** The admin expects constant onboarding toward ~500 users over 5–10 years. The current flow is a growth-limiting bottleneck *and* it contributed to the April 20 outage (the admin couldn't quickly edit `users.json` to remove broken sheets). This fixes the chokepoint.
+- **Decision highlights (see full plan for rationale):**
+  - Model B rollback: `USERS_JSON_B64` and `users.json` remain as frozen snapshots for emergency-only manual rollback. Not actively synced. Manual revert + redeploy in the rare case the Sheet approach breaks.
+  - Flat one-row-per-(email,sheet) schema; single tab; no normalization (yet).
+  - `active` column for soft-delete; `role` column included from day one.
+  - No admin UI in this phase — the Google Sheet is the admin UI. Custom in-app admin page is Phase 2.
+- **Effort:** ~3–4 hours (sheet setup ~30min, `server.js` changes ~2h, `index.html` picker rendering ~30min, testing and docs ~45min).
+- **Full implementation plan:** See **[USER_ACCESS_SHEET_MIGRATION.md](USER_ACCESS_SHEET_MIGRATION.md)**. That document is the source of truth for this work — schema, code-change shape, rollout ordering, rollback plan, acceptance criteria, and deferred future phases all live there.
+- **Dependency:** None. Can ship independently.
+- **Related but out of scope here:** folder-inheritance sharing fragility, localStorage-stuck-on-broken-sheet UX, `sheetId` not logged on API errors. Documented in the migration plan's "Related Improvements" section.
+
 ---
 
 ## Tier 2: Core UX — Make the Daily Workflow Better
