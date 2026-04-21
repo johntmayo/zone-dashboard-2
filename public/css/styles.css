@@ -5139,11 +5139,76 @@
       flex-direction: column;
       gap: 10px;
       margin-bottom: 4px;
+      max-height: 60vh;
+      overflow-y: auto;
     }
 
     .welcome-zone-btn {
       width: 100%;
       text-align: left;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.2rem;
+      position: relative;
+      white-space: normal;
+      padding: 0.75rem 1rem;
+      padding-right: 4.5rem;
+    }
+
+    .welcome-zone-search {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      margin-bottom: 0.75rem;
+      border: 1px solid rgba(96, 108, 56, 0.2);
+      border-radius: 8px;
+      font-size: 1rem;
+      background: white;
+      color: var(--text);
+    }
+
+    .welcome-zone-search:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(96, 108, 56, 0.12);
+    }
+
+    .welcome-zone-name {
+      font-weight: 700;
+      color: var(--primary-dark);
+      line-height: 1.3;
+    }
+
+    .welcome-zone-captain {
+      font-size: 0.85rem;
+      opacity: 0.75;
+      color: var(--text-light);
+      line-height: 1.25;
+      font-weight: 500;
+    }
+
+    .welcome-zone-role {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.75rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+      background: rgba(96, 108, 56, 0.14);
+      color: var(--primary-dark);
+      border: 1px solid rgba(96, 108, 56, 0.25);
+    }
+
+    .welcome-zone-empty {
+      margin: 0;
+      padding: 1rem;
+      border: 1px dashed rgba(96, 108, 56, 0.2);
+      border-radius: 8px;
+      color: var(--text-light);
+      opacity: 0.9;
     }
 
     .welcome-help-link {

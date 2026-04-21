@@ -50,7 +50,7 @@ app.get('/api/ga-config', (req, res) => {
 
 const USERS_FILE_PATH = path.join(__dirname, 'users.json');
 
-function readUsersMap() {
+function readUsersMapLegacy() {
   let raw = '';
   let sourceName = 'users.json';
   const usersJsonB64 = String(process.env.USERS_JSON_B64 || '').trim();
@@ -91,6 +91,130 @@ function readUsersMap() {
   }
 
   return usersMap;
+}
+
+let cachedUsersMap = null;
+let cachedAt = 0;
+const USERS_CACHE_TTL_MS = 60 * 1000;
+
+async function readUsersMap() {
+  if (String(process.env.USE_LEGACY_USERS || '').trim() === '1') {
+    return readUsersMapLegacy();
+  }
+
+  const now = Date.now();
+  if (cachedUsersMap && now - cachedAt < USERS_CACHE_TTL_MS) {
+    return cachedUsersMap;
+  }
+
+  const accessSheetId = (process.env.USER_ACCESS_SHEET_ID || '').trim();
+  if (!accessSheetId) return readUsersMapLegacy();
+
+  try {
+    const sheets = await getSheetsClient();
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId: accessSheetId,
+      range: 'Access!A2:I10000'
+    });
+    const rows = result.data.values || [];
+
+    const usersMap = {};
+    const zoneByUrl = {};
+    const wildcardAdmins = [];
+    const seenUrlsByEmail = {};
+    const captainAssignmentCount = {};
+
+    for (const row of rows) {
+      const [
+        loginEmailRaw,
+        sheetUrlRaw,
+        zoneNameRaw,
+        captainNameRaw,
+        contactEmailRaw,
+        roleRaw,
+        activeRaw
+      ] = row;
+
+      if (!loginEmailRaw || !sheetUrlRaw) continue;
+      if (String(activeRaw || '').toUpperCase() !== 'TRUE') continue;
+
+      const loginEmail = String(loginEmailRaw).trim().toLowerCase();
+      const rawUrl = String(sheetUrlRaw).trim();
+      const role = String(roleRaw || 'captain').trim().toLowerCase();
+
+      if (rawUrl === '*') {
+        if (role === 'admin') wildcardAdmins.push(loginEmail);
+        continue;
+      }
+
+      const url = toCanonicalSheetUrl(rawUrl);
+      if (!url) continue;
+
+      if (!seenUrlsByEmail[loginEmail]) seenUrlsByEmail[loginEmail] = new Set();
+      if (seenUrlsByEmail[loginEmail].has(url)) continue;
+      seenUrlsByEmail[loginEmail].add(url);
+
+      const zoneName = String(zoneNameRaw || '').trim();
+      const captainName = String(captainNameRaw || '').trim();
+      const contactEmail = String(contactEmailRaw || '').trim();
+
+      if (!zoneByUrl[url]) zoneByUrl[url] = { name: '', captains: [] };
+      if (!zoneByUrl[url].name && zoneName) zoneByUrl[url].name = zoneName;
+      if (role !== 'admin' && captainName) {
+        zoneByUrl[url].captains.push({ name: captainName, contactEmail });
+      }
+
+      if (role !== 'admin') {
+        captainAssignmentCount[loginEmail] = (captainAssignmentCount[loginEmail] || 0) + 1;
+      }
+
+      if (!usersMap[loginEmail]) usersMap[loginEmail] = [];
+      usersMap[loginEmail].push({
+        url,
+        name: zoneName || url,
+        captainName,
+        contactEmail,
+        role
+      });
+    }
+
+    for (const adminEmail of wildcardAdmins) {
+      const adminEntries = [];
+      for (const [url, meta] of Object.entries(zoneByUrl)) {
+        const primary = meta.captains[0] || { name: '', contactEmail: '' };
+        const extras = Math.max(0, meta.captains.length - 1);
+        adminEntries.push({
+          url,
+          name: meta.name || url,
+          captainName: primary.name + (extras > 0 ? ` +${extras}` : ''),
+          contactEmail: primary.contactEmail,
+          role: 'admin'
+        });
+      }
+      adminEntries.sort((a, b) => a.name.localeCompare(b.name));
+
+      const existing = usersMap[adminEmail] || [];
+      const existingUrls = new Set(existing.map((entry) => entry.url));
+      usersMap[adminEmail] = [
+        ...existing,
+        ...adminEntries.filter((entry) => !existingUrls.has(entry.url))
+      ];
+    }
+
+    for (const [loginEmail, count] of Object.entries(captainAssignmentCount)) {
+      if (count > 1 && !wildcardAdmins.includes(loginEmail)) {
+        console.warn(`WARN: captain ${loginEmail} has ${count} active zone assignments`);
+      }
+    }
+
+    cachedUsersMap = usersMap;
+    cachedAt = now;
+    return usersMap;
+  } catch (err) {
+    console.error('Failed to read user access sheet:', err.message);
+    if (cachedUsersMap) return cachedUsersMap;
+    throw err;
+  }
 }
 
 function extractGoogleSheetId(rawValue) {
@@ -135,50 +259,101 @@ function normalizeUserSheetEntry(entry) {
 }
 
 function logUsersConfigStatusAtStartup() {
-  try {
-    const usersMap = readUsersMap();
-    const registeredUsersCount = Object.keys(usersMap).length;
-    const sourceLabel = String(process.env.USERS_JSON_B64 || '').trim()
-      ? 'USERS_JSON_B64'
-      : String(process.env.USERS_JSON || '').trim()
-        ? 'USERS_JSON'
-        : 'users.json';
-    console.log(`User access config loaded from ${sourceLabel}. Registered users: ${registeredUsersCount}`);
-  } catch (err) {
-    if (err && err.code === 'ENOENT') {
-      console.warn('No users config found. Set USERS_JSON_B64, USERS_JSON, or create users.json. /api/user-sheets will return errors until one is available.');
-      return;
-    }
-    console.error(`User access config is malformed or unreadable: ${err.message}`);
-  }
+  readUsersMap()
+    .then((map) => {
+      const count = Object.keys(map).length;
+      const source = String(process.env.USE_LEGACY_USERS || '').trim() === '1'
+        ? 'legacy (kill-switch)'
+        : (process.env.USER_ACCESS_SHEET_ID || '').trim()
+          ? 'USER_ACCESS_SHEET_ID (Google Sheet)'
+          : 'legacy (no USER_ACCESS_SHEET_ID set)';
+      console.log(`User access config loaded from ${source}. Registered users: ${count}`);
+    })
+    .catch((err) => {
+      if (err && err.code === 'ENOENT') {
+        console.warn('No users config found. See USER_ACCESS_SHEET_MIGRATION.md.');
+        return;
+      }
+      console.error(`User access config is malformed or unreadable: ${err.message}`);
+    });
 }
 
-app.get('/api/user-sheets', (req, res) => {
+app.get('/api/user-sheets', async (req, res) => {
   const emailParam = (req.query.email || '').toString().trim().toLowerCase();
   if (!emailParam) {
     return res.status(400).json({ error: 'no_email' });
   }
 
   try {
-    const usersMap = readUsersMap();
+    const usersMap = await readUsersMap();
     const rawSheets = usersMap[emailParam];
-    if (!Array.isArray(rawSheets)) {
+    if (!Array.isArray(rawSheets) || rawSheets.length === 0) {
       return res.status(403).json({ error: 'not_registered' });
     }
     const sheets = rawSheets.map((entry, index) => {
+      if (entry && typeof entry === 'object' && entry.url) return entry;
       const normalized = normalizeUserSheetEntry(entry);
-      if (!normalized) {
-        throw new Error(`users.json entry for "${emailParam}" has invalid sheet value at index ${index}.`);
-      }
+      if (!normalized) throw new Error(`invalid sheet at index ${index}`);
       return normalized;
     });
     return res.status(200).json({ sheets });
   } catch (err) {
     const message = err && err.code === 'ENOENT'
-      ? 'No users config is available on the server. Set USERS_JSON_B64, USERS_JSON, or create users.json at the project root.'
+      ? 'No users config is available on the server.'
       : `User access config is invalid: ${err.message}`;
     console.error('Error in /api/user-sheets:', message);
     return res.status(500).json({ error: 'users_config_error', message });
+  }
+});
+
+app.post('/api/admin/refresh-users', async (req, res) => {
+  const emailParam = (req.query.email || '').toString().trim().toLowerCase();
+  if (!emailParam) return res.status(401).json({ error: 'no_email' });
+
+  try {
+    const currentMap = await readUsersMap();
+    const rows = currentMap[emailParam] || [];
+    const isAdmin = rows.some((row) => row && row.role === 'admin');
+    if (!isAdmin) return res.status(401).json({ error: 'not_admin' });
+
+    cachedUsersMap = null;
+    cachedAt = 0;
+    const fresh = await readUsersMap();
+    return res.status(200).json({
+      ok: true,
+      cleared_at: new Date().toISOString(),
+      user_count: Object.keys(fresh).length,
+      total_assignments: Object.values(fresh).reduce((count, entries) => count + entries.length, 0)
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'refresh_failed', message: err.message });
+  }
+});
+
+app.get('/api/admin/export-users-json', async (req, res) => {
+  const emailParam = (req.query.email || '').toString().trim().toLowerCase();
+  if (!emailParam) return res.status(401).json({ error: 'no_email' });
+
+  try {
+    const usersMap = await readUsersMap();
+    const rows = usersMap[emailParam] || [];
+    const isAdmin = rows.some((row) => row && row.role === 'admin');
+    if (!isAdmin) return res.status(401).json({ error: 'not_admin' });
+
+    const legacy = {
+      _note: `FROZEN SNAPSHOT exported ${new Date().toISOString()} from Access Sheet. See USER_ACCESS_SHEET_MIGRATION.md -> Rollback Plan.`
+    };
+    for (const [email, entries] of Object.entries(usersMap)) {
+      legacy[email] = entries.map((entry) => entry.url);
+    }
+    const raw = JSON.stringify(legacy, null, 2);
+    return res.status(200).json({
+      json: legacy,
+      base64: Buffer.from(raw, 'utf8').toString('base64'),
+      raw
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'export_failed', message: err.message });
   }
 });
 
