@@ -1,51 +1,81 @@
 # Zone Dashboard: Authentication & Spreadsheet Access
 
-**For advisors and stakeholders.** This document explains who can sign in, who can edit zone data, and how spreadsheet access is controlled.
-
-> **⚠️ Migration in progress (planned April 2026):** The user-access mechanism described below (managed via `users.json` / `USERS_JSON_B64` env var) is being replaced with a Google Sheet as the live source of truth. Admins will manage users by editing a sheet; no more Vercel env var edits or redeploys per user. This document will be updated after that migration lands. For the implementation plan, see **[USER_ACCESS_SHEET_MIGRATION.md](USER_ACCESS_SHEET_MIGRATION.md)**.
+**For advisors and stakeholders.** This document explains who can sign in, how user access is granted, and what to do if access breaks.
 
 ---
 
-## Summary
+## Summary (Current Production Model)
 
-- **Sign-in:** Any Google account can sign in. There is no need to add users as "test users" in Google Cloud for this app.
-- **Who can edit data:** Anyone you give the **spreadsheet URL** to can use the app to view and edit that sheet's data—as long as the sheet is shared with the app's **service account**. You do **not** need to share the spreadsheet with each user's Google account in Drive.
-
----
-
-## How It Works
-
-### Sign-in (Google)
-
-The app uses "Sign in with Google" only to identify **who** the user is (e.g. for display, NC Profile row matching). It requests only basic identity scopes (email, openid). Google does not require each user to be added as a test user; any Google account can sign in.
-
-### Spreadsheet Access
-
-All reading and writing of spreadsheet data goes through **our server**. The server uses a single **Google service account** to call the Google Sheets API. Therefore:
-
-- The only Google "account" that must have access to a zone spreadsheet is the **service account**. Each zone spreadsheet is shared with the service account email as **Editor**.
-- The **user's** Google account does **not** need to be given access to the spreadsheet in Drive. They only need to sign in (for identity) and have the **spreadsheet URL** so the app can send requests to the server for that sheet.
-
-### Implication
-
-If you share the spreadsheet **URL** with someone (e.g. a captain or advisor), they can sign in with any Google account and use the app to view and edit that sheet's data. You do **not** need to add them as editors on the file in Google Drive. Control is: (1) who has the URL, and (2) ensuring the sheet is shared with the service account.
+- **Sign-in:** Any Google account can sign in with OAuth.
+- **User authorization:** Access is granted by rows in the **User Access Sheet** (`Access` tab), not by editing `USERS_JSON_B64`.
+- **Zone data access:** Zone spreadsheets still require sharing with the service account as Editor.
+- **Admin wildcard:** Admins can have one row with `sheet_url = *` to inherit all active zones.
+- **Emergency rollback:** Set `USE_LEGACY_USERS=1` and redeploy to force legacy snapshot mode.
 
 ---
 
-## Practical Checklist
+## How Access Works
 
-- **To let someone use the dashboard for a zone:** Share the zone spreadsheet **URL** with them. Ensure that spreadsheet is shared with the **service account** email as Editor (this is typically done once per zone).
-- **You do not need to:** Add users as test users in Google Cloud, or add each user as an editor on the spreadsheet in Google Drive.
+### 1) Identity (OAuth)
+
+Google sign-in identifies the person (`login_email`). This does not grant sheet access by itself.
+
+### 2) Authorization (Access Sheet)
+
+The server reads the user registry from the Google Access Sheet (`Access!A2:I10000`) and builds the per-user zone list from active rows.
+
+Required columns in each access row:
+
+- `login_email`
+- `sheet_url` (or `*` for admin wildcard rows)
+- `role` (`captain` or `admin`)
+- `active` (must be TRUE to count)
+
+Rows with missing required fields or `active != TRUE` do not grant access.
+
+### 3) Zone Spreadsheet Permissions
+
+The dashboard reads/writes zone data through the configured service account. Each zone sheet must be shared with that service account as **Editor**.
 
 ---
 
-## User Scale
+## Admin Endpoints
 
-The app can support 150–300+ users with the current setup. There is no per-user cap from Google for this type of sign-in, and no need to maintain a manual list of allowed users for basic access.
+These endpoints are role-gated (`role=admin`) and use the current app trust model (`?email=` query param).
+
+- `POST /api/admin/refresh-users?email=<admin_email>`
+  - Clears the 60s user-cache and reloads from the Access sheet immediately.
+- `GET /api/admin/export-users-json?email=<admin_email>`
+  - Exports a rollback snapshot in three formats: `json`, `raw`, `base64`.
+
+---
+
+## Operational Checklist
+
+- Keep the access tab name exactly `Access`.
+- Keep column order aligned with migration spec (A:I).
+- Use `active=FALSE` for soft-revoke / placeholders.
+- Use `/api/admin/refresh-users` after sheet edits when you need immediate propagation.
+- Take periodic snapshots with `/api/admin/export-users-json` (quarterly + before risky changes).
+
+---
+
+## Emergency Rollback
+
+If Access-sheet auth fails in production:
+
+1. Set `USE_LEGACY_USERS=1` in Vercel Production.
+2. Redeploy.
+3. App will use frozen legacy snapshot access data.
+
+Rollback details and recovery prompt live in:
+
+- **[USER_ACCESS_SHEET_MIGRATION.md](USER_ACCESS_SHEET_MIGRATION.md)** (Rollback Plan section)
 
 ---
 
 ## Related Docs
 
-- **[SERVICE_ACCOUNT_SETUP.md](SERVICE_ACCOUNT_SETUP.md)** — How to create the service account and share sheets with it.
-- **[PLATFORM_OVERVIEW.md](PLATFORM_OVERVIEW.md)** — Full feature overview.
+- **[USER_ACCESS_SHEET_MIGRATION.md](USER_ACCESS_SHEET_MIGRATION.md)** — implementation and rollout source of truth
+- **[SERVICE_ACCOUNT_SETUP.md](SERVICE_ACCOUNT_SETUP.md)** — service-account setup and sharing model
+- **[PRIORITY_ROADMAP.md](PRIORITY_ROADMAP.md)** — roadmap status tracking
