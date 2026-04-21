@@ -1509,8 +1509,13 @@
           if (sheet && typeof sheet === 'object') {
             const url = String(sheet.url || '').trim();
             if (!url) return null;
-            const name = String(sheet.name || '').trim() || url;
-            return { url, name };
+            return {
+              url,
+              name: String(sheet.name || '').trim() || url,
+              captainName: String(sheet.captainName || '').trim(),
+              contactEmail: String(sheet.contactEmail || '').trim(),
+              role: String(sheet.role || '').trim().toLowerCase()
+            };
           }
           return null;
         })
@@ -2353,30 +2358,74 @@
                 <p class="welcome-step-description">Please wait while we load your assigned zone spreadsheet access.</p>
               `;
             } else if (welcomeAuthState === 'zone_picker') {
-              const buttons = availableSheets.map((sheet, index) => {
-                const label = escapeHtml(sheet.name || `Zone ${index + 1}`);
-                return `<button class="welcome-load-btn welcome-zone-btn" data-sheet-index="${index}">${label}</button>`;
-              }).join('');
+              const showSearch = availableSheets.length > 6;
+              const renderList = (filter = '') => {
+                const filterLower = filter.trim().toLowerCase();
+                const filtered = availableSheets.filter((sheet) => {
+                  if (!filterLower) return true;
+                  return (sheet.name || '').toLowerCase().includes(filterLower)
+                    || (sheet.captainName || '').toLowerCase().includes(filterLower);
+                });
+                const sorted = filtered
+                  .slice()
+                  .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                return sorted.map((sheet) => {
+                  const realIndex = availableSheets.indexOf(sheet);
+                  const zoneName = escapeHtml(sheet.name || `Zone ${realIndex + 1}`);
+                  const captain = sheet.captainName ? escapeHtml(sheet.captainName) : '';
+                  const roleChip = sheet.role === 'admin'
+                    ? '<span class="welcome-zone-role">admin</span>'
+                    : '';
+                  const captainLine = captain
+                    ? `<span class="welcome-zone-captain">Captain: ${captain}</span>`
+                    : '';
+                  return `
+                    <button class="welcome-load-btn welcome-zone-btn"
+                            data-sheet-index="${realIndex}"
+                            title="${escapeHtml(sheet.url)}">
+                      <span class="welcome-zone-name">${zoneName}</span>
+                      ${captainLine}
+                      ${roleChip}
+                    </button>`;
+                }).join('') || '<p class="welcome-zone-empty">No zones match your search.</p>';
+              };
+
               welcomeStep2.innerHTML = `
                 <div class="welcome-step-header">
                   <span class="welcome-step-number">2</span>
                   <h3>Choose your zone</h3>
                 </div>
                 <p class="welcome-step-description">Select one of your authorized zone spreadsheets.</p>
-                <div class="welcome-zone-list">
-                  ${buttons}
-                </div>
+                ${showSearch ? '<input type="text" id="welcomeZoneSearch" class="welcome-zone-search" placeholder="Search by zone or captain name..." autocomplete="off">' : ''}
+                <div class="welcome-zone-list" id="welcomeZoneList">${renderList('')}</div>
               `;
-              welcomeStep2.querySelectorAll('.welcome-zone-btn').forEach((button) => {
-                button.addEventListener('click', () => {
-                  const index = Number(button.getAttribute('data-sheet-index'));
-                  const selectedSheet = Number.isFinite(index) ? availableSheets[index] : null;
-                  if (!selectedSheet?.url) return;
-                  welcomeAuthState = 'idle';
-                  welcomeAuthMessage = '';
-                  loadAuthorizedSheet(selectedSheet.url);
+
+              const listEl = document.getElementById('welcomeZoneList');
+              const attachClickHandlers = () => {
+                if (!listEl) return;
+                listEl.querySelectorAll('.welcome-zone-btn').forEach((button) => {
+                  button.addEventListener('click', () => {
+                    const index = Number(button.getAttribute('data-sheet-index'));
+                    const selectedSheet = Number.isFinite(index) ? availableSheets[index] : null;
+                    if (!selectedSheet?.url) return;
+                    welcomeAuthState = 'idle';
+                    welcomeAuthMessage = '';
+                    loadAuthorizedSheet(selectedSheet.url);
+                  });
                 });
-              });
+              };
+              attachClickHandlers();
+
+              if (showSearch) {
+                const searchEl = document.getElementById('welcomeZoneSearch');
+                if (searchEl && listEl) {
+                  searchEl.addEventListener('input', (event) => {
+                    listEl.innerHTML = renderList(event.target.value || '');
+                    attachClickHandlers();
+                  });
+                  searchEl.focus();
+                }
+              }
             } else {
               welcomeStep2.innerHTML = `
                 <div class="welcome-step-header">
