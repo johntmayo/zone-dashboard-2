@@ -92,7 +92,7 @@ I've also added items that weren't in your kanban but that the audit surfaced as
     - Resident-name summaries replace the old blank metadata rows.
   - **Person tab**
     - People grouped by address (address-order sort; in-group sort is A→Z by surname).
-    - Apply "Log contact (today's date)" / clear contact, **Subscribe to updates** (display rename — the sheet column stays `Newsletter Subscriber` so no data migration), and **Former Resident** (renamed from Moved Away across labels, column detection, missing-column warnings, and write logic).
+    - Apply "Log contact (today's date)" / clear contact, **Subscribe to updates** (display label; the sheet column was renamed from `Newsletter Subscriber` to `Wants_Updates` — column detection now matches the new name with a fallback to the old one for transition), and **Former Resident** (renamed from Moved Away across labels, column detection, missing-column warnings, and write logic).
     - Contact-status filter ("Already contacted" / "Not yet contacted") scoped to the Person tab.
   - **Feedback clarity**
     - **Active filters** get a yellow highlight, visually matching the Neighbors filter-bar pattern.
