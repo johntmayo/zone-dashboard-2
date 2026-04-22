@@ -6810,3 +6810,495 @@
     font-size: 1.6rem;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Details Panel Redesign
+   Three-level hierarchy: Panel → Address → Person
+   Calm, structured, modular, mobile-ready.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Panel-level header: remove shout styling, softer divider */
+.details-header {
+  text-shadow: none;
+  letter-spacing: 0.02em;
+  font-size: 1rem;
+  font-weight: 800;
+  padding: 14px 16px 12px;
+  color: var(--text-primary);
+}
+
+.address-panel-tabs {
+  border-bottom: 1px solid rgba(31, 41, 55, 0.14);
+  box-shadow: 0 1px 0 rgba(31, 41, 55, 0.04);
+}
+
+/* Toolbar: grouped panel-wide actions (Back, Save, Refresh) */
+.details-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  background: rgba(49, 64, 89, 0.045);
+  border: 1px solid rgba(49, 64, 89, 0.12);
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+
+.details-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.details-toolbar__status {
+  min-height: 14px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  width: 100%;
+  text-align: right;
+  margin-top: 2px;
+}
+
+.details-toolbar .btn-back {
+  box-shadow: none;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.details-toolbar .btn-back:hover {
+  transform: none;
+  box-shadow: 0 2px 6px rgba(40, 54, 24, 0.25);
+}
+
+.details-toolbar .btn-save,
+.details-toolbar .btn-save-small {
+  margin: 0;
+  box-shadow: 0 2px 4px rgba(188, 108, 37, 0.25);
+}
+
+.details-toolbar .btn-save:hover,
+.details-toolbar .btn-save-small:hover {
+  transform: none;
+  box-shadow: 0 3px 8px rgba(188, 108, 37, 0.35);
+}
+
+/* Section card (used for Address block) */
+.details-section {
+  background: #ffffff;
+  border: 1px solid rgba(31, 41, 55, 0.14);
+  border-radius: 12px;
+  padding: 16px 16px 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 2px rgba(31, 41, 55, 0.04);
+}
+
+.details-section__header {
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(31, 41, 55, 0.08);
+}
+
+/* Override .address-details h3 rules when used as section title */
+.address-details .details-section__title,
+.details-section__title {
+  margin: 0;
+  font-family: 'Chivo', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: 0;
+  line-height: 1.25;
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.details-section__subtitle {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  font-weight: 500;
+}
+
+.details-section__apn {
+  margin: 6px 0 0;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.details-section__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.details-section__body > .person-info {
+  margin: 8px 0;
+}
+
+/* Section divider between Address and People */
+.details-section-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 2px 12px;
+}
+
+.details-section-divider__label {
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.details-section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(31, 41, 55, 0.15);
+}
+
+/* Stacked form field: label above control */
+.details-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+
+.details-field__label {
+  font-family: 'Chivo', sans-serif;
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+}
+
+.details-field__label-hint {
+  font-weight: 400;
+  color: var(--text-secondary);
+  opacity: 0.8;
+  font-size: 0.72rem;
+  margin-left: 4px;
+}
+
+.details-field .editable-notes,
+.details-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+}
+
+/* Address Tags disclosure: softer, consistent marker */
+.address-tags-section {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(31, 41, 55, 0.08);
+}
+
+.address-tags-section > summary {
+  list-style: none;
+  cursor: pointer;
+  font-family: 'Chivo', sans-serif;
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  padding: 4px 0 4px 18px;
+  outline: none;
+  position: relative;
+}
+
+.address-tags-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.address-tags-section > summary::before {
+  content: '+';
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+
+.address-tags-section[open] > summary::before {
+  content: '−';
+}
+
+/* Person card: stronger repeated module */
+.address-details .person-entry {
+  background: #ffffff;
+  border: 1px solid rgba(31, 41, 55, 0.16);
+  border-top: 1px solid rgba(31, 41, 55, 0.16);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 0 0 14px;
+  box-shadow: 0 1px 2px rgba(31, 41, 55, 0.05);
+}
+
+.address-details .person-entry:last-of-type {
+  margin-bottom: 4px;
+}
+
+.address-details .person-entry-head {
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(31, 41, 55, 0.08);
+  margin-bottom: 2px;
+  align-items: center;
+  column-gap: 12px;
+}
+
+.address-details .person-name {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 0;
+  letter-spacing: 0;
+}
+
+.address-details .person-name-button {
+  text-decoration: none;
+}
+
+.address-details .person-name-button:hover,
+.address-details .person-name-button:focus-visible {
+  text-decoration: underline;
+  text-decoration-color: rgba(49, 64, 89, 0.4);
+  text-underline-offset: 0.15em;
+  color: var(--brand-primary-dark);
+}
+
+.address-details .person-age-gender {
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* Sub-section within a person card.
+   Each section has a subtle top border to keep groups visually parsable. */
+.person-card__section {
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid rgba(31, 41, 55, 0.06);
+}
+
+/* Quick tags: softened label, compact rows */
+.person-card__tags-label {
+  margin: 0 0 6px;
+  font-family: 'Chivo', sans-serif;
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.person-card__tags .person-info {
+  margin: 4px 0;
+}
+
+.person-card__tags label {
+  padding: 2px 0;
+}
+
+/* Outreach status: remove italic, calm label+value pair */
+.outreach-status {
+  margin-top: 10px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-style: normal;
+}
+
+.outreach-status__label {
+  font-family: 'Chivo', sans-serif;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.outreach-status__value {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Legacy fallback: if .outreach-last-date still rendered */
+.outreach-last-date {
+  font-style: normal;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  margin-top: 10px;
+}
+
+/* Outreach history disclosure: softened */
+.outreach-history-toggle {
+  margin-top: 8px;
+  border-top: 1px dashed rgba(31, 41, 55, 0.12);
+  padding-top: 8px;
+}
+
+.outreach-history-toggle > summary {
+  list-style: none;
+  cursor: pointer;
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 2px 0 2px 16px;
+  position: relative;
+  outline: none;
+}
+
+.outreach-history-toggle > summary::-webkit-details-marker {
+  display: none;
+}
+
+.outreach-history-toggle > summary::before {
+  content: '+';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.outreach-history-toggle[open] > summary::before {
+  content: '−';
+}
+
+.outreach-history-content {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(31, 41, 55, 0.04);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+/* Outreach composer: contained sub-panel inside the card */
+.address-details .outreach-composer {
+  margin: 12px 0 2px;
+  padding: 14px;
+  background: rgba(49, 64, 89, 0.045);
+  border: 1px solid rgba(49, 64, 89, 0.2);
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+.outreach-composer__title {
+  margin: 0 0 10px;
+  font-family: 'Chivo', sans-serif;
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.25;
+}
+
+.outreach-composer .outreach-date-chip {
+  margin-bottom: 0;
+}
+
+.outreach-composer .details-field {
+  margin: 10px 0 0;
+}
+
+.outreach-composer .details-field__label {
+  font-size: 0.76rem;
+}
+
+.outreach-composer .outreach-notes-input.contact-notes-quick {
+  min-height: 68px;
+}
+
+.outreach-composer-actions {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Bottom save button divider (calmer than 2px river line) */
+.details-footer-save {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(31, 41, 55, 0.12);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.details-footer-save .btn-save {
+  margin-top: 0;
+}
+
+/* Former residents: softer label */
+.address-details .former-residents-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+
+/* Inline key-value rows inside a person card */
+.address-details .person-info {
+  margin: 6px 0;
+  line-height: 1.4;
+}
+
+.address-details .person-info strong {
+  color: var(--text-secondary);
+  font-weight: 700;
+  font-size: 0.85rem;
+  font-family: 'Chivo', sans-serif;
+}
+
+/* Mobile readiness */
+@media (max-width: 640px) {
+  .details-toolbar {
+    padding: 10px;
+  }
+  .details-section {
+    padding: 14px;
+    border-radius: 10px;
+  }
+  .address-details .person-entry {
+    padding: 14px;
+    border-radius: 10px;
+  }
+  .address-details .person-entry-head {
+    grid-template-columns: 1fr;
+    row-gap: 8px;
+  }
+  .outreach-log-toggle {
+    justify-self: stretch;
+    width: 100%;
+  }
+  .person-info-inline {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .details-section-divider {
+    margin: 18px 0 10px;
+  }
+}
