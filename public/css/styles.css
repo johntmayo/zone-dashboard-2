@@ -2182,50 +2182,165 @@
       margin-left: 8px;
     }
 
-    .contact-button {
-      padding: 6px 12px;
-      background: var(--primary);
-      border: 1px solid var(--primary-dark);
-      border-radius: 6px;
+    .person-entry-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .outreach-log-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border: 1px solid rgba(49, 64, 89, 0.45);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--brand-primary-dark);
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
       cursor: pointer;
-      font-size: 0.85rem;
-      font-weight: 500;
-      color: var(--light-cream);
-      transition: all 0.2s;
+      transition: all 0.16s ease;
+      white-space: nowrap;
+    }
+
+    .outreach-log-toggle:hover,
+    .outreach-log-toggle:focus-visible {
+      border-color: var(--brand-primary-dark);
+      background: #fff;
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    .outreach-log-toggle[aria-expanded="true"] {
+      background: rgba(49, 64, 89, 0.1);
+      border-color: var(--brand-primary-dark);
+    }
+
+    .outreach-composer {
+      margin: 6px 0 8px;
+      padding: 8px;
+      border: 1px solid rgba(49, 64, 89, 0.2);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.92);
+    }
+
+    .outreach-composer[hidden] {
+      display: none;
+    }
+
+    .outreach-date-chip {
+      display: inline-block;
+      margin-bottom: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(52, 112, 114, 0.14);
+      color: #134446;
+      border: 1px solid rgba(52, 112, 114, 0.28);
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    .outreach-notes-input.contact-notes-quick {
+      width: 100%;
+      margin-top: 0;
+      padding: 6px 8px;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      border-radius: 6px;
+      font-size: 0.83rem;
+      line-height: 1.35;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 52px;
+      background: #fff;
+    }
+
+    .outreach-notes-input.contact-notes-quick:focus {
+      border-color: var(--brand-primary-dark);
+      box-shadow: 0 0 0 2px rgba(49, 64, 89, 0.14);
+      outline: none;
+    }
+
+    .outreach-composer-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       margin-top: 8px;
     }
 
-    .contact-button:hover {
-      background: var(--primary-dark);
+    .outreach-submit-btn {
+      padding: 5px 10px;
+      border: 1px solid var(--brand-primary-dark);
+      border-radius: 6px;
+      background: var(--brand-primary-dark);
+      color: var(--bg-paper);
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
     }
 
-    .contact-button.contacted {
-      background: var(--accent);
-      color: var(--light-cream);
-      border-color: var(--accent-dark);
+    .outreach-submit-btn:hover,
+    .outreach-submit-btn:focus-visible {
+      background: #243045;
+      outline: none;
     }
 
-    .contact-button.contacted:hover {
-      background: var(--accent-dark);
+    .outreach-submit-btn:disabled {
+      opacity: 0.6;
+      cursor: wait;
     }
 
-    .contact-date {
+    .outreach-cancel-btn {
+      padding: 5px 8px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .outreach-cancel-btn:hover,
+    .outreach-cancel-btn:focus-visible {
+      color: var(--text-primary);
+      outline: none;
+    }
+
+    .outreach-last-date {
       font-size: 0.8rem;
       color: #666;
       margin-top: 4px;
       font-style: italic;
     }
 
-    .contact-notes-quick {
-      width: 100%;
-      margin-top: 8px;
-      padding: 6px;
-      border: 1px solid rgba(0,0,0,0.2);
-      border-radius: 4px;
-      font-size: 0.85rem;
-      font-family: inherit;
-      resize: vertical;
-      min-height: 60px;
+    .outreach-history-preview {
+      margin-top: 6px;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      line-height: 1.35;
+    }
+
+    .outreach-history-toggle {
+      margin-top: 6px;
+    }
+
+    .outreach-history-toggle > summary {
+      cursor: pointer;
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+    }
+
+    .outreach-history-content {
+      margin-top: 6px;
+      white-space: pre-wrap;
+      font-size: 0.84rem;
     }
 
     .person-entry.no-contact {

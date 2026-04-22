@@ -6153,6 +6153,14 @@
       return `Person ${fallbackIndex + 1}`;
     }
 
+    function getTodayOutreachLabel() {
+      return new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+
     // Display details for a specific address
     function displayAddressDetails(address, preserveScroll = false) {
       if (!sheetData.addressMap || !sheetData.addressMap.has(address)) {
@@ -6177,6 +6185,7 @@
 
       const rows = sheetData.addressMap.get(address);
       const { headers, addressCol, data } = sheetData;
+      const todayOutreachLabel = getTodayOutreachLabel();
       const nameCol = getResidentNameColumn(headers);
       const formerResidentCol = findColumn(headers, ['former', 'resident'], ['note']);
       const formerResidentNotesCol = findColumn(headers, ['former', 'resident', 'note']);
@@ -6689,35 +6698,58 @@
         
         html += `<div class="person-entry ${contactClass}">`;
         const displayName = getPersonDisplayName(row, index, nameCol);
-        html += `<button type="button" class="person-name person-name-button" data-person-details-trigger="true" data-address="${address.replace(/"/g, '&quot;')}" data-original-row-index="${originalRowIndex}">${escapeHtml(displayName)}</button>`;
+        const outreachComposerId = `outreach-composer-${String(address).replace(/[^a-zA-Z0-9]/g, '-')}-${originalRowIndex}`;
+        html += `
+          <div class="person-entry-head">
+            <button type="button" class="person-name person-name-button" data-person-details-trigger="true" data-address="${address.replace(/"/g, '&quot;')}" data-original-row-index="${originalRowIndex}">${escapeHtml(displayName)}</button>
+        `;
 
         // Per-person outreach logging
         if (accessToken) {
           const outreachLogValue = outreachLogCol ? (row[outreachLogCol] || '') : '';
           const hasOutreachLog = String(outreachLogValue).trim().length > 0;
+          const latestOutreachEntry = hasOutreachLog ? String(outreachLogValue).split('\n').find(line => String(line).trim()) : '';
           html += `
-            <div style="margin-top: 8px; margin-bottom: 8px;">
-              <button class="contact-button ${isContacted ? 'contacted' : ''}" 
+              <button type="button"
+                      class="outreach-log-toggle"
                       data-address="${address.replace(/"/g, '&quot;')}"
                       data-original-row-index="${originalRowIndex}"
-                      data-column="${lastContactCol || 'Last Outreach Attempt Date'}"
-                      title="Log an outreach attempt (call, text, voicemail, door knock, email)"
-                      onclick="markContact(this, '${address.replace(/"/g, '&quot;')}', ${originalRowIndex}, '${lastContactCol || 'Last Outreach Attempt Date'}')">
-                ${isContacted ? 'Log Another Attempt' : 'Log Outreach Attempt'}
+                      data-contact-column="${(lastContactCol || 'Last Outreach Attempt Date').replace(/"/g, '&quot;')}"
+                      data-log-column="${(outreachLogCol || 'Outreach Log').replace(/"/g, '&quot;')}"
+                      aria-expanded="false"
+                      aria-controls="${outreachComposerId}"
+                      title="Log an outreach attempt (call, text, voicemail, door knock, email)">
+                <span aria-hidden="true">＋</span> Log Outreach
               </button>
-              ${isContacted ? `<div class="contact-date">Last outreach attempt: ${lastContact}</div>` : ''}
-              <textarea class="contact-notes-quick" 
-                        placeholder="Add outreach note for today..."
+            </div>
+            <div id="${outreachComposerId}" class="outreach-composer" hidden>
+              <div class="outreach-date-chip" aria-label="Outreach date">${escapeHtml(todayOutreachLabel)}</div>
+              <textarea class="outreach-notes-input contact-notes-quick"
+                        placeholder="Add outreach note (optional)"
+                        rows="2"
                         data-address="${address.replace(/"/g, '&quot;')}"
                         data-original-row-index="${originalRowIndex}"
-                        data-column="${outreachLogCol || 'Outreach Log'}"
+                        data-column="${(outreachLogCol || 'Outreach Log').replace(/"/g, '&quot;')}"
                         data-original-value=""></textarea>
-              ${hasOutreachLog ? `<details class="contact-log-history" style="margin-top:8px;"><summary style="cursor:pointer; font-size:0.82rem; color:var(--text-secondary);">View outreach log</summary><div style="margin-top:6px; white-space:pre-wrap; font-size:0.85rem;">${escapeHtml(String(outreachLogValue))}</div></details>` : ''}
+              <div class="outreach-composer-actions">
+                <button type="button"
+                        class="outreach-submit-btn"
+                        data-address="${address.replace(/"/g, '&quot;')}"
+                        data-original-row-index="${originalRowIndex}"
+                        data-contact-column="${(lastContactCol || 'Last Outreach Attempt Date').replace(/"/g, '&quot;')}">
+                  Submit
+                </button>
+                <button type="button" class="outreach-cancel-btn">Cancel</button>
+              </div>
             </div>
+            ${isContacted ? `<div class="outreach-last-date">Last outreach attempt: ${escapeHtml(lastContact)}</div>` : ''}
+            ${hasOutreachLog ? `<div class="outreach-history-preview">${escapeHtml(latestOutreachEntry)}</div>` : ''}
+            ${hasOutreachLog ? `<details class="contact-log-history outreach-history-toggle"><summary>View outreach log</summary><div class="outreach-history-content">${escapeHtml(String(outreachLogValue))}</div></details>` : ''}
           `;
         } else {
           // Not signed in - show outreach status only
           html += `
+            </div>
             <div style="margin-top: 8px; margin-bottom: 8px;">
               <div style="font-size: 0.85rem; color: ${isContacted ? '#4caf50' : '#ff9800'};">
                 ${isContacted ? `✓ Outreach attempted (${lastContact})` : '⚠ No outreach logged yet'}
@@ -7065,6 +7097,78 @@
         });
       });
 
+      const closeOutreachComposer = (composer, restoreFocus = false) => {
+        if (!composer) return;
+        const notesField = composer.querySelector('.outreach-notes-input');
+        if (notesField) notesField.value = '';
+        composer.hidden = true;
+        const toggleBtn = composer.closest('.person-entry')?.querySelector('.outreach-log-toggle');
+        if (toggleBtn) {
+          toggleBtn.setAttribute('aria-expanded', 'false');
+          if (restoreFocus) {
+            toggleBtn.focus();
+          }
+        }
+      };
+
+      document.querySelectorAll('.outreach-log-toggle').forEach(toggleBtn => {
+        toggleBtn.addEventListener('click', () => {
+          const composerId = toggleBtn.getAttribute('aria-controls');
+          if (!composerId) return;
+          const composer = document.getElementById(composerId);
+          if (!composer) return;
+          const isOpen = !composer.hidden;
+          if (isOpen) {
+            closeOutreachComposer(composer, true);
+            return;
+          }
+          const personEntry = toggleBtn.closest('.person-entry');
+          if (personEntry) {
+            personEntry.querySelectorAll('.outreach-composer').forEach(otherComposer => {
+              if (otherComposer !== composer) closeOutreachComposer(otherComposer, false);
+            });
+          }
+          composer.hidden = false;
+          toggleBtn.setAttribute('aria-expanded', 'true');
+          const notesField = composer.querySelector('.outreach-notes-input');
+          if (notesField) notesField.focus();
+        });
+      });
+
+      document.querySelectorAll('.outreach-cancel-btn').forEach(cancelBtn => {
+        cancelBtn.addEventListener('click', () => {
+          const composer = cancelBtn.closest('.outreach-composer');
+          closeOutreachComposer(composer, true);
+        });
+      });
+
+      document.querySelectorAll('.outreach-submit-btn').forEach(submitBtn => {
+        submitBtn.addEventListener('click', async () => {
+          const personAddress = submitBtn.getAttribute('data-address') || '';
+          const rowIndex = parseInt(submitBtn.getAttribute('data-original-row-index') || '-1', 10);
+          const contactColumn = submitBtn.getAttribute('data-contact-column') || 'Last Outreach Attempt Date';
+          await markContact(submitBtn, personAddress, rowIndex, contactColumn);
+        });
+      });
+
+      document.querySelectorAll('.outreach-notes-input').forEach(textarea => {
+        textarea.addEventListener('keydown', async (event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            const composer = textarea.closest('.outreach-composer');
+            closeOutreachComposer(composer, true);
+            return;
+          }
+          if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+            event.preventDefault();
+            const submitBtn = textarea.closest('.outreach-composer')?.querySelector('.outreach-submit-btn');
+            if (submitBtn) {
+              submitBtn.click();
+            }
+          }
+        });
+      });
+
       // Add save button handlers (both top and bottom buttons)
       const saveBtn = document.getElementById('saveChangesBtn');
       if (saveBtn) {
@@ -7129,7 +7233,7 @@
       });
       
       // Add change handlers for textareas with auto-save
-      document.querySelectorAll('.editable-notes, .contact-notes-quick').forEach(textarea => {
+      document.querySelectorAll('.editable-notes').forEach(textarea => {
         textarea.addEventListener('input', () => {
           triggerAutoSave();
         });
@@ -12145,6 +12249,9 @@
         alert('Please sign in to log outreach attempts.');
         return;
       }
+      if (button && button.disabled) {
+        return;
+      }
 
       // Get the current sheet URL - try multiple sources
       let sheetUrl = currentSheetUrl;
@@ -12156,11 +12263,10 @@
         return;
       }
 
-      const today = new Date().toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
-      });
+      const today = getTodayOutreachLabel();
+      if (button) {
+        button.disabled = true;
+      }
 
       try {
         const sheetInfo = extractSheetId(sheetUrl);
@@ -12187,7 +12293,7 @@
         );
         const contactNotesCol = contactNotesColIndex >= 0 ? headers[contactNotesColIndex] : null;
 
-        const contactNotesTextarea = button.parentNode.querySelector('.contact-notes-quick');
+        const contactNotesTextarea = button.closest('.outreach-composer')?.querySelector('.outreach-notes-input');
         const contactNotes = contactNotesTextarea ? contactNotesTextarea.value.trim() : '';
 
         const rows = sheetData.addressMap.get(address);
@@ -12234,24 +12340,6 @@
               throw new Error(error.message || error.error || 'Failed to save contact');
             }
           }
-        }
-
-        // Update UI
-        button.classList.add('contacted');
-        button.textContent = 'Log Another Attempt';
-        
-        // Add date display if it doesn't exist
-        const existingDate = button.parentNode.querySelector('.contact-date');
-        if (!existingDate) {
-          const dateDiv = document.createElement('div');
-          dateDiv.className = 'contact-date';
-          dateDiv.textContent = `Last outreach attempt: ${today}`;
-          button.parentNode.insertBefore(dateDiv, button.nextSibling);
-        } else {
-          existingDate.textContent = `Last outreach attempt: ${today}`;
-        }
-        if (contactNotesTextarea) {
-          contactNotesTextarea.value = '';
         }
 
         // Update local data
@@ -12302,6 +12390,10 @@
       } catch (error) {
         console.error('Error logging outreach attempt:', error);
         alert('Error saving outreach attempt: ' + error.message);
+      } finally {
+        if (button) {
+          button.disabled = false;
+        }
       }
     };
 
