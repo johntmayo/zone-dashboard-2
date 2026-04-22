@@ -2,7 +2,7 @@
 
 A quick operational reference for anyone working in this repo. Read this before making changes.
 
-**Last updated:** April 11, 2026
+**Last updated:** April 22, 2026 (post Details Panel redesign + outreach-column rename)
 **Companion document:** `CURRENT_STATE_AUDIT.md` (full forensic audit)
 
 ---
@@ -19,10 +19,10 @@ An internal dashboard for ~50 neighborhood captains managing post-fire recovery 
 
 | File | What It Is | Risk Level |
 |------|-----------|------------|
-| **`index.html`** | The entire application: 16,942 lines of HTML + inline JS. All views, all logic, all state. | **Extreme** — any change can break anything |
+| **`index.html`** | The entire application: ~18,380 lines of HTML + inline JS. All views, all logic, all state. | **Extreme** — any change can break anything |
 | **`server.js`** | Express backend: 906 lines. Sheets proxy, user auth lookup, feed APIs, static serving. | **High** — all data flows through here |
-| **`public/css/styles.css`** | All CSS: ~145KB. | Medium |
-| **`public/js/utils.js`** | Shared utilities: address parsing, column finding, HTML helpers. 448 lines. | Medium — used by index.html |
+| **`public/css/styles.css`** | All CSS: ~180KB / ~7,570 lines. Contains a dedicated "Details Panel Redesign" block (~lines 6813–7430). | Medium |
+| **`public/js/utils.js`** | Shared utilities: address parsing, column finding, outreach-column resilience helpers (`findOutreachDateColumn`, `findOutreachLogColumn`), HTML helpers. ~491 lines. | Medium — used by index.html |
 | **`users.json`** | Email → sheet URL mapping. This is the user access control list. | **High** — editing this adds/removes user access |
 | **`.env.local`** | Contains real secrets (service account key, user data, tokens). **Should not be in git.** | **Critical** |
 | **`vercel.json`** | Deployment config: cache headers, host-based rewrite for NC Directory. | Low |
@@ -79,6 +79,47 @@ All Mapbox config (tileset IDs, source layers, styles, property keys) is hardcod
 
 Writes to the NC Directory sheet (`NC_DIRECTORY_SHEET_ID`). First-time users see a wizard; returning users see a full form. Uses `/api/sheets/batch-update` and `/api/sheets/append-record`.
 
+### Address Details Panel (index.html `displayAddressDetails` ~6380–7160, styles.css ~6813–7430)
+
+The right-side panel rendered when a captain clicks an address. Rebuilt April 22, 2026 as a case-management UI. Structure:
+
+```
+.details-toolbar                      ← Back | Save | Refresh (row 1)
+  └ .details-toolbar__status-slot     ← reserved min-height status line (row 2)
+.details-section--address             ← address card (title, subtitle, APN)
+  └ .details-section__body            ← Damage, Address Plan, Address Tags disclosure, Notes, Sales History
+.details-section-divider              ← "People at this address" hairline + label
+.person-entry.person-card             ← repeated per-resident card
+  ├ .person-entry-head                ← name (link) + age/gender + "Log outreach" button
+  ├ .outreach-composer                ← contained sub-panel (open state only, one at a time panel-wide)
+  ├ .outreach-status                  ← "Last outreach: <date>" + history disclosure
+  ├ .person-card__contact             ← Home / Cell inline row + Email row + copy icon
+  ├ .person-card__tags                ← Quick tag checkboxes (Renter, Needs Follow-Up, Unable to reach)
+  └ .person-card__notes               ← Person Notes (stacked .details-field)
+.former-residents-section             ← deferred, collapsed by default
+.details-footer-save                  ← bottom Save mirror
+```
+
+**Load-bearing behaviors to preserve:**
+- Toolbar `.details-toolbar__status-slot` has `min-height: 16px` and `aria-live="polite"`. **Do not remove this or collapse it to a zero-height element.** It's what prevents save-state text (`Saving changes…`, `Auto-saving…`) from pushing `Save Changes` onto a second line.
+- The Save button's status message targets `#saveStatusTop` by id; there is also a `#saveStatus` element tied to the bottom `.details-footer-save` mirror. Both are updated from the same save flow.
+- `.outreach-composer[hidden]` is toggled by `.outreach-log-toggle` click. The toggle handler closes **every other** open composer panel-wide before opening the targeted one — this is intentional.
+- `data-contact-column` and `data-log-column` attributes on the composer's submit button carry the **current** outreach column names, resolved at render time via `findOutreachDateColumn` / `findOutreachLogColumn`. Do not hardcode column names here.
+- `.editable-inline` (contenteditable spans), `.editable-notes` (textareas), `.editable-checkbox`, `.editable-dropdown` all use `data-address`, `data-original-row-index`, `data-column`, and `data-address-level` attributes to route updates to the correct sheet cell. Any new editable field must follow this pattern to hook into the autosave / batch-save flow.
+
+**Typography policy inside `.address-details`:** All text uses Chivo (sans-serif), overriding the app-wide Merriweather body font. This is a deliberate local deviation from the app style guide — the panel is a dense data/case-management UI, not reading material. If you add new text inside the panel, do not re-introduce serif inheritance. The ladder is documented in the banner comment at the top of the "Details Panel Redesign" CSS block.
+
+### Outreach column resilience (public/js/utils.js)
+
+Two helpers exist specifically so the spreadsheet column names `Last Outreach Attempt Date` and `Outreach Log` can be renamed (or revert to their previous names `Last Contact Date` / `Contact Notes`) without breaking the app:
+
+```js
+findOutreachDateColumn(headers)  // returns the current outreach-date column, whatever it's called
+findOutreachLogColumn(headers)   // returns the current outreach-log column, whatever it's called
+```
+
+Both accept multiple naming variants and will keep working across a rolling rename. **Any new code that looks up the outreach date or outreach log column must use these helpers**, not `findColumn(headers, ['contact', 'date'])` or `headers.find(h => /contact\s*note/i.test(h))`. Those narrow patterns are an anti-pattern in this codebase now — they were audited out on April 22, 2026.
+
 ---
 
 ## What Not to Touch Casually
@@ -94,6 +135,12 @@ Writes to the NC Directory sheet (`NC_DIRECTORY_SHEET_ID`). First-time users see
 5. **The `MAPBOX_*` config objects (~1098–1265).** These contain Mapbox Studio asset IDs. If you change anything in Mapbox Studio, these must be updated to match.
 
 6. **Feed sheet IDs.** `CENTRAL_SHEET_ID` and `ACTIONS_SHEET_ID` are hardcoded in BOTH `server.js` (with env var override) AND `index.html` (no env var override). If you change the server value via env var but not the index.html fallback, the fallback path uses the old sheet.
+
+7. **The Details Panel toolbar status slot.** `.details-toolbar__status-slot` in `displayAddressDetails` (index.html ~6394+) has a `min-height` that reserves a permanent row for save-state text. Removing the slot, removing the min-height, putting the status back inline with the buttons, or wrapping the button row with `flex-wrap: wrap` will re-introduce the "Save Changes jumps under Back to List" bug.
+
+8. **The `.address-details` typography override.** Everything inside `.address-details` is forced to Chivo (sans) in `public/css/styles.css` under the "Unified typography system for the Details Panel" banner (~lines 6836+). This is the fix for the old Home/Cell-in-serif vs. Email-in-sans inconsistency. Don't remove the `font-family` force inside `.address-details`, and don't set a serif font-family on any descendant selector there.
+
+9. **`findOutreachDateColumn` / `findOutreachLogColumn` in `utils.js`.** These are the only sanctioned way to look up the outreach date and outreach log columns. They accept both the legacy `Last Contact Date` / `Contact Notes` names and the current `Last Outreach Attempt Date` / `Outreach Log` names. New code using narrow `findColumn(['contact', 'date'])` or `/contact\s*note/i` regexes will break the next time those columns are renamed.
 
 ---
 

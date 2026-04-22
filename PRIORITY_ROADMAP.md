@@ -173,10 +173,26 @@ I've also added items that weren't in your kanban but that the audit surfaced as
 - **Action:** Audit the interest/skill taxonomy in the live sheet, update the Profile form options in `index.html`, update the filter/display logic in `nc-directory.html`.
 - **Effort:** 2–3 hours
 
-### 2.6 — "Last Contact Date" → "Last Contact Logged"
-- **Kanban:** High priority
-- **What:** Rename the label. Small but meaningful — "logged" implies the captain did something, which is the right mental model.
-- **Effort:** 15 minutes
+### 2.6 — "Last Contact Date" → "Last Outreach Attempt Date" (and "Contact Notes" → "Outreach Log") — **Shipped (April 22, 2026)**
+- **Kanban:** High priority — rename "Last Contact Date"
+- **Original scope:** Rename the single label. Small but meaningful — making it clearer that this is a logged outreach attempt, not a passive "contact date."
+- **What actually shipped:** A coordinated rename across two coupled columns plus codebase migration safety.
+  - **Spreadsheet column renames (backend):** `Last Contact Date` → `Last Outreach Attempt Date`; `Contact Notes` → `Outreach Log`.
+  - **App-side migration safety:** Added two centralized helpers in `public/js/utils.js` — `findOutreachDateColumn(headers)` and `findOutreachLogColumn(headers)` — that accept both the legacy names AND the new names, so zones renamed mid-migration never break. Replaced 9 narrow matchers across `index.html` (7 `findColumn(headers, ['contact', 'date'])` calls + 2 `/contact\s*note/i` regexes) with calls to these helpers.
+  - **Result:** The spreadsheet can be renamed any time, in any order across zones, with no code change required before or after. Pre-migration and post-migration sheets both work simultaneously. If a third naming convention is ever chosen, it's a one-line addition to each helper.
+- **Why this matters beyond the label:** These two columns are referenced in ~25 places across the monolithic `index.html`. Without the helper layer, a rename would have silently broken outreach logging for any zone sheet until every call site was found and updated. The helpers turn a fragile rename into a safe one.
+- **Effort (actual):** ~30 minutes for the label change itself; an additional ~1 hour to audit the codebase, add the helpers, and replace the narrow matchers.
+
+### 2.6.1 — Details Panel redesign (case-management UI) — **Shipped (April 22, 2026)**
+- **Source:** Captains reported the Details Panel felt cramped, visually inconsistent, and unstable during save states.
+- **What shipped:** A full redesign of the right-side Details Panel, layered as three passes on a single feature branch:
+  - **Pass 1 — Structural redesign.** Introduced a three-level hierarchy: panel-level toolbar (Back + Save + Refresh) → Address section card → "People at this address" section divider → per-person cards. Stacked-label form fields (`.details-field` — label above textarea) replaced the old inline label-left/value-right pattern for long-form fields (Address Notes, Sales History, Person Notes). The inline outreach-logging state became a contained sub-panel inside the person card (`.outreach-composer`) with a title, date chip, notes field, and submit/cancel — and only one composer can be open panel-wide at a time.
+  - **Pass 2 — Polish, density, visual rhythm.** Reduced vertical spacing 10–20% across the panel, removed unnecessary horizontal rules inside person cards (grouping now done with spacing + typography + labels), softened card borders and shadows, tightened the outreach composer footprint, and reviewed bold usage so emphasis is intentional.
+  - **Pass 3 — Typography and save-state stabilization.** Replaced the mixed serif/sans inheritance inside `.address-details` with a unified, documented Chivo typography ladder (section title → field label → data value → checkbox item name → status text). This fixed the prior inconsistency where `Home:` / `Cell:` labels rendered in Merriweather-500 (inherited) while `Email:` rendered in Chivo-600 (overridden). Also restructured the top toolbar into a 2-row layout with a **reserved status slot** (`min-height: 16px`, `aria-live="polite"`) so save-state messages (`Saving changes…`, `Auto-saving…`, `Saved`, `No changes to save`) never reflow the button row — the long-standing "Save Changes drops under Back to List" bug is gone.
+- **Preserved:** The existing data contract, all editable-inline / editable-notes / editable-checkbox / editable-dropdown handlers, the per-person outreach logging system (`.outreach-log-toggle` + composer + `data-contact-column` / `data-log-column` attributes), the one-composer-at-a-time behavior, and the Former Residents deferred section. No data migration required.
+- **Constraints honored:** No chips or toggles (checkboxes preserved per low-tech-user guidance); no hidden interactions; architecture unchanged between passes.
+- **CSS location:** All redesign styles live in a single block in `public/css/styles.css` (~lines 6813–7430) under the banner comment `Details Panel Redesign`.
+- **Effort (actual):** Three iterative passes across multiple sessions; the final result is a production-grade case-management panel that is layout-stable in every save state.
 
 ### 2.7 — Actions effort tiers
 - **Kanban:** In Progress, Medium priority
@@ -299,7 +315,7 @@ Here's how I'd spend the next 4–6 weeks if I were you:
 - 1.5 Remove Zone Notes (already broken)
 - 1.6 Clean up dead code from audit
 - 1.7 Fix documentation truth
-- 2.6 Rename "Last Contact Date" label (15 min)
+- ~~2.6 Rename "Last Contact Date" label~~ — **Shipped (April 22, 2026)**; expanded scope: renamed to `Last Outreach Attempt Date` + renamed `Contact Notes` → `Outreach Log`, with helper functions in `utils.js` so both old and new names continue to resolve.
 - 1.1 Fix session timeout bug
 
 **Week 2: Daily Workflow**
