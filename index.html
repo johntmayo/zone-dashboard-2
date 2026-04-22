@@ -14635,7 +14635,7 @@
         (lower.includes('contact') && lower.includes('date')) ||
         (lower.includes('outreach') && lower.includes('date'))
       );
-      const newsletterCol = findHeaderByNormalizedName('Newsletter Subscriber');
+      const newsletterCol = findHeaderByNormalizedName(['Wants Updates', 'Newsletter Subscriber']);
       const formerResidentCol = findColumn(headers, ['former', 'resident'], ['note']);
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
@@ -14776,7 +14776,7 @@
       }
 
       const missingPersonColumns = [];
-      if (!newsletterCol) missingPersonColumns.push('Newsletter Subscriber');
+      if (!newsletterCol) missingPersonColumns.push('Wants Updates');
       if (!formerResidentCol) missingPersonColumns.push('Former Resident');
       if (personNewsletterWrap) {
         personNewsletterWrap.style.opacity = newsletterCol ? '' : '0.4';
@@ -15622,7 +15622,7 @@
           return;
         }
         if (newsletterValue && !newsletterCol) {
-          if (personStatusMsg) personStatusMsg.textContent = 'Could not find a Newsletter Subscriber column in this sheet.';
+          if (personStatusMsg) personStatusMsg.textContent = 'Could not find a Wants Updates column in this sheet.';
           return;
         }
         if (formerResidentValue && !formerResidentCol) {
