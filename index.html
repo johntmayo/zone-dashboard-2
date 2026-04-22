@@ -6392,13 +6392,14 @@
       const apnValueForHeader = apnColForHeader && rows[0] ? String(rows[0][apnColForHeader] || '').trim() : '';
 
       let html = `
-        <div class="details-toolbar">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px;">
           <button class="btn-back" onclick="displayAddressList(Array.from(sheetData.addressMap.keys()).sort())">← Back to List</button>
           ${accessToken ? `
-            <div class="details-toolbar-actions">
-              <div class="details-toolbar-buttons">
-                <button class="btn-save btn-save-small" id="saveChangesBtnTop">Save Changes</button>
-                <button class="btn-refresh-small" id="refreshBtnTop" title="Refresh addresses now">↻</button>
+            <div style="display: flex; gap: 6px; align-items: flex-start; position: relative;">
+              <div style="display: flex; flex-direction: column; align-items: flex-end; height: 50px; justify-content: flex-start;">
+                <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 2px;">
+                  <button class="btn-save btn-save-small" id="saveChangesBtnTop" style="margin: 0; align-self: center;">Save Changes</button>
+                  <button class="btn-refresh-small" id="refreshBtnTop" title="Refresh addresses now" style="margin: 0;">↻</button>
                 </div>
                 <span class="save-status save-status-top" id="saveStatusTop"></span>
               </div>
