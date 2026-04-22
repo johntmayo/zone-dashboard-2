@@ -758,10 +758,10 @@
                         <div id="batchPersonMissingCols" class="hidden" style="margin-bottom:16px; padding:10px 14px; background:rgba(200,150,0,0.08); border:1px solid rgba(200,150,0,0.3); border-radius:6px; font-size:0.875rem; color:var(--text-secondary);"></div>
                         <div class="batch-tag-field-grid">
                           <div>
-                            <label style="display:block; margin-bottom:4px; font-weight:600;">Log as Contacted</label>
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Contact Status</label>
                             <select id="batchPersonContacted" class="add-record-select" style="min-width:160px;">
                               <option value="">— no change —</option>
-                              <option value="log">Log contact (today's date)</option>
+                              <option value="log">Mark as contacted</option>
                               <option value="clear">Clear contact date</option>
                             </select>
                           </div>
@@ -1178,6 +1178,14 @@
     let homeColorLegendControl = null; // Color legend control instance for home map
     let colorFilterWatchdog = null; // Interval ID for watching control
     let isHomeSatelliteMode = false; // Track satellite mode for homepage
+    let soldTagRefreshHandler = null; // Map event handler for sold tag visibility/collision refresh
+    let soldTagRefreshTimer = null; // Debounce timer for sold tag refresh
+    const SOLD_TAG_MIN_ZOOM = 16; // Show sold labels as soon as map is at normal working zoom
+    const SOLD_TAG_PANE = 'soldTagPane';
+    const SOLD_TAG_OFFSET_X = 18;
+    const SOLD_TAG_ESTIMATED_WIDTH = 52;
+    const SOLD_TAG_ESTIMATED_HEIGHT = 20;
+    const SOLD_TAG_COLLISION_OVERLAP_THRESHOLD = 0.72; // Higher threshold keeps more labels visible
     let zoneKmlUrl = ''; // Zone KML URL from metadata
     let metadataSheetId = null; // Sheet ID for metadata sheet
     let autoSaveTimer = null; // Timer for debounced auto-save
@@ -3393,7 +3401,7 @@
       displayAddressTable();
     }
 
-    // Navigate to Batch Tagging with Person tab + Not Contacted filter preset
+    // Navigate to Batch Tagging and open Person tab
     function navigateToBatchTaggingNotContactedPeople() {
       switchView('tools');
 
@@ -3412,7 +3420,8 @@
 
         const contactFilter = document.getElementById('batchTagContactFilter');
         if (contactFilter) {
-          contactFilter.value = 'not_contacted';
+          // Open with a neutral filter so users can choose their own status view.
+          contactFilter.value = 'all';
           contactFilter.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
@@ -6288,6 +6297,13 @@
         'for sale',
         'recently sold',
         'sold since fire',
+        'sale date',
+        'sale price',
+        'new owner',
+        'lot square feet',
+        'lot sqft',
+        'lot sq ft',
+        'sales history',
         'unit type',
         'former resident',
         'deceased'
@@ -6560,6 +6576,26 @@
             }
           }
         });
+
+        const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
+        const salesHistoryCol = headers.find(h => /sales?\s*history/i.test(h));
+        const soldSinceFireVal = soldSinceFireCol && rows[0] ? (rows[0][soldSinceFireCol] || '') : '';
+        const isSoldSinceFireAddress = soldSinceFireCol ? isTruthySheetCheckbox(soldSinceFireVal) : false;
+        const salesHistoryValue = salesHistoryCol && rows[0] ? String(rows[0][salesHistoryCol] || '').trim() : '';
+        if (isSoldSinceFireAddress && salesHistoryCol) {
+          if (accessToken) {
+            html += `<div class="person-info" style="margin-top:12px;">
+              <strong>Sales History:</strong>
+              <textarea class="editable-notes"
+                   data-address="${address.replace(/"/g, '&quot;')}"
+                   data-address-level="true"
+                   data-column="${salesHistoryCol}"
+                   data-original-value="${salesHistoryValue.replace(/"/g, '&quot;')}">${salesHistoryValue}</textarea>
+            </div>`;
+          } else {
+            html += `<div class="person-info" style="margin-top:12px;"><strong>Sales History:</strong> ${salesHistoryValue || '(not set)'}</div>`;
+          }
+        }
 
         // Address Tags: expandable section (collapsed by default) - Unit Type, For Sale, Sold Since Fire
         const unitTypeCol = findColumn(headers, ['unit', 'type']);
@@ -7371,6 +7407,13 @@
         'for sale',
         'recently sold',
         'sold since fire',
+        'sale date',
+        'sale price',
+        'new owner',
+        'lot square feet',
+        'lot sqft',
+        'lot sq ft',
+        'sales history',
         'unit type'
       ];
       const isHouseOrZipField = (lower) => {
@@ -8433,7 +8476,7 @@
       if (!currentColorMode || !sheetData) return null;
       
       if (currentColorMode === 'contact') {
-        return isAddressContacted(address) ? colorPalette['sky-blue-light'] : colorPalette['dusty-mauve'];
+        return isAddressContacted(address) ? colorPalette['sky-blue-light'] : colorPalette['ash-grey'];
       } else if (currentColorMode === 'damage') {
         const damage = getAddressDamage(address);
         if (!damage) return colorPalette['ash-grey'];
@@ -8461,7 +8504,7 @@
       if (!homeColorMode || !sheetData) return null;
       
       if (homeColorMode === 'contact') {
-        return isAddressContacted(address) ? colorPalette['sky-blue-light'] : colorPalette['dusty-mauve'];
+        return isAddressContacted(address) ? colorPalette['sky-blue-light'] : colorPalette['ash-grey'];
       } else if (homeColorMode === 'damage') {
         const damage = getAddressDamage(address);
         if (!damage) return colorPalette['ash-grey'];
@@ -8482,6 +8525,108 @@
         return captainColorMapping[captain] || colorPalette['ash-grey'];
       }
       return null;
+    }
+
+    function isSoldSinceFireValue(value) {
+      const normalized = String(value || '').trim().toLowerCase();
+      if (!normalized || normalized === '—' || normalized === '-') return false;
+      if (['no', 'n', 'false', '0', 'none', 'not sold', 'unsold'].includes(normalized)) return false;
+      return true;
+    }
+
+    function getAddressSoldSinceFire(address) {
+      if (!sheetData || !sheetData.headers || !sheetData.addressMap) return false;
+      const soldSinceFireCol = sheetData.headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
+      if (!soldSinceFireCol) return false;
+      const rows = sheetData.addressMap.get(address);
+      if (!rows || rows.length === 0) return false;
+      return rows.some(row => isSoldSinceFireValue(row[soldSinceFireCol]));
+    }
+
+    function getOverlapArea(boxA, boxB) {
+      const left = Math.max(boxA.left, boxB.left);
+      const top = Math.max(boxA.top, boxB.top);
+      const right = Math.min(boxA.right, boxB.right);
+      const bottom = Math.min(boxA.bottom, boxB.bottom);
+      if (right <= left || bottom <= top) return 0;
+      return (right - left) * (bottom - top);
+    }
+
+    function shouldHideSoldTagForCollision(candidateBox, placedBoxes) {
+      const candidateArea = Math.max(1, (candidateBox.right - candidateBox.left) * (candidateBox.bottom - candidateBox.top));
+      return placedBoxes.some(existingBox => {
+        const overlapArea = getOverlapArea(candidateBox, existingBox);
+        if (!overlapArea) return false;
+        const existingArea = Math.max(1, (existingBox.right - existingBox.left) * (existingBox.bottom - existingBox.top));
+        const overlapRatio = overlapArea / Math.min(candidateArea, existingArea);
+        return overlapRatio >= SOLD_TAG_COLLISION_OVERLAP_THRESHOLD;
+      });
+    }
+
+    function scheduleSoldTagVisibilityUpdate(delayMs = 0) {
+      if (soldTagRefreshTimer) {
+        clearTimeout(soldTagRefreshTimer);
+      }
+      soldTagRefreshTimer = setTimeout(() => {
+        soldTagRefreshTimer = null;
+        updateSoldTagVisibility();
+      }, Math.max(0, delayMs));
+    }
+
+    function updateSoldTagVisibility() {
+      if (!zoneMap || !Array.isArray(addressMarkers) || addressMarkers.length === 0) return;
+      const showLabels = zoneMap.getZoom() >= SOLD_TAG_MIN_ZOOM;
+      const mapRect = zoneMap.getContainer().getBoundingClientRect();
+      const soldEntries = [];
+
+      addressMarkers.forEach(marker => {
+        if (!marker || !marker.isSoldSinceFire) return;
+        const tooltip = marker.getTooltip ? marker.getTooltip() : null;
+        if (!tooltip) return;
+        marker.openTooltip();
+        const tooltipEl = tooltip.getElement ? tooltip.getElement() : null;
+        if (!tooltipEl) return;
+        tooltipEl.classList.toggle('sold-status-tooltip-hidden', !showLabels);
+        if (showLabels) soldEntries.push({ marker, tooltipEl });
+      });
+
+      if (!showLabels || soldEntries.length === 0) return;
+
+      soldEntries.sort((a, b) => {
+        const aSelected = selectedAddress && a.marker.address === selectedAddress ? 1 : 0;
+        const bSelected = selectedAddress && b.marker.address === selectedAddress ? 1 : 0;
+        return bSelected - aSelected;
+      });
+
+      const placedBoxes = [];
+      soldEntries.forEach(({ marker, tooltipEl }) => {
+        tooltipEl.classList.remove('sold-status-tooltip-hidden');
+        const rect = tooltipEl.getBoundingClientRect();
+        let box;
+        if (rect.width > 0 && rect.height > 0) {
+          box = {
+            left: rect.left - mapRect.left,
+            top: rect.top - mapRect.top,
+            right: rect.right - mapRect.left,
+            bottom: rect.bottom - mapRect.top
+          };
+        } else {
+          const point = zoneMap.latLngToContainerPoint(marker.getLatLng());
+          const fallbackTop = point.y - (SOLD_TAG_ESTIMATED_HEIGHT / 2);
+          box = {
+            left: point.x + SOLD_TAG_OFFSET_X,
+            top: fallbackTop,
+            right: point.x + SOLD_TAG_OFFSET_X + SOLD_TAG_ESTIMATED_WIDTH,
+            bottom: fallbackTop + SOLD_TAG_ESTIMATED_HEIGHT
+          };
+        }
+
+        const shouldHide = marker.address !== selectedAddress && shouldHideSoldTagForCollision(box, placedBoxes);
+        tooltipEl.classList.toggle('sold-status-tooltip-hidden', shouldHide);
+        if (!shouldHide) {
+          placedBoxes.push(box);
+        }
+      });
     }
 
     // Recolor all markers based on current color mode
@@ -8505,6 +8650,8 @@
           marker.setIcon(getDefaultMarkerIcon(isSelected));
         }
       });
+
+      scheduleSoldTagVisibilityUpdate(0);
     }
 
     // Show color legend
@@ -8523,7 +8670,7 @@
             <span>Contacted</span>
           </div>
           <div class="map-color-key-legend-item map-color-key-legend-item-last">
-            <div class="map-color-key-swatch" style="background: ${colorPalette['dusty-mauve']}"></div>
+            <div class="map-color-key-swatch" style="background: ${colorPalette['ash-grey']}"></div>
             <span>Not Contacted</span>
           </div>
         `;
@@ -8610,7 +8757,7 @@
                 <span style="font-size: 0.7rem;">Contacted</span>
               </div>
               <div style="display: flex; align-items: center;">
-                <div style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPalette['dusty-mauve']}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
+                <div style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPalette['ash-grey']}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
                 <span style="font-size: 0.7rem;">Not Contacted</span>
               </div>
             `;
@@ -9201,6 +9348,14 @@
       if (zoneMap && zoneMap.getZoom() < ZONE_MAP_MIN_ZOOM) zoneMap.setZoom(ZONE_MAP_MIN_ZOOM);
     }
 
+    function ensureSoldTagPane() {
+      if (!zoneMap) return;
+      const pane = zoneMap.getPane(SOLD_TAG_PANE) || zoneMap.createPane(SOLD_TAG_PANE);
+      // Keep SOLD tags under marker dots so connector appears behind the pin center.
+      pane.style.zIndex = '590';
+      pane.style.pointerEvents = 'none';
+    }
+
     // Initialize Leaflet map
     function initializeMap() {
       const mapDiv = document.getElementById('zoneMap');
@@ -9213,6 +9368,7 @@
         try {
           // Default center (Altadena, CA - adjust as needed)
           zoneMap = L.map('zoneMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 16);
+          ensureSoldTagPane();
           
           // Add CartoDB Voyager tiles (warm, colorful with labels)
           currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -9227,6 +9383,11 @@
             datasetOverlayLabelRefreshHandler = () => refreshDatasetOverlayOnZoom();
             zoneMap.on('zoomend', datasetOverlayLabelRefreshHandler);
             zoneMap.on('moveend', datasetOverlayLabelRefreshHandler);
+          }
+          if (!soldTagRefreshHandler) {
+            soldTagRefreshHandler = () => scheduleSoldTagVisibilityUpdate(0);
+            zoneMap.on('zoomend', soldTagRefreshHandler);
+            zoneMap.on('moveend', soldTagRefreshHandler);
           }
           
           // Don't create color filter control here - it will be created via ensureColorFilterControl()
@@ -9255,6 +9416,7 @@
           console.error('Error initializing map:', error);
         }
       } else {
+        ensureSoldTagPane();
         // If map already exists, invalidate size in case container changed
         // Only invalidate if container is visible
         setTimeout(() => {
@@ -9291,8 +9453,8 @@
         return;
       }
 
-      // Keep the mini map simple: default to Damage Status.
-      homeColorMode = 'damage';
+      // Keep the mini map simple: no color-by mode.
+      homeColorMode = null;
       
       if (!homeMap) {
         try {
@@ -9387,7 +9549,7 @@
         homeColorFilterControl = null;
       }
 
-      showHomeColorLegend('damage');
+      hideHomeColorLegend();
       
       // Load zone boundary on home map (Mapbox or KML) with delay to ensure map is ready
       if (zoneKmlUrl || (isMapboxEnabled() && currentZoneName)) {
@@ -9461,12 +9623,10 @@
         if (color) {
           icon = createColoredMarkerIcon(color, false, true);  // smallSize = true for home map
         } else {
-          // Fallback to default teal
-          icon = getDefaultMarkerIcon(false, true);
+          icon = createColoredMarkerIcon(DEFAULT_MARKER_COLOR, false, true);
         }
       } else {
-        // Default teal marker
-        icon = getDefaultMarkerIcon(false, true);
+        icon = createColoredMarkerIcon(DEFAULT_MARKER_COLOR, false, true);
       }
       
       const marker = L.marker([lat, lng], { icon }).addTo(homeMap);
@@ -9474,11 +9634,13 @@
       // Build popup content (same as main map)
       let popupContent = `<strong>${address}</strong>`;
       
-      // Get resident names and ages
+      // Get resident names and ages (excluding former residents)
       const nameCol = findColumn(sheetData.headers, 'resident name') || findColumn(sheetData.headers, 'name');
       const ageCol = sheetData.headers.find(h => h.toLowerCase() === 'age');
+      const formerResidentCol = findColumn(sheetData.headers, ['former', 'resident'], ['note']);
       const residents = [];
       rows.forEach(row => {
+        if (formerResidentCol && isTruthySheetCheckbox(row[formerResidentCol])) return;
         if (nameCol && row[nameCol] && row[nameCol].trim()) {
           let residentLine = row[nameCol].trim();
           // Add age if available
@@ -9532,12 +9694,10 @@
           if (color) {
             marker.setIcon(createColoredMarkerIcon(color, false, true));  // smallSize = true for home map
           } else {
-            // Fallback to default teal
-            marker.setIcon(getDefaultMarkerIcon(false, true));
+            marker.setIcon(createColoredMarkerIcon(DEFAULT_MARKER_COLOR, false, true));
           }
         } else {
-          // Default teal marker
-          marker.setIcon(getDefaultMarkerIcon(false, true));
+          marker.setIcon(createColoredMarkerIcon(DEFAULT_MARKER_COLOR, false, true));
         }
       });
     }
@@ -11671,6 +11831,7 @@
       });
       
       // Don't pan or zoom - just highlight the marker
+      scheduleSoldTagVisibilityUpdate(0);
     }
 
     // Update map markers based on filtered addresses
@@ -11830,15 +11991,31 @@
           }
           
           const marker = L.marker([lat, lon], { icon: icon }).addTo(zoneMap);
+          const soldSinceFire = getAddressSoldSinceFire(address);
+          marker.isSoldSinceFire = soldSinceFire;
+          if (soldSinceFire) {
+            marker.bindTooltip('SOLD', {
+              permanent: true,
+              direction: 'right',
+              offset: [SOLD_TAG_OFFSET_X, 0],
+              className: 'sold-status-tooltip',
+              pane: SOLD_TAG_PANE,
+              interactive: false,
+              opacity: 1
+            });
+            marker.openTooltip();
+          }
           
           // Build popup content
           let popupContent = `<strong>${address}</strong>`;
           
-          // Get resident names and ages
+          // Get resident names and ages (excluding former residents)
           const nameCol = findColumn(sheetData.headers, 'resident name') || findColumn(sheetData.headers, 'name');
           const ageCol = sheetData.headers.find(h => h.toLowerCase() === 'age');
+          const formerResidentCol = findColumn(sheetData.headers, ['former', 'resident'], ['note']);
           const residents = [];
           rows.forEach(row => {
+            if (formerResidentCol && isTruthySheetCheckbox(row[formerResidentCol])) return;
             if (nameCol && row[nameCol] && row[nameCol].trim()) {
               let residentLine = row[nameCol].trim();
               // Add age if available
@@ -11888,6 +12065,8 @@
       if (markerCount === 0) {
         return;
       }
+
+      scheduleSoldTagVisibilityUpdate(120);
       
       // Fit map to show zone bounds or markers
       // Wait for map to be properly sized before fitting bounds
@@ -12171,7 +12350,7 @@
             labels: [`Contacted (${peopleContactedPct}%)`, `Not Contacted (${peopleNotContactedPct}%)`],
             datasets: [{
               data: [peopleContacted, peopleNotContacted],
-              backgroundColor: ['#afc892', '#bc455a'],
+              backgroundColor: ['#afc892', '#e5e5e5'],
               borderWidth: 2,
               borderColor: '#fff'
             }]
@@ -12229,7 +12408,7 @@
             labels: [`Contacted (${householdsContactedPct}%)`, `Not Contacted (${householdsNotContactedPct}%)`],
             datasets: [{
               data: [householdsContactedCount, householdsNotContactedCount],
-              backgroundColor: ['#afc892', '#bc455a'],
+              backgroundColor: ['#afc892', '#e5e5e5'],
               borderWidth: 2,
               borderColor: '#fff'
             }]
@@ -13314,7 +13493,7 @@
                 labels: [`Contacted (${contactData.contacted})`, `Not Contacted (${contactData.notContacted})`],
                 datasets: [{
                   data: [contactData.contacted, contactData.notContacted],
-                  backgroundColor: ['#81bdc3', '#bc455a'],
+                  backgroundColor: ['#81bdc3', '#e5e5e5'],
                   borderWidth: 2,
                   borderColor: '#fff'
                 }]
@@ -16614,7 +16793,7 @@
                   ${escapeHtml(address)}
                   ${damage ? `<span class="zone-report-badge ${damage.toLowerCase().replace(/\s+/g, '')}">${escapeHtml(damage)}</span>` : ''}
                   ${statusDisplay ? `<span class="zone-report-badge ${statusDisplay.toLowerCase().replace(/\s+/g, '').replace(/[•\/]/g, '')}">${escapeHtml(statusDisplay)}</span>` : ''}
-                  ${isContacted ? '<span class="zone-report-badge" style="background: rgba(76, 175, 80, 0.2); color: #2e7d32;">Contacted</span>' : '<span class="zone-report-badge" style="background: rgba(244, 67, 54, 0.2); color: #b71c1c;">Uncontacted</span>'}
+                  ${isContacted ? '<span class="zone-report-badge" style="background: rgba(76, 175, 80, 0.2); color: #2e7d32;">Contacted</span>' : '<span class="zone-report-badge" style="background: rgba(229, 229, 229, 0.8); color: #4b5563;">Uncontacted</span>'}
                 </h4>
                 <table class="zone-report-table" style="font-size: 0.85rem;">
                   <tr>
@@ -17307,7 +17486,7 @@
             labels: [`Contacted (${contactedPct}%)`, `Uncontacted (${uncontactedPct}%)`],
             datasets: [{
               data: [contacted, uncontacted],
-              backgroundColor: ['#afc892', '#bc455a'],
+              backgroundColor: ['#afc892', '#e5e5e5'],
               borderWidth: 2,
               borderColor: '#fff'
             }]
@@ -17538,7 +17717,7 @@
       const builders = [
         function() { // 0: Addresses Marked Contacted
           const d = getAddressesContactedData(headers, data);
-          return { type: 'pie', data: { labels: ['Contacted (' + d.contacted + ')', 'Not Contacted (' + d.notContacted + ')'], datasets: [{ data: [d.contacted, d.notContacted], backgroundColor: ['#81bdc3', '#bc455a'], borderWidth: 2, borderColor: '#fff' }] }, options: {} };
+          return { type: 'pie', data: { labels: ['Contacted (' + d.contacted + ')', 'Not Contacted (' + d.notContacted + ')'], datasets: [{ data: [d.contacted, d.notContacted], backgroundColor: ['#81bdc3', '#e5e5e5'], borderWidth: 2, borderColor: '#fff' }] }, options: {} };
         },
         function() { // 1: Damage Status
           const d = getDamageStatusData(headers, data, addressMap);
