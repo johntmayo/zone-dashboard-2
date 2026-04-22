@@ -4712,6 +4712,50 @@
       margin: 0;
     }
 
+    #zoneMap .sold-status-tooltip {
+      background: #fff7d6;
+      border: 1px solid rgba(146, 64, 14, 0.45);
+      border-radius: 999px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
+      color: #7c2d12;
+      font-family: 'Chivo', sans-serif;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      line-height: 1;
+      margin: 0;
+      padding: 4px 7px;
+      pointer-events: none;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    #zoneMap .sold-status-tooltip .leaflet-tooltip-content {
+      margin: 0;
+    }
+
+    #zoneMap .sold-status-tooltip.leaflet-tooltip-right::before {
+      border-right-color: rgba(146, 64, 14, 0.45);
+      border-width: 4px 6px 4px 0;
+      left: -6px;
+      margin-top: -4px;
+    }
+
+    #zoneMap .sold-status-tooltip.leaflet-tooltip-right::after {
+      content: '';
+      position: absolute;
+      left: -14px;
+      top: 50%;
+      width: 8px;
+      height: 2px;
+      margin-top: -1px;
+      background: rgba(146, 64, 14, 0.6);
+    }
+
+    #zoneMap .sold-status-tooltip.sold-status-tooltip-hidden {
+      display: none;
+    }
+
     .overlay-floating-card-wrapper,
     .overlay-water-badge-wrapper {
       background: transparent;

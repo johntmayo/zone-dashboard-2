@@ -758,10 +758,10 @@
                         <div id="batchPersonMissingCols" class="hidden" style="margin-bottom:16px; padding:10px 14px; background:rgba(200,150,0,0.08); border:1px solid rgba(200,150,0,0.3); border-radius:6px; font-size:0.875rem; color:var(--text-secondary);"></div>
                         <div class="batch-tag-field-grid">
                           <div>
-                            <label style="display:block; margin-bottom:4px; font-weight:600;">Log as Contacted</label>
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Contact Status</label>
                             <select id="batchPersonContacted" class="add-record-select" style="min-width:160px;">
                               <option value="">— no change —</option>
-                              <option value="log">Log contact (today's date)</option>
+                              <option value="log">Mark as contacted</option>
                               <option value="clear">Clear contact date</option>
                             </select>
                           </div>
@@ -1178,6 +1178,12 @@
     let homeColorLegendControl = null; // Color legend control instance for home map
     let colorFilterWatchdog = null; // Interval ID for watching control
     let isHomeSatelliteMode = false; // Track satellite mode for homepage
+    let soldTagRefreshHandler = null; // Map event handler for sold tag visibility/collision refresh
+    let soldTagRefreshTimer = null; // Debounce timer for sold tag refresh
+    const SOLD_TAG_MIN_ZOOM = 16; // Show sold labels as soon as map is at normal working zoom
+    const SOLD_TAG_ESTIMATED_WIDTH = 52;
+    const SOLD_TAG_ESTIMATED_HEIGHT = 20;
+    const SOLD_TAG_COLLISION_OVERLAP_THRESHOLD = 0.72; // Higher threshold keeps more labels visible
     let zoneKmlUrl = ''; // Zone KML URL from metadata
     let metadataSheetId = null; // Sheet ID for metadata sheet
     let autoSaveTimer = null; // Timer for debounced auto-save
@@ -3393,7 +3399,7 @@
       displayAddressTable();
     }
 
-    // Navigate to Batch Tagging with Person tab + Not Contacted filter preset
+    // Navigate to Batch Tagging and open Person tab
     function navigateToBatchTaggingNotContactedPeople() {
       switchView('tools');
 
@@ -3412,7 +3418,8 @@
 
         const contactFilter = document.getElementById('batchTagContactFilter');
         if (contactFilter) {
-          contactFilter.value = 'not_contacted';
+          // Open with a neutral filter so users can choose their own status view.
+          contactFilter.value = 'all';
           contactFilter.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
@@ -8319,7 +8326,6 @@
 
     // Default marker colors (using our palette)
     const DEFAULT_MARKER_COLOR = '#347072';  // Teal - matches our accent
-    const HOME_DEFAULT_MARKER_COLOR = '#1E3A8A'; // Navy for calm home mini-map
     const SELECTED_MARKER_COLOR = '#BC5838'; // Clay - stands out when selected
     
     // Create colored marker icon using SVG (circle style with zine shadow)
@@ -8485,6 +8491,107 @@
       return null;
     }
 
+    function isSoldSinceFireValue(value) {
+      const normalized = String(value || '').trim().toLowerCase();
+      if (!normalized || normalized === '—' || normalized === '-') return false;
+      if (['no', 'n', 'false', '0', 'none', 'not sold', 'unsold'].includes(normalized)) return false;
+      return true;
+    }
+
+    function getAddressSoldSinceFire(address) {
+      if (!sheetData || !sheetData.headers || !sheetData.addressMap) return false;
+      const soldSinceFireCol = sheetData.headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
+      if (!soldSinceFireCol) return false;
+      const rows = sheetData.addressMap.get(address);
+      if (!rows || rows.length === 0) return false;
+      return rows.some(row => isSoldSinceFireValue(row[soldSinceFireCol]));
+    }
+
+    function getOverlapArea(boxA, boxB) {
+      const left = Math.max(boxA.left, boxB.left);
+      const top = Math.max(boxA.top, boxB.top);
+      const right = Math.min(boxA.right, boxB.right);
+      const bottom = Math.min(boxA.bottom, boxB.bottom);
+      if (right <= left || bottom <= top) return 0;
+      return (right - left) * (bottom - top);
+    }
+
+    function shouldHideSoldTagForCollision(candidateBox, placedBoxes) {
+      const candidateArea = Math.max(1, (candidateBox.right - candidateBox.left) * (candidateBox.bottom - candidateBox.top));
+      return placedBoxes.some(existingBox => {
+        const overlapArea = getOverlapArea(candidateBox, existingBox);
+        if (!overlapArea) return false;
+        const existingArea = Math.max(1, (existingBox.right - existingBox.left) * (existingBox.bottom - existingBox.top));
+        const overlapRatio = overlapArea / Math.min(candidateArea, existingArea);
+        return overlapRatio >= SOLD_TAG_COLLISION_OVERLAP_THRESHOLD;
+      });
+    }
+
+    function scheduleSoldTagVisibilityUpdate(delayMs = 0) {
+      if (soldTagRefreshTimer) {
+        clearTimeout(soldTagRefreshTimer);
+      }
+      soldTagRefreshTimer = setTimeout(() => {
+        soldTagRefreshTimer = null;
+        updateSoldTagVisibility();
+      }, Math.max(0, delayMs));
+    }
+
+    function updateSoldTagVisibility() {
+      if (!zoneMap || !Array.isArray(addressMarkers) || addressMarkers.length === 0) return;
+      const showLabels = zoneMap.getZoom() >= SOLD_TAG_MIN_ZOOM;
+      const mapRect = zoneMap.getContainer().getBoundingClientRect();
+      const soldEntries = [];
+
+      addressMarkers.forEach(marker => {
+        if (!marker || !marker.isSoldSinceFire) return;
+        const tooltip = marker.getTooltip ? marker.getTooltip() : null;
+        if (!tooltip) return;
+        marker.openTooltip();
+        const tooltipEl = tooltip.getElement ? tooltip.getElement() : null;
+        if (!tooltipEl) return;
+        tooltipEl.classList.toggle('sold-status-tooltip-hidden', !showLabels);
+        if (showLabels) soldEntries.push({ marker, tooltipEl });
+      });
+
+      if (!showLabels || soldEntries.length === 0) return;
+
+      soldEntries.sort((a, b) => {
+        const aSelected = selectedAddress && a.marker.address === selectedAddress ? 1 : 0;
+        const bSelected = selectedAddress && b.marker.address === selectedAddress ? 1 : 0;
+        return bSelected - aSelected;
+      });
+
+      const placedBoxes = [];
+      soldEntries.forEach(({ marker, tooltipEl }) => {
+        tooltipEl.classList.remove('sold-status-tooltip-hidden');
+        const rect = tooltipEl.getBoundingClientRect();
+        let box;
+        if (rect.width > 0 && rect.height > 0) {
+          box = {
+            left: rect.left - mapRect.left,
+            top: rect.top - mapRect.top,
+            right: rect.right - mapRect.left,
+            bottom: rect.bottom - mapRect.top
+          };
+        } else {
+          const point = zoneMap.latLngToContainerPoint(marker.getLatLng());
+          box = {
+            left: point.x + 16,
+            top: point.y - SOLD_TAG_ESTIMATED_HEIGHT - 10,
+            right: point.x + 16 + SOLD_TAG_ESTIMATED_WIDTH,
+            bottom: point.y - 10
+          };
+        }
+
+        const shouldHide = marker.address !== selectedAddress && shouldHideSoldTagForCollision(box, placedBoxes);
+        tooltipEl.classList.toggle('sold-status-tooltip-hidden', shouldHide);
+        if (!shouldHide) {
+          placedBoxes.push(box);
+        }
+      });
+    }
+
     // Recolor all markers based on current color mode
     function recolorMarkers() {
       if (!addressMarkers || !zoneMap) return;
@@ -8506,6 +8613,8 @@
           marker.setIcon(getDefaultMarkerIcon(isSelected));
         }
       });
+
+      scheduleSoldTagVisibilityUpdate(0);
     }
 
     // Show color legend
@@ -9229,6 +9338,11 @@
             zoneMap.on('zoomend', datasetOverlayLabelRefreshHandler);
             zoneMap.on('moveend', datasetOverlayLabelRefreshHandler);
           }
+          if (!soldTagRefreshHandler) {
+            soldTagRefreshHandler = () => scheduleSoldTagVisibilityUpdate(0);
+            zoneMap.on('zoomend', soldTagRefreshHandler);
+            zoneMap.on('moveend', soldTagRefreshHandler);
+          }
           
           // Don't create color filter control here - it will be created via ensureColorFilterControl()
           // after the map container is visible and ready
@@ -9462,10 +9576,10 @@
         if (color) {
           icon = createColoredMarkerIcon(color, false, true);  // smallSize = true for home map
         } else {
-          icon = createColoredMarkerIcon(HOME_DEFAULT_MARKER_COLOR, false, true);
+          icon = createColoredMarkerIcon(DEFAULT_MARKER_COLOR, false, true);
         }
       } else {
-        icon = createColoredMarkerIcon(HOME_DEFAULT_MARKER_COLOR, false, true);
+        icon = createColoredMarkerIcon(DEFAULT_MARKER_COLOR, false, true);
       }
       
       const marker = L.marker([lat, lng], { icon }).addTo(homeMap);
@@ -9531,10 +9645,10 @@
           if (color) {
             marker.setIcon(createColoredMarkerIcon(color, false, true));  // smallSize = true for home map
           } else {
-            marker.setIcon(createColoredMarkerIcon(HOME_DEFAULT_MARKER_COLOR, false, true));
+            marker.setIcon(createColoredMarkerIcon(DEFAULT_MARKER_COLOR, false, true));
           }
         } else {
-          marker.setIcon(createColoredMarkerIcon(HOME_DEFAULT_MARKER_COLOR, false, true));
+          marker.setIcon(createColoredMarkerIcon(DEFAULT_MARKER_COLOR, false, true));
         }
       });
     }
@@ -11668,6 +11782,7 @@
       });
       
       // Don't pan or zoom - just highlight the marker
+      scheduleSoldTagVisibilityUpdate(0);
     }
 
     // Update map markers based on filtered addresses
@@ -11827,6 +11942,19 @@
           }
           
           const marker = L.marker([lat, lon], { icon: icon }).addTo(zoneMap);
+          const soldSinceFire = getAddressSoldSinceFire(address);
+          marker.isSoldSinceFire = soldSinceFire;
+          if (soldSinceFire) {
+            marker.bindTooltip('SOLD', {
+              permanent: true,
+              direction: 'right',
+              offset: [16, -10],
+              className: 'sold-status-tooltip',
+              interactive: false,
+              opacity: 1
+            });
+            marker.openTooltip();
+          }
           
           // Build popup content
           let popupContent = `<strong>${address}</strong>`;
@@ -11885,6 +12013,8 @@
       if (markerCount === 0) {
         return;
       }
+
+      scheduleSoldTagVisibilityUpdate(120);
       
       // Fit map to show zone bounds or markers
       // Wait for map to be properly sized before fitting bounds
