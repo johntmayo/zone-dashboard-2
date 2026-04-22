@@ -6393,11 +6393,17 @@
 
       let html = `
         <div class="details-toolbar">
-          <button class="btn-back" onclick="displayAddressList(Array.from(sheetData.addressMap.keys()).sort())">← Back to List</button>
+          <div class="details-toolbar__row">
+            <button class="btn-back" onclick="displayAddressList(Array.from(sheetData.addressMap.keys()).sort())">← Back to List</button>
+            ${accessToken ? `
+              <div class="details-toolbar__actions">
+                <button class="btn-save btn-save-small" id="saveChangesBtnTop">Save Changes</button>
+                <button class="btn-refresh-small" id="refreshBtnTop" title="Refresh addresses now">↻</button>
+              </div>
+            ` : ''}
+          </div>
           ${accessToken ? `
-            <div class="details-toolbar__actions">
-              <button class="btn-save btn-save-small" id="saveChangesBtnTop">Save Changes</button>
-              <button class="btn-refresh-small" id="refreshBtnTop" title="Refresh addresses now">↻</button>
+            <div class="details-toolbar__status-slot" aria-live="polite">
               <span class="save-status save-status-top details-toolbar__status" id="saveStatusTop"></span>
             </div>
           ` : ''}

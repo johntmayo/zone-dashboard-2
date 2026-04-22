@@ -6832,32 +6832,180 @@
   box-shadow: none;
 }
 
-/* Toolbar: plain row of panel-wide actions — no box, no shout */
+/* ─────────────────────────────────────────────────────────────
+   Unified typography system for the Details Panel.
+
+   One typeface (Chivo) governs all chrome, labels, values,
+   metadata, buttons, and status text. This replaces the mixed
+   serif/sans inheritance that was making Home/Cell/Email, quick
+   tag labels, and other elements feel like they came from
+   different design systems.
+
+   Serif is intentionally NOT used inside the details panel so
+   labels, values, and checkbox text all read as one coherent,
+   case-management-oriented system.
+
+   Hierarchy:
+     T1  Section title (Address, person name)  1.0–1.05rem / 700
+     T2  Section divider label                  0.75rem / 600 / muted
+     T3  Subtitle / metadata                    0.74–0.78rem / 400 / muted
+     T4  Field label (Home, Cell, Email, etc.)  0.76rem / 600 / muted
+     T5  Data value                             0.88rem / 500 / primary
+     T6  Checkbox / tag item name               0.85rem / 500 / primary
+     T7  Button text                            0.82rem / 600–700
+     T8  Status text                            0.72rem / 500 / muted
+   ───────────────────────────────────────────────────────────── */
+
+.address-details,
+.address-details input,
+.address-details button,
+.address-details textarea,
+.address-details select,
+.address-details label,
+.address-details p,
+.address-details span,
+.address-details div,
+.address-details strong,
+.address-details em,
+.address-details summary,
+.address-details details {
+  font-family: 'Chivo', sans-serif;
+}
+
+/* T5 — default data/value treatment across the panel */
+.address-details {
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+/* T4 — ALL field labels share one treatment.
+   Covers: Home, Cell, Email, Sales history, Damage, Address Plan,
+   person-level fields, contact labels, and the subtitle strong.
+   This replaces the old divergence where Home/Cell were 500-weight
+   serif-inherited while Email was 600-weight Chivo. */
+.address-details .person-info > strong,
+.address-details .person-info-inline .person-info-item > strong,
+.address-details .person-card__contact strong,
+.address-details .details-section__body .person-info > strong {
+  font-family: 'Chivo', sans-serif;
+  font-weight: 600;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+/* T6 — Checkbox / tag labels are item NAMES, not micro-labels.
+   Upgrade their appearance so they read as body-level tag names
+   (Renter / Needs Follow-Up / Unable to reach / For sale, etc.)
+   instead of tiny muted labels. */
+.address-details .person-info label > strong,
+.address-details .address-tags-section label > strong,
+.address-details label .editable-checkbox + strong {
+  font-family: 'Chivo', sans-serif;
+  font-weight: 500;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Baseline .person-info container treatment — unified values */
+.address-details .person-info,
+.address-details .person-info-inline .person-info-item {
+  font-family: 'Chivo', sans-serif;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+/* Ensure the interactive value (jump-to-modal button inside contact rows)
+   reads as plain data text, not as a generic link. */
+.address-details .person-modal-jump {
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+/* Toolbar: 2-row layout — buttons row + reserved status row.
+   The status slot is ALWAYS present with min-height so button positions
+   stay locked regardless of save state (idle / saving / auto-saving / etc). */
 .details-toolbar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 0 0 12px;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 14px;
   padding: 0;
   background: transparent;
   border: 0;
   border-radius: 0;
-  flex-wrap: wrap;
+}
+
+.details-toolbar__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .details-toolbar__actions {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
-.details-toolbar__status {
-  min-height: 14px;
+.details-toolbar__status-slot {
+  min-height: 16px;
+  line-height: 1.2;
+  text-align: right;
+  padding: 0 2px;
+  font-family: 'Chivo', sans-serif;
   font-size: 0.72rem;
+  font-weight: 500;
   color: var(--text-secondary);
-  margin-left: 4px;
+  letter-spacing: 0.01em;
+}
+
+/* Strip any legacy save-status block styling inside the toolbar slot so it
+   stays a calm inline string of text (no pill, no background, no border). */
+.details-toolbar__status-slot .save-status,
+.details-toolbar__status-slot .save-status.save-status-top,
+.details-toolbar__status-slot .details-toolbar__status {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  min-height: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  vertical-align: baseline;
+}
+
+/* Keep success/error/warning color signaling (text color only, no chip). */
+.details-toolbar__status-slot .save-status.success {
+  color: #2e7d32;
+}
+.details-toolbar__status-slot .save-status.error {
+  color: #b23b1a;
+}
+.details-toolbar__status-slot .save-status.warning {
+  color: #a36a00;
 }
 
 .details-toolbar .btn-back {
@@ -7055,26 +7203,30 @@
   content: '−';
 }
 
-/* Person card: lighter border, tighter padding, less shadow */
+/* Person card: slightly stronger delineation so stacked cards parse at a
+   glance, but still soft enough not to feel boxed-in. Changes vs prior pass:
+   - border alpha bumped 0.10 → 0.14 (clearer separation)
+   - card-to-card margin 10 → 14 (more breathing room between units)
+   - shadow kept very subtle */
 .address-details .person-entry {
   background: #ffffff;
-  border: 1px solid rgba(31, 41, 55, 0.1);
-  border-top: 1px solid rgba(31, 41, 55, 0.1);
+  border: 1px solid rgba(31, 41, 55, 0.14);
+  border-top: 1px solid rgba(31, 41, 55, 0.14);
   border-radius: 10px;
-  padding: 12px 14px;
-  margin: 0 0 10px;
-  box-shadow: 0 1px 1px rgba(31, 41, 55, 0.03);
+  padding: 12px 14px 14px;
+  margin: 0 0 14px;
+  box-shadow: 0 1px 2px rgba(31, 41, 55, 0.04);
 }
 
 .address-details .person-entry:last-of-type {
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
-/* Card header: keep the one divider that demarcates header from body,
-   but make it very faint so it's a hint, not a line */
+/* Card header: keep the hairline that demarcates header from body,
+   slightly strengthened so the header reads as a clear zone. */
 .address-details .person-entry-head {
   padding-bottom: 8px;
-  border-bottom: 1px solid rgba(31, 41, 55, 0.06);
+  border-bottom: 1px solid rgba(31, 41, 55, 0.08);
   margin-bottom: 0;
   align-items: center;
   column-gap: 10px;
