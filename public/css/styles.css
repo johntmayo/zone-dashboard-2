@@ -4576,6 +4576,9 @@
     .color-legend-control {
       margin-top: 10px;
       padding: 12px 14px;
+      width: fit-content;
+      min-width: 0;
+      max-width: 165px;
     }
 
     .map-layers-control {
