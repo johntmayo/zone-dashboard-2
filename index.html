@@ -3154,7 +3154,7 @@
 
     // Check if an address has any contacted people
     function isAddressContacted(address) {
-      const contactDateCol = findColumn(sheetData.headers, ['contact', 'date']);
+      const contactDateCol = findOutreachDateColumn(sheetData.headers);
       if (!contactDateCol) return false;
       
       const rows = sheetData.addressMap.get(address);
@@ -4274,8 +4274,8 @@
       const followUpCol = headers.find(h => /follow\s*up|needs\s*follow/i.test(h));
       const unableToReachCol = headers.find(h => /unable\s*to\s*reach/i.test(h));
       const personNotesCol = headers.find(h => /person\s*note/i.test(h));
-      const contactDateCol = findColumn(headers, ['contact', 'date']) || findColumn(headers, ['last', 'contact']);
-      const contactNotesCol = headers.find(h => /contact\s*note/i.test(h));
+      const contactDateCol = findOutreachDateColumn(headers);
+      const contactNotesCol = findOutreachLogColumn(headers);
       const formerResidentCol = findColumn(headers, ['former', 'resident'], ['note']);
       const deceasedCol = headers.find(h => /^deceased$/i.test(h) || /deceased/i.test(h));
       const zoneDefaults = getAddRecordZoneDefaults(headers, zoneCol);
@@ -4817,7 +4817,7 @@
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
-      const contactDateCol = findColumn(headers, ['contact', 'date']);
+      const contactDateCol = findOutreachDateColumn(headers);
 
       const streets = getUniqueStreets(addresses);
       const damages = getFullDamageOptions();
@@ -5076,7 +5076,7 @@
       const ageCol = headers.find(h => h.toLowerCase() === 'age');
       const phoneCol = findColumn(headers, 'phone', ['nc']);
       const emailCol = findColumn(headers, 'email');
-      const contactDateCol = findColumn(headers, ['contact', 'date']);
+      const contactDateCol = findOutreachDateColumn(headers);
       
       // Get unique values for filters
       const streets = getUniqueStreets(addresses);
@@ -5508,7 +5508,7 @@
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
-      const contactDateCol = findColumn(headers, ['contact', 'date']);
+      const contactDateCol = findOutreachDateColumn(headers);
       const captainAssignedCol = findColumn(headers, 'captain assigned');
       
       return addresses.filter(addr => {
@@ -5936,7 +5936,7 @@
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
-      const contactDateCol = findColumn(headers, ['contact', 'date']);
+      const contactDateCol = findOutreachDateColumn(headers);
       
       // Build CSV headers
       const csvHeaders = ['Address', 'Name'];
@@ -6023,7 +6023,7 @@
       // Filter addresses by all selected filters (same logic as displayAddressTable)
       const headers = sheetData.headers;
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
-      const contactDateCol = findColumn(headers, ['contact', 'date']);
+      const contactDateCol = findOutreachDateColumn(headers);
       
       const filteredAddresses = addresses.filter(addr => {
         // Street filter
@@ -7559,8 +7559,8 @@
       const cellCol = headers.find(h => /cell|mobile/i.test(h));
       const emailCol = headers.find(h => /email\s*address/i.test(h)) || headers.find(h => /^email$/i.test(h));
       const personNotesCol = headers.find(h => /person\s*note/i.test(h));
-      const contactDateCol = findColumn(headers, ['contact', 'date']) || findColumn(headers, ['last', 'contact']);
-      const contactNotesCol = headers.find(h => /contact\s*note/i.test(h));
+      const contactDateCol = findOutreachDateColumn(headers);
+      const contactNotesCol = findOutreachLogColumn(headers);
       const formerResidentCol = findColumn(headers, ['former', 'resident'], ['note']);
       const formerResidentNotesCol = findColumn(headers, ['former', 'resident', 'note']);
       const deceasedCol = findColumn(headers, 'deceased');
@@ -12131,7 +12131,7 @@
       // Get filtered addresses (same logic as displayAddressTable)
       const addresses = Array.from(sheetData.addressMap.keys());
       const headers = sheetData.headers;
-      const contactDateCol = findColumn(headers, ['contact', 'date']);
+      const contactDateCol = findOutreachDateColumn(headers);
       const filteredAddresses = addresses.filter(address => {
         // Street filter
         if (currentStreetFilter !== 'all') {

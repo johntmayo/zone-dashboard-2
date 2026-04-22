@@ -388,6 +388,49 @@ function findColumn(headers, keywords, excludeKeywords = []) {
 }
 
 /**
+ * Find the "Last Outreach Attempt Date" column, accepting both the legacy
+ * "Last Contact Date" naming and the current "Last Outreach Attempt Date"
+ * naming (plus common variations) so the app keeps working regardless of
+ * which header text the spreadsheet is currently using.
+ *
+ * @param {string[]} headers - Array of header row values
+ * @returns {string|null} Matching header string, or null
+ */
+function findOutreachDateColumn(headers) {
+  if (!headers || !Array.isArray(headers)) return null;
+  return (
+    findColumn(headers, ['last', 'outreach', 'date']) ||
+    findColumn(headers, ['outreach', 'attempt', 'date']) ||
+    findColumn(headers, ['last', 'outreach']) ||
+    findColumn(headers, ['outreach', 'date']) ||
+    findColumn(headers, ['last', 'contact', 'date']) ||
+    findColumn(headers, ['contact', 'date']) ||
+    findColumn(headers, ['last', 'contact']) ||
+    null
+  );
+}
+
+/**
+ * Find the "Outreach Log" column, accepting both the legacy "Contact Notes"
+ * naming and the current "Outreach Log" naming (plus common variations).
+ *
+ * @param {string[]} headers - Array of header row values
+ * @returns {string|null} Matching header string, or null
+ */
+function findOutreachLogColumn(headers) {
+  if (!headers || !Array.isArray(headers)) return null;
+  return headers.find(h => {
+    const lower = (h || '').toLowerCase();
+    return (
+      /outreach\s*log/.test(lower) ||
+      /outreach\s*note/.test(lower) ||
+      /contact\s*log/.test(lower) ||
+      /contact\s*note/.test(lower)
+    );
+  }) || null;
+}
+
+/**
  * Show an element by removing hidden class or setting display style
  * @param {string|HTMLElement} element - Element ID or element reference
  * @param {string} displayType - Display type: 'block', 'flex', 'inline' (default: 'block')
