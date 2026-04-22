@@ -6297,6 +6297,13 @@
         'for sale',
         'recently sold',
         'sold since fire',
+        'sale date',
+        'sale price',
+        'new owner',
+        'lot square feet',
+        'lot sqft',
+        'lot sq ft',
+        'sales history',
         'unit type',
         'former resident',
         'deceased'
@@ -6569,6 +6576,26 @@
             }
           }
         });
+
+        const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
+        const salesHistoryCol = headers.find(h => /sales?\s*history/i.test(h));
+        const soldSinceFireVal = soldSinceFireCol && rows[0] ? (rows[0][soldSinceFireCol] || '') : '';
+        const isSoldSinceFireAddress = soldSinceFireCol ? isTruthySheetCheckbox(soldSinceFireVal) : false;
+        const salesHistoryValue = salesHistoryCol && rows[0] ? String(rows[0][salesHistoryCol] || '').trim() : '';
+        if (isSoldSinceFireAddress && salesHistoryCol) {
+          if (accessToken) {
+            html += `<div class="person-info" style="margin-top:12px;">
+              <strong>Sales History:</strong>
+              <textarea class="editable-notes"
+                   data-address="${address.replace(/"/g, '&quot;')}"
+                   data-address-level="true"
+                   data-column="${salesHistoryCol}"
+                   data-original-value="${salesHistoryValue.replace(/"/g, '&quot;')}">${salesHistoryValue}</textarea>
+            </div>`;
+          } else {
+            html += `<div class="person-info" style="margin-top:12px;"><strong>Sales History:</strong> ${salesHistoryValue || '(not set)'}</div>`;
+          }
+        }
 
         // Address Tags: expandable section (collapsed by default) - Unit Type, For Sale, Sold Since Fire
         const unitTypeCol = findColumn(headers, ['unit', 'type']);
@@ -7380,6 +7407,13 @@
         'for sale',
         'recently sold',
         'sold since fire',
+        'sale date',
+        'sale price',
+        'new owner',
+        'lot square feet',
+        'lot sqft',
+        'lot sq ft',
+        'sales history',
         'unit type'
       ];
       const isHouseOrZipField = (lower) => {
