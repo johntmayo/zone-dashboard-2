@@ -6917,7 +6917,6 @@
           // Skip fields already rendered or that should be skipped
           if (renderedFields.has(col)) return;
           if (col.toLowerCase().includes('resident name')) return;
-          if (isContactMode && (col.toLowerCase().includes('contact') && col.toLowerCase().includes('note'))) return;
           // Defer notes to render last (after Person Tags)
           const isNotes = col.toLowerCase().includes('note');
           if (isNotes) {
