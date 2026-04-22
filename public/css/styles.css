@@ -5213,6 +5213,31 @@
       align-items: stretch;
     }
 
+    /* Keep top details controls visually uniform without changing global buttons */
+    .details-toolbar .btn-back,
+    .details-toolbar .btn-save-small,
+    .details-toolbar .btn-refresh-small {
+      height: 42px;
+      margin: 0;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      align-self: center;
+    }
+
+    .details-toolbar .btn-save-small {
+      min-width: 176px;
+      padding-left: 18px;
+      padding-right: 18px;
+    }
+
+    .details-toolbar .btn-refresh-small {
+      width: 42px;
+      min-width: 42px;
+    }
+
     .bottom-row {
       display: flex;
       gap: 16px;
