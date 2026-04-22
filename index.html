@@ -1181,6 +1181,7 @@
     let soldTagRefreshHandler = null; // Map event handler for sold tag visibility/collision refresh
     let soldTagRefreshTimer = null; // Debounce timer for sold tag refresh
     const SOLD_TAG_MIN_ZOOM = 16; // Show sold labels as soon as map is at normal working zoom
+    const SOLD_TAG_PANE = 'soldTagPane';
     const SOLD_TAG_OFFSET_X = 18;
     const SOLD_TAG_ESTIMATED_WIDTH = 52;
     const SOLD_TAG_ESTIMATED_HEIGHT = 20;
@@ -9313,6 +9314,14 @@
       if (zoneMap && zoneMap.getZoom() < ZONE_MAP_MIN_ZOOM) zoneMap.setZoom(ZONE_MAP_MIN_ZOOM);
     }
 
+    function ensureSoldTagPane() {
+      if (!zoneMap) return;
+      const pane = zoneMap.getPane(SOLD_TAG_PANE) || zoneMap.createPane(SOLD_TAG_PANE);
+      // Keep SOLD tags under marker dots so connector appears behind the pin center.
+      pane.style.zIndex = '590';
+      pane.style.pointerEvents = 'none';
+    }
+
     // Initialize Leaflet map
     function initializeMap() {
       const mapDiv = document.getElementById('zoneMap');
@@ -9325,6 +9334,7 @@
         try {
           // Default center (Altadena, CA - adjust as needed)
           zoneMap = L.map('zoneMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 16);
+          ensureSoldTagPane();
           
           // Add CartoDB Voyager tiles (warm, colorful with labels)
           currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -9372,6 +9382,7 @@
           console.error('Error initializing map:', error);
         }
       } else {
+        ensureSoldTagPane();
         // If map already exists, invalidate size in case container changed
         // Only invalidate if container is visible
         setTimeout(() => {
@@ -11954,6 +11965,7 @@
               direction: 'right',
               offset: [SOLD_TAG_OFFSET_X, 0],
               className: 'sold-status-tooltip',
+              pane: SOLD_TAG_PANE,
               interactive: false,
               opacity: 1
             });
