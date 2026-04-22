@@ -1181,6 +1181,7 @@
     let soldTagRefreshHandler = null; // Map event handler for sold tag visibility/collision refresh
     let soldTagRefreshTimer = null; // Debounce timer for sold tag refresh
     const SOLD_TAG_MIN_ZOOM = 16; // Show sold labels as soon as map is at normal working zoom
+    const SOLD_TAG_OFFSET_X = 18;
     const SOLD_TAG_ESTIMATED_WIDTH = 52;
     const SOLD_TAG_ESTIMATED_HEIGHT = 20;
     const SOLD_TAG_COLLISION_OVERLAP_THRESHOLD = 0.72; // Higher threshold keeps more labels visible
@@ -8576,11 +8577,12 @@
           };
         } else {
           const point = zoneMap.latLngToContainerPoint(marker.getLatLng());
+          const fallbackTop = point.y - (SOLD_TAG_ESTIMATED_HEIGHT / 2);
           box = {
-            left: point.x + 16,
-            top: point.y - SOLD_TAG_ESTIMATED_HEIGHT - 10,
-            right: point.x + 16 + SOLD_TAG_ESTIMATED_WIDTH,
-            bottom: point.y - 10
+            left: point.x + SOLD_TAG_OFFSET_X,
+            top: fallbackTop,
+            right: point.x + SOLD_TAG_OFFSET_X + SOLD_TAG_ESTIMATED_WIDTH,
+            bottom: fallbackTop + SOLD_TAG_ESTIMATED_HEIGHT
           };
         }
 
@@ -9587,11 +9589,13 @@
       // Build popup content (same as main map)
       let popupContent = `<strong>${address}</strong>`;
       
-      // Get resident names and ages
+      // Get resident names and ages (excluding former residents)
       const nameCol = findColumn(sheetData.headers, 'resident name') || findColumn(sheetData.headers, 'name');
       const ageCol = sheetData.headers.find(h => h.toLowerCase() === 'age');
+      const formerResidentCol = findColumn(sheetData.headers, ['former', 'resident'], ['note']);
       const residents = [];
       rows.forEach(row => {
+        if (formerResidentCol && isTruthySheetCheckbox(row[formerResidentCol])) return;
         if (nameCol && row[nameCol] && row[nameCol].trim()) {
           let residentLine = row[nameCol].trim();
           // Add age if available
@@ -11948,7 +11952,7 @@
             marker.bindTooltip('SOLD', {
               permanent: true,
               direction: 'right',
-              offset: [16, -10],
+              offset: [SOLD_TAG_OFFSET_X, 0],
               className: 'sold-status-tooltip',
               interactive: false,
               opacity: 1
@@ -11959,11 +11963,13 @@
           // Build popup content
           let popupContent = `<strong>${address}</strong>`;
           
-          // Get resident names and ages
+          // Get resident names and ages (excluding former residents)
           const nameCol = findColumn(sheetData.headers, 'resident name') || findColumn(sheetData.headers, 'name');
           const ageCol = sheetData.headers.find(h => h.toLowerCase() === 'age');
+          const formerResidentCol = findColumn(sheetData.headers, ['former', 'resident'], ['note']);
           const residents = [];
           rows.forEach(row => {
+            if (formerResidentCol && isTruthySheetCheckbox(row[formerResidentCol])) return;
             if (nameCol && row[nameCol] && row[nameCol].trim()) {
               let residentLine = row[nameCol].trim();
               // Add age if available
