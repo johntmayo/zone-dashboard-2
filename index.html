@@ -6392,14 +6392,13 @@
       const apnValueForHeader = apnColForHeader && rows[0] ? String(rows[0][apnColForHeader] || '').trim() : '';
 
       let html = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px;">
+        <div class="details-toolbar">
           <button class="btn-back" onclick="displayAddressList(Array.from(sheetData.addressMap.keys()).sort())">← Back to List</button>
           ${accessToken ? `
-            <div style="display: flex; gap: 6px; align-items: flex-start; position: relative;">
-              <div style="display: flex; flex-direction: column; align-items: flex-end; height: 50px; justify-content: flex-start;">
-                <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 2px;">
-                  <button class="btn-save btn-save-small" id="saveChangesBtnTop" style="margin: 0; align-self: center;">Save Changes</button>
-                  <button class="btn-refresh-small" id="refreshBtnTop" title="Refresh addresses now" style="margin: 0;">↻</button>
+            <div class="details-toolbar-actions">
+              <div class="details-toolbar-buttons">
+                <button class="btn-save btn-save-small" id="saveChangesBtnTop">Save Changes</button>
+                <button class="btn-refresh-small" id="refreshBtnTop" title="Refresh addresses now">↻</button>
                 </div>
                 <span class="save-status save-status-top" id="saveStatusTop"></span>
               </div>
@@ -6792,21 +6791,32 @@
           return (lower.includes('cell') || lower.includes('mobile')) && 
                  (lower.includes('phone') || lower.includes('cell') || lower.includes('mobile'));
         });
+        const outreachDateCol = personLevelCols.find(col => {
+          const lower = col.toLowerCase();
+          return lower === 'last contact date' ||
+            lower === 'last outreach attempt date' ||
+            lower.includes('last contact') ||
+            lower.includes('last outreach') ||
+            lower.includes('contact date') ||
+            lower.includes('outreach date') ||
+            lower.includes('contacted');
+        });
         
         const renderedFields = new Set(); // Track which fields have been rendered
         if (ageCol) renderedFields.add(ageCol);
         if (genderCol) renderedFields.add(genderCol);
+        if (outreachDateCol) renderedFields.add(outreachDateCol);
         
         // Helper function to format column name for display
         const formatColumnLabel = (col) => {
           const lower = col.toLowerCase();
           if (lower.includes('home phone') || lower.includes('homephone') ||
               (lower.includes('phone') && lower.includes('home'))) {
-            return 'Home 📞';
+            return 'Home';
           }
           if ((lower.includes('cell') || lower.includes('mobile')) &&
               (lower.includes('phone') || lower.includes('cell') || lower.includes('mobile'))) {
-            return 'Cell 📞';
+            return 'Cell';
           }
           // Remove "Person - " prefix from checkbox fields; use friendly label for specific columns
           if (col.startsWith('Person - ')) {
@@ -6821,7 +6831,7 @@
 
         // Omit colon for phone labels and person-tag checkboxes (Renter, Needs Follow-Up, Unable to reach)
         const formatLabelForDisplay = (label) => {
-          if (label === 'Home 📞' || label === 'Cell 📞' || label === 'Renter' || label === 'Needs Follow-Up' || label === 'Unable to reach') return label;
+          if (label === 'Home' || label === 'Cell' || label === 'Renter' || label === 'Needs Follow-Up' || label === 'Unable to reach') return label;
           return label + ':';
         };
         
@@ -6836,7 +6846,7 @@
           const isEditable = accessToken;
           const value = row[col] || '';
           const displayLabel = formatColumnLabel(col);
-          const isContactJumpField = displayLabel === 'Home 📞' || displayLabel === 'Cell 📞' || isEmail;
+          const isContactJumpField = displayLabel === 'Home' || displayLabel === 'Cell' || isEmail;
           
           // Copy button HTML for email addresses
           const copyButton = isEmail && value.trim() ? `
@@ -6852,16 +6862,14 @@
           ` : '';
           if (isContactJumpField) {
             const hasValue = String(value || '').trim().length > 0;
-            const contactValueHtml = hasValue
-              ? `<button type="button"
-                         class="person-modal-jump"
+            const contactValueHtml = `<button type="button"
+                         class="person-modal-jump ${hasValue ? '' : 'person-modal-jump-add'}"
                          data-address="${address.replace(/"/g, '&quot;')}"
                          data-original-row-index="${originalRowIndex}"
                          data-focus-column="${col.replace(/"/g, '&quot;')}"
                          title="Open person details to edit">
-                    ${escapeHtml(String(value))}
-                 </button>`
-              : '<span class="person-modal-jump-empty">(not set)</span>';
+                    ${hasValue ? escapeHtml(String(value)) : '(add)'}
+                 </button>`;
             return `<div class="person-info${isInline ? '-item' : ''}">
                 <strong>${formatLabelForDisplay(displayLabel)}</strong>
                 ${contactValueHtml}
@@ -7690,7 +7698,7 @@
       const quickTagsHtml = quickTagCols.map(col => checkboxField(col.replace(/^Person -\s*/, ''), col)).join('');
       const modalHTML = `
         <div class="newsletter-modal-overlay" id="personDetailsModalOverlay" data-address="${escapeHtmlAttr(address)}" data-original-row-index="${originalRowIndex}">
-          <div class="newsletter-modal" style="max-width:560px;">
+          <div class="newsletter-modal person-details-modal" style="max-width:640px;">
             <button class="newsletter-modal-close" id="personDetailsModalClose">&times;</button>
             <div class="newsletter-modal-header">
               <h3 class="newsletter-modal-title">${escapeHtml(displayName)}</h3>
@@ -8202,7 +8210,7 @@
       }
       if (saveStatusTop) {
         saveStatusTop.textContent = 'Auto-saving...';
-        saveStatusTop.className = 'save-status saving';
+        saveStatusTop.className = 'save-status save-status-top saving';
       }
     }
 
@@ -8238,7 +8246,7 @@
       }
       if (saveStatusTop) {
         saveStatusTop.textContent = isAutoSave ? 'Auto-saving...' : 'Saving...';
-        saveStatusTop.className = 'save-status saving';
+        saveStatusTop.className = 'save-status save-status-top saving';
       }
 
       try {
@@ -8336,7 +8344,20 @@
         const hasUpdates = updates.length > 0 || updatesByResidentId.length > 0;
         if (!hasUpdates) {
           if (saveStatus) { saveStatus.textContent = 'No changes to save'; saveStatus.className = 'save-status'; }
+          if (saveStatusTop) { saveStatusTop.textContent = 'No changes to save'; saveStatusTop.className = 'save-status save-status-top'; }
           if (saveBtn) saveBtn.disabled = false;
+          if (isAutoSave) {
+            setTimeout(() => {
+              if (saveStatus && saveStatus.textContent === 'No changes to save') {
+                saveStatus.textContent = '';
+                saveStatus.className = 'save-status';
+              }
+              if (saveStatusTop && saveStatusTop.textContent === 'No changes to save') {
+                saveStatusTop.textContent = '';
+                saveStatusTop.className = 'save-status save-status-top';
+              }
+            }, 1500);
+          }
           return;
         }
 
@@ -8493,13 +8514,13 @@
         }
         if (saveStatusTop) {
           saveStatusTop.textContent = isAutoSave ? 'Auto-saved!' : 'Saved!';
-          saveStatusTop.className = 'save-status saved';
+          saveStatusTop.className = 'save-status save-status-top saved';
           // Clear auto-save message after 2 seconds
           if (isAutoSave) {
             setTimeout(() => {
               if (saveStatusTop && saveStatusTop.textContent === 'Auto-saved!') {
                 saveStatusTop.textContent = '';
-                saveStatusTop.className = 'save-status';
+                saveStatusTop.className = 'save-status save-status-top';
               }
             }, 2000);
           }
@@ -8526,7 +8547,7 @@
         }
         if (saveStatusTop) {
           saveStatusTop.textContent = `Error: ${error.message}`;
-          saveStatusTop.className = 'save-status error';
+          saveStatusTop.className = 'save-status save-status-top error';
         }
         // For auto-save errors, also show a console warning (less intrusive than alert)
         if (isAutoSave) {
