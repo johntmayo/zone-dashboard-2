@@ -271,7 +271,7 @@
           <li class="nav-item"><a href="#getting-started" class="active">Getting Started</a></li>
           <li class="nav-item"><a href="#using-dashboard">Using the Dashboard</a></li>
           <li class="nav-item"><a href="#map-features">Map Features</a></li>
-          <li class="nav-item"><a href="#contact-mode">Contact Mode</a></li>
+          <li class="nav-item"><a href="#outreach-logging">Outreach Logging</a></li>
           <li class="nav-item"><a href="#filters">Filters</a></li>
           <li class="nav-item"><a href="#spreadsheet">Spreadsheet Setup</a></li>
           <li class="nav-item"><a href="#troubleshooting">Troubleshooting</a></li>
@@ -331,7 +331,7 @@
             <li><strong>Home:</strong> Overview of your zone with key statistics, announcements, and quick actions</li>
             <li><strong>Map:</strong> Interactive map showing addresses in your zone with color-coded markers</li>
             <li><strong>Neighbors:</strong> Table view of all addresses and residents with sorting and export options</li>
-            <li><strong>Actions:</strong> Task-oriented view showing what needs attention (uncontacted addresses, missing data, follow-ups)</li>
+            <li><strong>Actions:</strong> Task-oriented view showing what needs attention (no-outreach-yet addresses, missing data, follow-ups)</li>
             <li><strong>Tools:</strong> Zone Analysis report generator, Flyer Creator, and community resources</li>
             <li><strong>Help:</strong> Links to documentation, Discord support, and tutorials</li>
           </ul>
@@ -363,7 +363,7 @@
           <h3>Color by (Top-Left Control)</h3>
           <p>Use the "Color by" control on the map to color markers by different criteria:</p>
           <ul>
-            <li><strong>Contact Status:</strong> Green for contacted, Red for uncontacted</li>
+            <li><strong>Outreach Status:</strong> Green for outreach attempted, Gray for no outreach yet</li>
             <li><strong>Damage Status:</strong> Different colors for each damage level</li>
             <li><strong>Captain Assigned:</strong> Colors by assigned captain (if your zone has multiple captains)</li>
           </ul>
@@ -375,29 +375,29 @@
           <p>Switch between standard map view and satellite imagery using the layer control on the map.</p>
         </section>
 
-        <section id="contact-mode">
-          <h2>Contact Mode</h2>
+        <section id="outreach-logging">
+          <h2>Outreach Logging</h2>
           
-          <p>Contact Mode enables quick contact tracking directly from the dashboard.</p>
+          <p>Outreach logging lets you track every outreach attempt directly on each person.</p>
 
-          <h3>How to Use Contact Mode</h3>
+          <h3>How to Log Outreach</h3>
           <div class="step-box">
             <ol>
-              <li>Click the <strong>📞 Contact Mode</strong> button at the top of the right panel</li>
-              <li>The button turns active (highlighted) when enabled</li>
-              <li>When viewing any address, each person now shows a <strong>"Mark as Contacted"</strong> button</li>
-              <li>Optionally add contact notes in the text field</li>
-              <li>Click "Mark as Contacted" to save:
+              <li>Open an address in the right-side details panel</li>
+              <li>For each person, click <strong>Log Outreach Attempt</strong></li>
+              <li>Optionally add a short note in the text field</li>
+              <li>Submit to save:
                 <ul>
-                  <li>Today's date to the "Last Contact Date" column</li>
-                  <li>Your notes to the "Contact Notes" column</li>
+                  <li>Today's date to the <strong>Last Outreach Attempt Date</strong> column</li>
+                  <li>A new entry appended to the <strong>Outreach Log</strong> column</li>
                 </ul>
               </li>
+              <li>Open the person modal to view or edit the full outreach log text</li>
             </ol>
           </div>
 
           <div class="note-box">
-            <strong>Tip:</strong> Contact Mode stays on until you click the button again to toggle it off.
+            <strong>Tip:</strong> "Outreach attempted" includes calls, texts, voicemails, emails, and door knocks - even if you don't get a response.
           </div>
         </section>
 
@@ -414,7 +414,7 @@
             <li><strong>Rebuild Status:</strong> Filter by rebuild stage (if your spreadsheet has this column)</li>
             <li><strong>Captain:</strong> Filter by assigned captain (if your zone has multiple captains)</li>
             <li><strong>Search Person:</strong> Filter addresses by resident name using a partial match</li>
-            <li><strong>Contact Status:</strong> Checkboxes to show or hide contacted/uncontacted addresses</li>
+            <li><strong>Outreach Status:</strong> Checkboxes to show or hide outreach-attempted/no-outreach-yet addresses</li>
           </ul>
           
           <p>Filters apply to both the map markers and the address list simultaneously.</p>
@@ -438,8 +438,8 @@
             <li><strong>Damage:</strong> Damage status (e.g., Total Loss, Partial, Standing)</li>
             <li><strong>Address Plan:</strong> E.g., Undecided, Rebuilding, Selling</li>
             <li><strong>Rebuild Status:</strong> Current rebuild stage</li>
-            <li><strong>Last Contact Date:</strong> Filled automatically by Contact Mode</li>
-            <li><strong>Contact Notes:</strong> Notes from contact attempts</li>
+            <li><strong>Last Outreach Attempt Date:</strong> Filled when you log outreach</li>
+            <li><strong>Outreach Log:</strong> Running notes from outreach attempts</li>
             <li><strong>Follow Up:</strong> Yes/No for follow-up needed</li>
             <li><strong>Latitude / Longitude:</strong> For precise map placement</li>
           </ul>
@@ -496,8 +496,8 @@
         <section id="tips">
           <h2>Tips</h2>
           <ul>
-            <li>Use the <strong>Color by</strong> feature on the map to quickly visualize contact status or damage distribution</li>
-            <li>Use <strong>Contact Mode</strong> to efficiently track when you've contacted residents</li>
+            <li>Use the <strong>Color by</strong> feature on the map to quickly visualize outreach status or damage distribution</li>
+            <li>Use per-person <strong>Log Outreach Attempt</strong> to quickly track outreach coverage</li>
             <li>Your spreadsheet URL is saved automatically - it will be remembered for next time</li>
             <li>Changes are auto-saved, but you can also click "Save Changes" to save immediately</li>
             <li>Use the <strong>Zone Analysis</strong> tool to generate comprehensive PDF reports</li>

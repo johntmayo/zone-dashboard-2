@@ -2182,59 +2182,182 @@
       margin-left: 8px;
     }
 
-    .contact-button {
-      padding: 6px 12px;
-      background: var(--primary);
-      border: 1px solid var(--primary-dark);
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.85rem;
+    .person-entry-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+      column-gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .person-head-main {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .person-age-gender {
+      color: var(--text-secondary);
+      font-family: 'Merriweather', serif;
+      font-size: 14px;
       font-weight: 500;
-      color: var(--light-cream);
-      transition: all 0.2s;
+      letter-spacing: 0;
+      line-height: 1.35;
+      white-space: nowrap;
+    }
+
+    .outreach-log-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border: 1px solid rgba(49, 64, 89, 0.45);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--brand-primary-dark);
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      transition: all 0.16s ease;
+      white-space: nowrap;
+      align-self: start;
+      justify-self: end;
+      justify-content: center;
+      min-width: 124px;
+    }
+    .outreach-log-toggle[hidden] {
+      display: none !important;
+    }
+
+    .outreach-log-toggle:hover,
+    .outreach-log-toggle:focus-visible {
+      border-color: var(--brand-primary-dark);
+      background: #fff;
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    .outreach-log-toggle[aria-expanded="true"] {
+      background: rgba(49, 64, 89, 0.1);
+      border-color: var(--brand-primary-dark);
+    }
+
+    .outreach-composer {
+      margin: 6px 0 8px;
+      padding: 8px;
+      border: 1px solid rgba(49, 64, 89, 0.2);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.92);
+    }
+
+    .outreach-composer[hidden] {
+      display: none;
+    }
+
+    .outreach-date-chip {
+      display: inline-block;
+      margin-bottom: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(52, 112, 114, 0.14);
+      color: #134446;
+      border: 1px solid rgba(52, 112, 114, 0.28);
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    .outreach-notes-input.contact-notes-quick {
+      width: 100%;
+      margin-top: 0;
+      padding: 6px 8px;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      border-radius: 6px;
+      font-size: 0.83rem;
+      line-height: 1.35;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 52px;
+      background: #fff;
+    }
+
+    .outreach-notes-input.contact-notes-quick:focus {
+      border-color: var(--brand-primary-dark);
+      box-shadow: 0 0 0 2px rgba(49, 64, 89, 0.14);
+      outline: none;
+    }
+
+    .outreach-composer-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       margin-top: 8px;
     }
 
-    .contact-button:hover {
-      background: var(--primary-dark);
+    .outreach-submit-btn {
+      padding: 5px 10px;
+      border: 1px solid var(--brand-primary-dark);
+      border-radius: 6px;
+      background: var(--brand-primary-dark);
+      color: var(--bg-paper);
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
     }
 
-    .contact-button.contacted {
-      background: var(--accent);
-      color: var(--light-cream);
-      border-color: var(--accent-dark);
+    .outreach-submit-btn:hover,
+    .outreach-submit-btn:focus-visible {
+      background: #243045;
+      outline: none;
     }
 
-    .contact-button.contacted:hover {
-      background: var(--accent-dark);
+    .outreach-submit-btn:disabled {
+      opacity: 0.6;
+      cursor: wait;
     }
 
-    .contact-date {
+    .outreach-cancel-btn {
+      padding: 5px 8px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .outreach-cancel-btn:hover,
+    .outreach-cancel-btn:focus-visible {
+      color: var(--text-primary);
+      outline: none;
+    }
+
+    .outreach-last-date {
       font-size: 0.8rem;
       color: #666;
       margin-top: 4px;
       font-style: italic;
     }
 
-    .contact-notes-quick {
-      width: 100%;
-      margin-top: 8px;
-      padding: 6px;
-      border: 1px solid rgba(0,0,0,0.2);
-      border-radius: 4px;
-      font-size: 0.85rem;
-      font-family: inherit;
-      resize: vertical;
-      min-height: 60px;
+    .outreach-history-toggle {
+      margin-top: 6px;
     }
 
-    .person-entry.no-contact {
-      border-left-color: #ff9800;
-      background: rgba(255, 152, 0, 0.05);
+    .outreach-history-toggle > summary {
+      cursor: pointer;
+      font-size: 0.82rem;
+      color: var(--text-secondary);
     }
 
-    .person-entry.recent-contact {
-      border-left-color: #4caf50;
+    .outreach-history-content {
+      margin-top: 6px;
+      white-space: pre-wrap;
+      font-size: 0.84rem;
     }
 
     .zone-notes-content {
@@ -2433,23 +2556,53 @@
       display: block;
     }
 
+    .person-modal-jump {
+      background: none;
+      border: none;
+      padding: 0;
+      color: var(--brand-primary-dark);
+      font: inherit;
+      cursor: pointer;
+      text-decoration: underline;
+      text-decoration-color: rgba(49, 64, 89, 0.35);
+      text-underline-offset: 0.14em;
+    }
+    .person-modal-jump:hover,
+    .person-modal-jump:focus-visible {
+      color: var(--river);
+      text-decoration-color: currentColor;
+      outline: none;
+    }
+    .person-modal-jump-add {
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+
     .person-info-inline {
       display: flex;
       gap: 24px;
       margin: 4px 0;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
     }
 
     .person-info-inline .person-info-item {
       font-size: 0.9rem;
       color: #143039;
-      flex: 1;
-      min-width: 150px;
+      flex: 1 1 0;
+      min-width: 0;
     }
+    .person-details-modal {
+      max-height: 94vh;
+      max-height: 94dvh;
+    }
+
 
     .person-info-inline .person-info-item strong {
       color: var(--text-secondary);
       font-weight: 500;
+    }
+    .person-info-inline .person-modal-jump {
+      white-space: nowrap;
     }
 
     .loading, .error, .empty {
@@ -4926,6 +5079,10 @@
       flex: 1 1 220px;
       min-width: 0;
     }
+    .person-details-field--compact {
+      flex: 0 1 160px;
+      max-width: 180px;
+    }
 
     .person-details-field--full {
       flex-basis: 100%;
@@ -4934,6 +5091,17 @@
     .person-details-input {
       max-width: none;
       margin-bottom: 0;
+    }
+    .person-details-input--compact {
+      max-width: 160px;
+    }
+    .person-details-input--gender {
+      max-width: 90px;
+    }
+    .person-details-input--focus-target {
+      border-color: var(--river);
+      box-shadow: 0 0 0 2px rgba(52, 112, 114, 0.18);
+      background: rgba(255, 255, 255, 0.98);
     }
 
     .person-details-tags {
@@ -4997,7 +5165,7 @@
       font-size: 0.65rem;
       margin-top: 0;
       padding: 2px 6px;
-      height: 18px;
+      min-height: 18px;
       line-height: 1.2;
       text-align: right;
       display: block;
@@ -5006,6 +5174,15 @@
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
+    }
+
+    .person-details-input-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .person-details-input-row .person-details-input {
+      flex: 1;
     }
 
     .bottom-row {
@@ -6631,5 +6808,763 @@
 
   .zone-stat-number {
     font-size: 1.6rem;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Details Panel Redesign
+   Three-level hierarchy: Panel → Address → Person
+   Calm, structured, modular, mobile-ready.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Panel-level header: calm title, subtle divider */
+.details-header {
+  text-shadow: none;
+  letter-spacing: 0.02em;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 12px 16px 10px;
+  color: var(--text-primary);
+}
+
+.address-panel-tabs {
+  border-bottom: 1px solid rgba(31, 41, 55, 0.12);
+  box-shadow: none;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Unified typography system for the Details Panel.
+
+   One typeface (Chivo) governs all chrome, labels, values,
+   metadata, buttons, and status text. This replaces the mixed
+   serif/sans inheritance that was making Home/Cell/Email, quick
+   tag labels, and other elements feel like they came from
+   different design systems.
+
+   Serif is intentionally NOT used inside the details panel so
+   labels, values, and checkbox text all read as one coherent,
+   case-management-oriented system.
+
+   Hierarchy:
+     T1  Section title (Address, person name)  1.0–1.05rem / 700
+     T2  Section divider label                  0.75rem / 600 / muted
+     T3  Subtitle / metadata                    0.74–0.78rem / 400 / muted
+     T4  Field label (Home, Cell, Email, etc.)  0.76rem / 600 / muted
+     T5  Data value                             0.88rem / 500 / primary
+     T6  Checkbox / tag item name               0.85rem / 500 / primary
+     T7  Button text                            0.82rem / 600–700
+     T8  Status text                            0.72rem / 500 / muted
+   ───────────────────────────────────────────────────────────── */
+
+.address-details,
+.address-details input,
+.address-details button,
+.address-details textarea,
+.address-details select,
+.address-details label,
+.address-details p,
+.address-details span,
+.address-details div,
+.address-details strong,
+.address-details em,
+.address-details summary,
+.address-details details {
+  font-family: 'Chivo', sans-serif;
+}
+
+/* T5 — default data/value treatment across the panel */
+.address-details {
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+/* T4 — ALL field labels share one treatment.
+   Covers: Home, Cell, Email, Sales history, Damage, Address Plan,
+   person-level fields, contact labels, and the subtitle strong.
+   This replaces the old divergence where Home/Cell were 500-weight
+   serif-inherited while Email was 600-weight Chivo. */
+.address-details .person-info > strong,
+.address-details .person-info-inline .person-info-item > strong,
+.address-details .person-card__contact strong,
+.address-details .details-section__body .person-info > strong {
+  font-family: 'Chivo', sans-serif;
+  font-weight: 600;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+/* T6 — Checkbox / tag labels are item NAMES, not micro-labels.
+   Upgrade their appearance so they read as body-level tag names
+   (Renter / Needs Follow-Up / Unable to reach / For sale, etc.)
+   instead of tiny muted labels. */
+.address-details .person-info label > strong,
+.address-details .address-tags-section label > strong,
+.address-details label .editable-checkbox + strong {
+  font-family: 'Chivo', sans-serif;
+  font-weight: 500;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Baseline .person-info container treatment — unified values */
+.address-details .person-info,
+.address-details .person-info-inline .person-info-item {
+  font-family: 'Chivo', sans-serif;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+/* Ensure the interactive value (jump-to-modal button inside contact rows)
+   reads as plain data text, not as a generic link. */
+.address-details .person-modal-jump {
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+/* Toolbar: 2-row layout — buttons row + reserved status row.
+   The status slot is ALWAYS present with min-height so button positions
+   stay locked regardless of save state (idle / saving / auto-saving / etc). */
+.details-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 14px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.details-toolbar__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.details-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+.details-toolbar__status-slot {
+  min-height: 16px;
+  line-height: 1.2;
+  text-align: right;
+  padding: 0 2px;
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+}
+
+/* Strip any legacy save-status block styling inside the toolbar slot so it
+   stays a calm inline string of text (no pill, no background, no border). */
+.details-toolbar__status-slot .save-status,
+.details-toolbar__status-slot .save-status.save-status-top,
+.details-toolbar__status-slot .details-toolbar__status {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  min-height: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  vertical-align: baseline;
+}
+
+/* Keep success/error/warning color signaling (text color only, no chip). */
+.details-toolbar__status-slot .save-status.success {
+  color: #2e7d32;
+}
+.details-toolbar__status-slot .save-status.error {
+  color: #b23b1a;
+}
+.details-toolbar__status-slot .save-status.warning {
+  color: #a36a00;
+}
+
+.details-toolbar .btn-back {
+  box-shadow: none;
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border-radius: 7px;
+  letter-spacing: 0.02em;
+}
+
+.details-toolbar .btn-back:hover {
+  transform: none;
+  box-shadow: 0 1px 3px rgba(40, 54, 24, 0.2);
+}
+
+.details-toolbar .btn-save,
+.details-toolbar .btn-save-small {
+  margin: 0;
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(188, 108, 37, 0.2);
+  border-radius: 7px;
+  letter-spacing: 0.02em;
+}
+
+.details-toolbar .btn-save:hover,
+.details-toolbar .btn-save-small:hover {
+  transform: none;
+  box-shadow: 0 2px 5px rgba(188, 108, 37, 0.3);
+}
+
+.details-toolbar .btn-refresh-small {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-width: 1px;
+  box-shadow: none;
+  font-size: 0.95rem;
+}
+
+.details-toolbar .btn-refresh-small:hover {
+  transform: rotate(90deg);
+  box-shadow: 0 1px 3px rgba(96, 108, 56, 0.25);
+}
+
+/* Section card (Address block): tighter, lighter */
+.details-section {
+  background: #ffffff;
+  border: 1px solid rgba(31, 41, 55, 0.1);
+  border-radius: 10px;
+  padding: 14px 14px 14px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 1px rgba(31, 41, 55, 0.03);
+}
+
+.details-section__header {
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(31, 41, 55, 0.07);
+}
+
+/* Override .address-details h3 when used as section title */
+.address-details .details-section__title,
+.details-section__title {
+  margin: 0;
+  font-family: 'Chivo', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0;
+  line-height: 1.25;
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.details-section__subtitle {
+  margin: 2px 0 0;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  font-weight: 400;
+}
+
+.details-section__apn {
+  margin: 4px 0 0;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.details-section__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.details-section__body > .person-info {
+  margin: 5px 0;
+}
+
+/* Section divider: "People at this address" */
+.details-section-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 2px 10px;
+}
+
+.details-section-divider__label {
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.details-section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(31, 41, 55, 0.12);
+}
+
+/* Stacked form field: label above control */
+.details-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 2px;
+}
+
+.details-field__label {
+  font-family: 'Chivo', sans-serif;
+  font-weight: 600;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+}
+
+.details-field__label-hint {
+  font-weight: 400;
+  color: var(--text-secondary);
+  opacity: 0.75;
+  font-size: 0.7rem;
+  margin-left: 3px;
+}
+
+.details-field .editable-notes,
+.details-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+}
+
+/* Address Tags disclosure: softer, consistent marker */
+.address-tags-section {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(31, 41, 55, 0.07);
+}
+
+.address-tags-section > summary {
+  list-style: none;
+  cursor: pointer;
+  font-family: 'Chivo', sans-serif;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  padding: 3px 0 3px 16px;
+  outline: none;
+  position: relative;
+}
+
+.address-tags-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.address-tags-section > summary::before {
+  content: '+';
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+
+.address-tags-section[open] > summary::before {
+  content: '−';
+}
+
+/* Person card: slightly stronger delineation so stacked cards parse at a
+   glance, but still soft enough not to feel boxed-in. Changes vs prior pass:
+   - border alpha bumped 0.10 → 0.14 (clearer separation)
+   - card-to-card margin 10 → 14 (more breathing room between units)
+   - shadow kept very subtle */
+.address-details .person-entry {
+  background: #ffffff;
+  border: 1px solid rgba(31, 41, 55, 0.14);
+  border-top: 1px solid rgba(31, 41, 55, 0.14);
+  border-radius: 10px;
+  padding: 12px 14px 14px;
+  margin: 0 0 14px;
+  box-shadow: 0 1px 2px rgba(31, 41, 55, 0.04);
+}
+
+.address-details .person-entry:last-of-type {
+  margin-bottom: 4px;
+}
+
+/* Card header: keep the hairline that demarcates header from body,
+   slightly strengthened so the header reads as a clear zone. */
+.address-details .person-entry-head {
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(31, 41, 55, 0.08);
+  margin-bottom: 0;
+  align-items: center;
+  column-gap: 10px;
+}
+
+.address-details .person-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0;
+  letter-spacing: 0;
+}
+
+.address-details .person-name-button {
+  text-decoration: none;
+}
+
+.address-details .person-name-button:hover,
+.address-details .person-name-button:focus-visible {
+  text-decoration: underline;
+  text-decoration-color: rgba(49, 64, 89, 0.4);
+  text-underline-offset: 0.15em;
+  color: var(--brand-primary-dark);
+}
+
+.address-details .person-age-gender {
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+/* Sub-sections within a person card:
+   rely on spacing + typography, NOT on horizontal rules. */
+.person-card__section {
+  padding-top: 0;
+  margin-top: 10px;
+  border-top: 0;
+}
+
+.person-card__section.person-card__contact {
+  margin-top: 10px;
+}
+
+.person-card__section.person-card__tags {
+  margin-top: 12px;
+}
+
+.person-card__section.person-card__notes {
+  margin-top: 12px;
+}
+
+/* Quick tags: softened label, compact rows */
+.person-card__tags-label {
+  margin: 0 0 4px;
+  font-family: 'Chivo', sans-serif;
+  font-weight: 600;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+.address-details .person-card__tags .person-info {
+  margin: 1px 0;
+}
+
+.person-card__tags label {
+  padding: 1px 0;
+}
+
+/* Contact info: consistent rhythm for Home, Cell, Email */
+.address-details .person-card__contact .person-info-inline {
+  margin: 2px 0 4px;
+  gap: 20px;
+}
+
+.address-details .person-card__contact .person-info {
+  margin: 2px 0;
+  align-items: baseline;
+}
+
+.address-details .person-card__contact .person-info-inline .person-info-item {
+  font-size: 0.88rem;
+}
+
+.address-details .person-card__contact strong {
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
+/* Copy email button: baseline-aligned, integrated into the row */
+.address-details .person-card__contact .copy-email-btn {
+  padding: 0 !important;
+  margin-left: 6px !important;
+  vertical-align: -2px;
+  opacity: 0.5 !important;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.address-details .person-card__contact .copy-email-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.address-details .person-card__contact .copy-email-btn:hover {
+  opacity: 1 !important;
+}
+
+/* Outreach status: remove italic, calm label+value pair */
+.outreach-status {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-style: normal;
+  line-height: 1.4;
+}
+
+.outreach-status__label {
+  font-family: 'Chivo', sans-serif;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.outreach-status__value {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Legacy fallback: if .outreach-last-date still rendered */
+.outreach-last-date {
+  font-style: normal;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  margin-top: 8px;
+}
+
+/* Outreach history disclosure: softened, no top border */
+.outreach-history-toggle {
+  margin-top: 6px;
+  border-top: 0;
+  padding-top: 0;
+}
+
+.outreach-history-toggle > summary {
+  list-style: none;
+  cursor: pointer;
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: 2px 0 2px 14px;
+  position: relative;
+  outline: none;
+}
+
+.outreach-history-toggle > summary::-webkit-details-marker {
+  display: none;
+}
+
+.outreach-history-toggle > summary::before {
+  content: '+';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.outreach-history-toggle[open] > summary::before {
+  content: '−';
+}
+
+.outreach-history-content {
+  margin-top: 6px;
+  padding: 7px 10px;
+  background: rgba(31, 41, 55, 0.035);
+  border-radius: 5px;
+  white-space: pre-wrap;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+/* Outreach composer: compact, contained sub-panel */
+.address-details .outreach-composer {
+  margin: 10px 0 2px;
+  padding: 10px 12px 11px;
+  background: rgba(49, 64, 89, 0.04);
+  border: 1px solid rgba(49, 64, 89, 0.16);
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.outreach-composer__title {
+  margin: 0 0 6px;
+  font-family: 'Chivo', sans-serif;
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+}
+
+.outreach-composer .outreach-date-chip {
+  margin-bottom: 0;
+  padding: 1px 7px;
+  font-size: 0.68rem;
+}
+
+.outreach-composer .details-field {
+  margin: 8px 0 0;
+  gap: 3px;
+}
+
+.outreach-composer .details-field__label {
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.outreach-composer .outreach-notes-input.contact-notes-quick {
+  min-height: 50px;
+  padding: 6px 8px;
+  font-size: 0.82rem;
+}
+
+.outreach-composer-actions {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.outreach-composer .outreach-submit-btn {
+  padding: 5px 12px;
+  font-size: 0.76rem;
+}
+
+.outreach-composer .outreach-cancel-btn {
+  padding: 4px 6px;
+  font-size: 0.76rem;
+}
+
+/* Outreach log toggle: lighter weight */
+.outreach-log-toggle {
+  font-weight: 600;
+  font-size: 0.72rem;
+  padding: 3px 10px;
+  min-width: 116px;
+}
+
+/* Bottom save button divider (calm hairline) */
+.details-footer-save {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(31, 41, 55, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.details-footer-save .btn-save {
+  margin-top: 0;
+}
+
+/* Former residents: softer label */
+.address-details .former-residents-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  color: var(--text-secondary);
+}
+
+.address-details .former-residents-section {
+  margin-top: 12px;
+  padding-top: 10px;
+}
+
+/* Inline key-value rows inside a person card — lighter, tighter */
+.address-details .person-info {
+  margin: 4px 0;
+  line-height: 1.4;
+}
+
+.address-details .person-info strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.78rem;
+  font-family: 'Chivo', sans-serif;
+  letter-spacing: 0.01em;
+}
+
+/* Address-level field rows (Damage, Address Plan): compact, baseline aligned */
+.details-section__body .person-info {
+  align-items: baseline;
+  margin: 5px 0;
+}
+
+.details-section__body .person-info strong {
+  min-width: 104px;
+  flex-shrink: 0;
+}
+
+/* Mobile readiness */
+@media (max-width: 640px) {
+  .details-section {
+    padding: 12px;
+    border-radius: 9px;
+  }
+  .address-details .person-entry {
+    padding: 12px;
+    border-radius: 9px;
+  }
+  .address-details .person-entry-head {
+    grid-template-columns: 1fr;
+    row-gap: 8px;
+  }
+  .outreach-log-toggle {
+    justify-self: stretch;
+    width: 100%;
+  }
+  .person-info-inline {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .details-section-divider {
+    margin: 14px 0 8px;
+  }
+  .details-section__body .person-info strong {
+    min-width: 0;
   }
 }

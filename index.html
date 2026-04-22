@@ -152,14 +152,14 @@
 
         <div class="mobile-map-sheet-section">
           <div class="mobile-map-sheet-label">Color By</div>
-          <button class="mobile-map-layer-row" id="mobileColorContact">Contact Status</button>
+          <button class="mobile-map-layer-row" id="mobileColorContact">Outreach Status</button>
           <button class="mobile-map-layer-row" id="mobileColorDamage">Damage Status</button>
           <button class="mobile-map-layer-row" id="mobileColorBuild">Build Status</button>
         </div>
       </div>
     </div>
 
-    <!-- Floating Right Panel (Addresses/Zone Notes/Contact Mode) -->
+    <!-- Floating Right Panel (Addresses/Zone Notes/Outreach) -->
     <div class="floating-panel" id="floatingPanel">
       <!-- Mobile-only drag handle (hidden on desktop via CSS) -->
       <div class="mobile-sheet-handle"></div>
@@ -176,7 +176,6 @@
         <div class="address-panel-tabs">
           <div class="details-header">Details</div>
           <div class="header-controls">
-            <button class="btn-contact-mode" id="contactModeBtn" title="Toggle contact tracking mode">📞 Contact Mode</button>
             <button class="mobile-panel-close" id="mobilePanelClose" aria-label="Close panel" title="Close panel">✕</button>
           </div>
         </div>
@@ -263,7 +262,7 @@
                 </div>
                 <div class="zone-stat-item">
                   <span class="zone-stat-number" id="statContacted">—</span>
-                  <span class="zone-stat-label">Addresses Marked as Contacted</span>
+                  <span class="zone-stat-label">Addresses with Outreach Attempt</span>
                 </div>
               </div>
               <div class="zone-stat-column">
@@ -296,7 +295,7 @@
                   </button>
                   <div class="chart-carousel-track">
                     <div class="chart-container-small chart-carousel-slide active" data-chart-index="0">
-                      <div class="chart-title">Addresses Marked Contacted</div>
+                      <div class="chart-title">Addresses with Outreach Attempt</div>
                       <canvas id="zoneOverviewLeftAddressesChart"></canvas>
                     </div>
                     <div class="chart-container-small chart-carousel-slide" data-chart-index="1">
@@ -348,7 +347,7 @@
               <div class="mobile-chart-header">
                 <button class="mobile-chart-nav" id="mobileChartPrev" aria-label="Previous chart">&#8249;</button>
                 <div class="mobile-chart-meta">
-                  <div class="mobile-chart-title" id="mobileChartTitle">Addresses Marked Contacted</div>
+                  <div class="mobile-chart-title" id="mobileChartTitle">Addresses with Outreach Attempt</div>
                   <div class="mobile-chart-counter" id="mobileChartCounter">1 / 6</div>
                 </div>
                 <button class="mobile-chart-nav" id="mobileChartNext" aria-label="Next chart">&#8250;</button>
@@ -650,9 +649,9 @@
                 </select>
                 <input type="text" id="batchTagSearch" class="add-record-input" placeholder="Search address or name…" style="min-width:200px;">
                 <select id="batchTagContactFilter" class="add-record-select" style="display:none;">
-                  <option value="all">All contact statuses</option>
-                  <option value="contacted">Already contacted</option>
-                  <option value="not_contacted">Not yet contacted</option>
+                  <option value="all">All outreach statuses</option>
+                  <option value="contacted">Outreach attempted</option>
+                  <option value="not_contacted">No outreach yet</option>
                 </select>
                 <select id="batchTagDamageFilter" class="add-record-select" style="display:none;">
                   <option value="all">All damage</option>
@@ -758,11 +757,11 @@
                         <div id="batchPersonMissingCols" class="hidden" style="margin-bottom:16px; padding:10px 14px; background:rgba(200,150,0,0.08); border:1px solid rgba(200,150,0,0.3); border-radius:6px; font-size:0.875rem; color:var(--text-secondary);"></div>
                         <div class="batch-tag-field-grid">
                           <div>
-                            <label style="display:block; margin-bottom:4px; font-weight:600;">Contact Status</label>
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Outreach Status</label>
                             <select id="batchPersonContacted" class="add-record-select" style="min-width:160px;">
                               <option value="">— no change —</option>
-                              <option value="log">Mark as contacted</option>
-                              <option value="clear">Clear contact date</option>
+                              <option value="log">Mark outreach attempted</option>
+                              <option value="clear">Clear outreach date</option>
                             </select>
                           </div>
                           <div id="batchPersonNewsletterWrap">
@@ -3155,7 +3154,7 @@
 
     // Check if an address has any contacted people
     function isAddressContacted(address) {
-      const contactDateCol = findColumn(sheetData.headers, ['contact', 'date']);
+      const contactDateCol = findOutreachDateColumn(sheetData.headers);
       if (!contactDateCol) return false;
       
       const rows = sheetData.addressMap.get(address);
@@ -3305,12 +3304,14 @@
       // Find contact columns (same logic as Zone Overview)
       const contactStatusCol = headers.find(h => {
         const lower = h.toLowerCase();
-        return lower.includes('contact status');
+        return lower.includes('contact status') || lower.includes('outreach status');
       });
       const contactDateCol = headers.find(h => {
         const lower = h.toLowerCase();
         return (lower.includes('contact') && lower.includes('date')) ||
-               lower.includes('last contact');
+               (lower.includes('outreach') && lower.includes('date')) ||
+               lower.includes('last contact') ||
+               lower.includes('last outreach');
       });
       
       // Find follow-up column
@@ -3338,7 +3339,10 @@
         
         if (contactStatusCol && row[contactStatusCol]) {
           const status = String(row[contactStatusCol]).toLowerCase().trim();
-          isContacted = status && !status.includes('uncontacted') && status !== 'no';
+          isContacted = status &&
+            !status.includes('uncontacted') &&
+            !status.includes('no outreach') &&
+            status !== 'no';
         } else if (contactDateCol && row[contactDateCol]) {
           const date = String(row[contactDateCol]).trim();
           isContacted = date.length > 0;
@@ -3562,16 +3566,16 @@
       let html = '';
       let hasActions = false;
 
-      // Uncontacted addresses action
+      // No-outreach-yet addresses action
       if (actions.uncontactedCount > 0) {
         hasActions = true;
         html += `
           <div class="quick-action-item">
             <div class="quick-action-text">
-              There ${actions.uncontactedCount === 1 ? 'is' : 'are'} <strong>${actions.uncontactedCount}</strong> address${actions.uncontactedCount !== 1 ? 'es' : ''} it looks like you haven't contacted. Use the Batch Tagging tool to mark who you've been able to reach.
+              There ${actions.uncontactedCount === 1 ? 'is' : 'are'} <strong>${actions.uncontactedCount}</strong> address${actions.uncontactedCount !== 1 ? 'es' : ''} it looks like you haven't attempted outreach yet. Use the Batch Tagging tool to mark who you've tried to reach.
             </div>
             <div class="quick-action-links">
-              <a href="#" class="quick-action-link" id="showUncontactedLink">open Batch Tagging (not contacted)</a>
+              <a href="#" class="quick-action-link" id="showUncontactedLink">open Batch Tagging (no outreach yet)</a>
             </div>
           </div>
         `;
@@ -3680,17 +3684,17 @@
       if (sheetData && sheetData.addressMap) {
         const actions = calculateQuickActions();
 
-        // Uncontacted addresses action
+        // No-outreach-yet addresses action
         if (actions.uncontactedCount > 0) {
           hasCalculatedActions = true;
           calculatedActions.push(`
             <div class="action-card">
-              <div class="action-card-title">Contact Uncontacted Addresses</div>
+              <div class="action-card-title">Reach No-Outreach-Yet Addresses</div>
               <div class="action-card-content">
-                There ${actions.uncontactedCount === 1 ? 'is' : 'are'} <strong>${actions.uncontactedCount}</strong> address${actions.uncontactedCount !== 1 ? 'es' : ''} it looks like you haven't contacted. Use the Batch Tagging tool to mark who you've been able to reach.
+                There ${actions.uncontactedCount === 1 ? 'is' : 'are'} <strong>${actions.uncontactedCount}</strong> address${actions.uncontactedCount !== 1 ? 'es' : ''} it looks like you haven't attempted outreach yet. Use the Batch Tagging tool to mark who you've tried to reach.
               </div>
               <div class="action-card-links">
-                <a href="#" class="action-card-link" id="actionsPageUncontactedLink">open Batch Tagging (not contacted)</a>
+                <a href="#" class="action-card-link" id="actionsPageUncontactedLink">open Batch Tagging (no outreach yet)</a>
               </div>
             </div>
           `);
@@ -4270,8 +4274,8 @@
       const followUpCol = headers.find(h => /follow\s*up|needs\s*follow/i.test(h));
       const unableToReachCol = headers.find(h => /unable\s*to\s*reach/i.test(h));
       const personNotesCol = headers.find(h => /person\s*note/i.test(h));
-      const contactDateCol = findColumn(headers, ['contact', 'date']) || findColumn(headers, ['last', 'contact']);
-      const contactNotesCol = headers.find(h => /contact\s*note/i.test(h));
+      const contactDateCol = findOutreachDateColumn(headers);
+      const contactNotesCol = findOutreachLogColumn(headers);
       const formerResidentCol = findColumn(headers, ['former', 'resident'], ['note']);
       const deceasedCol = headers.find(h => /^deceased$/i.test(h) || /deceased/i.test(h));
       const zoneDefaults = getAddRecordZoneDefaults(headers, zoneCol);
@@ -4813,7 +4817,7 @@
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
-      const contactDateCol = findColumn(headers, ['contact', 'date']);
+      const contactDateCol = findOutreachDateColumn(headers);
 
       const streets = getUniqueStreets(addresses);
       const damages = getFullDamageOptions();
@@ -4868,13 +4872,13 @@
         <input type="text" id="persistentPersonSearch" placeholder="Search Person" value="${escapeHtml(currentPersonSearch)}" class="${currentPersonSearch.trim() ? 'filter-active' : ''}" title="Filter addresses by resident name (partial match).">
         ${contactDateCol ? `
         <div class="contact-filter-group">
-          <label class="contact-filter-checkbox" title="View only the addresses you have successfully reached.">
+          <label class="contact-filter-checkbox" title="View only addresses where at least one outreach attempt has been logged.">
             <input type="checkbox" id="persistentShowContactedCheckbox" ${showContactedAddresses ? 'checked' : ''}>
-            <span>Show contacted addresses</span>
+            <span>Show outreach-attempted addresses</span>
           </label>
-          <label class="contact-filter-checkbox" title="View addresses where you haven't been able to reach anyone yet.">
+          <label class="contact-filter-checkbox" title="View addresses where no outreach attempt has been logged yet.">
             <input type="checkbox" id="persistentShowUncontactedCheckbox" ${showUncontactedAddresses ? 'checked' : ''}>
-            <span>Show uncontacted addresses</span>
+            <span>Show no-outreach-yet addresses</span>
           </label>
         </div>
         ` : ''}
@@ -5072,7 +5076,7 @@
       const ageCol = headers.find(h => h.toLowerCase() === 'age');
       const phoneCol = findColumn(headers, 'phone', ['nc']);
       const emailCol = findColumn(headers, 'email');
-      const contactDateCol = findColumn(headers, ['contact', 'date']);
+      const contactDateCol = findOutreachDateColumn(headers);
       
       // Get unique values for filters
       const streets = getUniqueStreets(addresses);
@@ -5192,7 +5196,7 @@
                 ${ageCol ? `<th class="sortable" data-sort="${ageCol.toLowerCase()}" title="Click to sort">Apprx Age ${tableSortColumn === ageCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${phoneCol ? `<th>Phone</th>` : ''}
                 ${emailCol ? `<th>Email</th>` : ''}
-                ${contactDateCol ? `<th class="sortable" data-sort="${contactDateCol.toLowerCase()}" title="Click to sort">Last Contact ${tableSortColumn === contactDateCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
+                ${contactDateCol ? `<th class="sortable" data-sort="${contactDateCol.toLowerCase()}" title="Click to sort">Last Outreach Attempt ${tableSortColumn === contactDateCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
               </tr>
             </thead>
             <tbody>
@@ -5342,9 +5346,9 @@
         parts.push('Search: "' + currentPersonSearch.trim() + '"');
       }
       if (showContactedAddresses && !showUncontactedAddresses) {
-        parts.push('Contact: contacted only');
+        parts.push('Outreach: attempted only');
       } else if (showUncontactedAddresses && !showContactedAddresses) {
-        parts.push('Contact: uncontacted only');
+        parts.push('Outreach: no-attempt-yet only');
       }
       return parts;
     }
@@ -5504,7 +5508,7 @@
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
-      const contactDateCol = findColumn(headers, ['contact', 'date']);
+      const contactDateCol = findOutreachDateColumn(headers);
       const captainAssignedCol = findColumn(headers, 'captain assigned');
       
       return addresses.filter(addr => {
@@ -5610,17 +5614,21 @@
       const soilRemediatedCol = findColumn(headers, ['soil', 'remediated']);
       const captainAssignedCol = findColumn(headers, ['captain', 'assigned']);
       
-      // Contact and notes columns
+      // Outreach and notes columns
       const lastContactDateCol = headers.find(h => {
         const lower = h.toLowerCase();
         return lower === 'last contact date' ||
+               lower === 'last outreach attempt date' ||
                lower.includes('last contact') || 
+               lower.includes('last outreach') ||
                lower.includes('contact date') ||
+               lower.includes('outreach date') ||
                lower.includes('contacted');
       });
       const contactNotesCol = headers.find(h => {
         const lower = h.toLowerCase();
-        return (lower.includes('contact') && lower.includes('note'));
+        return (lower.includes('contact') && lower.includes('note')) ||
+               (lower.includes('outreach') && (lower.includes('note') || lower.includes('log')));
       });
       
       // Find all person notes columns
@@ -5845,8 +5853,8 @@
                   <th style="width: 100px;">Phone</th>
                   <th style="width: 100px;">Cell</th>
                   <th style="width: 140px;">Email</th>
-                  <th style="width: 90px;">Last Contact</th>
-                  <th style="width: 200px;">Contact Notes</th>
+                  <th style="width: 90px;">Last Outreach</th>
+                  <th style="width: 200px;">Outreach Log</th>
                   <th style="width: 200px;">Person Notes</th>
                   <th class="notes-column">Notes</th>
                   <th class="checkbox-space">☐</th>
@@ -5928,7 +5936,7 @@
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
-      const contactDateCol = findColumn(headers, ['contact', 'date']);
+      const contactDateCol = findOutreachDateColumn(headers);
       
       // Build CSV headers
       const csvHeaders = ['Address', 'Name'];
@@ -5937,7 +5945,7 @@
       if (damageCol) csvHeaders.push('Damage Status');
       if (addressPlanCol) csvHeaders.push('Address Plan');
       if (rebuildCol) csvHeaders.push('Build Status');
-      if (contactDateCol) csvHeaders.push('Last Contact');
+      if (contactDateCol) csvHeaders.push('Last Outreach Attempt');
       
       // Build CSV rows
       const csvRows = [];
@@ -6015,7 +6023,7 @@
       // Filter addresses by all selected filters (same logic as displayAddressTable)
       const headers = sheetData.headers;
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
-      const contactDateCol = findColumn(headers, ['contact', 'date']);
+      const contactDateCol = findOutreachDateColumn(headers);
       
       const filteredAddresses = addresses.filter(addr => {
         // Street filter
@@ -6145,6 +6153,14 @@
       return `Person ${fallbackIndex + 1}`;
     }
 
+    function getTodayOutreachLabel() {
+      return new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+
     // Display details for a specific address
     function displayAddressDetails(address, preserveScroll = false) {
       if (!sheetData.addressMap || !sheetData.addressMap.has(address)) {
@@ -6169,6 +6185,7 @@
 
       const rows = sheetData.addressMap.get(address);
       const { headers, addressCol, data } = sheetData;
+      const todayOutreachLabel = getTodayOutreachLabel();
       const nameCol = getResidentNameColumn(headers);
       const formerResidentCol = findColumn(headers, ['former', 'resident'], ['note']);
       const formerResidentNotesCol = findColumn(headers, ['former', 'resident', 'note']);
@@ -6341,8 +6358,8 @@
         if (hiddenAddressStructureCols.has(h)) return false;
         // Skip hidden fields
         if (hiddenFromPersonView.some(field => lower.includes(field)) || isHouseOrZipField(lower)) return false;
-        // Skip Contact Notes - it's shown separately in contact mode
-        if (lower.includes('contact') && lower.includes('note')) return false;
+        // Skip outreach/contact log column - rendered in dedicated outreach logger UI
+        if ((lower.includes('contact') && lower.includes('note')) || (lower.includes('outreach') && (lower.includes('note') || lower.includes('log')))) return false;
         // Person-level: Person - X checkboxes (Renter, Needs Follow-Up, Unable to reach, etc.), Person Notes, phones, etc.
         return lower.startsWith('person - ') ||
                lower.includes('person note') ||
@@ -6355,12 +6372,12 @@
       });
       
       // Find Notes columns separately - always show them if signed in, even if empty
-      // Exclude Contact Notes - it's shown separately in contact mode; exclude backend resident_id
+      // Exclude outreach/contact log column - rendered in dedicated outreach logger UI; exclude backend resident_id
       const allNotesCols = headers.filter(h => 
         h !== addressCol &&
         h.toLowerCase() !== 'resident_id' &&
         h.toLowerCase().includes('note') &&
-        !(h.toLowerCase().includes('contact') && h.toLowerCase().includes('note')) &&
+        !((h.toLowerCase().includes('contact') && h.toLowerCase().includes('note')) || (h.toLowerCase().includes('outreach') && (h.toLowerCase().includes('note') || h.toLowerCase().includes('log')))) &&
         accessToken // Only if signed in
       );
       
@@ -6375,23 +6392,30 @@
       const apnValueForHeader = apnColForHeader && rows[0] ? String(rows[0][apnColForHeader] || '').trim() : '';
 
       let html = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px;">
-          <button class="btn-back" onclick="displayAddressList(Array.from(sheetData.addressMap.keys()).sort())">← Back to List</button>
-          ${accessToken ? `
-            <div style="display: flex; gap: 6px; align-items: flex-start; position: relative;">
-              <div style="display: flex; flex-direction: column; align-items: flex-end; height: 50px; justify-content: flex-start;">
-                <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 2px;">
-                  <button class="btn-save btn-save-small" id="saveChangesBtnTop" style="margin: 0; align-self: center;">Save Changes</button>
-                  <button class="btn-refresh-small" id="refreshBtnTop" title="Refresh addresses now" style="margin: 0;">↻</button>
-                </div>
-                <span class="save-status save-status-top" id="saveStatusTop"></span>
+        <div class="details-toolbar">
+          <div class="details-toolbar__row">
+            <button class="btn-back" onclick="displayAddressList(Array.from(sheetData.addressMap.keys()).sort())">← Back to List</button>
+            ${accessToken ? `
+              <div class="details-toolbar__actions">
+                <button class="btn-save btn-save-small" id="saveChangesBtnTop">Save Changes</button>
+                <button class="btn-refresh-small" id="refreshBtnTop" title="Refresh addresses now">↻</button>
               </div>
+            ` : ''}
+          </div>
+          ${accessToken ? `
+            <div class="details-toolbar__status-slot" aria-live="polite">
+              <span class="save-status save-status-top details-toolbar__status" id="saveStatusTop"></span>
             </div>
           ` : ''}
         </div>
         <div class="address-details active">
-          <h3 style="margin-bottom: 2px;">${escapeHtml(address)}</h3>
-          ${apnValueForHeader ? `<div class="apn-header-display" style="font-size: 0.75rem; color: #666; margin-bottom: 12px;"><abbr title="Assessor Parcel Number — the official LA County identifier for this property. Useful for looking up parcel records, permits, and ownership history." style="text-decoration: underline dotted; cursor: help;">APN</abbr>: ${escapeHtml(apnValueForHeader)}</div>` : ''}
+          <section class="details-section details-section--address">
+            <header class="details-section__header">
+              <h3 class="details-section__title">${escapeHtml(address)}</h3>
+              <p class="details-section__subtitle">Address details</p>
+              ${apnValueForHeader ? `<p class="details-section__apn"><abbr title="Assessor Parcel Number — the official LA County identifier for this property. Useful for looking up parcel records, permits, and ownership history." style="text-decoration: underline dotted; cursor: help;">APN</abbr>: ${escapeHtml(apnValueForHeader)}</p>` : ''}
+            </header>
+            <div class="details-section__body">
       `;
 
       // Collect unique values for dropdown fields from ALL data
@@ -6430,8 +6454,6 @@
       
       // Show address-level fields once at the top (always show, not just when signed in)
       if (addressLevelCols.length > 0) {
-        html += '<div class="address-level-section" style="background: rgba(255,255,255,0.7); padding: 12px; border-radius: 6px; margin-bottom: 16px; border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 1px 3px rgba(0,0,0,0.04);">';
-        
         addressLevelCols.forEach(col => {
           const firstRowValue = rows[0] ? (rows[0][col] || '') : '';
           const lower = col.toLowerCase();
@@ -6461,9 +6483,9 @@
 
           if (isEditable) {
             if (isNotes) {
-              // Notes: expandable textarea
-              html += `<div class="person-info">
-                <strong>${col}:</strong>
+              // Notes: expandable textarea with stacked label (label above)
+              html += `<div class="details-field">
+                <label class="details-field__label">${escapeHtml(col)}</label>
                 <textarea class="editable-notes" 
                      data-address="${address.replace(/"/g, '&quot;')}" 
                      data-address-level="true"
@@ -6584,8 +6606,8 @@
         const salesHistoryValue = salesHistoryCol && rows[0] ? String(rows[0][salesHistoryCol] || '').trim() : '';
         if (isSoldSinceFireAddress && salesHistoryCol) {
           if (accessToken) {
-            html += `<div class="person-info" style="margin-top:12px;">
-              <strong>Sales History:</strong>
+            html += `<div class="details-field">
+              <label class="details-field__label">Sales history</label>
               <textarea class="editable-notes"
                    data-address="${address.replace(/"/g, '&quot;')}"
                    data-address-level="true"
@@ -6639,18 +6661,25 @@
           }
           html += '</div></details>';
         }
-
-        html += '</div>';
       }
 
-      // Check if contact mode is active
-      const isContactMode = window.contactModeActive || false;
+      // Always close the address-section body + section wrapper
+      html += '</div></section>';
+
       const lastContactCol = headers.find(h => 
         h.toLowerCase() === 'last contact date' ||
+        h.toLowerCase() === 'last outreach attempt date' ||
         h.toLowerCase().includes('last contact') || 
+        h.toLowerCase().includes('last outreach') || 
         h.toLowerCase().includes('contact date') ||
+        h.toLowerCase().includes('outreach date') ||
         h.toLowerCase().includes('contacted')
       );
+      const outreachLogCol = headers.find(h => {
+        const lower = h.toLowerCase();
+        return (lower.includes('contact') && lower.includes('note')) ||
+               (lower.includes('outreach') && (lower.includes('note') || lower.includes('log')));
+      });
       const quickTagCols = getPersonQuickTagColumns(headers);
       const activeRows = [];
       const formerResidentRows = [];
@@ -6663,47 +6692,103 @@
         }
       });
 
+      // Section break between address-level info and per-person cards
+      if (activeRows.length > 0) {
+        html += `
+          <div class="details-section-divider">
+            <span class="details-section-divider__label">People at this address</span>
+          </div>
+        `;
+      }
+
       // Show person-level fields for each person
       activeRows.forEach((row, index) => {
         // Get the original row index that was stored when grouping
         const originalRowIndex = row.__originalIndex !== undefined ? row.__originalIndex : -1;
         
-        // Check contact status
+        // Check outreach status
         const lastContact = lastContactCol ? (row[lastContactCol] || '').trim() : '';
         const isContacted = lastContact && lastContact.length > 0;
-        const contactClass = isContacted ? 'recent-contact' : (isContactMode ? 'no-contact' : '');
-        
-        html += `<div class="person-entry ${contactClass}">`;
-        const displayName = getPersonDisplayName(row, index, nameCol);
-        html += `<button type="button" class="person-name person-name-button" data-person-details-trigger="true" data-address="${address.replace(/"/g, '&quot;')}" data-original-row-index="${originalRowIndex}">${escapeHtml(displayName)}</button>`;
+        const ageColForHeader = personLevelCols.find(col => {
+          const lower = col.toLowerCase();
+          return lower.includes('age') && !lower.includes('phone') && !lower.includes('resident name');
+        });
+        const genderColForHeader = personLevelCols.find(col => {
+          const lower = col.toLowerCase();
+          return lower.includes('gender') && !lower.includes('resident name');
+        });
+        const ageValueForHeader = ageColForHeader ? String(row[ageColForHeader] || '').trim() : '';
+        const genderValueForHeader = genderColForHeader ? String(row[genderColForHeader] || '').trim() : '';
+        const ageGenderSummary = ageValueForHeader && genderValueForHeader
+          ? `${ageValueForHeader} \u2022 ${genderValueForHeader}`
+          : (ageValueForHeader || genderValueForHeader);
 
-        // Contact mode: show contact button and quick notes
-        if (isContactMode && accessToken) {
+        html += `<div class="person-entry person-card">`;
+        const displayName = getPersonDisplayName(row, index, nameCol);
+        const outreachComposerId = `outreach-composer-${String(address).replace(/[^a-zA-Z0-9]/g, '-')}-${originalRowIndex}`;
+        html += `
+          <div class="person-entry-head">
+            <div class="person-head-main">
+              <button type="button" class="person-name person-name-button" data-person-details-trigger="true" data-address="${address.replace(/"/g, '&quot;')}" data-original-row-index="${originalRowIndex}">${escapeHtml(displayName)}</button>
+              ${ageGenderSummary ? `<span class="person-age-gender">${escapeHtml(ageGenderSummary)}</span>` : ''}
+            </div>
+        `;
+
+        // Per-person outreach logging
+        if (accessToken) {
+          const outreachLogValue = outreachLogCol ? (row[outreachLogCol] || '') : '';
+          const hasOutreachLog = String(outreachLogValue).trim().length > 0;
+          const outreachNotesId = `${outreachComposerId}-notes`;
           html += `
-            <div style="margin-top: 8px; margin-bottom: 8px;">
-              <button class="contact-button ${isContacted ? 'contacted' : ''}" 
+              <button type="button"
+                      class="outreach-log-toggle"
                       data-address="${address.replace(/"/g, '&quot;')}"
                       data-original-row-index="${originalRowIndex}"
-                      data-column="${lastContactCol || 'Last Contact Date'}"
-                      onclick="markContact(this, '${address.replace(/"/g, '&quot;')}', ${originalRowIndex}, '${lastContactCol || 'Last Contact Date'}')">
-                ${isContacted ? '✓ Contacted' : 'Mark as Contacted'}
+                      data-contact-column="${(lastContactCol || 'Last Outreach Attempt Date').replace(/"/g, '&quot;')}"
+                      data-log-column="${(outreachLogCol || 'Outreach Log').replace(/"/g, '&quot;')}"
+                      aria-expanded="false"
+                      aria-controls="${outreachComposerId}"
+                      title="Log an outreach attempt (call, text, voicemail, door knock, email)">
+                <span aria-hidden="true">＋</span> Log Outreach
               </button>
-              ${isContacted ? `<div class="contact-date">Last contact: ${lastContact}</div>` : ''}
-              <textarea class="contact-notes-quick" 
-                        placeholder="Quick contact notes..."
+            </div>
+            <section id="${outreachComposerId}" class="outreach-composer" hidden aria-label="Log outreach for ${escapeHtmlAttr(displayName)}">
+              <h4 class="outreach-composer__title">Log outreach</h4>
+              <div class="outreach-date-chip" aria-label="Outreach date">${escapeHtml(todayOutreachLabel)}</div>
+              <div class="details-field">
+                <label class="details-field__label" for="${outreachNotesId}">Notes <span class="details-field__label-hint">(optional)</span></label>
+                <textarea id="${outreachNotesId}"
+                          class="outreach-notes-input contact-notes-quick"
+                          placeholder="e.g. Left voicemail, sent text, knocked on door…"
+                          rows="3"
+                          data-address="${address.replace(/"/g, '&quot;')}"
+                          data-original-row-index="${originalRowIndex}"
+                          data-column="${(outreachLogCol || 'Outreach Log').replace(/"/g, '&quot;')}"
+                          data-original-value=""></textarea>
+              </div>
+              <div class="outreach-composer-actions">
+                <button type="button"
+                        class="outreach-submit-btn"
                         data-address="${address.replace(/"/g, '&quot;')}"
                         data-original-row-index="${originalRowIndex}"
-                        data-column="Contact Notes"
-                        data-original-value="${(row['Contact Notes'] || '').replace(/"/g, '&quot;')}">${row['Contact Notes'] || ''}</textarea>
-            </div>
-          `;
-        } else if (isContactMode && !accessToken) {
-          // Contact mode but not signed in - show status only
-          html += `
-            <div style="margin-top: 8px; margin-bottom: 8px;">
-              <div style="font-size: 0.85rem; color: ${isContacted ? '#4caf50' : '#ff9800'};">
-                ${isContacted ? `✓ Contacted (${lastContact})` : '⚠ Not contacted'}
+                        data-contact-column="${(lastContactCol || 'Last Outreach Attempt Date').replace(/"/g, '&quot;')}">
+                  Submit
+                </button>
+                <button type="button" class="outreach-cancel-btn">Cancel</button>
               </div>
+            </section>
+            ${isContacted ? `<div class="outreach-status"><span class="outreach-status__label">Last outreach:</span> <span class="outreach-status__value">${escapeHtml(lastContact)}</span></div>` : ''}
+            ${hasOutreachLog ? `<details class="contact-log-history outreach-history-toggle"><summary>View outreach log</summary><div class="outreach-history-content">${escapeHtml(String(outreachLogValue))}</div></details>` : ''}
+          `;
+        } else {
+          // Not signed in - show outreach status only
+          html += `
+            </div>
+            <div class="outreach-status" style="margin-top: 10px;">
+              <span class="outreach-status__label">Outreach:</span>
+              <span class="outreach-status__value" style="color: ${isContacted ? '#2e7d32' : '#a45a1e'};">
+                ${isContacted ? `Attempted on ${escapeHtml(lastContact)}` : 'None logged yet'}
+              </span>
             </div>
           `;
         }
@@ -6729,19 +6814,32 @@
           return (lower.includes('cell') || lower.includes('mobile')) && 
                  (lower.includes('phone') || lower.includes('cell') || lower.includes('mobile'));
         });
+        const outreachDateCol = personLevelCols.find(col => {
+          const lower = col.toLowerCase();
+          return lower === 'last contact date' ||
+            lower === 'last outreach attempt date' ||
+            lower.includes('last contact') ||
+            lower.includes('last outreach') ||
+            lower.includes('contact date') ||
+            lower.includes('outreach date') ||
+            lower.includes('contacted');
+        });
         
         const renderedFields = new Set(); // Track which fields have been rendered
+        if (ageCol) renderedFields.add(ageCol);
+        if (genderCol) renderedFields.add(genderCol);
+        if (outreachDateCol) renderedFields.add(outreachDateCol);
         
         // Helper function to format column name for display
         const formatColumnLabel = (col) => {
           const lower = col.toLowerCase();
           if (lower.includes('home phone') || lower.includes('homephone') ||
               (lower.includes('phone') && lower.includes('home'))) {
-            return 'Home 📞';
+            return 'Home';
           }
           if ((lower.includes('cell') || lower.includes('mobile')) &&
               (lower.includes('phone') || lower.includes('cell') || lower.includes('mobile'))) {
-            return 'Cell 📞';
+            return 'Cell';
           }
           // Remove "Person - " prefix from checkbox fields; use friendly label for specific columns
           if (col.startsWith('Person - ')) {
@@ -6750,13 +6848,13 @@
             return suffix;
           }
           if (/^age$/i.test(col)) return 'Approximate Age';
-          if (lower === 'last contact date') return 'Last Contact Logged';
+          if (lower === 'last contact date' || lower === 'last outreach attempt date') return 'Last Outreach Attempt';
           return col;
         };
 
         // Omit colon for phone labels and person-tag checkboxes (Renter, Needs Follow-Up, Unable to reach)
         const formatLabelForDisplay = (label) => {
-          if (label === 'Home 📞' || label === 'Cell 📞' || label === 'Renter' || label === 'Needs Follow-Up' || label === 'Unable to reach') return label;
+          if (label === 'Renter' || label === 'Needs Follow-Up' || label === 'Unable to reach') return label;
           return label + ':';
         };
         
@@ -6771,6 +6869,7 @@
           const isEditable = accessToken;
           const value = row[col] || '';
           const displayLabel = formatColumnLabel(col);
+          const isContactJumpField = displayLabel === 'Home' || displayLabel === 'Cell' || isEmail;
           
           // Copy button HTML for email addresses
           const copyButton = isEmail && value.trim() ? `
@@ -6784,6 +6883,22 @@
               </svg>
             </button>
           ` : '';
+          if (isContactJumpField) {
+            const hasValue = String(value || '').trim().length > 0;
+            const contactValueHtml = `<button type="button"
+                         class="person-modal-jump ${hasValue ? '' : 'person-modal-jump-add'}"
+                         data-address="${address.replace(/"/g, '&quot;')}"
+                         data-original-row-index="${originalRowIndex}"
+                         data-focus-column="${col.replace(/"/g, '&quot;')}"
+                         title="Open person details to edit">
+                    ${hasValue ? escapeHtml(String(value)) : '(add)'}
+                 </button>`;
+            return `<div class="person-info${isInline ? '-item' : ''}">
+                <strong>${formatLabelForDisplay(displayLabel)}</strong>
+                ${contactValueHtml}
+                ${isEmail ? copyButton : ''}
+              </div>`;
+          }
           
           if (isEditable) {
             if (isNotes) {
@@ -6847,46 +6962,31 @@
           }
         };
         
-        // Render Age and Gender on the same line if both exist
-        if (ageCol || genderCol) {
-          html += '<div class="person-info-inline">';
-          if (ageCol) {
-            // Skip Resident Name check for age
-            if (!ageCol.toLowerCase().includes('resident name')) {
-              html += renderField(ageCol, true);
-            }
-          }
-          if (genderCol) {
-            if (!genderCol.toLowerCase().includes('resident name')) {
-              html += renderField(genderCol, true);
-            }
-          }
-          html += '</div>';
-        }
-        
-        // Render Home phone and Cell phone on the same line if both exist
-        if (homePhoneCol || cellPhoneCol) {
-          html += '<div class="person-info-inline">';
-          if (homePhoneCol) {
-            html += renderField(homePhoneCol, true);
-          }
-          if (cellPhoneCol) {
-            html += renderField(cellPhoneCol, true);
-          }
-          html += '</div>';
-        }
-        
-        // Email (above Person Tags)
+        // Contact info sub-section: Home phone, Cell phone, Email
         const emailCol = personLevelCols.find(col => isPersonEmailCol(col));
-        if (emailCol) {
-          html += renderField(emailCol);
+        if (homePhoneCol || cellPhoneCol || emailCol) {
+          html += '<div class="person-card__section person-card__contact">';
+          if (homePhoneCol || cellPhoneCol) {
+            html += '<div class="person-info-inline">';
+            if (homePhoneCol) {
+              html += renderField(homePhoneCol, true);
+            }
+            if (cellPhoneCol) {
+              html += renderField(cellPhoneCol, true);
+            }
+            html += '</div>';
+          }
+          if (emailCol) {
+            html += renderField(emailCol);
+          }
+          html += '</div>';
         }
-        
-        // Person Tags: Renter, Needs Follow-Up, Unable to reach — shown inline, no accordion
+
+        // Quick Tags sub-section: Renter, Needs Follow-Up, Unable to reach (keep checkboxes)
         const personTagCols = personLevelCols.filter(col => quickTagCols.includes(col));
         if (personTagCols.length > 0) {
-          html += '<div style="margin-top:10px; border-top:1px solid rgba(0,0,0,0.07); padding-top:8px;">';
-          html += '<p style="margin:0 0 6px; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-secondary); font-family:Chivo,sans-serif;">Quick Tags</p>';
+          html += '<div class="person-card__section person-card__tags">';
+          html += '<p class="person-card__tags-label">Quick tags</p>';
           personTagCols.forEach(col => {
             html += renderField(col);
           });
@@ -6899,7 +6999,6 @@
           // Skip fields already rendered or that should be skipped
           if (renderedFields.has(col)) return;
           if (col.toLowerCase().includes('resident name')) return;
-          if (isContactMode && (col.toLowerCase().includes('contact') && col.toLowerCase().includes('note'))) return;
           // Defer notes to render last (after Person Tags)
           const isNotes = col.toLowerCase().includes('note');
           if (isNotes) {
@@ -6975,26 +7074,31 @@
             }
           }
         });
-        // Person Notes last
-        deferredNotesCols.forEach(col => {
-          const value = row[col] || '';
-          const displayLabel = formatColumnLabel(col);
-          if (accessToken) {
-            html += `<div class="person-info">
-                <strong>${formatLabelForDisplay(displayLabel)}</strong>
-                <textarea class="editable-notes" 
-                     data-address="${address.replace(/"/g, '&quot;')}" 
-                     data-original-row-index="${originalRowIndex}" 
+        // Person Notes last — stacked label above textarea for a modern, scannable layout
+        if (deferredNotesCols.length > 0) {
+          html += '<div class="person-card__section person-card__notes">';
+          deferredNotesCols.forEach(col => {
+            const value = row[col] || '';
+            const displayLabel = formatColumnLabel(col);
+            if (accessToken) {
+              html += `<div class="details-field">
+                <label class="details-field__label">${escapeHtml(displayLabel)}</label>
+                <textarea class="editable-notes"
+                     data-address="${address.replace(/"/g, '&quot;')}"
+                     data-original-row-index="${originalRowIndex}"
                      data-column="${col}"
                      data-address-level="false"
                      data-original-value="${(row[col] || '').replace(/"/g, '&quot;')}">${row[col] || ''}</textarea>
               </div>`;
-          } else {
-            html += `<div class="person-info">
-                <strong>${formatLabelForDisplay(displayLabel)}</strong> ${value || '(not set)'}
+            } else {
+              html += `<div class="details-field">
+                <label class="details-field__label">${escapeHtml(displayLabel)}</label>
+                <div class="details-field__static">${value || '<span style="color:var(--text-secondary);">(not set)</span>'}</div>
               </div>`;
-          }
-        });
+            }
+          });
+          html += '</div>';
+        }
         
         // Display other non-notes fields that aren't address-level (but exclude hidden fields)
         detailCols.forEach(col => {
@@ -7014,7 +7118,7 @@
       // Add save button if signed in and there are editable fields
       if (accessToken) {
         html += `
-          <div style="margin-top: 16px; padding-top: 16px; border-top: 2px solid var(--river);">
+          <div class="details-footer-save">
             <button class="btn-save" id="saveChangesBtn">Save Changes</button>
             <span class="save-status" id="saveStatus"></span>
           </div>
@@ -7045,6 +7149,93 @@
           const triggerAddress = trigger.getAttribute('data-address');
           const rowIndex = parseInt(trigger.getAttribute('data-original-row-index'), 10);
           showPersonDetailsModal(triggerAddress, rowIndex);
+        });
+      });
+      document.querySelectorAll('.person-modal-jump').forEach(trigger => {
+        trigger.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const triggerAddress = trigger.getAttribute('data-address');
+          const rowIndex = parseInt(trigger.getAttribute('data-original-row-index'), 10);
+          const focusColumn = trigger.getAttribute('data-focus-column');
+          showPersonDetailsModal(triggerAddress, rowIndex, focusColumn);
+        });
+      });
+
+      const closeOutreachComposer = (composer, restoreFocus = false) => {
+        if (!composer) return;
+        const notesField = composer.querySelector('.outreach-notes-input');
+        if (notesField) notesField.value = '';
+        composer.hidden = true;
+        const toggleBtn = composer.closest('.person-entry')?.querySelector('.outreach-log-toggle');
+        if (toggleBtn) {
+          toggleBtn.hidden = false;
+          toggleBtn.setAttribute('aria-hidden', 'false');
+          toggleBtn.setAttribute('aria-expanded', 'false');
+          if (restoreFocus) {
+            toggleBtn.focus();
+          }
+        }
+      };
+
+      document.querySelectorAll('.outreach-log-toggle').forEach(toggleBtn => {
+        toggleBtn.addEventListener('click', () => {
+          const composerId = toggleBtn.getAttribute('aria-controls');
+          if (!composerId) return;
+          const composer = document.getElementById(composerId);
+          if (!composer) return;
+          const isOpen = !composer.hidden;
+          if (isOpen) {
+            closeOutreachComposer(composer, true);
+            return;
+          }
+          // Only one outreach composer open at a time across the whole panel.
+          // This keeps the UI calm and predictable for low-tech users.
+          document.querySelectorAll('.outreach-composer').forEach(otherComposer => {
+            if (otherComposer !== composer && !otherComposer.hidden) {
+              closeOutreachComposer(otherComposer, false);
+            }
+          });
+          composer.hidden = false;
+          toggleBtn.hidden = true;
+          toggleBtn.setAttribute('aria-hidden', 'true');
+          toggleBtn.setAttribute('aria-expanded', 'true');
+          const notesField = composer.querySelector('.outreach-notes-input');
+          if (notesField) notesField.focus();
+        });
+      });
+
+      document.querySelectorAll('.outreach-cancel-btn').forEach(cancelBtn => {
+        cancelBtn.addEventListener('click', () => {
+          const composer = cancelBtn.closest('.outreach-composer');
+          closeOutreachComposer(composer, true);
+        });
+      });
+
+      document.querySelectorAll('.outreach-submit-btn').forEach(submitBtn => {
+        submitBtn.addEventListener('click', async () => {
+          const personAddress = submitBtn.getAttribute('data-address') || '';
+          const rowIndex = parseInt(submitBtn.getAttribute('data-original-row-index') || '-1', 10);
+          const contactColumn = submitBtn.getAttribute('data-contact-column') || 'Last Outreach Attempt Date';
+          await markContact(submitBtn, personAddress, rowIndex, contactColumn);
+        });
+      });
+
+      document.querySelectorAll('.outreach-notes-input').forEach(textarea => {
+        textarea.addEventListener('keydown', async (event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            const composer = textarea.closest('.outreach-composer');
+            closeOutreachComposer(composer, true);
+            return;
+          }
+          if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+            event.preventDefault();
+            const submitBtn = textarea.closest('.outreach-composer')?.querySelector('.outreach-submit-btn');
+            if (submitBtn) {
+              submitBtn.click();
+            }
+          }
         });
       });
 
@@ -7112,7 +7303,7 @@
       });
       
       // Add change handlers for textareas with auto-save
-      document.querySelectorAll('.editable-notes, .contact-notes-quick').forEach(textarea => {
+      document.querySelectorAll('.editable-notes').forEach(textarea => {
         textarea.addEventListener('input', () => {
           triggerAutoSave();
         });
@@ -7351,7 +7542,7 @@
     }
     // ── End Move Pin Modal ─────────────────────────────────────────────────────
 
-    function showPersonDetailsModal(address, originalRowIndex) {
+    function showPersonDetailsModal(address, originalRowIndex, focusColumn = null) {
       if (!sheetData || !sheetData.addressMap || !sheetData.addressMap.has(address)) return;
       const rows = sheetData.addressMap.get(address) || [];
       const row = rows.find(r => r.__originalIndex === originalRowIndex);
@@ -7368,8 +7559,8 @@
       const cellCol = headers.find(h => /cell|mobile/i.test(h));
       const emailCol = headers.find(h => /email\s*address/i.test(h)) || headers.find(h => /^email$/i.test(h));
       const personNotesCol = headers.find(h => /person\s*note/i.test(h));
-      const contactDateCol = findColumn(headers, ['contact', 'date']) || findColumn(headers, ['last', 'contact']);
-      const contactNotesCol = headers.find(h => /contact\s*note/i.test(h));
+      const contactDateCol = findOutreachDateColumn(headers);
+      const contactNotesCol = findOutreachLogColumn(headers);
       const formerResidentCol = findColumn(headers, ['former', 'resident'], ['note']);
       const formerResidentNotesCol = findColumn(headers, ['former', 'resident', 'note']);
       const deceasedCol = findColumn(headers, 'deceased');
@@ -7457,21 +7648,38 @@
       ].filter(Boolean));
 
       const attrValue = (value) => escapeHtmlAttr(String(value == null ? '' : value).replace(/\n/g, '&#10;'));
-      const textField = (label, col, type = 'text') => {
+      const textField = (label, col, type = 'text', options = {}) => {
         if (!col) return '';
         const value = row[col] || '';
+        const fieldClass = options.fieldClass ? ` ${options.fieldClass}` : '';
+        const inputClass = options.inputClass ? ` ${options.inputClass}` : '';
+        const copyButtonHtml = options.withCopy && String(value || '').trim()
+          ? `<button class="copy-email-btn"
+                     data-email="${escapeHtmlAttr(String(value).trim())}"
+                     title="Copy email address"
+                     type="button"
+                     style="background: none; border: none; cursor: pointer; padding: 2px 4px; display: inline-flex; align-items: center; opacity: 0.6; transition: opacity 0.2s;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              </button>`
+          : '';
         return `
-          <div class="person-details-field">
+          <div class="person-details-field${fieldClass}">
             <p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p>
-            <input
-              type="${type}"
-              class="add-record-input person-details-input"
-              value="${escapeHtmlAttr(value)}"
-              data-person-modal-field="true"
-              data-column="${escapeHtmlAttr(col)}"
-              data-original-value="${attrValue(value)}"
-              ${disabledAttr}
-            >
+            <div class="person-details-input-row">
+              <input
+                type="${type}"
+                class="add-record-input person-details-input${inputClass}"
+                value="${escapeHtmlAttr(value)}"
+                data-person-modal-field="true"
+                data-column="${escapeHtmlAttr(col)}"
+                data-original-value="${attrValue(value)}"
+                ${disabledAttr}
+              >
+              ${copyButtonHtml}
+            </div>
           </div>
         `;
       };
@@ -7537,7 +7745,7 @@
       const quickTagsHtml = quickTagCols.map(col => checkboxField(col.replace(/^Person -\s*/, ''), col)).join('');
       const modalHTML = `
         <div class="newsletter-modal-overlay" id="personDetailsModalOverlay" data-address="${escapeHtmlAttr(address)}" data-original-row-index="${originalRowIndex}">
-          <div class="newsletter-modal" style="max-width:560px;">
+          <div class="newsletter-modal person-details-modal" style="max-width:640px;">
             <button class="newsletter-modal-close" id="personDetailsModalClose">&times;</button>
             <div class="newsletter-modal-header">
               <h3 class="newsletter-modal-title">${escapeHtml(displayName)}</h3>
@@ -7547,19 +7755,30 @@
               <div class="newsletter-modal-section">
                 <h4 class="newsletter-modal-section-title">Person</h4>
                 <div class="person-details-grid">
-                  ${textField('Name', nameCol)}
-                  ${textField('Approximate Age', ageCol)}
-                  ${textField('Gender', genderCol)}
+                  ${textField('Name', nameCol, 'text', { fieldClass: 'person-details-field--full' })}
+                  ${textField('Approximate Age', ageCol, 'text', {
+                    fieldClass: 'person-details-field--compact',
+                    inputClass: 'person-details-input--compact'
+                  })}
+                  ${textField('Gender', genderCol, 'text', {
+                    fieldClass: 'person-details-field--compact',
+                    inputClass: 'person-details-input--compact person-details-input--gender'
+                  })}
                 </div>
               </div>
               <div class="newsletter-modal-section">
-                <h4 class="newsletter-modal-section-title">Contact</h4>
+                <h4 class="newsletter-modal-section-title">Contact Information</h4>
                 <div class="person-details-grid">
                   ${textField('Home phone', homePhoneCol)}
                   ${textField('Cell', cellCol)}
-                  ${textField('Email address', emailCol, 'email')}
-                  ${textField('Contact date', contactDateCol)}
-                  ${notesField('Contact Notes', contactNotesCol, 'Quick contact notes...')}
+                  ${textField('Email address', emailCol, 'email', { withCopy: true })}
+                </div>
+              </div>
+              <div class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">Outreach</h4>
+                <div class="person-details-grid">
+                  ${textField('Last outreach attempt', contactDateCol)}
+                  ${notesField('Outreach Log', contactNotesCol, 'Running outreach log')}
                 </div>
               </div>
               ${additionalCols.length > 0 ? `
@@ -7615,6 +7834,44 @@
       const saveBtn = document.getElementById('personDetailsSaveBtn');
       const formerResidentInput = overlay ? overlay.querySelector('[data-person-modal-role="former-resident"]') : null;
       const deceasedInput = overlay ? overlay.querySelector('[data-person-modal-role="deceased"]') : null;
+      if (overlay && focusColumn) {
+        const focusField = Array.from(overlay.querySelectorAll('[data-person-modal-field="true"]'))
+          .find(field => field.getAttribute('data-column') === focusColumn);
+        if (focusField) {
+          focusField.focus();
+          if (typeof focusField.select === 'function') {
+            focusField.select();
+          }
+          focusField.classList.add('person-details-input--focus-target');
+          setTimeout(() => focusField.classList.remove('person-details-input--focus-target'), 1400);
+        }
+      }
+      if (overlay) {
+        overlay.querySelectorAll('.copy-email-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const email = btn.getAttribute('data-email');
+            if (!email) return;
+            try {
+              await navigator.clipboard.writeText(email);
+              const originalOpacity = btn.style.opacity;
+              btn.style.opacity = '1';
+              btn.style.color = '#4caf50';
+              setTimeout(() => {
+                btn.style.opacity = originalOpacity;
+                btn.style.color = '';
+              }, 500);
+            } catch (err) {
+              console.error('Failed to copy email:', err);
+            }
+          });
+          btn.addEventListener('mouseenter', () => { btn.style.opacity = '1'; });
+          btn.addEventListener('mouseleave', () => {
+            if (btn.style.color !== '#4caf50') btn.style.opacity = '0.6';
+          });
+        });
+      }
 
       function removeModal() {
         if (overlay && overlay.parentNode) {
@@ -8026,7 +8283,7 @@
       }
       if (saveStatusTop) {
         saveStatusTop.textContent = 'Auto-saving...';
-        saveStatusTop.className = 'save-status saving';
+        saveStatusTop.className = 'save-status save-status-top saving';
       }
     }
 
@@ -8041,8 +8298,8 @@
       const saveBtn = document.getElementById('saveChangesBtn');
       const saveStatus = document.getElementById('saveStatus');
       const saveStatusTop = document.getElementById('saveStatusTop');
-      // Get all editable elements: Notes fields (textareas), inline fields, dropdowns, checkboxes, text inputs (e.g. APN), and Quick Contact Notes
-      const editableFields = document.querySelectorAll('.editable-field[contenteditable="true"], .editable-inline[contenteditable="true"], .editable-notes, .contact-notes-quick, .apn-input');
+      // Get all editable elements: Notes fields (textareas), inline fields, dropdowns, checkboxes, text inputs (e.g. APN)
+      const editableFields = document.querySelectorAll('.editable-field[contenteditable="true"], .editable-inline[contenteditable="true"], .editable-notes, .apn-input');
       const editableDropdowns = document.querySelectorAll('.editable-dropdown');
       const editableCheckboxes = document.querySelectorAll('.editable-checkbox');
       
@@ -8062,7 +8319,7 @@
       }
       if (saveStatusTop) {
         saveStatusTop.textContent = isAutoSave ? 'Auto-saving...' : 'Saving...';
-        saveStatusTop.className = 'save-status saving';
+        saveStatusTop.className = 'save-status save-status-top saving';
       }
 
       try {
@@ -8093,8 +8350,12 @@
 
           if (newValue === originalValue) return;
           let colIndex = -1;
-          if (column === 'Contact Notes' || field.classList.contains('contact-notes-quick')) {
-            colIndex = sheetData.headers.findIndex(h => h.toLowerCase().includes('contact') && h.toLowerCase().includes('note'));
+          if (column === 'Contact Notes' || column === 'Outreach Log') {
+            colIndex = sheetData.headers.findIndex(h => {
+              const lower = h.toLowerCase();
+              return (lower.includes('contact') && lower.includes('note')) ||
+                     (lower.includes('outreach') && (lower.includes('note') || lower.includes('log')));
+            });
           } else {
             colIndex = sheetData.headers.indexOf(column);
           }
@@ -8156,7 +8417,20 @@
         const hasUpdates = updates.length > 0 || updatesByResidentId.length > 0;
         if (!hasUpdates) {
           if (saveStatus) { saveStatus.textContent = 'No changes to save'; saveStatus.className = 'save-status'; }
+          if (saveStatusTop) { saveStatusTop.textContent = 'No changes to save'; saveStatusTop.className = 'save-status save-status-top'; }
           if (saveBtn) saveBtn.disabled = false;
+          if (isAutoSave) {
+            setTimeout(() => {
+              if (saveStatus && saveStatus.textContent === 'No changes to save') {
+                saveStatus.textContent = '';
+                saveStatus.className = 'save-status';
+              }
+              if (saveStatusTop && saveStatusTop.textContent === 'No changes to save') {
+                saveStatusTop.textContent = '';
+                saveStatusTop.className = 'save-status save-status-top';
+              }
+            }, 1500);
+          }
           return;
         }
 
@@ -8190,11 +8464,12 @@
           const originalRowIndex = parseInt(field.getAttribute('data-original-row-index'));
           
           if (column && address) {
-            // Find the column index - handle Contact Notes with flexible matching
+            // Find the column index - handle outreach log column with flexible matching
             let colIndex = -1;
-            if (column === 'Contact Notes' || field.classList.contains('contact-notes-quick')) {
+            if (column === 'Contact Notes' || column === 'Outreach Log') {
               colIndex = sheetData.headers.findIndex(h => 
-                h.toLowerCase().includes('contact') && h.toLowerCase().includes('note')
+                (h.toLowerCase().includes('contact') && h.toLowerCase().includes('note')) ||
+                (h.toLowerCase().includes('outreach') && (h.toLowerCase().includes('note') || h.toLowerCase().includes('log')))
               );
             } else {
               colIndex = sheetData.headers.indexOf(column);
@@ -8312,13 +8587,13 @@
         }
         if (saveStatusTop) {
           saveStatusTop.textContent = isAutoSave ? 'Auto-saved!' : 'Saved!';
-          saveStatusTop.className = 'save-status saved';
+          saveStatusTop.className = 'save-status save-status-top saved';
           // Clear auto-save message after 2 seconds
           if (isAutoSave) {
             setTimeout(() => {
               if (saveStatusTop && saveStatusTop.textContent === 'Auto-saved!') {
                 saveStatusTop.textContent = '';
-                saveStatusTop.className = 'save-status';
+                saveStatusTop.className = 'save-status save-status-top';
               }
             }, 2000);
           }
@@ -8345,7 +8620,7 @@
         }
         if (saveStatusTop) {
           saveStatusTop.textContent = `Error: ${error.message}`;
-          saveStatusTop.className = 'save-status error';
+          saveStatusTop.className = 'save-status save-status-top error';
         }
         // For auto-save errors, also show a console warning (less intrusive than alert)
         if (isAutoSave) {
@@ -8663,15 +8938,15 @@
       legendSection.style.display = 'block';
 
       if (mode === 'contact') {
-        legendLabel.textContent = 'Contact Status';
+        legendLabel.textContent = 'Outreach Status';
         legendItems.innerHTML = `
           <div class="map-color-key-legend-item">
             <div class="map-color-key-swatch" style="background: ${colorPalette['sky-blue-light']}"></div>
-            <span>Contacted</span>
+            <span>Outreach Attempted</span>
           </div>
           <div class="map-color-key-legend-item map-color-key-legend-item-last">
             <div class="map-color-key-swatch" style="background: ${colorPalette['ash-grey']}"></div>
-            <span>Not Contacted</span>
+            <span>No Outreach Yet</span>
           </div>
         `;
       } else if (mode === 'damage') {
@@ -8751,14 +9026,14 @@
           let html = '';
           if (mode === 'contact') {
             html = `
-              <div style="font-weight: 600; margin-bottom: 8px; color: #283618; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Contact Status</div>
+              <div style="font-weight: 600; margin-bottom: 8px; color: #283618; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Outreach Status</div>
               <div style="display: flex; align-items: center; margin-bottom: 6px;">
                 <div style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPalette['sky-blue-light']}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
-                <span style="font-size: 0.7rem;">Contacted</span>
+                <span style="font-size: 0.7rem;">Outreach Attempted</span>
               </div>
               <div style="display: flex; align-items: center;">
                 <div style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPalette['ash-grey']}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
-                <span style="font-size: 0.7rem;">Not Contacted</span>
+                <span style="font-size: 0.7rem;">No Outreach Yet</span>
               </div>
             `;
           } else if (mode === 'damage') {
@@ -8869,9 +9144,9 @@
 
           const btnCss = 'height: 30px; line-height: 30px; text-align: left; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap; background: transparent; border: none; cursor: pointer; width: 100%;';
 
-          // Contact Status button
+          // Outreach Status button
           const contactBtn = L.DomUtil.create('button', 'color-filter-btn', container);
-          contactBtn.textContent = 'Contact Status';
+          contactBtn.textContent = 'Outreach Status';
           contactBtn.style.cssText = btnCss;
           contactBtn.onmouseover = () => { if (homeColorMode !== 'contact') contactBtn.style.background = '#f3f7f2'; };
           contactBtn.onmouseout = () => { if (homeColorMode !== 'contact') contactBtn.style.background = 'transparent'; };
@@ -9230,7 +9505,7 @@
           const contactBtn = L.DomUtil.create('a', 'map-color-by-item-btn', panel);
           contactBtn.id = 'colorByContactBtn';
           contactBtn.href = '#';
-          contactBtn.textContent = 'Contact Status';
+          contactBtn.textContent = 'Outreach Status';
           contactBtn.style.cssText = itemBtnCss;
 
           const damageBtn = L.DomUtil.create('a', 'map-color-by-item-btn', panel);
@@ -11856,7 +12131,7 @@
       // Get filtered addresses (same logic as displayAddressTable)
       const addresses = Array.from(sheetData.addressMap.keys());
       const headers = sheetData.headers;
-      const contactDateCol = findColumn(headers, ['contact', 'date']);
+      const contactDateCol = findOutreachDateColumn(headers);
       const filteredAddresses = addresses.filter(address => {
         // Street filter
         if (currentStreetFilter !== 'all') {
@@ -12117,32 +12392,13 @@
     //   });
     // }
 
-    // Contact Mode toggle
-    let contactModeActive = false;
-    window.contactModeActive = false;
-    const contactModeBtn = document.getElementById('contactModeBtn');
-    if (contactModeBtn) {
-      contactModeBtn.addEventListener('click', () => {
-        contactModeActive = !contactModeActive;
-        window.contactModeActive = contactModeActive;
-        contactModeBtn.classList.toggle('active', contactModeActive);
-        
-        // If we're viewing an address detail, refresh it to show/hide contact mode UI
-        const addressDetails = document.querySelector('.address-details.active');
-        if (addressDetails) {
-          const addressHeading = addressDetails.querySelector('h3');
-          if (addressHeading) {
-            const address = addressHeading.textContent.trim();
-            displayAddressDetails(address);
-          }
-        }
-      });
-    }
-
-    // Mark contact function
+    // Log outreach attempt function
     window.markContact = async function(button, address, originalRowIndex, contactColumn) {
       if (!accessToken) {
-        alert('Please sign in to mark contacts.');
+        alert('Please sign in to log outreach attempts.');
+        return;
+      }
+      if (button && button.disabled) {
         return;
       }
 
@@ -12156,11 +12412,10 @@
         return;
       }
 
-      const today = new Date().toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
-      });
+      const today = getTodayOutreachLabel();
+      if (button) {
+        button.disabled = true;
+      }
 
       try {
         const sheetInfo = extractSheetId(sheetUrl);
@@ -12171,28 +12426,39 @@
         const headers = sheetData.headers;
         const contactColIndex = headers.findIndex(h =>
           h.toLowerCase() === 'last contact date' ||
+          h.toLowerCase() === 'last outreach attempt date' ||
           h.toLowerCase().includes('last contact') ||
+          h.toLowerCase().includes('last outreach') ||
           h.toLowerCase().includes('contact date') ||
+          h.toLowerCase().includes('outreach date') ||
           h.toLowerCase().includes('contacted')
         );
         const contactCol = contactColIndex >= 0 ? headers[contactColIndex] : null;
         const contactNotesColIndex = headers.findIndex(h =>
           h.toLowerCase() === 'contact notes' ||
-          h.toLowerCase().includes('contact notes')
+          h.toLowerCase() === 'outreach log' ||
+          h.toLowerCase().includes('contact notes') ||
+          (h.toLowerCase().includes('outreach') && (h.toLowerCase().includes('note') || h.toLowerCase().includes('log')))
         );
         const contactNotesCol = contactNotesColIndex >= 0 ? headers[contactNotesColIndex] : null;
 
-        const contactNotesTextarea = button.parentNode.querySelector('.contact-notes-quick');
+        const contactNotesTextarea = button.closest('.outreach-composer')?.querySelector('.outreach-notes-input');
         const contactNotes = contactNotesTextarea ? contactNotesTextarea.value.trim() : '';
 
         const rows = sheetData.addressMap.get(address);
         const row = rows ? rows.find(r => r.__originalIndex === originalRowIndex) : null;
         const useResidentId = sheetData.useResidentId && row && row['resident_id'];
+        const existingOutreachLog = contactNotesCol ? String(row?.[contactNotesCol] || '').trim() : '';
+        const normalizedOutreachNote = contactNotes || '(no notes)';
+        const newOutreachEntry = `[${today}] ${normalizedOutreachNote}`;
+        const nextOutreachLog = existingOutreachLog
+          ? `${newOutreachEntry}\n${existingOutreachLog}`
+          : newOutreachEntry;
 
         if (useResidentId) {
           const updatesByResidentId = [];
           if (contactCol) updatesByResidentId.push({ resident_id: row['resident_id'], column: contactCol, value: today });
-          if (contactNotesCol !== null) updatesByResidentId.push({ resident_id: row['resident_id'], column: contactNotesCol, value: contactNotes });
+          if (contactNotesCol !== null) updatesByResidentId.push({ resident_id: row['resident_id'], column: contactNotesCol, value: nextOutreachLog });
           if (updatesByResidentId.length > 0) {
             const response = await fetch('/api/sheets/batch-update-by-resident-id', {
               method: 'POST',
@@ -12211,7 +12477,7 @@
             updates.push({ range: 'Sheet1!' + indexToColumnLetter(contactColIndex) + rowNumber, values: [[today]] });
           }
           if (contactNotesColIndex >= 0) {
-            updates.push({ range: 'Sheet1!' + indexToColumnLetter(contactNotesColIndex) + rowNumber, values: [[contactNotes]] });
+            updates.push({ range: 'Sheet1!' + indexToColumnLetter(contactNotesColIndex) + rowNumber, values: [[nextOutreachLog]] });
           }
           if (updates.length > 0) {
             const response = await fetch('/api/sheets/batch-update', {
@@ -12226,27 +12492,15 @@
           }
         }
 
-        // Update UI
-        button.classList.add('contacted');
-        button.textContent = '✓ Contacted';
-        
-        // Add date display if it doesn't exist
-        const existingDate = button.parentNode.querySelector('.contact-date');
-        if (!existingDate) {
-          const dateDiv = document.createElement('div');
-          dateDiv.className = 'contact-date';
-          dateDiv.textContent = `Last contact: ${today}`;
-          button.parentNode.insertBefore(dateDiv, button.nextSibling);
-        } else {
-          existingDate.textContent = `Last contact: ${today}`;
-        }
-
         // Update local data
         if (sheetData && sheetData.data) {
           const contactCol = headers.find(h => 
             h.toLowerCase() === 'last contact date' ||
+            h.toLowerCase() === 'last outreach attempt date' ||
             h.toLowerCase().includes('last contact') || 
+            h.toLowerCase().includes('last outreach') || 
             h.toLowerCase().includes('contact date') ||
+            h.toLowerCase().includes('outreach date') ||
             h.toLowerCase().includes('contacted')
           ) || contactColumn;
           const localRow = sheetData.data.find(r => r.__originalIndex === originalRowIndex);
@@ -12254,10 +12508,10 @@
             localRow[contactCol] = today;
           }
           
-          // Update contact notes in local data if column exists
-          if (localRow && contactNotesColIndex >= 0 && contactNotes) {
+          // Update outreach log in local data if column exists
+          if (localRow && contactNotesColIndex >= 0) {
             const contactNotesCol = headers[contactNotesColIndex];
-            localRow[contactNotesCol] = contactNotes;
+            localRow[contactNotesCol] = nextOutreachLog;
           }
           
           // Update address map
@@ -12266,24 +12520,24 @@
             const row = rows.find(r => r.__originalIndex === originalRowIndex);
             if (row) {
               row[contactCol] = today;
-              if (contactNotesColIndex >= 0 && contactNotes) {
+              if (contactNotesColIndex >= 0) {
                 const contactNotesCol = headers[contactNotesColIndex];
-                row[contactNotesCol] = contactNotes;
+                row[contactNotesCol] = nextOutreachLog;
               }
             }
           }
         }
 
-        // Update person entry styling
-        const personEntry = button.closest('.person-entry');
-        if (personEntry) {
-          personEntry.classList.remove('no-contact');
-          personEntry.classList.add('recent-contact');
-        }
+        // Refresh details so outreach history reflects newly appended entry.
+        displayAddressDetails(address, true);
 
       } catch (error) {
-        console.error('Error marking contact:', error);
-        alert('Error saving contact: ' + error.message);
+        console.error('Error logging outreach attempt:', error);
+        alert('Error saving outreach attempt: ' + error.message);
+      } finally {
+        if (button) {
+          button.disabled = false;
+        }
       }
     };
 
@@ -12318,8 +12572,11 @@
       // Find relevant columns
       const lastContactCol = headers.find(h => 
         h.toLowerCase() === 'last contact date' ||
+        h.toLowerCase() === 'last outreach attempt date' ||
         h.toLowerCase().includes('last contact') || 
+        h.toLowerCase().includes('last outreach') || 
         h.toLowerCase().includes('contact date') ||
+        h.toLowerCase().includes('outreach date') ||
         h.toLowerCase().includes('contacted')
       );
       const damageCol = findColumn(headers, 'damage');
@@ -12347,7 +12604,7 @@
         peopleContactChart = new Chart(peopleContactCtx, {
           type: 'pie',
           data: {
-            labels: [`Contacted (${peopleContactedPct}%)`, `Not Contacted (${peopleNotContactedPct}%)`],
+            labels: [`Outreach Attempted (${peopleContactedPct}%)`, `No Outreach Yet (${peopleNotContactedPct}%)`],
             datasets: [{
               data: [peopleContacted, peopleNotContacted],
               backgroundColor: ['#afc892', '#e5e5e5'],
@@ -12405,7 +12662,7 @@
         householdsContactChart = new Chart(householdsContactCtx, {
           type: 'pie',
           data: {
-            labels: [`Contacted (${householdsContactedPct}%)`, `Not Contacted (${householdsNotContactedPct}%)`],
+            labels: [`Outreach Attempted (${householdsContactedPct}%)`, `No Outreach Yet (${householdsNotContactedPct}%)`],
             datasets: [{
               data: [householdsContactedCount, householdsNotContactedCount],
               backgroundColor: ['#afc892', '#e5e5e5'],
@@ -13245,8 +13502,11 @@
     function getAddressesContactedData(headers, data) {
       const lastContactCol = headers.find(h => 
         h.toLowerCase() === 'last contact date' ||
+        h.toLowerCase() === 'last outreach attempt date' ||
         h.toLowerCase().includes('last contact') || 
+        h.toLowerCase().includes('last outreach') || 
         h.toLowerCase().includes('contact date') ||
+        h.toLowerCase().includes('outreach date') ||
         h.toLowerCase().includes('contacted')
       );
       const addressColumns = findAddressColumns(headers);
@@ -13490,7 +13750,7 @@
             return {
               type: 'pie',
               data: {
-                labels: [`Contacted (${contactData.contacted})`, `Not Contacted (${contactData.notContacted})`],
+                labels: [`Outreach Attempted (${contactData.contacted})`, `No Outreach Yet (${contactData.notContacted})`],
                 datasets: [{
                   data: [contactData.contacted, contactData.notContacted],
                   backgroundColor: ['#81bdc3', '#e5e5e5'],
@@ -13638,10 +13898,10 @@
       ];
 
       // Map chart definitions to the correct canvas IDs for each carousel
-      // LEFT: Addresses Marked Contacted (0), Streets Distribution (3), People per Address (4)
+      // LEFT: Addresses with Outreach Attempt (0), Streets Distribution (3), People per Address (4)
       // RIGHT: Damage Status (1), Build Status (5), Address Plan (2)
       const chartIndexMap = {
-        'left': [0, 3, 4],  // Addresses Marked Contacted, Streets Distribution, People per Address
+        'left': [0, 3, 4],  // Addresses with Outreach Attempt, Streets Distribution, People per Address
         'right': [1, 5, 2]  // Damage Status, Build Status, Address Plan
       };
       
@@ -13722,9 +13982,14 @@
 
       // Locate relevant columns
       const contactCol = findColumn(headers, ['last', 'contact']) ||
+                         findColumn(headers, ['last', 'outreach']) ||
                          headers.find(h => {
                            const l = h.toLowerCase();
-                           return l === 'last contact date' || l === 'contacted' || l.includes('contacted');
+                           return l === 'last contact date' ||
+                                  l === 'last outreach attempt date' ||
+                                  l === 'contacted' ||
+                                  l.includes('contacted') ||
+                                  l.includes('outreach');
                          }) || null;
       const damageCol = findColumn(headers, 'damage');
       const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
@@ -13746,7 +14011,7 @@
       addressMap.forEach((residents, address) => {
         totalPeople += residents.length;
 
-        // Contacted: any resident has a non-empty contact date
+        // Outreach attempted: any resident has a non-empty outreach date
         if (contactCol) {
           const hasContact = residents.some(row => {
             const val = (row[contactCol] || '').trim();
@@ -13776,7 +14041,7 @@
         }
       });
 
-      // Format contacted as "X of Y (Z%)"
+      // Format outreach coverage as "X of Y (Z%)"
       const contactedPct = totalAddresses > 0
         ? Math.round((contactedCount / totalAddresses) * 100)
         : 0;
@@ -14338,10 +14603,10 @@
       };
       const formatBatchDateDisplay = (rawValue) => {
         const trimmed = String(rawValue || '').trim();
-        if (!trimmed) return 'Not yet contacted';
+        if (!trimmed) return 'No outreach logged yet';
         const parsed = parseDate(trimmed);
-        if (!parsed) return `Last contact logged: ${trimmed}`;
-        return `Last contact logged: ${parsed.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+        if (!parsed) return `Last outreach logged: ${trimmed}`;
+        return `Last outreach logged: ${parsed.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
       };
       const firstNameCol = findHeaderByNormalizedName(['First Name', 'Firstname']);
       const lastNameCol = findHeaderByNormalizedName(['Last Name', 'Lastname']);
@@ -14364,8 +14629,11 @@
       const getPersonAddress = (row) => buildAddressString(row, addressColumns);
       const contactDateCol = findHeaderByLower((lower) =>
         lower === 'last contact date' ||
+        lower === 'last outreach attempt date' ||
         lower === 'last contact logged' ||
-        (lower.includes('contact') && lower.includes('date'))
+        lower === 'last outreach logged' ||
+        (lower.includes('contact') && lower.includes('date')) ||
+        (lower.includes('outreach') && lower.includes('date'))
       );
       const newsletterCol = findHeaderByNormalizedName('Newsletter Subscriber');
       const formerResidentCol = findColumn(headers, ['former', 'resident'], ['note']);
@@ -15350,7 +15618,7 @@
         }
 
         if (contactAction && !contactDateCol) {
-          if (personStatusMsg) personStatusMsg.textContent = 'Could not find a Last Contact Date column in this sheet.';
+          if (personStatusMsg) personStatusMsg.textContent = 'Could not find a Last Outreach Attempt Date column in this sheet.';
           return;
         }
         if (newsletterValue && !newsletterCol) {
@@ -15747,9 +16015,9 @@
       
       const whoText = {
         'everyone': 'Everyone',
-        'uncontacted': 'Haven\'t Contacted Yet',
+        'uncontacted': 'No Outreach Yet',
         'followup': 'Need Follow-up',
-        'oldcontact': 'Not Contacted Recently',
+        'oldcontact': 'No Recent Outreach',
         'custom': 'Custom Selection'
       };
       
@@ -15899,7 +16167,9 @@
       );
       const contactDateCol = headers.find(h => 
         (h.toLowerCase().includes('contact') && h.toLowerCase().includes('date')) ||
-        h.toLowerCase().includes('last contact')
+        h.toLowerCase().includes('last contact') ||
+        (h.toLowerCase().includes('outreach') && h.toLowerCase().includes('date')) ||
+        h.toLowerCase().includes('last outreach')
       );
       const followupCol = headers.find(h => 
         h.toLowerCase().includes('follow') && (h.toLowerCase().includes('up') || h.toLowerCase().includes('-up'))
@@ -16012,7 +16282,9 @@
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const contactDateCol = headers.find(h => 
         (h.toLowerCase().includes('contact') && h.toLowerCase().includes('date')) ||
-        h.toLowerCase().includes('last contact')
+        h.toLowerCase().includes('last contact') ||
+        (h.toLowerCase().includes('outreach') && h.toLowerCase().includes('date')) ||
+        h.toLowerCase().includes('last outreach')
       );
       const followupCol = headers.find(h => 
         h.toLowerCase().includes('follow') && (h.toLowerCase().includes('up') || h.toLowerCase().includes('-up'))
@@ -16111,9 +16383,9 @@
       };
       
       const listNames = {
-        'uncontacted': 'Uncontacted Households',
+        'uncontacted': 'No-Outreach-Yet Households',
         'followup': 'Needs Follow-up',
-        'oldcontact': 'Not Contacted in 2+ Months',
+        'oldcontact': 'No Outreach in 2+ Months',
         'everyone': 'Everyone',
         'custom': 'Custom List'
       };
@@ -16484,7 +16756,9 @@
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const contactDateCol = headers.find(h => 
         (h.toLowerCase().includes('contact') && h.toLowerCase().includes('date')) ||
-        h.toLowerCase().includes('last contact')
+        h.toLowerCase().includes('last contact') ||
+        (h.toLowerCase().includes('outreach') && h.toLowerCase().includes('date')) ||
+        h.toLowerCase().includes('last outreach')
       );
       const followupCol = headers.find(h => 
         h.toLowerCase().includes('follow') && (h.toLowerCase().includes('up') || h.toLowerCase().includes('-up'))
@@ -16493,7 +16767,8 @@
         h.toLowerCase().includes('note') && !h.toLowerCase().includes('contact')
       );
       const contactNotesCol = headers.find(h => 
-        h.toLowerCase().includes('contact') && h.toLowerCase().includes('note')
+        (h.toLowerCase().includes('contact') && h.toLowerCase().includes('note')) ||
+        (h.toLowerCase().includes('outreach') && (h.toLowerCase().includes('note') || h.toLowerCase().includes('log')))
       );
       const ncNameCol = findColumn(headers, 'nc name');
       const ncPhoneCol = findColumn(headers, 'nc phone');
@@ -16544,15 +16819,15 @@
             </div>
             <div class="zone-report-stat-card">
               <div class="zone-report-stat-value">${stats.contactedAddresses}</div>
-              <div class="zone-report-stat-label">Contacted Addresses</div>
+              <div class="zone-report-stat-label">Outreach Attempted Addresses</div>
             </div>
             <div class="zone-report-stat-card">
               <div class="zone-report-stat-value">${stats.uncontactedAddresses}</div>
-              <div class="zone-report-stat-label">Uncontacted Addresses</div>
+              <div class="zone-report-stat-label">No Outreach Yet Addresses</div>
             </div>
             <div class="zone-report-stat-card">
               <div class="zone-report-stat-value">${stats.contactRate}%</div>
-              <div class="zone-report-stat-label">Contact Rate</div>
+              <div class="zone-report-stat-label">Outreach Coverage</div>
             </div>
             <div class="zone-report-stat-card">
               <div class="zone-report-stat-value">${stats.followupCount}</div>
@@ -16672,21 +16947,21 @@
           </div>
         </div>
         
-        <!-- Contact Analysis Chart -->
+        <!-- Outreach Analysis Chart -->
         <div class="zone-report-section">
-          <h2 class="zone-report-section-title">Contact Analysis</h2>
+          <h2 class="zone-report-section-title">Outreach Analysis</h2>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 24px; align-items: start;">
             <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-              <h3 style="margin: 0 0 16px 0; color: var(--primary-dark); font-size: 1.2rem; text-align: center;">Contact Status</h3>
+              <h3 style="margin: 0 0 16px 0; color: var(--primary-dark); font-size: 1.2rem; text-align: center;">Outreach Status</h3>
               <canvas id="reportContactChart" style="max-height: 600px; max-width: 100%; height: 600px !important;"></canvas>
             </div>
             <div>
               <div class="zone-report-subsection">
-                <h3 class="zone-report-subsection-title">Contact Timeline</h3>
+                <h3 class="zone-report-subsection-title">Outreach Timeline</h3>
                 <table class="zone-report-table">
                   <tr>
                     <th>Time Period</th>
-                    <th>Addresses Contacted</th>
+                    <th>Addresses with Outreach Attempt</th>
                   </tr>
                   ${Object.entries(stats.contactTimeline).map(([period, count]) => `
                     <tr>
@@ -16728,8 +17003,8 @@
                   <th>Street</th>
                   <th>Addresses</th>
                   <th>People</th>
-                  <th>Contacted</th>
-                  <th>Contact Rate</th>
+                  <th>Outreach Attempted</th>
+                  <th>Outreach Coverage</th>
                 </tr>
                 ${Object.entries(stats.streetStats).sort((a, b) => b[1].addresses - a[1].addresses).map(([street, data]) => `
                   <tr>
@@ -16793,14 +17068,14 @@
                   ${escapeHtml(address)}
                   ${damage ? `<span class="zone-report-badge ${damage.toLowerCase().replace(/\s+/g, '')}">${escapeHtml(damage)}</span>` : ''}
                   ${statusDisplay ? `<span class="zone-report-badge ${statusDisplay.toLowerCase().replace(/\s+/g, '').replace(/[•\/]/g, '')}">${escapeHtml(statusDisplay)}</span>` : ''}
-                  ${isContacted ? '<span class="zone-report-badge" style="background: rgba(76, 175, 80, 0.2); color: #2e7d32;">Contacted</span>' : '<span class="zone-report-badge" style="background: rgba(229, 229, 229, 0.8); color: #4b5563;">Uncontacted</span>'}
+                  ${isContacted ? '<span class="zone-report-badge" style="background: rgba(76, 175, 80, 0.2); color: #2e7d32;">Outreach Attempted</span>' : '<span class="zone-report-badge" style="background: rgba(229, 229, 229, 0.8); color: #4b5563;">No Outreach Yet</span>'}
                 </h4>
                 <table class="zone-report-table" style="font-size: 0.85rem;">
                   <tr>
                     ${nameCol ? '<th>Name</th>' : ''}
                     ${phoneCol ? '<th>Phone</th>' : ''}
                     ${emailCol ? '<th>Email</th>' : ''}
-                    ${contactDateCol ? '<th>Last Contact</th>' : ''}
+                    ${contactDateCol ? '<th>Last Outreach Attempt</th>' : ''}
                     ${followupCol ? '<th>Follow-up</th>' : ''}
                     ${notesCol ? '<th>Notes</th>' : ''}
                   </tr>
@@ -16817,7 +17092,7 @@
                 </table>
                 ${contactNotesCol && rows.some(r => r[contactNotesCol]) ? `
                   <div style="margin-top: 12px; padding: 12px; background: rgba(221, 161, 94, 0.1); border-radius: 4px;">
-                    <strong>Contact Notes:</strong>
+                    <strong>Outreach Log:</strong>
                     ${rows.filter(r => r[contactNotesCol]).map(r => escapeHtml(r[contactNotesCol])).join('; ')}
                   </div>
                 ` : ''}
@@ -16848,7 +17123,7 @@
           'Last 30 days': 0,
           'Last 90 days': 0,
           'Over 90 days ago': 0,
-          'Never contacted': 0
+          'No outreach logged yet': 0
         },
         streetStats: {},
         dataCompleteness: {},
@@ -16872,7 +17147,9 @@
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const contactDateCol = headers.find(h => 
         (h.toLowerCase().includes('contact') && h.toLowerCase().includes('date')) ||
-        h.toLowerCase().includes('last contact')
+        h.toLowerCase().includes('last contact') ||
+        (h.toLowerCase().includes('outreach') && h.toLowerCase().includes('date')) ||
+        h.toLowerCase().includes('last outreach')
       );
       const followupCol = headers.find(h => 
         h.toLowerCase().includes('follow') && (h.toLowerCase().includes('up') || h.toLowerCase().includes('-up'))
@@ -16950,7 +17227,7 @@
           }
         } else {
           stats.uncontactedAddresses++;
-          stats.contactTimeline['Never contacted']++;
+          stats.contactTimeline['No outreach logged yet']++;
         }
         
         // Street statistics
@@ -17073,29 +17350,29 @@
       
       if (stats.contactRate < 50) {
         insights.push({
-          title: 'Low Contact Rate',
-          text: `Only ${stats.contactRate}% of addresses have been contacted. Consider prioritizing outreach to uncontacted addresses.`
+          title: 'Low Outreach Coverage',
+          text: `Only ${stats.contactRate}% of addresses have an outreach attempt logged. Consider prioritizing outreach where no attempt is logged yet.`
         });
       }
       
       if (stats.uncontactedAddresses > 0) {
         insights.push({
-          title: 'Uncontacted Addresses',
-          text: `There are ${stats.uncontactedAddresses} uncontacted addresses. These should be prioritized for initial outreach.`
+          title: 'No-Outreach-Yet Addresses',
+          text: `There are ${stats.uncontactedAddresses} addresses with no outreach attempt logged yet. These should be prioritized for initial outreach.`
         });
       }
       
       if (stats.followupCount > 0) {
         insights.push({
           title: 'Follow-ups Needed',
-          text: `${stats.followupCount} people need follow-up contact. Review the follow-up list to ensure timely responses.`
+          text: `${stats.followupCount} people need follow-up outreach. Review the follow-up list to ensure timely responses.`
         });
       }
       
       if (stats.contactTimeline['Over 90 days ago'] > 0) {
         insights.push({
-          title: 'Stale Contacts',
-          text: `${stats.contactTimeline['Over 90 days ago']} addresses were last contacted over 90 days ago. Consider re-engaging these households.`
+          title: 'Stale Outreach',
+          text: `${stats.contactTimeline['Over 90 days ago']} addresses were last reached over 90 days ago. Consider re-engaging these households.`
         });
       }
       
@@ -17471,7 +17748,7 @@
         });
       }
       
-      // Contact Chart
+      // Outreach Chart
       const contactCtx = document.getElementById('reportContactChart');
       if (contactCtx && stats.contactedAddresses !== undefined) {
         const contacted = stats.contactedAddresses;
@@ -17483,7 +17760,7 @@
         new Chart(contactCtx, {
           type: 'pie',
           data: {
-            labels: [`Contacted (${contactedPct}%)`, `Uncontacted (${uncontactedPct}%)`],
+            labels: [`Outreach Attempted (${contactedPct}%)`, `No Outreach Yet (${uncontactedPct}%)`],
             datasets: [{
               data: [contacted, uncontacted],
               backgroundColor: ['#afc892', '#e5e5e5'],
@@ -17715,9 +17992,9 @@
       const addressMap = sheetData.addressMap;
       // builders[i] matches allCharts[i] in renderCarouselChart
       const builders = [
-        function() { // 0: Addresses Marked Contacted
+        function() { // 0: Addresses with Outreach Attempt
           const d = getAddressesContactedData(headers, data);
-          return { type: 'pie', data: { labels: ['Contacted (' + d.contacted + ')', 'Not Contacted (' + d.notContacted + ')'], datasets: [{ data: [d.contacted, d.notContacted], backgroundColor: ['#81bdc3', '#e5e5e5'], borderWidth: 2, borderColor: '#fff' }] }, options: {} };
+          return { type: 'pie', data: { labels: ['Outreach Attempted (' + d.contacted + ')', 'No Outreach Yet (' + d.notContacted + ')'], datasets: [{ data: [d.contacted, d.notContacted], backgroundColor: ['#81bdc3', '#e5e5e5'], borderWidth: 2, borderColor: '#fff' }] }, options: {} };
         },
         function() { // 1: Damage Status
           const d = getDamageStatusData(headers, data, addressMap);
@@ -17919,7 +18196,7 @@
 
       // ---- Mobile 6-chart carousel ----
       var mobileChartTitles = [
-        'Addresses Marked Contacted',
+        'Addresses with Outreach Attempt',
         'Damage Status',
         'Build Status',
         'Address Plan',
