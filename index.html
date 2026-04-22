@@ -6691,24 +6691,38 @@
         // Get the original row index that was stored when grouping
         const originalRowIndex = row.__originalIndex !== undefined ? row.__originalIndex : -1;
         
-        // Check contact status
+        // Check outreach status
         const lastContact = lastContactCol ? (row[lastContactCol] || '').trim() : '';
         const isContacted = lastContact && lastContact.length > 0;
-        const contactClass = isContacted ? 'recent-contact' : 'no-contact';
-        
-        html += `<div class="person-entry ${contactClass}">`;
+        const ageColForHeader = personLevelCols.find(col => {
+          const lower = col.toLowerCase();
+          return lower.includes('age') && !lower.includes('phone') && !lower.includes('resident name');
+        });
+        const genderColForHeader = personLevelCols.find(col => {
+          const lower = col.toLowerCase();
+          return lower.includes('gender') && !lower.includes('resident name');
+        });
+        const ageValueForHeader = ageColForHeader ? String(row[ageColForHeader] || '').trim() : '';
+        const genderValueForHeader = genderColForHeader ? String(row[genderColForHeader] || '').trim() : '';
+        const ageGenderSummary = ageValueForHeader && genderValueForHeader
+          ? `${ageValueForHeader}/${genderValueForHeader}`
+          : (ageValueForHeader || genderValueForHeader);
+
+        html += `<div class="person-entry">`;
         const displayName = getPersonDisplayName(row, index, nameCol);
         const outreachComposerId = `outreach-composer-${String(address).replace(/[^a-zA-Z0-9]/g, '-')}-${originalRowIndex}`;
         html += `
           <div class="person-entry-head">
-            <button type="button" class="person-name person-name-button" data-person-details-trigger="true" data-address="${address.replace(/"/g, '&quot;')}" data-original-row-index="${originalRowIndex}">${escapeHtml(displayName)}</button>
+            <div class="person-head-main">
+              <button type="button" class="person-name person-name-button" data-person-details-trigger="true" data-address="${address.replace(/"/g, '&quot;')}" data-original-row-index="${originalRowIndex}">${escapeHtml(displayName)}</button>
+              ${ageGenderSummary ? `<span class="person-age-gender">${escapeHtml(ageGenderSummary)}</span>` : ''}
+            </div>
         `;
 
         // Per-person outreach logging
         if (accessToken) {
           const outreachLogValue = outreachLogCol ? (row[outreachLogCol] || '') : '';
           const hasOutreachLog = String(outreachLogValue).trim().length > 0;
-          const latestOutreachEntry = hasOutreachLog ? String(outreachLogValue).split('\n').find(line => String(line).trim()) : '';
           html += `
               <button type="button"
                       class="outreach-log-toggle"
@@ -6743,7 +6757,6 @@
               </div>
             </div>
             ${isContacted ? `<div class="outreach-last-date">Last outreach attempt: ${escapeHtml(lastContact)}</div>` : ''}
-            ${hasOutreachLog ? `<div class="outreach-history-preview">${escapeHtml(latestOutreachEntry)}</div>` : ''}
             ${hasOutreachLog ? `<details class="contact-log-history outreach-history-toggle"><summary>View outreach log</summary><div class="outreach-history-content">${escapeHtml(String(outreachLogValue))}</div></details>` : ''}
           `;
         } else {
@@ -6781,6 +6794,8 @@
         });
         
         const renderedFields = new Set(); // Track which fields have been rendered
+        if (ageCol) renderedFields.add(ageCol);
+        if (genderCol) renderedFields.add(genderCol);
         
         // Helper function to format column name for display
         const formatColumnLabel = (col) => {
@@ -6896,23 +6911,6 @@
             }
           }
         };
-        
-        // Render Age and Gender on the same line if both exist
-        if (ageCol || genderCol) {
-          html += '<div class="person-info-inline">';
-          if (ageCol) {
-            // Skip Resident Name check for age
-            if (!ageCol.toLowerCase().includes('resident name')) {
-              html += renderField(ageCol, true);
-            }
-          }
-          if (genderCol) {
-            if (!genderCol.toLowerCase().includes('resident name')) {
-              html += renderField(genderCol, true);
-            }
-          }
-          html += '</div>';
-        }
         
         // Render Home phone and Cell phone on the same line if both exist
         if (homePhoneCol || cellPhoneCol) {
@@ -7104,6 +7102,8 @@
         composer.hidden = true;
         const toggleBtn = composer.closest('.person-entry')?.querySelector('.outreach-log-toggle');
         if (toggleBtn) {
+          toggleBtn.hidden = false;
+          toggleBtn.setAttribute('aria-hidden', 'false');
           toggleBtn.setAttribute('aria-expanded', 'false');
           if (restoreFocus) {
             toggleBtn.focus();
@@ -7129,6 +7129,8 @@
             });
           }
           composer.hidden = false;
+          toggleBtn.hidden = true;
+          toggleBtn.setAttribute('aria-hidden', 'true');
           toggleBtn.setAttribute('aria-expanded', 'true');
           const notesField = composer.querySelector('.outreach-notes-input');
           if (notesField) notesField.focus();
@@ -12378,12 +12380,6 @@
           }
         }
 
-        // Update person entry styling
-        const personEntry = button.closest('.person-entry');
-        if (personEntry) {
-          personEntry.classList.remove('no-contact');
-          personEntry.classList.add('recent-contact');
-        }
         // Refresh details so outreach history reflects newly appended entry.
         displayAddressDetails(address, true);
 
