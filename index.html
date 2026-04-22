@@ -758,10 +758,10 @@
                         <div id="batchPersonMissingCols" class="hidden" style="margin-bottom:16px; padding:10px 14px; background:rgba(200,150,0,0.08); border:1px solid rgba(200,150,0,0.3); border-radius:6px; font-size:0.875rem; color:var(--text-secondary);"></div>
                         <div class="batch-tag-field-grid">
                           <div>
-                            <label style="display:block; margin-bottom:4px; font-weight:600;">Log as Contacted</label>
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Contact Status</label>
                             <select id="batchPersonContacted" class="add-record-select" style="min-width:160px;">
                               <option value="">— no change —</option>
-                              <option value="log">Log contact (today's date)</option>
+                              <option value="log">Mark as contacted</option>
                               <option value="clear">Clear contact date</option>
                             </select>
                           </div>
@@ -3393,7 +3393,7 @@
       displayAddressTable();
     }
 
-    // Navigate to Batch Tagging with Person tab + Not Contacted filter preset
+    // Navigate to Batch Tagging and open Person tab
     function navigateToBatchTaggingNotContactedPeople() {
       switchView('tools');
 
@@ -3412,7 +3412,8 @@
 
         const contactFilter = document.getElementById('batchTagContactFilter');
         if (contactFilter) {
-          contactFilter.value = 'not_contacted';
+          // Open with a neutral filter so users can choose their own status view.
+          contactFilter.value = 'all';
           contactFilter.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
