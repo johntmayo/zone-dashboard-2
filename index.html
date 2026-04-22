@@ -3393,6 +3393,37 @@
       displayAddressTable();
     }
 
+    // Navigate to Batch Tagging with Person tab + Not Contacted filter preset
+    function navigateToBatchTaggingNotContactedPeople() {
+      switchView('tools');
+
+      const applyPreset = () => {
+        const batchTool = document.getElementById('batchTaggingTool');
+        if (!batchTool) return;
+
+        if (!batchTool.classList.contains('expanded') && typeof toggleToolModule === 'function') {
+          toggleToolModule('batchTaggingTool');
+        } else if (typeof initializeBatchTagging === 'function') {
+          initializeBatchTagging();
+        }
+
+        const personTabBtn = document.querySelector('#batchTagTabs .batch-tag-tab[data-tab="person"]');
+        if (personTabBtn) personTabBtn.click();
+
+        const contactFilter = document.getElementById('batchTagContactFilter');
+        if (contactFilter) {
+          contactFilter.value = 'not_contacted';
+          contactFilter.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        batchTool.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+
+      // Run twice to ensure it survives async view/module initialization.
+      setTimeout(applyPreset, 220);
+      setTimeout(applyPreset, 420);
+    }
+
     // Navigate to addresses without damage status view
     function navigateToAddressesWithoutDamageStatus() {
       // Reset all filters first
@@ -3528,10 +3559,10 @@
         html += `
           <div class="quick-action-item">
             <div class="quick-action-text">
-              There are <strong>${actions.uncontactedCount}</strong> address${actions.uncontactedCount !== 1 ? 'es' : ''} you haven't contacted. Contact 3 of them right now.
+              There ${actions.uncontactedCount === 1 ? 'is' : 'are'} <strong>${actions.uncontactedCount}</strong> address${actions.uncontactedCount !== 1 ? 'es' : ''} it looks like you haven't contacted. Use the Batch Tagging tool to mark who you've been able to reach.
             </div>
             <div class="quick-action-links">
-              <a href="#" class="quick-action-link" id="showUncontactedLink">see uncontacted addresses</a>
+              <a href="#" class="quick-action-link" id="showUncontactedLink">open Batch Tagging (not contacted)</a>
             </div>
           </div>
         `;
@@ -3543,7 +3574,7 @@
         html += `
           <div class="quick-action-item">
             <div class="quick-action-text">
-              There are <strong>${actions.noDamageStatusCount}</strong> address${actions.noDamageStatusCount !== 1 ? 'es' : ''} with no Damage Status assigned. Update 5 addresses now.
+              There ${actions.noDamageStatusCount === 1 ? 'is' : 'are'} <strong>${actions.noDamageStatusCount}</strong> address${actions.noDamageStatusCount !== 1 ? 'es' : ''} with no Damage Status assigned. Try using the satellite layer and update that now.
             </div>
             <div class="quick-action-links">
               <a href="#" class="quick-action-link" id="showNoDamageStatusLink">see addresses without damage status</a>
@@ -3589,7 +3620,7 @@
       if (uncontactedLink) {
         uncontactedLink.addEventListener('click', (e) => {
           e.preventDefault();
-          navigateToUncontactedAddresses();
+          navigateToBatchTaggingNotContactedPeople();
         });
       }
 
@@ -3647,10 +3678,10 @@
             <div class="action-card">
               <div class="action-card-title">Contact Uncontacted Addresses</div>
               <div class="action-card-content">
-                There are <strong>${actions.uncontactedCount}</strong> address${actions.uncontactedCount !== 1 ? 'es' : ''} you haven't contacted. Contact 3 of them right now.
+                There ${actions.uncontactedCount === 1 ? 'is' : 'are'} <strong>${actions.uncontactedCount}</strong> address${actions.uncontactedCount !== 1 ? 'es' : ''} it looks like you haven't contacted. Use the Batch Tagging tool to mark who you've been able to reach.
               </div>
               <div class="action-card-links">
-                <a href="#" class="action-card-link" id="actionsPageUncontactedLink">see uncontacted addresses</a>
+                <a href="#" class="action-card-link" id="actionsPageUncontactedLink">open Batch Tagging (not contacted)</a>
               </div>
             </div>
           `);
@@ -3663,7 +3694,7 @@
             <div class="action-card">
               <div class="action-card-title">Update Damage Status</div>
               <div class="action-card-content">
-                There are <strong>${actions.noDamageStatusCount}</strong> address${actions.noDamageStatusCount !== 1 ? 'es' : ''} with no Damage Status assigned. Update 5 addresses now.
+                There ${actions.noDamageStatusCount === 1 ? 'is' : 'are'} <strong>${actions.noDamageStatusCount}</strong> address${actions.noDamageStatusCount !== 1 ? 'es' : ''} with no Damage Status assigned. Try using the satellite layer and update that now.
               </div>
               <div class="action-card-links">
                 <a href="#" class="action-card-link" id="actionsPageNoDamageStatusLink">see addresses without damage status</a>
@@ -3739,7 +3770,7 @@
       if (uncontactedLink) {
         uncontactedLink.addEventListener('click', (e) => {
           e.preventDefault();
-          navigateToUncontactedAddresses();
+          navigateToBatchTaggingNotContactedPeople();
         });
       }
 
