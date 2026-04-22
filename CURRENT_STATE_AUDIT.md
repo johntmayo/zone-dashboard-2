@@ -1,9 +1,12 @@
 # Altagether Zone Dashboard: Current State Audit
 
-**Audit date:** April 11, 2026
+**Audit date:** April 11, 2026 (original point-in-time forensic)
+**Last amended:** April 22, 2026 (see Section 12 for post-audit changes)
 **Repo:** `github.com/johntmayo/zone-dashboard-2` (branch: `main`)
-**226 commits**, first commit 2026-01-28, latest 2026-04-10
+**226 commits** at audit time, first commit 2026-01-28, original-latest 2026-04-10
 **Deployed on:** Vercel (project `zone-dashboard-2`, org `john-mayos-projects`)
+
+> ⚠️ **Note on scope.** Sections 1–11 are the original April 11 snapshot and are preserved as written — they are a forensic record, not a living document. Where a specific fact has been superseded by shipped work (file sizes, the outreach-column-rename fragility, etc.), the superseding information is cross-referenced in **Section 12: Post-Audit Updates** at the end.
 
 ---
 
@@ -534,3 +537,70 @@ Before a serious refactor should begin, the following must be understood and/or 
 - [ ] Test NC Profile wizard end-to-end
 - [ ] Establish minimal automated test coverage for critical paths
 - [ ] Make a decision on the `outreach-helper.html` and hidden tool modules
+
+---
+
+## 12. Post-Audit Updates
+
+Changes that have shipped since the original April 11, 2026 audit. Listed newest-first. Each entry notes which section(s) of the audit it supersedes or updates.
+
+### April 22, 2026 — Address Details Panel redesign
+
+**Shipped:** A full redesign of the right-side Details Panel, executed as three passes on a single branch:
+1. **Structural redesign** — three-level hierarchy (panel toolbar → Address section → per-person cards), stacked-label form fields, outreach logging as a contained sub-panel (`.outreach-composer`), one-composer-at-a-time behavior panel-wide.
+2. **Polish / density pass** — 10–20% vertical-spacing reduction, fewer horizontal rules inside cards, softened card borders and shadows, reviewed bold usage.
+3. **Typography + save-state stabilization** — unified Chivo typography ladder inside `.address-details` (fixed the Home/Cell-in-serif vs. Email-in-sans inconsistency); 2-row toolbar with a reserved `.details-toolbar__status-slot` (`min-height: 16px`, `aria-live="polite"`) so save-state text never reflows the button row.
+
+**Supersedes in this audit:**
+- Section 4 ("Address details panel — Active") — still accurate, but the panel's internal structure is now the documented case-management UI described in `CODEBASE_FIELD_GUIDE.md` § "Address Details Panel", not the pre-April-22 ad-hoc layout.
+
+**Files touched:** `index.html` (`displayAddressDetails`, ~6380–7160), `public/css/styles.css` (new "Details Panel Redesign" block, ~lines 6813–7430).
+
+### April 22, 2026 — Outreach column rename + migration safety
+
+**Shipped:** The two coupled columns `Last Contact Date` and `Contact Notes` were renamed at the spreadsheet level to `Last Outreach Attempt Date` and `Outreach Log`. To make this rename survivable across a rolling migration (zones migrate at different times), two centralized helpers were added to `public/js/utils.js`:
+
+- `findOutreachDateColumn(headers)` — accepts both legacy and current naming for the outreach date column
+- `findOutreachLogColumn(headers)` — accepts both legacy and current naming for the outreach log column
+
+Nine narrow matchers in `index.html` were replaced with calls to these helpers (seven `findColumn(headers, ['contact', 'date'])` call sites plus two `/contact\s*note/i` regexes). Pre-migration sheets and post-migration sheets now both work, in any combination, without code changes.
+
+**Supersedes in this audit:**
+- **Section 7, fragility #8** ("Google Sheet column name sensitivity"). The *general* sensitivity still applies — if a captain renames an arbitrary column, features can silently break. But the specific case of the outreach date and outreach log columns is now defensively handled. Any future rename of those two columns is safe by design.
+- **Section 10, open question related to PRIORITY_ROADMAP item 2.6** — that question is now settled.
+
+**Files touched:** `public/js/utils.js` (added two helpers), `index.html` (9 call-site replacements).
+
+### April 21, 2026 — User Access Sheet migration
+
+**Shipped:** User-to-zone-sheet access control moved from the `USERS_JSON_B64` Vercel environment variable (with `users.json` fallback) to a live Google Sheet (`USER_ACCESS_SHEET_ID`). Async `readUsersMap()` with caching, wildcard admin expansion (`sheet_url=*`), per-user URL dedupe, and duplicate-captain warning logs. New admin endpoints `/api/admin/refresh-users` and `/api/admin/export-users-json`. Login zone picker got search, two-line zone cards, captain subline, admin chip for wildcard-expanded users. `USE_LEGACY_USERS=1` remains as an emergency kill-switch back to the env-var path.
+
+**Supersedes in this audit:**
+- **Section 2, Core user flow step 3** — access lookup now consults the Access Sheet by default, with legacy `users.json` retained as frozen rollback.
+- **Section 4, "User-to-sheet mapping — Active, users.json"** — source of truth is now the Access Sheet; `users.json` / `USERS_JSON_B64` are frozen rollback artifacts, not the live source.
+- **Section 7, operational fragility #10** ("User provisioning is manual JSON editing") — no longer accurate for the normal path. Normal onboarding is now "add a row in the Access Sheet"; the JSON path only applies under the `USE_LEGACY_USERS=1` kill-switch.
+- **Section 10, open question #9** ("How are new users added in practice?") — answered: edit the Access Sheet.
+
+**Documented in:** `USER_ACCESS_SHEET_MIGRATION.md` (full plan, schema, rollout, and rollback — source of truth for this work).
+
+### April 2026 — Batch Tagging overhaul
+
+**Shipped:** A full UX overhaul of the batch tagging tool well beyond the original kanban scope (two-pane workspace with sticky action rail, segmented mode switcher, formalized button hierarchy, optimistic in-memory updates, filter highlighting). Details in `PRIORITY_ROADMAP.md` § 1.4.
+
+**Supersedes in this audit:**
+- **Section 4, "Tools" entry** — "batch tagging" is now a production-grade tool, not a partial feature.
+
+---
+
+### Updated file sizes (as of April 22, 2026)
+
+The Section 3 file-size table was accurate at audit time. Current sizes for reference:
+
+| File | Size (now) | Lines (now) | Audit-time |
+|------|------------|-------------|------------|
+| `index.html` | ~841 KB | ~18,380 | 767 KB / 16,942 |
+| `public/css/styles.css` | ~183 KB | ~7,570 | 145 KB / ~5,000+ |
+| `public/js/utils.js` | — | ~491 | — / 448 |
+| `server.js` | 34 KB (unchanged) | 906 (unchanged) | 34 KB / 906 |
+
+`index.html` has grown by ~1,400 lines since the audit, driven primarily by the Batch Tagging overhaul, the Details Panel redesign, the User Access Sheet migration's admin endpoints and zone picker work, and the outreach logging system. The monolith pressure flagged in Sections 1 and 9 continues to intensify.
