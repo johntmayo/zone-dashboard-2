@@ -4735,20 +4735,18 @@
     }
 
     #zoneMap .sold-status-tooltip.leaflet-tooltip-right::before {
-      border-right-color: rgba(146, 64, 14, 0.45);
-      border-width: 4px 6px 4px 0;
-      left: -6px;
-      margin-top: -4px;
+      display: none;
     }
 
     #zoneMap .sold-status-tooltip.leaflet-tooltip-right::after {
       content: '';
       position: absolute;
-      left: -14px;
+      left: -18px;
       top: 50%;
-      width: 8px;
+      width: 19px;
       height: 2px;
       margin-top: -1px;
+      border-radius: 999px;
       background: rgba(146, 64, 14, 0.6);
     }
 
