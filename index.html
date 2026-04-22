@@ -6836,6 +6836,7 @@
           const isEditable = accessToken;
           const value = row[col] || '';
           const displayLabel = formatColumnLabel(col);
+          const isContactJumpField = displayLabel === 'Home 📞' || displayLabel === 'Cell 📞' || isEmail;
           
           // Copy button HTML for email addresses
           const copyButton = isEmail && value.trim() ? `
@@ -6849,6 +6850,23 @@
               </svg>
             </button>
           ` : '';
+          if (isContactJumpField) {
+            const hasValue = String(value || '').trim().length > 0;
+            const contactValueHtml = hasValue
+              ? `<button type="button"
+                         class="person-modal-jump"
+                         data-address="${address.replace(/"/g, '&quot;')}"
+                         data-original-row-index="${originalRowIndex}"
+                         data-focus-column="${col.replace(/"/g, '&quot;')}"
+                         title="Open person details to edit">
+                    ${escapeHtml(String(value))}
+                 </button>`
+              : '<span class="person-modal-jump-empty">(not set)</span>';
+            return `<div class="person-info${isInline ? '-item' : ''}">
+                <strong>${formatLabelForDisplay(displayLabel)}</strong>
+                ${contactValueHtml}
+              </div>`;
+          }
           
           if (isEditable) {
             if (isNotes) {
@@ -7092,6 +7110,16 @@
           const triggerAddress = trigger.getAttribute('data-address');
           const rowIndex = parseInt(trigger.getAttribute('data-original-row-index'), 10);
           showPersonDetailsModal(triggerAddress, rowIndex);
+        });
+      });
+      document.querySelectorAll('.person-modal-jump').forEach(trigger => {
+        trigger.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const triggerAddress = trigger.getAttribute('data-address');
+          const rowIndex = parseInt(trigger.getAttribute('data-original-row-index'), 10);
+          const focusColumn = trigger.getAttribute('data-focus-column');
+          showPersonDetailsModal(triggerAddress, rowIndex, focusColumn);
         });
       });
 
@@ -7474,7 +7502,7 @@
     }
     // ── End Move Pin Modal ─────────────────────────────────────────────────────
 
-    function showPersonDetailsModal(address, originalRowIndex) {
+    function showPersonDetailsModal(address, originalRowIndex, focusColumn = null) {
       if (!sheetData || !sheetData.addressMap || !sheetData.addressMap.has(address)) return;
       const rows = sheetData.addressMap.get(address) || [];
       const row = rows.find(r => r.__originalIndex === originalRowIndex);
@@ -7580,15 +7608,17 @@
       ].filter(Boolean));
 
       const attrValue = (value) => escapeHtmlAttr(String(value == null ? '' : value).replace(/\n/g, '&#10;'));
-      const textField = (label, col, type = 'text') => {
+      const textField = (label, col, type = 'text', options = {}) => {
         if (!col) return '';
         const value = row[col] || '';
+        const fieldClass = options.fieldClass ? ` ${options.fieldClass}` : '';
+        const inputClass = options.inputClass ? ` ${options.inputClass}` : '';
         return `
-          <div class="person-details-field">
+          <div class="person-details-field${fieldClass}">
             <p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p>
             <input
               type="${type}"
-              class="add-record-input person-details-input"
+              class="add-record-input person-details-input${inputClass}"
               value="${escapeHtmlAttr(value)}"
               data-person-modal-field="true"
               data-column="${escapeHtmlAttr(col)}"
@@ -7670,17 +7700,28 @@
               <div class="newsletter-modal-section">
                 <h4 class="newsletter-modal-section-title">Person</h4>
                 <div class="person-details-grid">
-                  ${textField('Name', nameCol)}
-                  ${textField('Approximate Age', ageCol)}
-                  ${textField('Gender', genderCol)}
+                  ${textField('Name', nameCol, 'text', { fieldClass: 'person-details-field--full' })}
+                  ${textField('Approximate Age', ageCol, 'text', {
+                    fieldClass: 'person-details-field--compact',
+                    inputClass: 'person-details-input--compact'
+                  })}
+                  ${textField('Gender', genderCol, 'text', {
+                    fieldClass: 'person-details-field--compact',
+                    inputClass: 'person-details-input--compact person-details-input--gender'
+                  })}
+                </div>
+              </div>
+              <div class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">Contact Information</h4>
+                <div class="person-details-grid">
+                  ${textField('Home phone', homePhoneCol)}
+                  ${textField('Cell', cellCol)}
+                  ${textField('Email address', emailCol, 'email')}
                 </div>
               </div>
               <div class="newsletter-modal-section">
                 <h4 class="newsletter-modal-section-title">Outreach</h4>
                 <div class="person-details-grid">
-                  ${textField('Home phone', homePhoneCol)}
-                  ${textField('Cell', cellCol)}
-                  ${textField('Email address', emailCol, 'email')}
                   ${textField('Last outreach attempt', contactDateCol)}
                   ${notesField('Outreach Log', contactNotesCol, 'Running outreach log')}
                 </div>
@@ -7738,6 +7779,18 @@
       const saveBtn = document.getElementById('personDetailsSaveBtn');
       const formerResidentInput = overlay ? overlay.querySelector('[data-person-modal-role="former-resident"]') : null;
       const deceasedInput = overlay ? overlay.querySelector('[data-person-modal-role="deceased"]') : null;
+      if (overlay && focusColumn) {
+        const focusField = Array.from(overlay.querySelectorAll('[data-person-modal-field="true"]'))
+          .find(field => field.getAttribute('data-column') === focusColumn);
+        if (focusField) {
+          focusField.focus();
+          if (typeof focusField.select === 'function') {
+            focusField.select();
+          }
+          focusField.classList.add('person-details-input--focus-target');
+          setTimeout(() => focusField.classList.remove('person-details-input--focus-target'), 1400);
+        }
+      }
 
       function removeModal() {
         if (overlay && overlay.parentNode) {
