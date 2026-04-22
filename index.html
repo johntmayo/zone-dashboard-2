@@ -6831,7 +6831,7 @@
 
         // Omit colon for phone labels and person-tag checkboxes (Renter, Needs Follow-Up, Unable to reach)
         const formatLabelForDisplay = (label) => {
-          if (label === 'Home' || label === 'Cell' || label === 'Renter' || label === 'Needs Follow-Up' || label === 'Unable to reach') return label;
+          if (label === 'Renter' || label === 'Needs Follow-Up' || label === 'Unable to reach') return label;
           return label + ':';
         };
         
@@ -6873,6 +6873,7 @@
             return `<div class="person-info${isInline ? '-item' : ''}">
                 <strong>${formatLabelForDisplay(displayLabel)}</strong>
                 ${contactValueHtml}
+                ${isEmail ? copyButton : ''}
               </div>`;
           }
           
@@ -7621,18 +7622,33 @@
         const value = row[col] || '';
         const fieldClass = options.fieldClass ? ` ${options.fieldClass}` : '';
         const inputClass = options.inputClass ? ` ${options.inputClass}` : '';
+        const copyButtonHtml = options.withCopy && String(value || '').trim()
+          ? `<button class="copy-email-btn"
+                     data-email="${escapeHtmlAttr(String(value).trim())}"
+                     title="Copy email address"
+                     type="button"
+                     style="background: none; border: none; cursor: pointer; padding: 2px 4px; display: inline-flex; align-items: center; opacity: 0.6; transition: opacity 0.2s;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              </button>`
+          : '';
         return `
           <div class="person-details-field${fieldClass}">
             <p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p>
-            <input
-              type="${type}"
-              class="add-record-input person-details-input${inputClass}"
-              value="${escapeHtmlAttr(value)}"
-              data-person-modal-field="true"
-              data-column="${escapeHtmlAttr(col)}"
-              data-original-value="${attrValue(value)}"
-              ${disabledAttr}
-            >
+            <div class="person-details-input-row">
+              <input
+                type="${type}"
+                class="add-record-input person-details-input${inputClass}"
+                value="${escapeHtmlAttr(value)}"
+                data-person-modal-field="true"
+                data-column="${escapeHtmlAttr(col)}"
+                data-original-value="${attrValue(value)}"
+                ${disabledAttr}
+              >
+              ${copyButtonHtml}
+            </div>
           </div>
         `;
       };
@@ -7724,7 +7740,7 @@
                 <div class="person-details-grid">
                   ${textField('Home phone', homePhoneCol)}
                   ${textField('Cell', cellCol)}
-                  ${textField('Email address', emailCol, 'email')}
+                  ${textField('Email address', emailCol, 'email', { withCopy: true })}
                 </div>
               </div>
               <div class="newsletter-modal-section">
@@ -7798,6 +7814,32 @@
           focusField.classList.add('person-details-input--focus-target');
           setTimeout(() => focusField.classList.remove('person-details-input--focus-target'), 1400);
         }
+      }
+      if (overlay) {
+        overlay.querySelectorAll('.copy-email-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const email = btn.getAttribute('data-email');
+            if (!email) return;
+            try {
+              await navigator.clipboard.writeText(email);
+              const originalOpacity = btn.style.opacity;
+              btn.style.opacity = '1';
+              btn.style.color = '#4caf50';
+              setTimeout(() => {
+                btn.style.opacity = originalOpacity;
+                btn.style.color = '';
+              }, 500);
+            } catch (err) {
+              console.error('Failed to copy email:', err);
+            }
+          });
+          btn.addEventListener('mouseenter', () => { btn.style.opacity = '1'; });
+          btn.addEventListener('mouseleave', () => {
+            if (btn.style.color !== '#4caf50') btn.style.opacity = '0.6';
+          });
+        });
       }
 
       function removeModal() {
