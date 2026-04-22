@@ -8319,6 +8319,7 @@
 
     // Default marker colors (using our palette)
     const DEFAULT_MARKER_COLOR = '#347072';  // Teal - matches our accent
+    const HOME_DEFAULT_MARKER_COLOR = '#1E3A8A'; // Navy for calm home mini-map
     const SELECTED_MARKER_COLOR = '#BC5838'; // Clay - stands out when selected
     
     // Create colored marker icon using SVG (circle style with zine shadow)
@@ -8433,7 +8434,7 @@
       if (!currentColorMode || !sheetData) return null;
       
       if (currentColorMode === 'contact') {
-        return isAddressContacted(address) ? colorPalette['sky-blue-light'] : colorPalette['dusty-mauve'];
+        return isAddressContacted(address) ? colorPalette['sky-blue-light'] : colorPalette['ash-grey'];
       } else if (currentColorMode === 'damage') {
         const damage = getAddressDamage(address);
         if (!damage) return colorPalette['ash-grey'];
@@ -8461,7 +8462,7 @@
       if (!homeColorMode || !sheetData) return null;
       
       if (homeColorMode === 'contact') {
-        return isAddressContacted(address) ? colorPalette['sky-blue-light'] : colorPalette['dusty-mauve'];
+        return isAddressContacted(address) ? colorPalette['sky-blue-light'] : colorPalette['ash-grey'];
       } else if (homeColorMode === 'damage') {
         const damage = getAddressDamage(address);
         if (!damage) return colorPalette['ash-grey'];
@@ -8523,7 +8524,7 @@
             <span>Contacted</span>
           </div>
           <div class="map-color-key-legend-item map-color-key-legend-item-last">
-            <div class="map-color-key-swatch" style="background: ${colorPalette['dusty-mauve']}"></div>
+            <div class="map-color-key-swatch" style="background: ${colorPalette['ash-grey']}"></div>
             <span>Not Contacted</span>
           </div>
         `;
@@ -8610,7 +8611,7 @@
                 <span style="font-size: 0.7rem;">Contacted</span>
               </div>
               <div style="display: flex; align-items: center;">
-                <div style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPalette['dusty-mauve']}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
+                <div style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPalette['ash-grey']}; margin-right: 8px; border: 1px solid #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
                 <span style="font-size: 0.7rem;">Not Contacted</span>
               </div>
             `;
@@ -9291,8 +9292,8 @@
         return;
       }
 
-      // Keep the mini map simple: default to Damage Status.
-      homeColorMode = 'damage';
+      // Keep the mini map simple: no color-by mode.
+      homeColorMode = null;
       
       if (!homeMap) {
         try {
@@ -9387,7 +9388,7 @@
         homeColorFilterControl = null;
       }
 
-      showHomeColorLegend('damage');
+      hideHomeColorLegend();
       
       // Load zone boundary on home map (Mapbox or KML) with delay to ensure map is ready
       if (zoneKmlUrl || (isMapboxEnabled() && currentZoneName)) {
@@ -9461,12 +9462,10 @@
         if (color) {
           icon = createColoredMarkerIcon(color, false, true);  // smallSize = true for home map
         } else {
-          // Fallback to default teal
-          icon = getDefaultMarkerIcon(false, true);
+          icon = createColoredMarkerIcon(HOME_DEFAULT_MARKER_COLOR, false, true);
         }
       } else {
-        // Default teal marker
-        icon = getDefaultMarkerIcon(false, true);
+        icon = createColoredMarkerIcon(HOME_DEFAULT_MARKER_COLOR, false, true);
       }
       
       const marker = L.marker([lat, lng], { icon }).addTo(homeMap);
@@ -9532,12 +9531,10 @@
           if (color) {
             marker.setIcon(createColoredMarkerIcon(color, false, true));  // smallSize = true for home map
           } else {
-            // Fallback to default teal
-            marker.setIcon(getDefaultMarkerIcon(false, true));
+            marker.setIcon(createColoredMarkerIcon(HOME_DEFAULT_MARKER_COLOR, false, true));
           }
         } else {
-          // Default teal marker
-          marker.setIcon(getDefaultMarkerIcon(false, true));
+          marker.setIcon(createColoredMarkerIcon(HOME_DEFAULT_MARKER_COLOR, false, true));
         }
       });
     }
@@ -12171,7 +12168,7 @@
             labels: [`Contacted (${peopleContactedPct}%)`, `Not Contacted (${peopleNotContactedPct}%)`],
             datasets: [{
               data: [peopleContacted, peopleNotContacted],
-              backgroundColor: ['#afc892', '#bc455a'],
+              backgroundColor: ['#afc892', '#e5e5e5'],
               borderWidth: 2,
               borderColor: '#fff'
             }]
@@ -12229,7 +12226,7 @@
             labels: [`Contacted (${householdsContactedPct}%)`, `Not Contacted (${householdsNotContactedPct}%)`],
             datasets: [{
               data: [householdsContactedCount, householdsNotContactedCount],
-              backgroundColor: ['#afc892', '#bc455a'],
+              backgroundColor: ['#afc892', '#e5e5e5'],
               borderWidth: 2,
               borderColor: '#fff'
             }]
@@ -13314,7 +13311,7 @@
                 labels: [`Contacted (${contactData.contacted})`, `Not Contacted (${contactData.notContacted})`],
                 datasets: [{
                   data: [contactData.contacted, contactData.notContacted],
-                  backgroundColor: ['#81bdc3', '#bc455a'],
+                  backgroundColor: ['#81bdc3', '#e5e5e5'],
                   borderWidth: 2,
                   borderColor: '#fff'
                 }]
@@ -16614,7 +16611,7 @@
                   ${escapeHtml(address)}
                   ${damage ? `<span class="zone-report-badge ${damage.toLowerCase().replace(/\s+/g, '')}">${escapeHtml(damage)}</span>` : ''}
                   ${statusDisplay ? `<span class="zone-report-badge ${statusDisplay.toLowerCase().replace(/\s+/g, '').replace(/[•\/]/g, '')}">${escapeHtml(statusDisplay)}</span>` : ''}
-                  ${isContacted ? '<span class="zone-report-badge" style="background: rgba(76, 175, 80, 0.2); color: #2e7d32;">Contacted</span>' : '<span class="zone-report-badge" style="background: rgba(244, 67, 54, 0.2); color: #b71c1c;">Uncontacted</span>'}
+                  ${isContacted ? '<span class="zone-report-badge" style="background: rgba(76, 175, 80, 0.2); color: #2e7d32;">Contacted</span>' : '<span class="zone-report-badge" style="background: rgba(229, 229, 229, 0.8); color: #4b5563;">Uncontacted</span>'}
                 </h4>
                 <table class="zone-report-table" style="font-size: 0.85rem;">
                   <tr>
@@ -17307,7 +17304,7 @@
             labels: [`Contacted (${contactedPct}%)`, `Uncontacted (${uncontactedPct}%)`],
             datasets: [{
               data: [contacted, uncontacted],
-              backgroundColor: ['#afc892', '#bc455a'],
+              backgroundColor: ['#afc892', '#e5e5e5'],
               borderWidth: 2,
               borderColor: '#fff'
             }]
@@ -17538,7 +17535,7 @@
       const builders = [
         function() { // 0: Addresses Marked Contacted
           const d = getAddressesContactedData(headers, data);
-          return { type: 'pie', data: { labels: ['Contacted (' + d.contacted + ')', 'Not Contacted (' + d.notContacted + ')'], datasets: [{ data: [d.contacted, d.notContacted], backgroundColor: ['#81bdc3', '#bc455a'], borderWidth: 2, borderColor: '#fff' }] }, options: {} };
+          return { type: 'pie', data: { labels: ['Contacted (' + d.contacted + ')', 'Not Contacted (' + d.notContacted + ')'], datasets: [{ data: [d.contacted, d.notContacted], backgroundColor: ['#81bdc3', '#e5e5e5'], borderWidth: 2, borderColor: '#fff' }] }, options: {} };
         },
         function() { // 1: Damage Status
           const d = getDamageStatusData(headers, data, addressMap);
