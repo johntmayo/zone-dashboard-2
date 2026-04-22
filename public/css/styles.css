@@ -2656,16 +2656,12 @@
       font-size: 0.9rem;
       font-weight: 800;
       margin: 0;
-      height: 40px;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       box-shadow: 0 4px 8px rgba(40, 54, 24, 0.3);
       letter-spacing: 0.3px;
       align-self: center;
       flex: 0 0 auto;
       white-space: nowrap;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
     }
 
     .btn-back:hover {
@@ -4478,12 +4474,11 @@
     }
 
     .btn-save-small {
-      padding: 10px 20px;
+      padding: 8px 16px;
       font-size: 0.9rem;
       font-weight: 800;
       letter-spacing: 0.3px;
       margin-top: 0;
-      height: 40px;
     }
 
     .btn-refresh-small {
@@ -4499,8 +4494,8 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 40px;
-      height: 40px;
+      width: 32px;
+      height: 32px;
       flex-shrink: 0;
     }
 
@@ -5188,54 +5183,6 @@
     }
     .person-details-input-row .person-details-input {
       flex: 1;
-    }
-
-    .details-toolbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    .details-toolbar-actions {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      justify-content: center;
-      gap: 4px;
-      min-height: 46px;
-    }
-
-    .details-toolbar-buttons {
-      display: flex;
-      gap: 6px;
-      align-items: stretch;
-    }
-
-    /* Keep top details controls visually uniform without changing global buttons */
-    .details-toolbar .btn-back,
-    .details-toolbar .btn-save-small,
-    .details-toolbar .btn-refresh-small {
-      height: 42px;
-      margin: 0;
-      line-height: 1;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      white-space: nowrap;
-      align-self: center;
-    }
-
-    .details-toolbar .btn-save-small {
-      min-width: 176px;
-      padding-left: 18px;
-      padding-right: 18px;
-    }
-
-    .details-toolbar .btn-refresh-small {
-      width: 42px;
-      min-width: 42px;
     }
 
     .bottom-row {
