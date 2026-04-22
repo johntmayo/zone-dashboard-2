@@ -12419,15 +12419,16 @@
         const row = rows ? rows.find(r => r.__originalIndex === originalRowIndex) : null;
         const useResidentId = sheetData.useResidentId && row && row['resident_id'];
         const existingOutreachLog = contactNotesCol ? String(row?.[contactNotesCol] || '').trim() : '';
-        const newOutreachEntry = contactNotes ? `[${today}] ${contactNotes}` : '';
-        const nextOutreachLog = newOutreachEntry
-          ? (existingOutreachLog ? `${newOutreachEntry}\n${existingOutreachLog}` : newOutreachEntry)
-          : existingOutreachLog;
+        const normalizedOutreachNote = contactNotes || '(no notes)';
+        const newOutreachEntry = `[${today}] ${normalizedOutreachNote}`;
+        const nextOutreachLog = existingOutreachLog
+          ? `${newOutreachEntry}\n${existingOutreachLog}`
+          : newOutreachEntry;
 
         if (useResidentId) {
           const updatesByResidentId = [];
           if (contactCol) updatesByResidentId.push({ resident_id: row['resident_id'], column: contactCol, value: today });
-          if (contactNotesCol !== null && newOutreachEntry) updatesByResidentId.push({ resident_id: row['resident_id'], column: contactNotesCol, value: nextOutreachLog });
+          if (contactNotesCol !== null) updatesByResidentId.push({ resident_id: row['resident_id'], column: contactNotesCol, value: nextOutreachLog });
           if (updatesByResidentId.length > 0) {
             const response = await fetch('/api/sheets/batch-update-by-resident-id', {
               method: 'POST',
@@ -12445,7 +12446,7 @@
           if (contactColIndex >= 0) {
             updates.push({ range: 'Sheet1!' + indexToColumnLetter(contactColIndex) + rowNumber, values: [[today]] });
           }
-          if (contactNotesColIndex >= 0 && newOutreachEntry) {
+          if (contactNotesColIndex >= 0) {
             updates.push({ range: 'Sheet1!' + indexToColumnLetter(contactNotesColIndex) + rowNumber, values: [[nextOutreachLog]] });
           }
           if (updates.length > 0) {
@@ -12478,7 +12479,7 @@
           }
           
           // Update outreach log in local data if column exists
-          if (localRow && contactNotesColIndex >= 0 && newOutreachEntry) {
+          if (localRow && contactNotesColIndex >= 0) {
             const contactNotesCol = headers[contactNotesColIndex];
             localRow[contactNotesCol] = nextOutreachLog;
           }
@@ -12489,7 +12490,7 @@
             const row = rows.find(r => r.__originalIndex === originalRowIndex);
             if (row) {
               row[contactCol] = today;
-              if (contactNotesColIndex >= 0 && newOutreachEntry) {
+              if (contactNotesColIndex >= 0) {
                 const contactNotesCol = headers[contactNotesColIndex];
                 row[contactNotesCol] = nextOutreachLog;
               }
