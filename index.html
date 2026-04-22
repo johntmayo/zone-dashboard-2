@@ -252,21 +252,39 @@
               <div class="loading">Loading zone data...</div>
             </div>
             <div id="zoneStatCards" class="zone-stat-cards hidden">
-              <div class="zone-stat-card">
-                <span class="zone-stat-number" id="statTotalAddresses">—</span>
-                <span class="zone-stat-label">Total Addresses</span>
+              <div class="zone-stat-column">
+                <div class="zone-stat-item">
+                  <span class="zone-stat-number" id="statTotalAddresses">—</span>
+                  <span class="zone-stat-label">Total Addresses</span>
+                </div>
+                <div class="zone-stat-item">
+                  <span class="zone-stat-number" id="statTotalPeople">—</span>
+                  <span class="zone-stat-label">Total People</span>
+                </div>
+                <div class="zone-stat-item">
+                  <span class="zone-stat-number" id="statContacted">—</span>
+                  <span class="zone-stat-label">Addresses Marked as Contacted</span>
+                </div>
               </div>
-              <div class="zone-stat-card">
-                <span class="zone-stat-number" id="statContacted">—</span>
-                <span class="zone-stat-label">Addresses contacted</span>
+              <div class="zone-stat-column">
+                <div class="zone-stat-item">
+                  <span class="zone-stat-number" id="statTotalLoss">—</span>
+                  <span class="zone-stat-label">Total Loss</span>
+                </div>
+                <div class="zone-stat-item">
+                  <span class="zone-stat-number" id="statStanding">—</span>
+                  <span class="zone-stat-label">Standing</span>
+                </div>
+                <div class="zone-stat-item">
+                  <span class="zone-stat-number" id="statDamageNotSet">—</span>
+                  <span class="zone-stat-label">Damage Not Set</span>
+                </div>
               </div>
-              <div class="zone-stat-card zone-stat-card--warning">
-                <span class="zone-stat-number" id="statTotalLoss">—</span>
-                <span class="zone-stat-label">Total Loss</span>
-              </div>
-              <div class="zone-stat-card zone-stat-card--positive">
-                <span class="zone-stat-number" id="statRebuilding">—</span>
-                <span class="zone-stat-label">Planning to build</span>
+              <div class="zone-stat-column">
+                <div class="zone-stat-item">
+                  <span class="zone-stat-number" id="statSoldSinceFire">—</span>
+                  <span class="zone-stat-label">Sold Since Fire</span>
+                </div>
               </div>
             </div>
             <div class="zone-overview-charts hidden" id="zoneOverviewCharts">
@@ -278,7 +296,7 @@
                   </button>
                   <div class="chart-carousel-track">
                     <div class="chart-container-small chart-carousel-slide active" data-chart-index="0">
-                      <div class="chart-title">Addresses Contacted</div>
+                      <div class="chart-title">Addresses Marked Contacted</div>
                       <canvas id="zoneOverviewLeftAddressesChart"></canvas>
                     </div>
                     <div class="chart-container-small chart-carousel-slide" data-chart-index="1">
@@ -330,7 +348,7 @@
               <div class="mobile-chart-header">
                 <button class="mobile-chart-nav" id="mobileChartPrev" aria-label="Previous chart">&#8249;</button>
                 <div class="mobile-chart-meta">
-                  <div class="mobile-chart-title" id="mobileChartTitle">Addresses Contacted</div>
+                  <div class="mobile-chart-title" id="mobileChartTitle">Addresses Marked Contacted</div>
                   <div class="mobile-chart-counter" id="mobileChartCounter">1 / 6</div>
                 </div>
                 <button class="mobile-chart-nav" id="mobileChartNext" aria-label="Next chart">&#8250;</button>
@@ -9242,8 +9260,8 @@
         return;
       }
 
-      // Keep the mini map simple: always color by Contact Status.
-      homeColorMode = 'contact';
+      // Keep the mini map simple: default to Damage Status.
+      homeColorMode = 'damage';
       
       if (!homeMap) {
         try {
@@ -9338,7 +9356,7 @@
         homeColorFilterControl = null;
       }
 
-      showHomeColorLegend('contact');
+      showHomeColorLegend('damage');
       
       // Load zone boundary on home map (Mapbox or KML) with delay to ensure map is ready
       if (zoneKmlUrl || (isMapboxEnabled() && currentZoneName)) {
@@ -13410,10 +13428,10 @@
       ];
 
       // Map chart definitions to the correct canvas IDs for each carousel
-      // LEFT: Addresses Contacted (0), Streets Distribution (3), People per Address (4)
+      // LEFT: Addresses Marked Contacted (0), Streets Distribution (3), People per Address (4)
       // RIGHT: Damage Status (1), Build Status (5), Address Plan (2)
       const chartIndexMap = {
-        'left': [0, 3, 4],  // Addresses Contacted, Streets Distribution, People per Address
+        'left': [0, 3, 4],  // Addresses Marked Contacted, Streets Distribution, People per Address
         'right': [1, 5, 2]  // Damage Status, Build Status, Address Plan
       };
       
@@ -13498,14 +13516,26 @@
                            const l = h.toLowerCase();
                            return l === 'last contact date' || l === 'contacted' || l.includes('contacted');
                          }) || null;
-      const damageCol      = findColumn(headers, 'damage');
-      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
+      const damageCol = findColumn(headers, 'damage');
+      const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
 
-      let contactedCount        = 0;
-      let totalLossCount        = 0;
-      let planningToBuildCount  = 0;
+      let totalPeople = 0;
+      let contactedCount = 0;
+      let totalLossCount = 0;
+      let standingCount = 0;
+      let damageNotSetCount = 0;
+      let soldSinceFireCount = 0;
+
+      const isSoldSinceFire = (value) => {
+        const normalized = String(value || '').trim().toLowerCase();
+        if (!normalized || normalized === '—' || normalized === '-') return false;
+        if (['no', 'n', 'false', '0', 'none', 'not sold', 'unsold'].includes(normalized)) return false;
+        return true;
+      };
 
       addressMap.forEach((residents, address) => {
+        totalPeople += residents.length;
+
         // Contacted: any resident has a non-empty contact date
         if (contactCol) {
           const hasContact = residents.some(row => {
@@ -13515,19 +13545,23 @@
           if (hasContact) contactedCount++;
         }
 
-        // Total Loss: same source as map / Neighbors damage filter (first row only — getAddressDamage)
+        // Damage status buckets from address-level value.
         if (damageCol) {
-          const dmg = getAddressDamage(address);
-          if (dmg && dmg.toLowerCase() === 'total loss') {
+          const dmg = (getAddressDamage(address) || '').trim();
+          const dmgLower = dmg.toLowerCase();
+          if (!dmgLower) {
+            damageNotSetCount++;
+          } else if (dmgLower === 'total loss') {
             totalLossCount++;
+          } else if (dmgLower.includes('standing')) {
+            standingCount++;
           }
         }
 
-        // Planning to build: Address Plan = Building (same first row as getAddressPlan / Neighbors)
-        if (addressPlanCol) {
-          const plan = getAddressPlan(address);
-          if (plan && plan.toLowerCase() === 'building') {
-            planningToBuildCount++;
+        if (soldSinceFireCol && residents.length > 0) {
+          const soldValue = residents[0][soldSinceFireCol];
+          if (isSoldSinceFire(soldValue)) {
+            soldSinceFireCount++;
           }
         }
       });
@@ -13541,9 +13575,12 @@
         : '—';
 
       document.getElementById('statTotalAddresses').textContent = totalAddresses;
+      document.getElementById('statTotalPeople').textContent    = totalPeople;
       document.getElementById('statContacted').textContent      = contactedDisplay;
-      document.getElementById('statTotalLoss').textContent      = damageCol  ? totalLossCount  : '—';
-      document.getElementById('statRebuilding').textContent     = addressPlanCol ? planningToBuildCount : '—';
+      document.getElementById('statTotalLoss').textContent      = damageCol ? totalLossCount : '—';
+      document.getElementById('statStanding').textContent       = damageCol ? standingCount : '—';
+      document.getElementById('statDamageNotSet').textContent   = damageCol ? damageNotSetCount : '—';
+      document.getElementById('statSoldSinceFire').textContent  = soldSinceFireCol ? soldSinceFireCount : '—';
 
       container.classList.remove('hidden');
     }
@@ -17468,7 +17505,7 @@
       const addressMap = sheetData.addressMap;
       // builders[i] matches allCharts[i] in renderCarouselChart
       const builders = [
-        function() { // 0: Addresses Contacted
+        function() { // 0: Addresses Marked Contacted
           const d = getAddressesContactedData(headers, data);
           return { type: 'pie', data: { labels: ['Contacted (' + d.contacted + ')', 'Not Contacted (' + d.notContacted + ')'], datasets: [{ data: [d.contacted, d.notContacted], backgroundColor: ['#81bdc3', '#bc455a'], borderWidth: 2, borderColor: '#fff' }] }, options: {} };
         },
@@ -17672,7 +17709,7 @@
 
       // ---- Mobile 6-chart carousel ----
       var mobileChartTitles = [
-        'Addresses Contacted',
+        'Addresses Marked Contacted',
         'Damage Status',
         'Build Status',
         'Address Plan',
