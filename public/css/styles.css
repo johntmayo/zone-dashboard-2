@@ -2183,27 +2183,22 @@
     }
 
     .person-entry-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+      column-gap: 10px;
       margin-bottom: 6px;
     }
 
     .person-head-main {
-      display: inline-flex;
-      align-items: baseline;
-      gap: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
       min-width: 0;
     }
 
     .person-age-gender {
-      display: inline-block;
-      padding: 1px 7px;
-      border-radius: 999px;
-      border: 1px solid rgba(49, 64, 89, 0.24);
-      background: rgba(49, 64, 89, 0.06);
       color: var(--text-secondary);
       font-family: 'Chivo', sans-serif;
       font-size: 0.72rem;
@@ -2217,7 +2212,7 @@
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      padding: 4px 8px;
+      padding: 4px 10px;
       border: 1px solid rgba(49, 64, 89, 0.45);
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.9);
@@ -2229,6 +2224,10 @@
       cursor: pointer;
       transition: all 0.16s ease;
       white-space: nowrap;
+      align-self: start;
+      justify-self: end;
+      justify-content: center;
+      min-width: 138px;
     }
     .outreach-log-toggle[hidden] {
       display: none !important;
@@ -2574,7 +2573,7 @@
       text-decoration-color: currentColor;
       outline: none;
     }
-    .person-modal-jump-empty {
+    .person-modal-jump-add {
       color: var(--text-secondary);
       font-style: italic;
     }
@@ -2583,19 +2582,27 @@
       display: flex;
       gap: 24px;
       margin: 4px 0;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
     }
 
     .person-info-inline .person-info-item {
       font-size: 0.9rem;
       color: #143039;
-      flex: 1;
-      min-width: 150px;
+      flex: 1 1 0;
+      min-width: 0;
     }
+    .person-details-modal {
+      max-height: 94vh;
+      max-height: 94dvh;
+    }
+
 
     .person-info-inline .person-info-item strong {
       color: var(--text-secondary);
       font-weight: 500;
+    }
+    .person-info-inline .person-modal-jump {
+      white-space: nowrap;
     }
 
     .loading, .error, .empty {
@@ -2649,12 +2656,16 @@
       font-size: 0.9rem;
       font-weight: 800;
       margin: 0;
+      min-height: 40px;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       box-shadow: 0 4px 8px rgba(40, 54, 24, 0.3);
       letter-spacing: 0.3px;
-      align-self: center;
+      align-self: stretch;
       flex: 0 0 auto;
       white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .btn-back:hover {
@@ -4467,11 +4478,12 @@
     }
 
     .btn-save-small {
-      padding: 8px 16px;
+      padding: 10px 20px;
       font-size: 0.9rem;
       font-weight: 800;
       letter-spacing: 0.3px;
       margin-top: 0;
+      min-height: 40px;
     }
 
     .btn-refresh-small {
@@ -4487,8 +4499,8 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 32px;
-      height: 32px;
+      width: 40px;
+      height: 40px;
       flex-shrink: 0;
     }
 
@@ -5158,7 +5170,7 @@
       font-size: 0.65rem;
       margin-top: 0;
       padding: 2px 6px;
-      height: 18px;
+      min-height: 18px;
       line-height: 1.2;
       text-align: right;
       display: block;
@@ -5167,6 +5179,29 @@
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
+    }
+
+    .details-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: stretch;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .details-toolbar-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 4px;
+      min-height: 46px;
+    }
+
+    .details-toolbar-buttons {
+      display: flex;
+      gap: 6px;
+      align-items: center;
     }
 
     .bottom-row {
