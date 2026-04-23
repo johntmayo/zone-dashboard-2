@@ -7083,6 +7083,28 @@
   padding-bottom: 0;
 }
 
+.details-section__title-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+
+.details-section__title-button:hover,
+.details-section__title-button:focus-visible {
+  color: var(--accent-altagether-green);
+}
+
+.address-details-modal .address-modal-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .details-section__subtitle {
   margin: 2px 0 0;
   font-size: 0.74rem;

@@ -6308,6 +6308,173 @@
       }
     }
 
+    function showAddressDetailsModal(address) {
+      if (!sheetData || !sheetData.addressMap || !sheetData.addressMap.has(address)) return;
+      const rows = sheetData.addressMap.get(address) || [];
+      const headers = sheetData.headers || [];
+      const canEdit = Boolean(accessToken && currentSheetId);
+      const apnCol = headers.find(h => h.toLowerCase() === 'apn');
+      const apnValue = apnCol && rows[0] ? String(rows[0][apnCol] || '').trim() : '';
+      const apnDigits = normalizeApnDigits(apnValue);
+      const assessorLookupUrl = 'https://portal.assessor.lacounty.gov/';
+      const modalId = 'addressDetailsModalOverlay';
+      const epicContentId = `address-modal-epic-${address.replace(/[^a-zA-Z0-9]/g, '-')}`;
+      const fieldsContainer = addressPanelContent && addressPanelContent.querySelector('.details-section--address .details-section__body');
+      const addressFieldsHtml = fieldsContainer
+        ? fieldsContainer.innerHTML
+        : '<p class="epic-section__status">Address fields unavailable right now.</p>';
+      const apnHeaderMarkup = apnValue
+        ? `<p class="details-section__apn"><abbr title="Assessor Parcel Number — the official LA County identifier for this property. Useful for looking up parcel records, permits, and ownership history." style="text-decoration: underline dotted; cursor: help;">APN</abbr>: ${escapeHtml(apnValue)}</p>`
+        : (canEdit && apnCol
+          ? `<div class="details-field details-field--apn">
+              <label class="details-field__label" for="modalApnInput-${address.replace(/[^a-zA-Z0-9]/g, '-')}">
+                APN
+                <span class="details-field__label-hint">(add this to unlock EPIC and parcel-linked data)</span>
+              </label>
+              <input type="text"
+                     id="modalApnInput-${address.replace(/[^a-zA-Z0-9]/g, '-')}"
+                     class="apn-input"
+                     data-address="${address.replace(/"/g, '&quot;')}"
+                     data-address-level="true"
+                     data-column="${apnCol.replace(/"/g, '&quot;')}"
+                     data-original-value=""
+                     placeholder="e.g. 5842-001-020"
+                     value="">
+            </div>`
+          : '<p class="details-section__apn details-section__apn--missing">APN not set for this address.</p>');
+
+      document.getElementById(modalId)?.remove();
+      const modalHtml = `
+        <div class="newsletter-modal-overlay" id="${modalId}">
+          <div class="newsletter-modal address-details-modal" style="max-width:760px;">
+            <button class="newsletter-modal-close" id="addressDetailsModalClose">&times;</button>
+            <div class="newsletter-modal-header">
+              <h3 class="newsletter-modal-title">${escapeHtml(address)}</h3>
+              <p class="newsletter-modal-subtitle">Address details and recovery tools</p>
+            </div>
+            <div class="newsletter-modal-content">
+              <section class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">Parcel</h4>
+                ${apnHeaderMarkup}
+                <div class="apn-helper">
+                  <p class="apn-helper__text">APN is the parcel ID used by LA County systems. Adding missing APNs helps us connect this address to outside recovery data (like EPIC permits) for your zone.</p>
+                  <a class="apn-helper__link" href="${assessorLookupUrl}" target="_blank" rel="noopener noreferrer">Open LA County Assessor APN lookup</a>
+                </div>
+              </section>
+              <section class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">Address-level data</h4>
+                <div class="address-modal-fields">${addressFieldsHtml}</div>
+              </section>
+              <section class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">EPIC-LA</h4>
+                <p class="details-section__subtitle">County permit and recovery case context (advisory only)</p>
+                <div class="epic-section__content" id="${epicContentId}">
+                  ${apnDigits
+                    ? `<p class="epic-section__status">Loading EPIC cases for APN ${escapeHtml(apnValue)}...</p>`
+                    : '<p class="epic-section__status">Add an APN above to load EPIC county records for this address.</p>'
+                  }
+                </div>
+              </section>
+              <section class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">Tools</h4>
+                <p class="details-tools-section__hint">Advanced actions for this address.</p>
+                <button type="button" class="btn-copy-emails details-tools__move-pin-btn" data-move-pin-address="${address.replace(/"/g, '&quot;')}">Move pin</button>
+              </section>
+            </div>
+            <div class="newsletter-modal-actions">
+              ${canEdit
+                ? `
+                  <button type="button" class="btn-copy-emails" id="addressDetailsModalSaveBtn">Save Changes</button>
+                  <button type="button" class="btn-modal-secondary" id="addressDetailsModalCloseBtn">Close</button>
+                  <span class="save-status" id="addressDetailsModalSaveStatus"></span>
+                `
+                : `
+                  <button type="button" class="btn-modal-secondary" id="addressDetailsModalCloseBtn">Close</button>
+                  <p style="margin:0; color:var(--text-light);">Sign in with Google to edit address details.</p>
+                `
+              }
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+      const overlay = document.getElementById(modalId);
+      const closeBtn = document.getElementById('addressDetailsModalClose');
+      const closeActionBtn = document.getElementById('addressDetailsModalCloseBtn');
+      const saveBtn = document.getElementById('addressDetailsModalSaveBtn');
+      const saveStatus = document.getElementById('addressDetailsModalSaveStatus');
+
+      const removeModal = () => {
+        if (overlay && overlay.parentNode) overlay.remove();
+      };
+
+      if (overlay) {
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) removeModal();
+        });
+      }
+      if (closeBtn) closeBtn.addEventListener('click', removeModal);
+      if (closeActionBtn) closeActionBtn.addEventListener('click', removeModal);
+
+      document.querySelectorAll('#addressDetailsModalOverlay [data-move-pin-address]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const movePinAddress = btn.getAttribute('data-move-pin-address');
+          if (movePinAddress) openMovePinModal(movePinAddress);
+        });
+      });
+
+      document.querySelectorAll('#addressDetailsModalOverlay .editable-dropdown').forEach(dropdown => {
+        dropdown.addEventListener('change', () => {
+          triggerAutoSave();
+        });
+      });
+      document.querySelectorAll('#addressDetailsModalOverlay .editable-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', () => {
+          triggerAutoSave();
+        });
+      });
+      document.querySelectorAll('#addressDetailsModalOverlay .editable-field[contenteditable="true"], #addressDetailsModalOverlay .editable-inline[contenteditable="true"]').forEach(field => {
+        field.addEventListener('input', () => triggerAutoSave());
+        field.addEventListener('blur', () => triggerAutoSave());
+      });
+      document.querySelectorAll('#addressDetailsModalOverlay .editable-notes, #addressDetailsModalOverlay .apn-input').forEach(field => {
+        field.addEventListener('input', () => triggerAutoSave());
+        field.addEventListener('blur', () => triggerAutoSave());
+      });
+
+      if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+          saveBtn.disabled = true;
+          if (saveStatus) {
+            saveStatus.textContent = 'Saving...';
+            saveStatus.className = 'save-status saving';
+          }
+          await saveChanges(false);
+          const panelSaveStatus = document.getElementById('saveStatus');
+          const saveErrored = panelSaveStatus && panelSaveStatus.classList.contains('error');
+          if (saveErrored) {
+            if (saveStatus) {
+              saveStatus.textContent = panelSaveStatus.textContent || 'Save failed';
+              saveStatus.className = 'save-status error';
+            }
+            saveBtn.disabled = false;
+            return;
+          }
+          if (saveStatus) {
+            saveStatus.textContent = 'Saved!';
+            saveStatus.className = 'save-status saved';
+          }
+          removeModal();
+          if (selectedAddress === address) {
+            displayAddressDetails(address, true);
+          }
+        });
+      }
+
+      hydrateEpicSection({ address, apnDigits, contentId: epicContentId });
+    }
+
     // Display details for a specific address
     function displayAddressDetails(address, preserveScroll = false) {
       if (!sheetData.addressMap || !sheetData.addressMap.has(address)) {
@@ -6537,34 +6704,6 @@
 
       const apnColForHeader = headers.find(h => h.toLowerCase() === 'apn');
       const apnValueForHeader = apnColForHeader && rows[0] ? String(rows[0][apnColForHeader] || '').trim() : '';
-      const normalizedApnForEpic = normalizeApnDigits(apnValueForHeader);
-      const epicContentId = `epic-content-${address.replace(/[^a-zA-Z0-9]/g, '-')}`;
-      const assessorLookupUrl = 'https://portal.assessor.lacounty.gov/';
-      const apnHeaderMarkup = apnValueForHeader
-        ? `<p class="details-section__apn"><abbr title="Assessor Parcel Number — the official LA County identifier for this property. Useful for looking up parcel records, permits, and ownership history." style="text-decoration: underline dotted; cursor: help;">APN</abbr>: ${escapeHtml(apnValueForHeader)}</p>`
-        : (accessToken && apnColForHeader
-          ? `<div class="details-field details-field--apn">
-              <label class="details-field__label" for="apnInput-${address.replace(/[^a-zA-Z0-9]/g, '-')}">
-                APN
-                <span class="details-field__label-hint">(add this to unlock EPIC and parcel-linked data)</span>
-              </label>
-              <input type="text"
-                     id="apnInput-${address.replace(/[^a-zA-Z0-9]/g, '-')}"
-                     class="apn-input"
-                     data-address="${address.replace(/"/g, '&quot;')}"
-                     data-address-level="true"
-                     data-column="${apnColForHeader.replace(/"/g, '&quot;')}"
-                     data-original-value=""
-                     placeholder="e.g. 5842-001-020"
-                     value="">
-            </div>`
-          : '<p class="details-section__apn details-section__apn--missing">APN not set for this address.</p>');
-      const apnHelperMarkup = `
-        <div class="apn-helper">
-          <p class="apn-helper__text">APN is the parcel ID used by LA County systems. Adding missing APNs helps us connect this address to outside recovery data (like EPIC permits) for your zone.</p>
-          <a class="apn-helper__link" href="${assessorLookupUrl}" target="_blank" rel="noopener noreferrer">Open LA County Assessor APN lookup</a>
-        </div>
-      `;
 
       let html = `
         <div class="details-toolbar">
@@ -6586,10 +6725,11 @@
         <div class="address-details active">
           <section class="details-section details-section--address">
             <header class="details-section__header">
-              <h3 class="details-section__title">${escapeHtml(address)}</h3>
+              <button type="button" class="details-section__title details-section__title-button" data-address-modal-trigger="${address.replace(/"/g, '&quot;')}" title="Open full address details">
+                ${escapeHtml(address)}
+              </button>
               <p class="details-section__subtitle">Address details</p>
-              ${apnHeaderMarkup}
-              ${apnHelperMarkup}
+              ${apnValueForHeader ? `<p class="details-section__apn"><abbr title="Assessor Parcel Number — the official LA County identifier for this property. Useful for looking up parcel records, permits, and ownership history." style="text-decoration: underline dotted; cursor: help;">APN</abbr>: ${escapeHtml(apnValueForHeader)}</p>` : ''}
             </header>
             <div class="details-section__body">
       `;
@@ -6838,34 +6978,10 @@
           html += '</div></details>';
         }
 
-        html += `
-          <details class="details-tools-section">
-            <summary>Tools</summary>
-            <div class="details-tools-section__body">
-              <p class="details-tools-section__hint">Advanced actions for this address.</p>
-              <button type="button" class="btn-copy-emails details-tools__move-pin-btn" data-move-pin-address="${address.replace(/"/g, '&quot;')}">Move pin</button>
-            </div>
-          </details>
-        `;
       }
 
       // Always close the address-section body + section wrapper
       html += '</div></section>';
-
-      html += `
-        <section class="details-section details-section--epic">
-          <header class="details-section__header">
-            <h3 class="details-section__title">EPIC-LA</h3>
-            <p class="details-section__subtitle">County permit and recovery case context (advisory only)</p>
-          </header>
-          <div class="epic-section__content" id="${epicContentId}">
-            ${normalizedApnForEpic
-              ? `<p class="epic-section__status">Loading EPIC cases for APN ${escapeHtml(apnValueForHeader)}...</p>`
-              : '<p class="epic-section__status">Add an APN above to load EPIC county records for this address.</p>'
-            }
-          </div>
-        </section>
-      `;
 
       const lastContactCol = headers.find(h => 
         h.toLowerCase() === 'last contact date' ||
@@ -7344,7 +7460,12 @@
 
       html += '</div>';
       addressPanelContent.innerHTML = html;
-      hydrateEpicSection({ address, apnDigits: normalizedApnForEpic, contentId: epicContentId });
+      document.querySelectorAll('[data-address-modal-trigger]').forEach(trigger => {
+        trigger.addEventListener('click', () => {
+          const triggerAddress = trigger.getAttribute('data-address-modal-trigger');
+          if (triggerAddress) showAddressDetailsModal(triggerAddress);
+        });
+      });
 
       document.querySelectorAll('[data-person-details-trigger="true"]').forEach(trigger => {
         trigger.addEventListener('click', () => {
@@ -7441,13 +7562,6 @@
         });
       });
 
-      document.querySelectorAll('[data-move-pin-address]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const movePinAddress = btn.getAttribute('data-move-pin-address');
-          if (movePinAddress) openMovePinModal(movePinAddress);
-        });
-      });
-
       // Add save button handlers (both top and bottom buttons)
       const saveBtn = document.getElementById('saveChangesBtn');
       if (saveBtn) {
@@ -7521,16 +7635,6 @@
         });
       });
 
-      // APN input behaves like other editable controls.
-      document.querySelectorAll('.apn-input').forEach(input => {
-        input.addEventListener('input', () => {
-          triggerAutoSave();
-        });
-        input.addEventListener('blur', () => {
-          triggerAutoSave();
-        });
-      });
-      
       // Add copy button handlers for email addresses
       document.querySelectorAll('.copy-email-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
