@@ -6139,11 +6139,20 @@
 
     function getPersonQuickTagColumns(headers) {
       const quickTagSuffixes = ['renter', 'needs follow-up', 'unable to reach'];
+      const isWantsUpdatesColumn = (colName) => /^wants[\s_-]*updates$/i.test(String(colName || '').trim());
       return headers.filter(col => {
+        if (isWantsUpdatesColumn(col)) return true;
         if (!col.startsWith('Person - ')) return false;
         const suffix = col.substring(9).trim().toLowerCase();
         return quickTagSuffixes.includes(suffix);
       });
+    }
+
+    function getQuickTagDisplayLabel(colName) {
+      const raw = String(colName || '').trim();
+      if (/^wants[\s_-]*updates$/i.test(raw)) return 'Subscribe to updates';
+      if (raw.startsWith('Person - ')) return raw.substring(9).trim();
+      return raw;
     }
 
     function getPersonDisplayName(row, fallbackIndex, nameCol) {
@@ -6225,27 +6234,12 @@
       const rebuildCases = Array.isArray(payload && payload.cases_rebuild) ? payload.cases_rebuild : [];
       const tempCases = Array.isArray(payload && payload.cases_temp_housing) ? payload.cases_temp_housing : [];
       const totalCases = rebuildCases.length + tempCases.length;
-      const suggestedStage = payload && payload.suggested_stage ? payload.suggested_stage : null;
-      const confidence = String((payload && payload.suggestion_confidence) || '').trim();
-      const reason = String((payload && payload.suggestion_reason) || '').trim();
       const lastSyncedAt = formatEpicDate(payload && payload.last_synced_at, true);
 
       let html = '';
       if (lastSyncedAt) {
         html += `<p class="epic-section__meta">Last refreshed: ${escapeHtml(lastSyncedAt)}</p>`;
       }
-
-      html += `
-        <div class="epic-suggestion-row">
-          <h4 class="epic-suggestion-row__title">Advisory suggestion</h4>
-          ${suggestedStage
-            ? `<p class="epic-suggestion-row__stage">${escapeHtml(suggestedStage.label || `Stage ${suggestedStage.num || ''}`)}</p>`
-            : '<p class="epic-suggestion-row__stage">No stage suggestion yet</p>'
-          }
-          ${confidence ? `<p class="epic-suggestion-row__confidence">Confidence: ${escapeHtml(confidence)}</p>` : ''}
-          ${reason ? `<p class="epic-suggestion-row__reason">${escapeHtml(reason)}</p>` : ''}
-        </div>
-      `;
 
       if (!totalCases) {
         html += `
@@ -6323,25 +6317,20 @@
       const addressFieldsHtml = fieldsContainer
         ? fieldsContainer.innerHTML
         : '<p class="epic-section__status">Address fields unavailable right now.</p>';
-      const apnHeaderMarkup = apnValue
-        ? `<p class="details-section__apn"><abbr title="Assessor Parcel Number — the official LA County identifier for this property. Useful for looking up parcel records, permits, and ownership history." style="text-decoration: underline dotted; cursor: help;">APN</abbr>: ${escapeHtml(apnValue)}</p>`
-        : (canEdit && apnCol
-          ? `<div class="details-field details-field--apn">
-              <label class="details-field__label" for="modalApnInput-${address.replace(/[^a-zA-Z0-9]/g, '-')}">
-                APN
-                <span class="details-field__label-hint">(add this to unlock EPIC and parcel-linked data)</span>
-              </label>
-              <input type="text"
-                     id="modalApnInput-${address.replace(/[^a-zA-Z0-9]/g, '-')}"
-                     class="apn-input"
-                     data-address="${address.replace(/"/g, '&quot;')}"
-                     data-address-level="true"
-                     data-column="${apnCol.replace(/"/g, '&quot;')}"
-                     data-original-value=""
-                     placeholder="e.g. 5842-001-020"
-                     value="">
-            </div>`
-          : '<p class="details-section__apn details-section__apn--missing">APN not set for this address.</p>');
+      const apnFieldMarkup = (canEdit && apnCol)
+        ? `<div class="details-field details-field--apn">
+            <label class="details-field__label" for="modalApnInput-${address.replace(/[^a-zA-Z0-9]/g, '-')}">APN:</label>
+            <input type="text"
+                   id="modalApnInput-${address.replace(/[^a-zA-Z0-9]/g, '-')}"
+                   class="apn-input"
+                   data-address="${address.replace(/"/g, '&quot;')}"
+                   data-address-level="true"
+                   data-column="${apnCol.replace(/"/g, '&quot;')}"
+                   data-original-value="${escapeHtmlAttr(apnValue)}"
+                   placeholder="e.g. 5842-001-020"
+                   value="${escapeHtmlAttr(apnValue)}">
+          </div>`
+        : `<p class="details-section__apn">${apnValue ? `APN: ${escapeHtml(apnValue)}` : '<span class="details-section__apn--missing">APN not set for this address.</span>'}</p>`;
 
       document.getElementById(modalId)?.remove();
       const modalHtml = `
@@ -6350,36 +6339,44 @@
             <button class="newsletter-modal-close" id="addressDetailsModalClose">&times;</button>
             <div class="newsletter-modal-header">
               <h3 class="newsletter-modal-title">${escapeHtml(address)}</h3>
-              <p class="newsletter-modal-subtitle">Address details and recovery tools</p>
+              <p class="newsletter-modal-subtitle">Address details</p>
             </div>
             <div class="newsletter-modal-content">
-              <section class="newsletter-modal-section">
-                <h4 class="newsletter-modal-section-title">Parcel</h4>
-                ${apnHeaderMarkup}
-                <div class="apn-helper">
-                  <p class="apn-helper__text">APN is the parcel ID used by LA County systems. Adding missing APNs helps us connect this address to outside recovery data (like EPIC permits) for your zone.</p>
+              <details class="address-modal-accordion" open>
+                <summary class="address-modal-accordion__summary">Parcel</summary>
+                <div class="address-modal-accordion__content">
+                  ${apnFieldMarkup}
+                  <div class="apn-helper">
+                  <p class="apn-helper__text">Assessor parcel number (APN) is the unique ID used by LA County systems. Don't edit an address's APN unless you're sure an APN is missing for an address. Adding it helps us connect and pull in outside data for your zone like permitting progress and real estate sales.</p>
                   <a class="apn-helper__link" href="${assessorLookupUrl}" target="_blank" rel="noopener noreferrer">Open LA County Assessor APN lookup</a>
                 </div>
-              </section>
-              <section class="newsletter-modal-section">
-                <h4 class="newsletter-modal-section-title">Address-level data</h4>
-                <div class="address-modal-fields">${addressFieldsHtml}</div>
-              </section>
-              <section class="newsletter-modal-section">
-                <h4 class="newsletter-modal-section-title">EPIC-LA</h4>
-                <p class="details-section__subtitle">County permit and recovery case context (advisory only)</p>
-                <div class="epic-section__content" id="${epicContentId}">
-                  ${apnDigits
-                    ? `<p class="epic-section__status">Loading EPIC cases for APN ${escapeHtml(apnValue)}...</p>`
-                    : '<p class="epic-section__status">Add an APN above to load EPIC county records for this address.</p>'
-                  }
                 </div>
-              </section>
-              <section class="newsletter-modal-section">
-                <h4 class="newsletter-modal-section-title">Tools</h4>
-                <p class="details-tools-section__hint">Advanced actions for this address.</p>
-                <button type="button" class="btn-copy-emails details-tools__move-pin-btn" data-move-pin-address="${address.replace(/"/g, '&quot;')}">Move pin</button>
-              </section>
+              </details>
+              <details class="address-modal-accordion" open>
+                <summary class="address-modal-accordion__summary">Address-level data</summary>
+                <div class="address-modal-accordion__content">
+                  <div class="address-modal-fields">${addressFieldsHtml}</div>
+                </div>
+              </details>
+              <details class="address-modal-accordion" open>
+                <summary class="address-modal-accordion__summary">EPIC-LA Permitting Records</summary>
+                <div class="address-modal-accordion__content">
+                  <p class="details-section__subtitle">LA County permit records matched by APN.</p>
+                  <div class="epic-section__content" id="${epicContentId}">
+                    ${apnDigits
+                      ? `<p class="epic-section__status">Loading EPIC cases for APN ${escapeHtml(apnValue)}...</p>`
+                      : '<p class="epic-section__status">Add an APN above to load EPIC county records for this address.</p>'
+                    }
+                  </div>
+                </div>
+              </details>
+              <details class="address-modal-accordion" open>
+                <summary class="address-modal-accordion__summary">Tools</summary>
+                <div class="address-modal-accordion__content">
+                  <p class="details-tools-section__hint">Advanced actions for this address.</p>
+                  <button type="button" class="btn-copy-emails details-tools__move-pin-btn" data-move-pin-address="${address.replace(/"/g, '&quot;')}">Move address pin</button>
+                </div>
+              </details>
             </div>
             <div class="newsletter-modal-actions">
               ${canEdit
@@ -6831,7 +6828,7 @@
                 </select>
               </div>`;
             } else if (isRebuildStage) {
-              // Build Status: dropdown with specific options - always render but hide if not Building
+              // Build Status: always render. Editing requires Address Plan = Building.
               const rebuildStageOptions = [
                 'Planning/Not Ready to Build Yet',
                 'Permits & Pre-Construction',
@@ -6841,18 +6838,25 @@
               ];
               const normalizedFirst = normalizeRebuildStatusLabel(firstRowValue);
               const rebuildStageId = `rebuild-stage-${address.replace(/[^a-zA-Z0-9]/g, '-')}`;
-              const rebuildStageStyle = showRebuildStage ? '' : 'style="display: none;"';
-              html += `<div class="person-info rebuild-stage-field" id="${rebuildStageId}" ${rebuildStageStyle}>
-                <strong>${col}:</strong>
-                <select class="editable-dropdown" 
-                        data-address="${address.replace(/"/g, '&quot;')}" 
-                        data-address-level="true"
-                        data-column="${col}"
-                        data-original-value="${(firstRowValue || '').replace(/"/g, '&quot;')}">
-                  <option value="">(not set)</option>
-                  ${rebuildStageOptions.map(opt => `<option value="${opt.replace(/"/g, '&quot;')}" ${opt === normalizedFirst ? 'selected' : ''}>${opt}</option>`).join('')}
-                </select>
-              </div>`;
+              if (showRebuildStage) {
+                html += `<div class="person-info rebuild-stage-field" id="${rebuildStageId}">
+                  <strong>${col}:</strong>
+                  <select class="editable-dropdown" 
+                          data-address="${address.replace(/"/g, '&quot;')}" 
+                          data-address-level="true"
+                          data-column="${col}"
+                          data-original-value="${(firstRowValue || '').replace(/"/g, '&quot;')}">
+                    <option value="">(not set)</option>
+                    ${rebuildStageOptions.map(opt => `<option value="${opt.replace(/"/g, '&quot;')}" ${opt === normalizedFirst ? 'selected' : ''}>${opt}</option>`).join('')}
+                  </select>
+                </div>`;
+              } else {
+                html += `<div class="person-info rebuild-stage-field rebuild-stage-field--locked" id="${rebuildStageId}">
+                  <strong>${col}:</strong>
+                  <span>${normalizedFirst || '(not set)'}</span>
+                  <p class="rebuild-stage-edit-note">To edit Build Status, first set Address Plan to Building.</p>
+                </div>`;
+              }
             } else if (isCaptainAssigned && hasMultipleCaptains && captains.length > 0) {
               // Captain Assigned: dropdown with captain names (only if multiple captains exist)
               const captainNames = captains.map(c => c.name).filter(n => n !== 'N/A');
@@ -6915,27 +6919,7 @@
           }
         });
 
-        const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
-        const salesHistoryCol = headers.find(h => /sales?\s*history/i.test(h));
-        const soldSinceFireVal = soldSinceFireCol && rows[0] ? (rows[0][soldSinceFireCol] || '') : '';
-        const isSoldSinceFireAddress = soldSinceFireCol ? isTruthySheetCheckbox(soldSinceFireVal) : false;
-        const salesHistoryValue = salesHistoryCol && rows[0] ? String(rows[0][salesHistoryCol] || '').trim() : '';
-        if (isSoldSinceFireAddress && salesHistoryCol) {
-          if (accessToken) {
-            html += `<div class="details-field">
-              <label class="details-field__label">Sales history</label>
-              <textarea class="editable-notes"
-                   data-address="${address.replace(/"/g, '&quot;')}"
-                   data-address-level="true"
-                   data-column="${salesHistoryCol}"
-                   data-original-value="${salesHistoryValue.replace(/"/g, '&quot;')}">${salesHistoryValue}</textarea>
-            </div>`;
-          } else {
-            html += `<div class="person-info" style="margin-top:12px;"><strong>Sales History:</strong> ${salesHistoryValue || '(not set)'}</div>`;
-          }
-        }
-
-        // Address Tags: expandable section (collapsed by default) - Unit Type, For Sale, Sold Since Fire
+        // Address Tags: expandable section (open by default) - Unit Type, For Sale, Sold Since Fire
         const unitTypeCol = findColumn(headers, ['unit', 'type']);
         const forSaleCol = findColumn(headers, ['for', 'sale']);
         const recentlySoldCol = findColumn(headers, ['recently', 'sold']) || findColumn(headers, ['sold', 'since', 'fire']);
@@ -6952,7 +6936,7 @@
             (forSaleVal !== '' && forSaleLower !== 'false' && forSaleVal !== 'FALSE' && forSaleLower !== 'no');
           const recentlySoldChecked = recentlySoldLower === 'true' || recentlySoldVal === 'TRUE' || recentlySoldLower === 'yes' ||
             (recentlySoldVal !== '' && recentlySoldLower !== 'false' && recentlySoldVal !== 'FALSE' && recentlySoldLower !== 'no');
-          html += '<details class="address-tags-section" style="margin-top:12px;">';
+          html += '<details class="address-tags-section" style="margin-top:12px;" open>';
           html += '<summary style="cursor:pointer; font-weight:700; font-family: Chivo, sans-serif;">Address Tags</summary>';
           html += '<div style="margin-top:12px; padding-left:0;">';
           if (unitTypeCol) {
@@ -6976,6 +6960,26 @@
               <strong>Sold Since Fire</strong></label></div>`;
           }
           html += '</div></details>';
+        }
+
+        const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
+        const salesHistoryCol = headers.find(h => /sales?\s*history/i.test(h));
+        const soldSinceFireVal = soldSinceFireCol && rows[0] ? (rows[0][soldSinceFireCol] || '') : '';
+        const isSoldSinceFireAddress = soldSinceFireCol ? isTruthySheetCheckbox(soldSinceFireVal) : false;
+        const salesHistoryValue = salesHistoryCol && rows[0] ? String(rows[0][salesHistoryCol] || '').trim() : '';
+        if (isSoldSinceFireAddress && salesHistoryCol) {
+          if (accessToken) {
+            html += `<div class="details-field">
+              <label class="details-field__label">Sales history</label>
+              <textarea class="editable-notes"
+                   data-address="${address.replace(/"/g, '&quot;')}"
+                   data-address-level="true"
+                   data-column="${salesHistoryCol}"
+                   data-original-value="${salesHistoryValue.replace(/"/g, '&quot;')}">${salesHistoryValue}</textarea>
+            </div>`;
+          } else {
+            html += `<div class="person-info" style="margin-top:12px;"><strong>Sales History:</strong> ${salesHistoryValue || '(not set)'}</div>`;
+          }
         }
 
       }
@@ -7164,6 +7168,7 @@
             if (suffix.toLowerCase() === 'unable to reach') return 'Unable to reach';
             return suffix;
           }
+          if (/^wants[\s_-]*updates$/i.test(col)) return 'Subscribe to updates';
           if (/^age$/i.test(col)) return 'Approximate Age';
           if (lower === 'last contact date' || lower === 'last outreach attempt date') return 'Last Outreach Attempt';
           return col;
@@ -7171,7 +7176,7 @@
 
         // Omit colon for phone labels and person-tag checkboxes (Renter, Needs Follow-Up, Unable to reach)
         const formatLabelForDisplay = (label) => {
-          if (label === 'Renter' || label === 'Needs Follow-Up' || label === 'Unable to reach') return label;
+          if (label === 'Renter' || label === 'Needs Follow-Up' || label === 'Unable to reach' || label === 'Subscribe to updates') return label;
           return label + ':';
         };
         
@@ -7181,7 +7186,7 @@
           renderedFields.add(col);
           
           const isNotes = col.toLowerCase().includes('note');
-          const isPersonCheckbox = col.startsWith('Person - ');
+          const isPersonCheckbox = col.startsWith('Person - ') || /^wants[\s_-]*updates$/i.test(col);
           const isEmail = isPersonEmailCol(col);
           const isEditable = accessToken;
           const value = row[col] || '';
@@ -7592,13 +7597,11 @@
           // If this is an Address Plan dropdown, show/hide Rebuild Stage field
           if (dropdown.classList.contains('address-plan-dropdown')) {
             const address = dropdown.getAttribute('data-address');
-            const addressPlanVal = dropdown.value.trim().toLowerCase();
-            const rebuildStageId = `rebuild-stage-${address.replace(/[^a-zA-Z0-9]/g, '-')}`;
-            const rebuildStageField = document.getElementById(rebuildStageId);
-            
-            if (rebuildStageField) {
-              rebuildStageField.style.display = addressPlanVal === 'building' ? '' : 'none';
-            }
+            setTimeout(() => {
+              if (address && selectedAddress === address) {
+                displayAddressDetails(address, true);
+              }
+            }, 0);
           }
           
           // Trigger auto-save
@@ -8065,7 +8068,7 @@
         return textField(label, col);
       };
 
-      const quickTagsHtml = quickTagCols.map(col => checkboxField(col.replace(/^Person -\s*/, ''), col)).join('');
+      const quickTagsHtml = quickTagCols.map(col => checkboxField(getQuickTagDisplayLabel(col), col)).join('');
       const modalHTML = `
         <div class="newsletter-modal-overlay" id="personDetailsModalOverlay" data-address="${escapeHtmlAttr(address)}" data-original-row-index="${originalRowIndex}">
           <div class="newsletter-modal person-details-modal" style="max-width:640px;">

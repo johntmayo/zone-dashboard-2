@@ -18,6 +18,11 @@
 - Daily automation is active via GitHub Actions workflow:
   - `.github/workflows/epic-sync.yml`
   - uses `POST /api/admin/sync-epic` with `x-epic-sync-token`.
+- Address Details modal UI is live for EPIC record viewing, APN editing, and
+  move-pin tools.
+- Stage-suggestion fields are still computed by backend, but the suggestion
+  box is intentionally hidden in UI until mapping confidence is validated in
+  field use.
 
 ---
 
@@ -55,6 +60,9 @@ Upsert key: `casenumber`. Stable ordering: `OBJECTID ASC`.
 | `epic/routes.js`    | Express registration for all `/api/epic/*` + admin sync routes |
 | `scripts/sync-epic.js` | CLI entrypoint (`npm run sync:epic`) |
 | `test/epic.test.js` | Node `--test` suite covering normalization + sync orchestration |
+
+`suggested_stage_*` fields are treated as heuristic outputs, not source of
+truth, and can be ignored by frontend consumers until re-enabled.
 
 All new code lives under `epic/`, `scripts/`, and `test/`. `server.js` was
 touched only to call `registerEpicRoutes(app, deps)` right before the SPA
@@ -458,3 +466,9 @@ What each test covers:
 - No automatic write of `suggested_stage_*` into any captain-owned column.
 - No UI changes. Existing dashboard behavior is unchanged (`server.js` only
   gains the `registerEpicRoutes(...)` call).
+
+### UI maintenance note (person quick tags)
+
+In the details UI, the quick-tag checkbox **Subscribe to updates** maps to
+the boolean person column `Wants_Updates` (plus tolerant header variants with
+spaces or hyphens). Keep this mapping intact during sheet/header migrations.
