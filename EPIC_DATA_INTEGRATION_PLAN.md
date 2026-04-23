@@ -1,0 +1,258 @@
+# EPIC-LA Data Integration Plan (Dashboard-Only Enrichment)
+
+**Created:** April 21, 2026  
+**Status:** Planning-ready (not yet implemented)  
+**Scope:** Add EPIC-LA permitting/rebuild data to the dashboard details panel without expanding the captain/master spreadsheets.
+
+---
+
+## 1) Goal in One Sentence
+
+Surface daily-refreshed EPIC-LA Fire Recovery case data (matched by APN) inside the address details panel so captains can see permitting progress at a glance, while keeping EPIC as a separate data source from their operational sheets.
+
+---
+
+## 2) Product Decisions Already Settled
+
+1. **Not live-live.** Daily refresh is sufficient.
+2. **No spreadsheet bloat.** EPIC data should not be written into captain sheets or the core master sheet.
+3. **Dashboard-only augmentation.** EPIC appears in UI as an additional panel section.
+4. **Join key:** APN (`MAIN_AIN` from EPIC to `APN` in dashboard data after normalization).
+5. **Captain language first.** County labels can be shown, but internal 5-stage model should be present and clear.
+
+---
+
+## 3) Recommended Architecture
+
+## 3.1 High-level flow
+
+1. A scheduled daily sync pulls EPIC-LA rows for Altadena (`DISASTER_TYPE='Eaton Fire (01-2025)'`, `SUP_DIST='5'`).
+2. Data is normalized and cached in a separate EPIC data store.
+3. Dashboard reads captain sheet data as it does today.
+4. When an address is selected, dashboard requests EPIC cases for that APN from a backend endpoint.
+5. UI displays all matching cases, split into rebuild vs temporary housing, plus a computed headline stage.
+
+## 3.2 Data store choice (v1)
+
+Use a **separate Google Sheet as EPIC cache** for v1 because:
+- It matches the existing operating model.
+- It is easy to inspect/debug manually.
+- It avoids adding a database right now.
+
+Keep open the option to migrate the EPIC cache to SQLite/Postgres later if scale or query complexity grows.
+
+---
+
+## 4) EPIC Cache Schema (v1)
+
+Create a dedicated sheet (example tab name: `epic_cases`) with one row per EPIC case (upsert key: `casenumber`).
+
+Suggested columns:
+
+- `casenumber` (primary key)
+- `main_ain_raw`
+- `main_ain_norm` (digits only)
+- `main_address`
+- `workclass_name`
+- `status`
+- `rebuild_progress`
+- `rebuild_progress_num`
+- `apply_date_iso`
+- `issuance_date_iso`
+- `last_inspection_date_iso`
+- `permit_valuation`
+- `struct_type_disp`
+- `new_dwelling_units`
+- `description`
+- `css_link`
+- `disaster_type`
+- `sup_dist`
+- `is_temporary_housing` (boolean)
+- `internal_stage_num` (derived)
+- `internal_stage_label` (derived)
+- `sync_run_at` (timestamp)
+- `source_last_edit_date` (layer-level metadata value at pull time)
+
+Optional second tab:
+- `epic_sync_meta` for run status, row counts, duration, errors.
+
+---
+
+## 5) Stage Mapping Strategy
+
+Map county values into the internal model while preserving county text.
+
+### Proposed mapping (default)
+
+- `Rebuild Applications Received` -> Stage 2 (early)
+- `Zoning Reviews Cleared` -> Stage 2
+- `Full Building Plans Received` -> Stage 2
+- `Building Plans Approved` -> Stage 2
+- `Building Permits Issued` -> Stage 2/3 boundary (default to Stage 2 unless local override policy says Stage 3)
+- `Rebuild In Construction` -> Stage 3
+- `Construction Completed` -> Stage 4 candidate (never auto-stage 5)
+- `Temporary Housing - ...` -> Parallel track (not merged into stage headline unless explicitly desired)
+
+### Important guardrails
+
+- Stage 1 remains captain knowledge (county cannot infer it).
+- Stage 4 and Stage 5 should support captain override later.
+- UI should show both:
+  - county status/progress text
+  - internal stage label used by captains
+
+---
+
+## 6) Performance Plan (Captain Experience)
+
+Captain zones are small (typically 10-150 addresses), so performance is controlled by **query strategy**, not total EPIC dataset size.
+
+### Do this
+
+- Query EPIC by APN on demand (or small batch prefetch for visible addresses).
+- Return only matching rows for selected APN(s), not full cache.
+- Normalize APN once at sync time and once at request input.
+- Keep response payload focused to fields needed by UI.
+- Cache in browser memory for the session to avoid repeat fetches.
+
+### Avoid this
+
+- Loading the full EPIC dataset into the browser per login.
+- Doing global client-side joins across all EPIC rows.
+
+---
+
+## 7) Backend Endpoints (Proposed)
+
+Add one or both:
+
+1. `GET /api/epic/by-apn?apn=<value>`
+   - Returns rebuild cases, temporary housing cases, and computed headline fields for one APN.
+
+2. `POST /api/epic/by-apns`
+   - Input: `{ apns: ["...","..."] }`
+   - Returns a keyed object by normalized APN (useful for prefetch and table badges).
+
+Response shape should include:
+- `cases_rebuild`
+- `cases_temp_housing`
+- `most_advanced_internal_stage`
+- `last_synced_at`
+
+---
+
+## 8) Frontend UX Integration (Address Details Panel)
+
+Inside the existing details panel, add an `EPIC-LA` section:
+
+1. **Headline row**
+   - Most advanced internal stage
+   - Last refreshed timestamp
+
+2. **Rebuild cases**
+   - Case number (linked via `CSSLink`)
+   - Work class
+   - County status
+   - County rebuild progress + internal mapped stage
+   - Apply / issue / last inspection dates
+   - Valuation
+   - Structure type
+   - Description
+
+3. **Temporary housing (separate subsection)**
+   - Same formatting, separate visual grouping
+
+4. **Empty state**
+   - "No county cases found for this APN yet"
+   - Clarify that Stage 1 and move-in status rely on captain outreach
+
+---
+
+## 9) Sync Cadence and Operations
+
+## 9.1 Cadence
+
+- Daily scheduled sync (recommended early morning, before captain activity).
+- Optional manual "Run sync now" admin action.
+
+## 9.2 Sync method
+
+- Pull filtered EPIC rows using ArcGIS pagination (`resultOffset`, `resultRecordCount`, stable order by).
+- Upsert by `casenumber`.
+- Mark rows not seen in current run as stale/inactive if needed.
+
+## 9.3 Monitoring basics
+
+Track per run:
+- start/end time
+- row count pulled
+- row count upserted
+- error summary
+- source metadata timestamps
+
+Display last successful run timestamp in UI/API.
+
+---
+
+## 10) Risks and Edge Cases
+
+1. **One APN, many cases** - expected; show all, not just latest.
+2. **Multi-APN property reality** - initial match may miss linked secondary parcels.
+3. **APN formatting drift** - normalize aggressively (digits only).
+4. **Case duplication nuances** - use `casenumber` as key; retain source fields for troubleshooting.
+5. **Source outages** - keep last successful cache available; show staleness warning only when needed.
+
+---
+
+## 11) Phased Rollout Plan
+
+## Phase 1 - Foundation (fastest path)
+
+- Create EPIC cache sheet and sync script.
+- Add backend endpoint for APN lookup.
+- Add minimal EPIC section in address panel.
+- Ship with daily refresh + timestamp.
+
+## Phase 2 - Better captain signal
+
+- Add grouped case cards and temporary-housing split.
+- Improve headline stage logic and tie-break rules.
+- Add lightweight APN-miss diagnostics.
+
+## Phase 3 - Data quality and advanced logic
+
+- Add multi-APN handling strategy (junction/override).
+- Add captain override mechanism for Stage 4/5 confidence.
+- Evaluate migration from EPIC cache sheet to database if needed.
+
+---
+
+## 12) Acceptance Criteria (v1)
+
+1. Captain opens address details and sees an EPIC section within 1-2 seconds on normal connection.
+2. Cases shown are APN-matched and include county link + status + dates.
+3. Temporary housing is separated from rebuild cases.
+4. Internal stage headline is visible and derived from county data.
+5. Captain/master spreadsheets remain unchanged by EPIC sync.
+6. "Last refreshed" timestamp is visible and accurate.
+
+---
+
+## 13) Out of Scope for v1
+
+- Full cross-zone analytics over EPIC data
+- Automated Stage 4/5 resident move-in confirmation
+- Complete parcel topology reconciliation for all multi-APN properties
+- Public-facing EPIC dashboards
+
+---
+
+## 14) Implementation Note for This Repo
+
+Given the current architecture (Express backend + large frontend script + Google Sheets operational model), this plan is intentionally designed to:
+
+- minimize invasive refactors,
+- avoid loading large county payloads client-side,
+- and preserve current captain sheet workflows.
+
+That keeps risk low while adding high demo value and day-to-day utility for recovery work.
