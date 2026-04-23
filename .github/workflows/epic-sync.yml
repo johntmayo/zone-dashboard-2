@@ -1,0 +1,16 @@
+name: EPIC-LA daily sync
+
+on:
+  schedule:
+    # 11:00 UTC = 04:00 PT (standard time); shifts by an hour during DST
+    - cron: "0 11 * * *"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger EPIC sync endpoint
+        run: |
+          curl -fsS -X POST "https://dashboard.altagether.org/api/admin/sync-epic" \
+            -H "x-epic-sync-token: ${{ secrets.EPIC_SYNC_TOKEN }}"
