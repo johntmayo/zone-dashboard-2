@@ -6161,6 +6161,153 @@
       });
     }
 
+    function normalizeApnDigits(rawApn) {
+      return String(rawApn || '').replace(/\D/g, '');
+    }
+
+    function formatEpicDate(rawValue, includeTime = false) {
+      if (!rawValue) return '';
+      const parsed = new Date(rawValue);
+      if (Number.isNaN(parsed.getTime())) return '';
+      return includeTime
+        ? parsed.toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+        : parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function formatEpicCurrency(rawValue) {
+      const numeric = Number(rawValue);
+      if (!Number.isFinite(numeric)) return '';
+      return numeric.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0
+      });
+    }
+
+    function buildEpicCaseCard(caseRecord) {
+      if (!caseRecord || typeof caseRecord !== 'object') return '';
+      const caseNumber = String(caseRecord.casenumber || '').trim();
+      const caseTitle = caseNumber || 'Unnumbered case';
+      const cssLink = String(caseRecord.css_link || '').trim();
+      const workclass = String(caseRecord.workclass_name || '').trim();
+      const status = String(caseRecord.status || '').trim();
+      const progress = String(caseRecord.rebuild_progress || '').trim();
+      const valuation = formatEpicCurrency(caseRecord.permit_valuation);
+      const applyDate = formatEpicDate(caseRecord.apply_date_iso);
+      const issuanceDate = formatEpicDate(caseRecord.issuance_date_iso);
+      const lastInspection = formatEpicDate(caseRecord.last_inspection_date_iso);
+      const structureType = String(caseRecord.struct_type_disp || '').trim();
+      const description = String(caseRecord.description || '').trim();
+
+      const metaItems = [
+        workclass ? `<li><strong>Work class:</strong> ${escapeHtml(workclass)}</li>` : '',
+        status ? `<li><strong>Status:</strong> ${escapeHtml(status)}</li>` : '',
+        progress ? `<li><strong>County progress:</strong> ${escapeHtml(progress)}</li>` : '',
+        valuation ? `<li><strong>Valuation:</strong> ${escapeHtml(valuation)}</li>` : '',
+        applyDate ? `<li><strong>Applied:</strong> ${escapeHtml(applyDate)}</li>` : '',
+        issuanceDate ? `<li><strong>Issued:</strong> ${escapeHtml(issuanceDate)}</li>` : '',
+        lastInspection ? `<li><strong>Last inspection:</strong> ${escapeHtml(lastInspection)}</li>` : '',
+        structureType ? `<li><strong>Structure type:</strong> ${escapeHtml(structureType)}</li>` : ''
+      ].filter(Boolean).join('');
+
+      return `
+        <article class="epic-case-card">
+          <header class="epic-case-card__header">
+            ${cssLink ? `<a class="epic-case-card__title" href="${escapeHtml(cssLink)}" target="_blank" rel="noopener noreferrer">${escapeHtml(caseTitle)}</a>` : `<span class="epic-case-card__title">${escapeHtml(caseTitle)}</span>`}
+          </header>
+          ${metaItems ? `<ul class="epic-case-card__meta">${metaItems}</ul>` : ''}
+          ${description ? `<p class="epic-case-card__description">${escapeHtml(description)}</p>` : ''}
+        </article>
+      `;
+    }
+
+    function buildEpicSectionHtml(payload) {
+      const rebuildCases = Array.isArray(payload && payload.cases_rebuild) ? payload.cases_rebuild : [];
+      const tempCases = Array.isArray(payload && payload.cases_temp_housing) ? payload.cases_temp_housing : [];
+      const totalCases = rebuildCases.length + tempCases.length;
+      const suggestedStage = payload && payload.suggested_stage ? payload.suggested_stage : null;
+      const confidence = String((payload && payload.suggestion_confidence) || '').trim();
+      const reason = String((payload && payload.suggestion_reason) || '').trim();
+      const lastSyncedAt = formatEpicDate(payload && payload.last_synced_at, true);
+
+      let html = '';
+      if (lastSyncedAt) {
+        html += `<p class="epic-section__meta">Last refreshed: ${escapeHtml(lastSyncedAt)}</p>`;
+      }
+
+      html += `
+        <div class="epic-suggestion-row">
+          <h4 class="epic-suggestion-row__title">Advisory suggestion</h4>
+          ${suggestedStage
+            ? `<p class="epic-suggestion-row__stage">${escapeHtml(suggestedStage.label || `Stage ${suggestedStage.num || ''}`)}</p>`
+            : '<p class="epic-suggestion-row__stage">No stage suggestion yet</p>'
+          }
+          ${confidence ? `<p class="epic-suggestion-row__confidence">Confidence: ${escapeHtml(confidence)}</p>` : ''}
+          ${reason ? `<p class="epic-suggestion-row__reason">${escapeHtml(reason)}</p>` : ''}
+        </div>
+      `;
+
+      if (!totalCases) {
+        html += `
+          <div class="epic-empty-state">
+            <p>No county EPIC cases found for this APN yet.</p>
+            <p class="epic-empty-state__hint">Stage 1 and move-in status still rely on captain outreach.</p>
+          </div>
+        `;
+        return html;
+      }
+
+      html += `
+        <div class="epic-case-groups">
+          <section class="epic-case-group">
+            <h4 class="epic-case-group__title">Rebuild cases (${rebuildCases.length})</h4>
+            ${rebuildCases.length ? rebuildCases.map(buildEpicCaseCard).join('') : '<p class="epic-case-group__empty">None for this APN.</p>'}
+          </section>
+          <section class="epic-case-group">
+            <h4 class="epic-case-group__title">Temporary housing (${tempCases.length})</h4>
+            ${tempCases.length ? tempCases.map(buildEpicCaseCard).join('') : '<p class="epic-case-group__empty">None for this APN.</p>'}
+          </section>
+        </div>
+      `;
+
+      return html;
+    }
+
+    async function hydrateEpicSection({ address, apnDigits, contentId }) {
+      const container = document.getElementById(contentId);
+      if (!container) return;
+      if (!apnDigits) return;
+
+      try {
+        const response = await fetch(`/api/epic/by-apn?apn=${encodeURIComponent(apnDigits)}`, {
+          headers: { 'Accept': 'application/json' }
+        });
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch (parseErr) {
+          payload = null;
+        }
+        if (!response.ok) {
+          const message = payload && payload.message ? payload.message : `Request failed (${response.status})`;
+          throw new Error(message);
+        }
+        // Ignore stale response if user switched addresses while request was in flight.
+        if (selectedAddress !== address) return;
+        if (!container.isConnected) return;
+        container.innerHTML = buildEpicSectionHtml(payload || {});
+      } catch (err) {
+        if (selectedAddress !== address) return;
+        if (!container.isConnected) return;
+        container.innerHTML = `
+          <div class="epic-error-state">
+            <p>Could not load EPIC data right now.</p>
+            <p class="epic-error-state__hint">${escapeHtml(err && err.message ? err.message : 'Unknown error')}</p>
+          </div>
+        `;
+      }
+    }
+
     // Display details for a specific address
     function displayAddressDetails(address, preserveScroll = false) {
       if (!sheetData.addressMap || !sheetData.addressMap.has(address)) {
@@ -6390,6 +6537,34 @@
 
       const apnColForHeader = headers.find(h => h.toLowerCase() === 'apn');
       const apnValueForHeader = apnColForHeader && rows[0] ? String(rows[0][apnColForHeader] || '').trim() : '';
+      const normalizedApnForEpic = normalizeApnDigits(apnValueForHeader);
+      const epicContentId = `epic-content-${address.replace(/[^a-zA-Z0-9]/g, '-')}`;
+      const assessorLookupUrl = 'https://portal.assessor.lacounty.gov/';
+      const apnHeaderMarkup = apnValueForHeader
+        ? `<p class="details-section__apn"><abbr title="Assessor Parcel Number — the official LA County identifier for this property. Useful for looking up parcel records, permits, and ownership history." style="text-decoration: underline dotted; cursor: help;">APN</abbr>: ${escapeHtml(apnValueForHeader)}</p>`
+        : (accessToken && apnColForHeader
+          ? `<div class="details-field details-field--apn">
+              <label class="details-field__label" for="apnInput-${address.replace(/[^a-zA-Z0-9]/g, '-')}">
+                APN
+                <span class="details-field__label-hint">(add this to unlock EPIC and parcel-linked data)</span>
+              </label>
+              <input type="text"
+                     id="apnInput-${address.replace(/[^a-zA-Z0-9]/g, '-')}"
+                     class="apn-input"
+                     data-address="${address.replace(/"/g, '&quot;')}"
+                     data-address-level="true"
+                     data-column="${apnColForHeader.replace(/"/g, '&quot;')}"
+                     data-original-value=""
+                     placeholder="e.g. 5842-001-020"
+                     value="">
+            </div>`
+          : '<p class="details-section__apn details-section__apn--missing">APN not set for this address.</p>');
+      const apnHelperMarkup = `
+        <div class="apn-helper">
+          <p class="apn-helper__text">APN is the parcel ID used by LA County systems. Adding missing APNs helps us connect this address to outside recovery data (like EPIC permits) for your zone.</p>
+          <a class="apn-helper__link" href="${assessorLookupUrl}" target="_blank" rel="noopener noreferrer">Open LA County Assessor APN lookup</a>
+        </div>
+      `;
 
       let html = `
         <div class="details-toolbar">
@@ -6413,7 +6588,8 @@
             <header class="details-section__header">
               <h3 class="details-section__title">${escapeHtml(address)}</h3>
               <p class="details-section__subtitle">Address details</p>
-              ${apnValueForHeader ? `<p class="details-section__apn"><abbr title="Assessor Parcel Number — the official LA County identifier for this property. Useful for looking up parcel records, permits, and ownership history." style="text-decoration: underline dotted; cursor: help;">APN</abbr>: ${escapeHtml(apnValueForHeader)}</p>` : ''}
+              ${apnHeaderMarkup}
+              ${apnHelperMarkup}
             </header>
             <div class="details-section__body">
       `;
@@ -6661,10 +6837,35 @@
           }
           html += '</div></details>';
         }
+
+        html += `
+          <details class="details-tools-section">
+            <summary>Tools</summary>
+            <div class="details-tools-section__body">
+              <p class="details-tools-section__hint">Advanced actions for this address.</p>
+              <button type="button" class="btn-copy-emails details-tools__move-pin-btn" data-move-pin-address="${address.replace(/"/g, '&quot;')}">Move pin</button>
+            </div>
+          </details>
+        `;
       }
 
       // Always close the address-section body + section wrapper
       html += '</div></section>';
+
+      html += `
+        <section class="details-section details-section--epic">
+          <header class="details-section__header">
+            <h3 class="details-section__title">EPIC-LA</h3>
+            <p class="details-section__subtitle">County permit and recovery case context (advisory only)</p>
+          </header>
+          <div class="epic-section__content" id="${epicContentId}">
+            ${normalizedApnForEpic
+              ? `<p class="epic-section__status">Loading EPIC cases for APN ${escapeHtml(apnValueForHeader)}...</p>`
+              : '<p class="epic-section__status">Add an APN above to load EPIC county records for this address.</p>'
+            }
+          </div>
+        </section>
+      `;
 
       const lastContactCol = headers.find(h => 
         h.toLowerCase() === 'last contact date' ||
@@ -7143,6 +7344,7 @@
 
       html += '</div>';
       addressPanelContent.innerHTML = html;
+      hydrateEpicSection({ address, apnDigits: normalizedApnForEpic, contentId: epicContentId });
 
       document.querySelectorAll('[data-person-details-trigger="true"]').forEach(trigger => {
         trigger.addEventListener('click', () => {
@@ -7239,6 +7441,13 @@
         });
       });
 
+      document.querySelectorAll('[data-move-pin-address]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const movePinAddress = btn.getAttribute('data-move-pin-address');
+          if (movePinAddress) openMovePinModal(movePinAddress);
+        });
+      });
+
       // Add save button handlers (both top and bottom buttons)
       const saveBtn = document.getElementById('saveChangesBtn');
       if (saveBtn) {
@@ -7308,6 +7517,16 @@
           triggerAutoSave();
         });
         textarea.addEventListener('blur', () => {
+          triggerAutoSave();
+        });
+      });
+
+      // APN input behaves like other editable controls.
+      document.querySelectorAll('.apn-input').forEach(input => {
+        input.addEventListener('input', () => {
+          triggerAutoSave();
+        });
+        input.addEventListener('blur', () => {
           triggerAutoSave();
         });
       });

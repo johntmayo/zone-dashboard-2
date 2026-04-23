@@ -7097,6 +7097,221 @@
   color: var(--text-secondary);
 }
 
+.details-section__apn--missing {
+  color: #92400e;
+}
+
+.details-field--apn {
+  margin-top: 8px;
+}
+
+.apn-input {
+  width: 100%;
+  border: 1px solid rgba(31, 41, 55, 0.2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.86rem;
+}
+
+.apn-input:focus {
+  outline: 2px solid rgba(96, 108, 56, 0.22);
+  outline-offset: 1px;
+  border-color: rgba(96, 108, 56, 0.45);
+}
+
+.apn-helper {
+  margin-top: 8px;
+  padding: 10px;
+  background: rgba(96, 108, 56, 0.06);
+  border: 1px solid rgba(96, 108, 56, 0.18);
+  border-radius: 8px;
+}
+
+.apn-helper__text {
+  margin: 0 0 6px;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.apn-helper__link {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #1f5c2f;
+  text-decoration: underline;
+}
+
+.details-tools-section {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(31, 41, 55, 0.07);
+}
+
+.details-tools-section > summary {
+  list-style: none;
+  cursor: pointer;
+  font-family: 'Chivo', sans-serif;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  position: relative;
+  padding: 3px 0 3px 16px;
+}
+
+.details-tools-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.details-tools-section > summary::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  top: 3px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  transition: transform 0.16s ease;
+}
+
+.details-tools-section[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.details-tools-section__body {
+  margin-top: 10px;
+}
+
+.details-tools-section__hint {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.details-tools__move-pin-btn {
+  font-size: 0.82rem;
+}
+
+.epic-section__content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.epic-section__status,
+.epic-section__meta {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.epic-suggestion-row {
+  border: 1px solid rgba(31, 41, 55, 0.09);
+  background: rgba(31, 41, 55, 0.02);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.epic-suggestion-row__title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.epic-suggestion-row__stage {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.epic-suggestion-row__confidence,
+.epic-suggestion-row__reason {
+  margin: 4px 0 0;
+  font-size: 0.77rem;
+  color: var(--text-secondary);
+}
+
+.epic-case-groups {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.epic-case-group__title {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.epic-case-group__empty {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.epic-case-card {
+  border: 1px solid rgba(31, 41, 55, 0.1);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  margin-bottom: 8px;
+}
+
+.epic-case-card:last-child {
+  margin-bottom: 0;
+}
+
+.epic-case-card__header {
+  margin-bottom: 4px;
+}
+
+.epic-case-card__title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1f5c2f;
+  text-decoration: underline;
+}
+
+.epic-case-card__meta {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.epic-case-card__meta li {
+  margin: 2px 0;
+}
+
+.epic-case-card__description {
+  margin: 6px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: var(--text-primary);
+}
+
+.epic-empty-state,
+.epic-error-state {
+  border: 1px dashed rgba(31, 41, 55, 0.16);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(31, 41, 55, 0.02);
+}
+
+.epic-empty-state p,
+.epic-error-state p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.epic-empty-state__hint,
+.epic-error-state__hint {
+  margin-top: 5px !important;
+  font-size: 0.74rem !important;
+}
+
 .details-section__body {
   display: flex;
   flex-direction: column;
