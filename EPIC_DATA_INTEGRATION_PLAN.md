@@ -1,7 +1,7 @@
 # EPIC-LA Data Integration Plan (Dashboard-Only Enrichment)
 
 **Created:** April 21, 2026  
-**Status:** Backend/data plumbing live in production (April 23, 2026); UI integration not implemented yet.  
+**Status:** Backend/data plumbing live in production (April 23, 2026); Address Details modal UI integration in progress.  
 **Scope:** Add EPIC-LA permitting/rebuild data to the dashboard details panel without expanding the captain/master spreadsheets.
 
 ---
@@ -20,10 +20,12 @@ What is complete:
 - [x] First production sync completed successfully (`rows_fetched: 5647`, `inserted: 5147`, `updated: 500`)
 - [x] GitHub Actions daily scheduler added and manually validated (`.github/workflows/epic-sync.yml`)
 - [x] APN lookup path verified against production cache
+- [x] Address Details modal now shows EPIC records, APN editing support, and move-pin tooling
+- [x] Address-level UI now uses modal accordion sections for parcel, address data, EPIC records, and tools
 
 What is not complete:
 
-- [ ] UI wiring in the address details panel (this plan's UI sections remain the next implementation phase)
+- [ ] Build-status suggestion box is intentionally hidden in UI pending field validation with captains
 
 ---
 
@@ -132,6 +134,13 @@ Map county values into the internal model as a suggestion signal while preservin
 - **Medium:** boundary/ambiguous transitions (e.g., `Building Permits Issued`)
 - **Low:** conflicting multi-case signals, temporary-only signals, or sparse records
 
+### Current product decision (April 2026)
+
+The backend still computes and stores `suggested_stage_*` fields, but the
+frontend suggestion box is currently hidden. Reason: the heuristic is useful
+as telemetry but not yet trusted enough for captain-facing guidance without
+additional validation on real addresses.
+
 ---
 
 ## 6) Performance Plan (Captain Experience)
@@ -200,6 +209,12 @@ Inside the existing details panel, add an `EPIC-LA` section:
 4. **Empty state**
    - "No county cases found for this APN yet"
    - Clarify that Stage 1 and move-in status rely on captain outreach
+
+### Existing person quick-tag mapping note
+
+The person quick-tag checkbox labeled **Subscribe to updates** maps to the
+boolean sheet column `Wants_Updates` (legacy variants like `wants updates`
+and `wants-updates` are treated equivalently by the UI matcher).
 
 ---
 

@@ -7105,6 +7105,47 @@
   gap: 6px;
 }
 
+.address-modal-accordion {
+  border: 1px solid rgba(31, 41, 55, 0.1);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.address-modal-accordion__summary {
+  list-style: none;
+  cursor: pointer;
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  padding: 10px 12px 10px 28px;
+  position: relative;
+}
+
+.address-modal-accordion__summary::-webkit-details-marker {
+  display: none;
+}
+
+.address-modal-accordion__summary::before {
+  content: '▸';
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  color: var(--text-secondary);
+  transition: transform 0.16s ease;
+}
+
+.address-modal-accordion[open] .address-modal-accordion__summary::before {
+  transform: rotate(90deg);
+}
+
+.address-modal-accordion__content {
+  padding: 0 12px 12px;
+  border-top: 1px solid rgba(31, 41, 55, 0.08);
+}
+
 .details-section__subtitle {
   margin: 2px 0 0;
   font-size: 0.74rem;
@@ -7239,6 +7280,14 @@
   color: var(--text-secondary);
 }
 
+.epic-suggestion-row__intro,
+.epic-suggestion-row__note {
+  margin: 6px 0 0;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
 .epic-suggestion-row__stage {
   margin: 6px 0 0;
   font-size: 0.9rem;
@@ -7250,6 +7299,12 @@
 .epic-suggestion-row__reason {
   margin: 4px 0 0;
   font-size: 0.77rem;
+  color: var(--text-secondary);
+}
+
+.rebuild-stage-edit-note {
+  margin: 5px 0 0;
+  font-size: 0.74rem;
   color: var(--text-secondary);
 }
 
