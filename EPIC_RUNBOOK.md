@@ -5,6 +5,22 @@
 
 ---
 
+## Current Live Status (April 23, 2026)
+
+- EPIC backend plumbing is merged to `main` and deployed to production.
+- Production endpoint check passed: `GET /api/epic/sync-status`.
+- First token-triggered production sync succeeded:
+  - `status: ok`
+  - `rows_fetched: 5647`
+  - `inserted: 5147`
+  - `updated: 500`
+- Production lookup check passed: `GET /api/epic/by-apn?apn=<known APN>`.
+- Daily automation is active via GitHub Actions workflow:
+  - `.github/workflows/epic-sync.yml`
+  - uses `POST /api/admin/sync-epic` with `x-epic-sync-token`.
+
+---
+
 ## 1. What this is
 
 A read-through cache that pulls filtered EPIC-LA Fire Recovery Cases into a
@@ -336,6 +352,8 @@ headers — use pattern B or C instead if you need header auth).
 
 **B. External scheduler (GitHub Actions, Cloudflare Cron, etc.):**
 
+This is the active production pattern for this repo.
+
 ```yaml
 # .github/workflows/epic-sync.yml (example)
 name: EPIC-LA daily sync
@@ -385,6 +403,9 @@ the header (leave the header). The next sync will repopulate.
    sync after fixing.
 4. If `stage = ensureTabs`: the configured sheet ID is wrong, or the
    service account has no access at all.
+5. If error mentions `Range ... exceeds grid limits` (for example row 1001):
+   the `epic_cases` tab is too small. Expand the sheet row count (for example
+   to 10,000+ rows) and re-run sync.
 
 The `last_success_*` keys survive failures, so operators can see both the
 last good run AND the most recent failure at the same time.

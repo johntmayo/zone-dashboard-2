@@ -1,8 +1,29 @@
 # EPIC-LA Data Integration Plan (Dashboard-Only Enrichment)
 
 **Created:** April 21, 2026  
-**Status:** Planning-ready (not yet implemented)  
+**Status:** Backend/data plumbing live in production (April 23, 2026); UI integration not implemented yet.  
 **Scope:** Add EPIC-LA permitting/rebuild data to the dashboard details panel without expanding the captain/master spreadsheets.
+
+---
+
+## 0) Implementation Status (April 23, 2026)
+
+What is complete:
+
+- [x] Backend EPIC modules shipped (`epic/config.js`, `epic/arcgis.js`, `epic/normalize.js`, `epic/cache.js`, `epic/sync.js`, `epic/lookup.js`, `epic/routes.js`)
+- [x] Endpoints live in production:
+  - `GET /api/epic/by-apn`
+  - `POST /api/epic/by-apns`
+  - `GET /api/epic/sync-status`
+  - `POST /api/admin/sync-epic`
+- [x] Production sync env vars configured in Vercel (`EPIC_FEATURE_SERVICE_URL`, `EPIC_CACHE_SHEET_ID`, `EPIC_SYNC_TOKEN`)
+- [x] First production sync completed successfully (`rows_fetched: 5647`, `inserted: 5147`, `updated: 500`)
+- [x] GitHub Actions daily scheduler added and manually validated (`.github/workflows/epic-sync.yml`)
+- [x] APN lookup path verified against production cache
+
+What is not complete:
+
+- [ ] UI wiring in the address details panel (this plan's UI sections remain the next implementation phase)
 
 ---
 
@@ -132,9 +153,9 @@ Captain zones are small (typically 10-150 addresses), so performance is controll
 
 ---
 
-## 7) Backend Endpoints (Proposed)
+## 7) Backend Endpoints (Implemented)
 
-Add one or both:
+Implemented endpoints:
 
 1. `GET /api/epic/by-apn?apn=<value>`
    - Returns rebuild cases, temporary housing cases, and advisory suggestion fields for one APN.
@@ -143,7 +164,7 @@ Add one or both:
    - Input: `{ apns: ["...","..."] }`
    - Returns a keyed object by normalized APN (useful for prefetch and table badges).
 
-Response shape should include:
+Current response shape includes:
 - `cases_rebuild`
 - `cases_temp_housing`
 - `suggested_stage`
@@ -220,14 +241,15 @@ Display last successful run timestamp in UI/API.
 
 ## 11) Phased Rollout Plan
 
-## Phase 1 - Foundation (fastest path)
+## Phase 1 - Foundation (fastest path) [COMPLETE]
 
 - Create EPIC cache sheet and sync script.
-- Add backend endpoint for APN lookup.
-- Add minimal EPIC section in address panel.
-- Ship with daily refresh + timestamp.
+- Add backend endpoints for APN lookup and sync status.
+- Add manual sync trigger with token auth support.
+- Ship daily refresh automation via GitHub Actions.
+- Validate production sync + lookup behavior.
 
-## Phase 2 - Better captain signal
+## Phase 2 - Better captain signal [NEXT]
 
 - Add grouped case cards and temporary-housing split.
 - Improve suggestion logic and tie-break rules.
