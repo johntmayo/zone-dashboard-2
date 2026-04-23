@@ -2,7 +2,7 @@
 
 **Created:** April 11, 2026
 **Based on:** Codebase forensic audit + Airtable kanban export (`kanban.csv`) + product/UX assessment
-**Companion docs:** `CURRENT_STATE_AUDIT.md`, `CODEBASE_FIELD_GUIDE.md`
+**Companion docs:** `CURRENT_STATE_AUDIT.md`, `CODEBASE_FIELD_GUIDE.md`, `EPIC_DATA_INTEGRATION_PLAN.md`
 
 ---
 
@@ -276,6 +276,15 @@ I've also added items that weren't in your kanban but that the audit surfaced as
 - **What:** A structured onboarding/engagement sequence for new captains.
 - **My note:** This is a product/ops initiative more than a code feature. You could build a fancy in-app drip system, or you could set up a 6-email sequence in your existing Mailer Light account triggered when a new captain is added. The latter is 10x cheaper to build and probably more effective.
 - **Effort:** If in-app: 15–20 hours. If email-based via Mailer Light: 2–3 hours of content writing + Mailer Light setup.
+
+### 3.8 — EPIC-LA Fire Recovery data integration (dashboard-only)
+- **Source:** Product planning and architecture review (April 2026)
+- **What:** Add a third data source for county permitting progress (EPIC-LA), matched by APN, and surfaced in the Address Details panel.
+- **Operating model:** Keep EPIC data in a **separate cache source** (daily refresh), and enrich dashboard reads at render time. Do **not** write EPIC rows into captain sheets or the master operational spreadsheet.
+- **Why this matters:** High demo value, immediate captain utility, and better rebuild visibility without disrupting existing spreadsheet workflows.
+- **Performance note:** This should query EPIC data by APN (or small APN batches) so users never download full county datasets on login.
+- **Primary plan doc:** **[EPIC_DATA_INTEGRATION_PLAN.md](EPIC_DATA_INTEGRATION_PLAN.md)**
+- **Effort:** 8–16 hours for v1 (sync + API + panel section), depending on cache implementation details.
 
 ---
 
