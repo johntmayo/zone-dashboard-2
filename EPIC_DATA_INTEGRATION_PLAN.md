@@ -256,3 +256,145 @@ Given the current architecture (Express backend + large frontend script + Google
 - and preserve current captain sheet workflows.
 
 That keeps risk low while adding high demo value and day-to-day utility for recovery work.
+
+---
+
+## 15) Agent Handoff Prompt: Plumbing-Only (No UI Yet)
+
+Copy/paste prompt:
+
+Implement **EPIC-LA plumbing only** from `EPIC_DATA_INTEGRATION_PLAN.md`.  
+Do **not** build or modify the UI display yet.
+
+### Goal
+Set up all backend/data pipeline infrastructure for EPIC-LA integration so frontend UI can be designed later with confidence.
+
+### Scope (in)
+1. **Data ingestion + cache**
+   - Build a sync job that pulls EPIC-LA rows filtered to:
+     - `DISASTER_TYPE='Eaton Fire (01-2025)'`
+     - `SUP_DIST='5'`
+   - Implement pagination and stable ordering.
+   - Normalize APN to `digits-only`.
+   - Upsert records by `casenumber`.
+   - Store in separate EPIC cache source (v1 can be a dedicated Google Sheet cache).
+
+2. **Derived fields**
+   - Compute and store:
+     - temporary-housing flag
+     - internal stage mapping fields
+     - sync timestamp metadata
+
+3. **API endpoints (no UI usage yet)**
+   - Add:
+     - `GET /api/epic/by-apn?apn=...`
+     - `POST /api/epic/by-apns`
+   - Return normalized, structured payload suitable for future UI.
+
+4. **Operational controls**
+   - Add a manual sync trigger endpoint (admin-safe) OR script command.
+   - Add basic sync status endpoint (last successful run, row counts, error summary).
+
+5. **Resilience + observability**
+   - Handle source failures without destroying last good cache.
+   - Add clear logs and run metadata.
+   - Keep backward compatibility with existing dashboard behavior.
+
+6. **Documentation**
+   - Update/add docs covering:
+     - env vars
+     - sync schedule setup
+     - cache schema
+     - endpoint contracts
+     - manual runbook
+
+### Scope (out)
+- No address panel or other UI rendering
+- No visual components
+- No feature flags in UI needed yet (unless required for safe backend rollout)
+
+### Constraints
+- Keep EPIC data out of captain/master operational sheets.
+- Avoid loading full EPIC dataset client-side.
+- No unrelated refactors.
+
+### Validation / acceptance
+- Can run a sync and verify cache populated.
+- Can query one APN and receive correct structured data.
+- Can query multiple APNs efficiently.
+- Can fetch sync status metadata.
+- Existing dashboard behavior remains unchanged.
+
+### Deliverables
+- Code changes
+- Setup instructions (including schedule)
+- API contract summary with sample responses
+- Test evidence for:
+  - sync success
+  - APN normalization
+  - one-to-many APN case retrieval
+  - failure fallback behavior
+
+---
+
+## 16) Agent Handoff Prompt: UI Design-Only (Post-Plumbing)
+
+Copy/paste prompt:
+
+Design and implement the **EPIC-LA UI layer only** using the existing EPIC plumbing endpoints.  
+Do **not** modify sync logic or cache schema unless absolutely required for display.
+
+### Goal
+Create a clear, captain-friendly EPIC section in Address Details that handles dense data without overwhelming users.
+
+### Inputs
+- Use this plan: `EPIC_DATA_INTEGRATION_PLAN.md`
+- Assume plumbing endpoints already exist:
+  - `GET /api/epic/by-apn`
+  - `POST /api/epic/by-apns`
+  - sync status metadata
+
+### UX requirements
+1. Add an `EPIC-LA` section in Address Details with:
+   - headline internal stage
+   - last refresh timestamp
+2. Separate:
+   - rebuild cases
+   - temporary housing cases
+3. Each case card should show:
+   - case number (link)
+   - work class
+   - county status
+   - county progress + internal mapped stage
+   - key dates
+   - valuation, structure type
+   - description
+4. Add strong empty/loading/error states.
+5. Keep visual density manageable:
+   - progressive disclosure
+   - compact defaults
+   - readable hierarchy
+
+### Non-goals
+- No changes to daily sync pipeline
+- No changes to source filters
+- No large architecture refactor
+
+### Performance and behavior
+- Lazy load EPIC section on address open.
+- Cache APN results in-session to avoid repeat calls.
+- Avoid blocking existing details panel rendering.
+
+### Validation
+- Works on addresses with:
+  - no EPIC cases
+  - one case
+  - many cases
+  - mixed rebuild + temporary housing
+- Maintains current panel performance and usability.
+
+### Deliverables
+- UI code changes
+- brief UX rationale
+- before/after screenshots or notes
+- manual test checklist/results
