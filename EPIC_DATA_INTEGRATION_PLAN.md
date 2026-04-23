@@ -19,6 +19,7 @@ Surface daily-refreshed EPIC-LA Fire Recovery case data (matched by APN) inside 
 3. **Dashboard-only augmentation.** EPIC appears in UI as an additional panel section.
 4. **Join key:** APN (`MAIN_AIN` from EPIC to `APN` in dashboard data after normalization).
 5. **Captain language first.** County labels can be shown, but internal 5-stage model should be present and clear.
+6. **Captain stage is authoritative.** EPIC-derived stage is advisory/suggested only, never auto-overwriting captain-entered stage.
 
 ---
 
@@ -68,8 +69,10 @@ Suggested columns:
 - `disaster_type`
 - `sup_dist`
 - `is_temporary_housing` (boolean)
-- `internal_stage_num` (derived)
-- `internal_stage_label` (derived)
+- `suggested_stage_num` (derived, advisory)
+- `suggested_stage_label` (derived, advisory)
+- `suggestion_confidence` (`high` | `medium` | `low`)
+- `suggestion_reason` (short text for explainability)
 - `sync_run_at` (timestamp)
 - `source_last_edit_date` (layer-level metadata value at pull time)
 
@@ -78,28 +81,35 @@ Optional second tab:
 
 ---
 
-## 5) Stage Mapping Strategy
+## 5) Stage Suggestion Strategy (Advisory Only)
 
-Map county values into the internal model while preserving county text.
+Map county values into the internal model as a suggestion signal while preserving county text.
 
-### Proposed mapping (default)
+### Proposed suggestion mapping (default)
 
 - `Rebuild Applications Received` -> Stage 2 (early)
 - `Zoning Reviews Cleared` -> Stage 2
 - `Full Building Plans Received` -> Stage 2
 - `Building Plans Approved` -> Stage 2
-- `Building Permits Issued` -> Stage 2/3 boundary (default to Stage 2 unless local override policy says Stage 3)
+- `Building Permits Issued` -> Stage 2/3 boundary (default suggestion Stage 2 unless local policy says Stage 3)
 - `Rebuild In Construction` -> Stage 3
-- `Construction Completed` -> Stage 4 candidate (never auto-stage 5)
+- `Construction Completed` -> Stage 4 candidate (never auto-suggest Stage 5)
 - `Temporary Housing - ...` -> Parallel track (not merged into stage headline unless explicitly desired)
 
 ### Important guardrails
 
 - Stage 1 remains captain knowledge (county cannot infer it).
-- Stage 4 and Stage 5 should support captain override later.
+- Stage 4 and Stage 5 remain captain-confirmed reality.
+- **Do not auto-write suggested stage into captain stage field.**
 - UI should show both:
   - county status/progress text
-  - internal stage label used by captains
+  - EPIC suggested stage + confidence + rationale
+
+### Confidence model (v1)
+
+- **High:** clear rebuild signal (e.g., `Rebuild In Construction`, approved plans path)
+- **Medium:** boundary/ambiguous transitions (e.g., `Building Permits Issued`)
+- **Low:** conflicting multi-case signals, temporary-only signals, or sparse records
 
 ---
 
@@ -127,7 +137,7 @@ Captain zones are small (typically 10-150 addresses), so performance is controll
 Add one or both:
 
 1. `GET /api/epic/by-apn?apn=<value>`
-   - Returns rebuild cases, temporary housing cases, and computed headline fields for one APN.
+   - Returns rebuild cases, temporary housing cases, and advisory suggestion fields for one APN.
 
 2. `POST /api/epic/by-apns`
    - Input: `{ apns: ["...","..."] }`
@@ -136,7 +146,9 @@ Add one or both:
 Response shape should include:
 - `cases_rebuild`
 - `cases_temp_housing`
-- `most_advanced_internal_stage`
+- `suggested_stage`
+- `suggestion_confidence`
+- `suggestion_reason`
 - `last_synced_at`
 
 ---
@@ -145,9 +157,11 @@ Response shape should include:
 
 Inside the existing details panel, add an `EPIC-LA` section:
 
-1. **Headline row**
-   - Most advanced internal stage
+1. **Suggestion row (advisory)**
+   - EPIC suggested stage (not authoritative)
+   - confidence + rationale
    - Last refreshed timestamp
+   - Optional `Apply suggestion` action (manual, never automatic)
 
 2. **Rebuild cases**
    - Case number (linked via `CSSLink`)
@@ -216,13 +230,13 @@ Display last successful run timestamp in UI/API.
 ## Phase 2 - Better captain signal
 
 - Add grouped case cards and temporary-housing split.
-- Improve headline stage logic and tie-break rules.
+- Improve suggestion logic and tie-break rules.
 - Add lightweight APN-miss diagnostics.
 
 ## Phase 3 - Data quality and advanced logic
 
 - Add multi-APN handling strategy (junction/override).
-- Add captain override mechanism for Stage 4/5 confidence.
+- Add explicit "apply suggestion" audit trail (`stage_set_by`, `stage_last_changed_at`).
 - Evaluate migration from EPIC cache sheet to database if needed.
 
 ---
@@ -232,7 +246,7 @@ Display last successful run timestamp in UI/API.
 1. Captain opens address details and sees an EPIC section within 1-2 seconds on normal connection.
 2. Cases shown are APN-matched and include county link + status + dates.
 3. Temporary housing is separated from rebuild cases.
-4. Internal stage headline is visible and derived from county data.
+4. EPIC suggestion row is visible with confidence and does not auto-overwrite captain stage.
 5. Captain/master spreadsheets remain unchanged by EPIC sync.
 6. "Last refreshed" timestamp is visible and accurate.
 
@@ -282,7 +296,7 @@ Set up all backend/data pipeline infrastructure for EPIC-LA integration so front
 2. **Derived fields**
    - Compute and store:
      - temporary-housing flag
-     - internal stage mapping fields
+     - advisory suggestion fields (stage/confidence/reason)
      - sync timestamp metadata
 
 3. **API endpoints (no UI usage yet)**
@@ -317,6 +331,7 @@ Set up all backend/data pipeline infrastructure for EPIC-LA integration so front
 - Keep EPIC data out of captain/master operational sheets.
 - Avoid loading full EPIC dataset client-side.
 - No unrelated refactors.
+- Never auto-write EPIC suggested stage into captain-owned stage columns.
 
 ### Validation / acceptance
 - Can run a sync and verify cache populated.
@@ -356,8 +371,10 @@ Create a clear, captain-friendly EPIC section in Address Details that handles de
 
 ### UX requirements
 1. Add an `EPIC-LA` section in Address Details with:
-   - headline internal stage
+   - advisory EPIC suggested stage
+   - confidence + rationale
    - last refresh timestamp
+   - optional manual `Apply suggestion` action
 2. Separate:
    - rebuild cases
    - temporary housing cases
@@ -365,7 +382,7 @@ Create a clear, captain-friendly EPIC section in Address Details that handles de
    - case number (link)
    - work class
    - county status
-   - county progress + internal mapped stage
+   - county progress + advisory suggested stage context
    - key dates
    - valuation, structure type
    - description
@@ -379,6 +396,7 @@ Create a clear, captain-friendly EPIC section in Address Details that handles de
 - No changes to daily sync pipeline
 - No changes to source filters
 - No large architecture refactor
+- No automatic overwrite of captain-entered stage fields
 
 ### Performance and behavior
 - Lazy load EPIC section on address open.
