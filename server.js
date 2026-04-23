@@ -1050,6 +1050,30 @@ app.post('/api/sheets/batch-update-by-resident-id', async (req, res) => {
   }
 });
 
+// --- EPIC-LA integration (read-only cache lookups + admin sync trigger) ---
+// The EPIC cache lives in a dedicated Google Sheet (EPIC_CACHE_SHEET_ID) and
+// is refreshed by `npm run sync:epic` or POST /api/admin/sync-epic. None of
+// this touches captain/master operational sheets. See EPIC_RUNBOOK.md.
+try {
+  const { registerEpicRoutes } = require('./epic/routes');
+  registerEpicRoutes(app, {
+    getSheetsClient,
+    isAdminEmail: async (email) => {
+      try {
+        const map = await readUsersMap();
+        const rows = map[String(email || '').trim().toLowerCase()] || [];
+        return rows.some((row) => row && row.role === 'admin');
+      } catch (err) {
+        console.error('EPIC admin check failed:', err.message);
+        return false;
+      }
+    }
+  });
+  console.log('EPIC-LA routes registered.');
+} catch (err) {
+  console.error('Failed to register EPIC-LA routes:', err.message);
+}
+
 // Explicitly serve standalone HTML pages so they're not caught by the SPA fallback
 app.get('/flyer_tool.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'flyer_tool.html'));

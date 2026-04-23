@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "sync:epic": "node scripts/sync-epic.js",
+    "test:epic": "node --test test/epic.test.js"
   },
   "keywords": [
     "dashboard",
