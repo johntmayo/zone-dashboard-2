@@ -6196,7 +6196,7 @@
     function buildEpicCaseCard(caseRecord) {
       if (!caseRecord || typeof caseRecord !== 'object') return '';
       const caseNumber = String(caseRecord.casenumber || '').trim();
-      const caseTitle = caseNumber || 'Unnumbered case';
+      const caseTitle = caseNumber ? `Case Number: ${caseNumber}` : 'Case Number: Unnumbered case';
       const cssLink = String(caseRecord.css_link || '').trim();
       const workclass = String(caseRecord.workclass_name || '').trim();
       const status = String(caseRecord.status || '').trim();
@@ -6343,7 +6343,6 @@
             </div>
             <div class="newsletter-modal-content">
               <section class="newsletter-modal-section">
-                <h4 class="newsletter-modal-section-title">Parcel</h4>
                 ${apnFieldMarkup}
                 <div class="apn-helper">
                   <p class="apn-helper__text">Assessor Parcel Number (APN) is the unique ID used across various LA County systems. Don't edit an address's APN unless you're certain it should be changed. If APN is missing, search for it on the <a class="apn-helper__link" href="${assessorLookupUrl}" target="_blank" rel="noopener noreferrer">LA County Assessor's website</a> and add it here. This enables Altagether to pull sales and permitting data into your dashboard.</p>
@@ -6355,8 +6354,8 @@
                 <div class="address-modal-fields">${addressFieldsHtml}</div>
               </section>
               <section class="newsletter-modal-section">
-                <h4 class="newsletter-modal-section-title">EPIC-LA Permitting Records</h4>
-                <p class="details-section__subtitle">LA County permit records matched by APN.</p>
+                <h4 class="newsletter-modal-section-title">Permitting Records from EPIC-LA</h4>
+                <p class="details-section__subtitle">LA County permit records matched by APN. Source: <a class="apn-helper__link" href="https://epicla.lacounty.gov/energov_prod/SelfService/#/home" target="_blank" rel="noopener noreferrer">EPIC-LA</a></p>
                 <div class="epic-section__content" id="${epicContentId}">
                   ${apnDigits
                     ? `<p class="epic-section__status">Loading EPIC cases for APN ${escapeHtml(apnValue)}...</p>`
@@ -6373,7 +6372,7 @@
             <div class="newsletter-modal-actions">
               ${canEdit
                 ? `
-                  <button type="button" class="btn-copy-emails" id="addressDetailsModalSaveBtn">Save Changes</button>
+                  <button type="button" class="btn-modal-save" id="addressDetailsModalSaveBtn">Save Changes</button>
                   <button type="button" class="btn-modal-secondary" id="addressDetailsModalCloseBtn">Close</button>
                   <span class="save-status" id="addressDetailsModalSaveStatus"></span>
                 `
@@ -8067,7 +8066,6 @@
             </div>
             <div class="newsletter-modal-content">
               <div class="newsletter-modal-section">
-                <h4 class="newsletter-modal-section-title">Person</h4>
                 <div class="person-details-grid">
                   ${textField('Name', nameCol, 'text', { fieldClass: 'person-details-field--full' })}
                   ${textField('Approximate Age', ageCol, 'text', {
@@ -8126,7 +8124,7 @@
             </div>
             <div class="newsletter-modal-actions">
               ${canEdit ? `
-                <button type="button" class="btn-copy-emails" id="personDetailsSaveBtn">Save Changes</button>
+                <button type="button" class="btn-modal-save" id="personDetailsSaveBtn">Save Changes</button>
                 <button type="button" class="btn-modal-secondary" id="personDetailsCloseBtn">Close</button>
                 <span class="save-status" id="personDetailsSaveStatus"></span>
               ` : `
