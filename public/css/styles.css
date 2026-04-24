@@ -1528,6 +1528,32 @@
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     }
 
+    .btn-modal-save {
+      background: #F59E0B;
+      color: #1f2937;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 24px;
+      font-size: 0.9rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.32);
+      letter-spacing: 0.2px;
+    }
+
+    .btn-modal-save:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4);
+    }
+
+    .btn-modal-save:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
     .btn-newsletter-link {
       background: var(--accent-gold);
       color: white;
@@ -7103,6 +7129,82 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.address-details-modal,
+.person-details-modal,
+.address-details-modal input,
+.address-details-modal button,
+.address-details-modal textarea,
+.address-details-modal select,
+.address-details-modal label,
+.address-details-modal p,
+.address-details-modal span,
+.address-details-modal div,
+.address-details-modal strong,
+.address-details-modal em,
+.address-details-modal summary,
+.address-details-modal details,
+.person-details-modal input,
+.person-details-modal button,
+.person-details-modal textarea,
+.person-details-modal select,
+.person-details-modal label,
+.person-details-modal p,
+.person-details-modal span,
+.person-details-modal div,
+.person-details-modal strong,
+.person-details-modal em,
+.person-details-modal summary,
+.person-details-modal details {
+  font-family: 'Chivo', sans-serif;
+}
+
+.address-details-modal .newsletter-modal-header,
+.person-details-modal .newsletter-modal-header {
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(31, 41, 55, 0.12);
+}
+
+.address-details-modal .newsletter-modal-title,
+.person-details-modal .newsletter-modal-title {
+  color: var(--text-primary);
+  font-size: 1.85rem;
+  letter-spacing: 0;
+}
+
+.address-details-modal .newsletter-modal-subtitle,
+.person-details-modal .newsletter-modal-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.address-details-modal .newsletter-modal-section,
+.person-details-modal .newsletter-modal-section {
+  background: #ffffff;
+  border: 1px solid rgba(31, 41, 55, 0.1);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 1px rgba(31, 41, 55, 0.03);
+}
+
+.address-details-modal .newsletter-modal-section-title,
+.person-details-modal .newsletter-modal-section-title {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text-primary);
+}
+
+.address-details-modal .person-info,
+.person-details-modal .person-details-field,
+.person-details-modal .person-details-checkbox {
+  font-size: 0.88rem;
+  color: var(--text-primary);
 }
 
 .address-modal-accordion {
