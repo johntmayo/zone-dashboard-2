@@ -6828,7 +6828,7 @@
                 </select>
               </div>`;
             } else if (isRebuildStage) {
-              // Build Status: always render. Editing requires Address Plan = Building.
+              // Build Status: dropdown with specific options - always render but hide if not Building
               const rebuildStageOptions = [
                 'Planning/Not Ready to Build Yet',
                 'Permits & Pre-Construction',
@@ -6838,25 +6838,18 @@
               ];
               const normalizedFirst = normalizeRebuildStatusLabel(firstRowValue);
               const rebuildStageId = `rebuild-stage-${address.replace(/[^a-zA-Z0-9]/g, '-')}`;
-              if (showRebuildStage) {
-                html += `<div class="person-info rebuild-stage-field" id="${rebuildStageId}">
-                  <strong>${col}:</strong>
-                  <select class="editable-dropdown" 
-                          data-address="${address.replace(/"/g, '&quot;')}" 
-                          data-address-level="true"
-                          data-column="${col}"
-                          data-original-value="${(firstRowValue || '').replace(/"/g, '&quot;')}">
-                    <option value="">(not set)</option>
-                    ${rebuildStageOptions.map(opt => `<option value="${opt.replace(/"/g, '&quot;')}" ${opt === normalizedFirst ? 'selected' : ''}>${opt}</option>`).join('')}
-                  </select>
-                </div>`;
-              } else {
-                html += `<div class="person-info rebuild-stage-field rebuild-stage-field--locked" id="${rebuildStageId}">
-                  <strong>${col}:</strong>
-                  <span>${normalizedFirst || '(not set)'}</span>
-                  <p class="rebuild-stage-edit-note">To edit Build Status, first set Address Plan to Building.</p>
-                </div>`;
-              }
+              const rebuildStageStyle = showRebuildStage ? '' : 'style="display: none;"';
+              html += `<div class="person-info rebuild-stage-field" id="${rebuildStageId}" ${rebuildStageStyle}>
+                <strong>${col}:</strong>
+                <select class="editable-dropdown" 
+                        data-address="${address.replace(/"/g, '&quot;')}" 
+                        data-address-level="true"
+                        data-column="${col}"
+                        data-original-value="${(firstRowValue || '').replace(/"/g, '&quot;')}">
+                  <option value="">(not set)</option>
+                  ${rebuildStageOptions.map(opt => `<option value="${opt.replace(/"/g, '&quot;')}" ${opt === normalizedFirst ? 'selected' : ''}>${opt}</option>`).join('')}
+                </select>
+              </div>`;
             } else if (isCaptainAssigned && hasMultipleCaptains && captains.length > 0) {
               // Captain Assigned: dropdown with captain names (only if multiple captains exist)
               const captainNames = captains.map(c => c.name).filter(n => n !== 'N/A');
@@ -6936,9 +6929,9 @@
             (forSaleVal !== '' && forSaleLower !== 'false' && forSaleVal !== 'FALSE' && forSaleLower !== 'no');
           const recentlySoldChecked = recentlySoldLower === 'true' || recentlySoldVal === 'TRUE' || recentlySoldLower === 'yes' ||
             (recentlySoldVal !== '' && recentlySoldLower !== 'false' && recentlySoldVal !== 'FALSE' && recentlySoldLower !== 'no');
-          html += '<details class="address-tags-section" style="margin-top:12px;" open>';
-          html += '<summary style="cursor:pointer; font-weight:700; font-family: Chivo, sans-serif;">Address Tags</summary>';
-          html += '<div style="margin-top:12px; padding-left:0;">';
+          html += '<div class="address-tags-section" style="margin-top:12px;">';
+          html += '<div style="font-weight:700; font-family: Chivo, sans-serif; color: var(--text-secondary); margin-bottom:8px;">Address Tags</div>';
+          html += '<div style="margin-top:0; padding-left:0;">';
           if (unitTypeCol) {
             html += `<div class="person-info"><strong>Unit Type:</strong>
               <select class="editable-dropdown" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${unitTypeCol}" data-original-value="${unitTypeVal.replace(/"/g, '&quot;')}" style="margin-top:4px;">
@@ -6959,7 +6952,7 @@
               <input type="checkbox" class="editable-checkbox" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${recentlySoldCol}" data-original-value="${recentlySoldVal.replace(/"/g, '&quot;')}" ${recentlySoldChecked ? 'checked' : ''} style="width:18px; height:18px;">
               <strong>Sold Since Fire</strong></label></div>`;
           }
-          html += '</div></details>';
+          html += '</div></div>';
         }
 
         const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
@@ -7597,11 +7590,13 @@
           // If this is an Address Plan dropdown, show/hide Rebuild Stage field
           if (dropdown.classList.contains('address-plan-dropdown')) {
             const address = dropdown.getAttribute('data-address');
-            setTimeout(() => {
-              if (address && selectedAddress === address) {
-                displayAddressDetails(address, true);
-              }
-            }, 0);
+            const addressPlanVal = dropdown.value.trim().toLowerCase();
+            const rebuildStageId = `rebuild-stage-${address.replace(/[^a-zA-Z0-9]/g, '-')}`;
+            const rebuildStageField = document.getElementById(rebuildStageId);
+            
+            if (rebuildStageField) {
+              rebuildStageField.style.display = addressPlanVal === 'building' ? '' : 'none';
+            }
           }
           
           // Trigger auto-save
@@ -7907,6 +7902,7 @@
         'nc name',
         'nc email',
         'damage',
+        'address note',
         'address plan',
         'household size',
         'latitude',
