@@ -6342,41 +6342,33 @@
               <p class="newsletter-modal-subtitle">Address details</p>
             </div>
             <div class="newsletter-modal-content">
-              <details class="address-modal-accordion" open>
-                <summary class="address-modal-accordion__summary">Parcel</summary>
-                <div class="address-modal-accordion__content">
-                  ${apnFieldMarkup}
-                  <div class="apn-helper">
-                  <p class="apn-helper__text">Assessor parcel number (APN) is the unique ID used by LA County systems. Don't edit an address's APN unless you're sure an APN is missing for an address. Adding it helps us connect and pull in outside data for your zone like permitting progress and real estate sales.</p>
-                  <a class="apn-helper__link" href="${assessorLookupUrl}" target="_blank" rel="noopener noreferrer">Open LA County Assessor APN lookup</a>
+              <section class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">Parcel</h4>
+                ${apnFieldMarkup}
+                <div class="apn-helper">
+                  <p class="apn-helper__text">Assessor Parcel Number (APN) is the unique ID used across various LA County systems. Don't edit an address's APN unless you're certain it should be changed. If APN is missing, search for it on the <a class="apn-helper__link" href="${assessorLookupUrl}" target="_blank" rel="noopener noreferrer">LA County Assessor's website</a> and add it here. This enables Altagether to pull sales and permitting data into your dashboard.</p>
+                  <p class="apn-helper__text">Note: AIN (Assessor's Identification Number) and APN (Assessor's Parcel Number) are essentially synonymous.</p>
                 </div>
+              </section>
+              <section class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">Address-level data</h4>
+                <div class="address-modal-fields">${addressFieldsHtml}</div>
+              </section>
+              <section class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">EPIC-LA Permitting Records</h4>
+                <p class="details-section__subtitle">LA County permit records matched by APN.</p>
+                <div class="epic-section__content" id="${epicContentId}">
+                  ${apnDigits
+                    ? `<p class="epic-section__status">Loading EPIC cases for APN ${escapeHtml(apnValue)}...</p>`
+                    : '<p class="epic-section__status">Add an APN above to load EPIC county records for this address.</p>'
+                  }
                 </div>
-              </details>
-              <details class="address-modal-accordion" open>
-                <summary class="address-modal-accordion__summary">Address-level data</summary>
-                <div class="address-modal-accordion__content">
-                  <div class="address-modal-fields">${addressFieldsHtml}</div>
-                </div>
-              </details>
-              <details class="address-modal-accordion" open>
-                <summary class="address-modal-accordion__summary">EPIC-LA Permitting Records</summary>
-                <div class="address-modal-accordion__content">
-                  <p class="details-section__subtitle">LA County permit records matched by APN.</p>
-                  <div class="epic-section__content" id="${epicContentId}">
-                    ${apnDigits
-                      ? `<p class="epic-section__status">Loading EPIC cases for APN ${escapeHtml(apnValue)}...</p>`
-                      : '<p class="epic-section__status">Add an APN above to load EPIC county records for this address.</p>'
-                    }
-                  </div>
-                </div>
-              </details>
-              <details class="address-modal-accordion" open>
-                <summary class="address-modal-accordion__summary">Tools</summary>
-                <div class="address-modal-accordion__content">
-                  <p class="details-tools-section__hint">Advanced actions for this address.</p>
-                  <button type="button" class="btn-copy-emails details-tools__move-pin-btn" data-move-pin-address="${address.replace(/"/g, '&quot;')}">Move address pin</button>
-                </div>
-              </details>
+              </section>
+              <section class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">Tools</h4>
+                <p class="details-tools-section__hint">Advanced actions for this address.</p>
+                <button type="button" class="btn-copy-emails details-tools__move-pin-btn" data-move-pin-address="${address.replace(/"/g, '&quot;')}">Move address pin</button>
+              </section>
             </div>
             <div class="newsletter-modal-actions">
               ${canEdit
