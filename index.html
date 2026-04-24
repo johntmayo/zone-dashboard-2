@@ -6139,11 +6139,20 @@
 
     function getPersonQuickTagColumns(headers) {
       const quickTagSuffixes = ['renter', 'needs follow-up', 'unable to reach'];
+      const isWantsUpdatesColumn = (colName) => /^wants[\s_-]*updates$/i.test(String(colName || '').trim());
       return headers.filter(col => {
+        if (isWantsUpdatesColumn(col)) return true;
         if (!col.startsWith('Person - ')) return false;
         const suffix = col.substring(9).trim().toLowerCase();
         return quickTagSuffixes.includes(suffix);
       });
+    }
+
+    function getQuickTagDisplayLabel(colName) {
+      const raw = String(colName || '').trim();
+      if (/^wants[\s_-]*updates$/i.test(raw)) return 'Subscribe to updates';
+      if (raw.startsWith('Person - ')) return raw.substring(9).trim();
+      return raw;
     }
 
     function getPersonDisplayName(row, fallbackIndex, nameCol) {
@@ -6159,6 +6168,299 @@
         month: 'short',
         day: 'numeric'
       });
+    }
+
+    function normalizeApnDigits(rawApn) {
+      return String(rawApn || '').replace(/\D/g, '');
+    }
+
+    function formatEpicDate(rawValue, includeTime = false) {
+      if (!rawValue) return '';
+      const parsed = new Date(rawValue);
+      if (Number.isNaN(parsed.getTime())) return '';
+      return includeTime
+        ? parsed.toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+        : parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function formatEpicCurrency(rawValue) {
+      const numeric = Number(rawValue);
+      if (!Number.isFinite(numeric)) return '';
+      return numeric.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0
+      });
+    }
+
+    function buildEpicCaseCard(caseRecord) {
+      if (!caseRecord || typeof caseRecord !== 'object') return '';
+      const caseNumber = String(caseRecord.casenumber || '').trim();
+      const caseTitle = caseNumber ? `Case Number: ${caseNumber}` : 'Case Number: Unnumbered case';
+      const cssLink = String(caseRecord.css_link || '').trim();
+      const workclass = String(caseRecord.workclass_name || '').trim();
+      const status = String(caseRecord.status || '').trim();
+      const progress = String(caseRecord.rebuild_progress || '').trim();
+      const valuation = formatEpicCurrency(caseRecord.permit_valuation);
+      const applyDate = formatEpicDate(caseRecord.apply_date_iso);
+      const issuanceDate = formatEpicDate(caseRecord.issuance_date_iso);
+      const lastInspection = formatEpicDate(caseRecord.last_inspection_date_iso);
+      const structureType = String(caseRecord.struct_type_disp || '').trim();
+      const description = String(caseRecord.description || '').trim();
+
+      const metaItems = [
+        workclass ? `<li><strong>Work class:</strong> ${escapeHtml(workclass)}</li>` : '',
+        status ? `<li><strong>Status:</strong> ${escapeHtml(status)}</li>` : '',
+        progress ? `<li><strong>County progress:</strong> ${escapeHtml(progress)}</li>` : '',
+        valuation ? `<li><strong>Valuation:</strong> ${escapeHtml(valuation)}</li>` : '',
+        applyDate ? `<li><strong>Applied:</strong> ${escapeHtml(applyDate)}</li>` : '',
+        issuanceDate ? `<li><strong>Issued:</strong> ${escapeHtml(issuanceDate)}</li>` : '',
+        lastInspection ? `<li><strong>Last inspection:</strong> ${escapeHtml(lastInspection)}</li>` : '',
+        structureType ? `<li><strong>Structure type:</strong> ${escapeHtml(structureType)}</li>` : ''
+      ].filter(Boolean).join('');
+
+      return `
+        <article class="epic-case-card">
+          <header class="epic-case-card__header">
+            ${cssLink ? `<a class="epic-case-card__title" href="${escapeHtml(cssLink)}" target="_blank" rel="noopener noreferrer">${escapeHtml(caseTitle)}</a>` : `<span class="epic-case-card__title">${escapeHtml(caseTitle)}</span>`}
+          </header>
+          ${metaItems ? `<ul class="epic-case-card__meta">${metaItems}</ul>` : ''}
+          ${description ? `<p class="epic-case-card__description">${escapeHtml(description)}</p>` : ''}
+        </article>
+      `;
+    }
+
+    function buildEpicSectionHtml(payload) {
+      const rebuildCases = Array.isArray(payload && payload.cases_rebuild) ? payload.cases_rebuild : [];
+      const tempCases = Array.isArray(payload && payload.cases_temp_housing) ? payload.cases_temp_housing : [];
+      const totalCases = rebuildCases.length + tempCases.length;
+      const lastSyncedAt = formatEpicDate(payload && payload.last_synced_at, true);
+
+      let html = '';
+      if (lastSyncedAt) {
+        html += `<p class="epic-section__meta">Last refreshed: ${escapeHtml(lastSyncedAt)}</p>`;
+      }
+
+      if (!totalCases) {
+        html += `
+          <div class="epic-empty-state">
+            <p>No county EPIC cases found for this APN yet.</p>
+            <p class="epic-empty-state__hint">Stage 1 and move-in status still rely on captain outreach.</p>
+          </div>
+        `;
+        return html;
+      }
+
+      html += `
+        <div class="epic-case-groups">
+          <section class="epic-case-group">
+            <h4 class="epic-case-group__title">Rebuild cases (${rebuildCases.length})</h4>
+            ${rebuildCases.length ? rebuildCases.map(buildEpicCaseCard).join('') : '<p class="epic-case-group__empty">None for this APN.</p>'}
+          </section>
+          <section class="epic-case-group">
+            <h4 class="epic-case-group__title">Temporary housing (${tempCases.length})</h4>
+            ${tempCases.length ? tempCases.map(buildEpicCaseCard).join('') : '<p class="epic-case-group__empty">None for this APN.</p>'}
+          </section>
+        </div>
+      `;
+
+      return html;
+    }
+
+    async function hydrateEpicSection({ address, apnDigits, contentId }) {
+      const container = document.getElementById(contentId);
+      if (!container) return;
+      if (!apnDigits) return;
+
+      try {
+        const response = await fetch(`/api/epic/by-apn?apn=${encodeURIComponent(apnDigits)}`, {
+          headers: { 'Accept': 'application/json' }
+        });
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch (parseErr) {
+          payload = null;
+        }
+        if (!response.ok) {
+          const message = payload && payload.message ? payload.message : `Request failed (${response.status})`;
+          throw new Error(message);
+        }
+        // Ignore stale response if user switched addresses while request was in flight.
+        if (selectedAddress !== address) return;
+        if (!container.isConnected) return;
+        container.innerHTML = buildEpicSectionHtml(payload || {});
+      } catch (err) {
+        if (selectedAddress !== address) return;
+        if (!container.isConnected) return;
+        container.innerHTML = `
+          <div class="epic-error-state">
+            <p>Could not load EPIC data right now.</p>
+            <p class="epic-error-state__hint">${escapeHtml(err && err.message ? err.message : 'Unknown error')}</p>
+          </div>
+        `;
+      }
+    }
+
+    function showAddressDetailsModal(address) {
+      if (!sheetData || !sheetData.addressMap || !sheetData.addressMap.has(address)) return;
+      const rows = sheetData.addressMap.get(address) || [];
+      const headers = sheetData.headers || [];
+      const canEdit = Boolean(accessToken && currentSheetId);
+      const apnCol = headers.find(h => h.toLowerCase() === 'apn');
+      const apnValue = apnCol && rows[0] ? String(rows[0][apnCol] || '').trim() : '';
+      const apnDigits = normalizeApnDigits(apnValue);
+      const assessorLookupUrl = 'https://portal.assessor.lacounty.gov/';
+      const modalId = 'addressDetailsModalOverlay';
+      const epicContentId = `address-modal-epic-${address.replace(/[^a-zA-Z0-9]/g, '-')}`;
+      const fieldsContainer = addressPanelContent && addressPanelContent.querySelector('.details-section--address .details-section__body');
+      const addressFieldsHtml = fieldsContainer
+        ? fieldsContainer.innerHTML
+        : '<p class="epic-section__status">Address fields unavailable right now.</p>';
+      const apnFieldMarkup = (canEdit && apnCol)
+        ? `<div class="details-field details-field--apn">
+            <label class="details-field__label" for="modalApnInput-${address.replace(/[^a-zA-Z0-9]/g, '-')}">APN:</label>
+            <input type="text"
+                   id="modalApnInput-${address.replace(/[^a-zA-Z0-9]/g, '-')}"
+                   class="apn-input"
+                   data-address="${address.replace(/"/g, '&quot;')}"
+                   data-address-level="true"
+                   data-column="${apnCol.replace(/"/g, '&quot;')}"
+                   data-original-value="${escapeHtmlAttr(apnValue)}"
+                   placeholder="e.g. 5842-001-020"
+                   value="${escapeHtmlAttr(apnValue)}">
+          </div>`
+        : `<p class="details-section__apn">${apnValue ? `APN: ${escapeHtml(apnValue)}` : '<span class="details-section__apn--missing">APN not set for this address.</span>'}</p>`;
+
+      document.getElementById(modalId)?.remove();
+      const modalHtml = `
+        <div class="newsletter-modal-overlay" id="${modalId}">
+          <div class="newsletter-modal address-details-modal" style="max-width:760px;">
+            <button class="newsletter-modal-close" id="addressDetailsModalClose">&times;</button>
+            <div class="newsletter-modal-header">
+              <h3 class="newsletter-modal-title">${escapeHtml(address)}</h3>
+              <p class="newsletter-modal-subtitle">Address details</p>
+            </div>
+            <div class="newsletter-modal-content">
+              <section class="newsletter-modal-section">
+                ${apnFieldMarkup}
+                <div class="apn-helper">
+                  <p class="apn-helper__text">Assessor Parcel Number (APN) is the unique ID used across various LA County systems. Don't edit an address's APN unless you're certain it should be changed. If APN is missing, search for it on the <a class="apn-helper__link" href="${assessorLookupUrl}" target="_blank" rel="noopener noreferrer">LA County Assessor's website</a> and add it here. This enables Altagether to pull sales and permitting data into your dashboard.</p>
+                  <p class="apn-helper__text">Note: AIN (Assessor's Identification Number) and APN (Assessor's Parcel Number) are essentially synonymous.</p>
+                </div>
+              </section>
+              <section class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">Address-level data</h4>
+                <div class="address-modal-fields">${addressFieldsHtml}</div>
+              </section>
+              <section class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">Permitting Records from EPIC-LA</h4>
+                <p class="details-section__subtitle">LA County permit records matched by APN. Source: <a class="apn-helper__link" href="https://epicla.lacounty.gov/energov_prod/SelfService/#/home" target="_blank" rel="noopener noreferrer">EPIC-LA</a></p>
+                <div class="epic-section__content" id="${epicContentId}">
+                  ${apnDigits
+                    ? `<p class="epic-section__status">Loading EPIC cases for APN ${escapeHtml(apnValue)}...</p>`
+                    : '<p class="epic-section__status">Add an APN above to load EPIC county records for this address.</p>'
+                  }
+                </div>
+              </section>
+              <section class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">Tools</h4>
+                <p class="details-tools-section__hint">Advanced actions for this address.</p>
+                <button type="button" class="btn-copy-emails details-tools__move-pin-btn" data-move-pin-address="${address.replace(/"/g, '&quot;')}">Move address pin</button>
+              </section>
+            </div>
+            <div class="newsletter-modal-actions">
+              ${canEdit
+                ? `
+                  <button type="button" class="btn-modal-save" id="addressDetailsModalSaveBtn">Save Changes</button>
+                  <button type="button" class="btn-modal-secondary" id="addressDetailsModalCloseBtn">Close</button>
+                  <span class="save-status" id="addressDetailsModalSaveStatus"></span>
+                `
+                : `
+                  <button type="button" class="btn-modal-secondary" id="addressDetailsModalCloseBtn">Close</button>
+                  <p style="margin:0; color:var(--text-light);">Sign in with Google to edit address details.</p>
+                `
+              }
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+      const overlay = document.getElementById(modalId);
+      const closeBtn = document.getElementById('addressDetailsModalClose');
+      const closeActionBtn = document.getElementById('addressDetailsModalCloseBtn');
+      const saveBtn = document.getElementById('addressDetailsModalSaveBtn');
+      const saveStatus = document.getElementById('addressDetailsModalSaveStatus');
+
+      const removeModal = () => {
+        if (overlay && overlay.parentNode) overlay.remove();
+      };
+
+      if (overlay) {
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) removeModal();
+        });
+      }
+      if (closeBtn) closeBtn.addEventListener('click', removeModal);
+      if (closeActionBtn) closeActionBtn.addEventListener('click', removeModal);
+
+      document.querySelectorAll('#addressDetailsModalOverlay [data-move-pin-address]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const movePinAddress = btn.getAttribute('data-move-pin-address');
+          if (movePinAddress) openMovePinModal(movePinAddress);
+        });
+      });
+
+      document.querySelectorAll('#addressDetailsModalOverlay .editable-dropdown').forEach(dropdown => {
+        dropdown.addEventListener('change', () => {
+          triggerAutoSave();
+        });
+      });
+      document.querySelectorAll('#addressDetailsModalOverlay .editable-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', () => {
+          triggerAutoSave();
+        });
+      });
+      document.querySelectorAll('#addressDetailsModalOverlay .editable-field[contenteditable="true"], #addressDetailsModalOverlay .editable-inline[contenteditable="true"]').forEach(field => {
+        field.addEventListener('input', () => triggerAutoSave());
+        field.addEventListener('blur', () => triggerAutoSave());
+      });
+      document.querySelectorAll('#addressDetailsModalOverlay .editable-notes, #addressDetailsModalOverlay .apn-input').forEach(field => {
+        field.addEventListener('input', () => triggerAutoSave());
+        field.addEventListener('blur', () => triggerAutoSave());
+      });
+
+      if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+          saveBtn.disabled = true;
+          if (saveStatus) {
+            saveStatus.textContent = 'Saving...';
+            saveStatus.className = 'save-status saving';
+          }
+          await saveChanges(false);
+          const panelSaveStatus = document.getElementById('saveStatus');
+          const saveErrored = panelSaveStatus && panelSaveStatus.classList.contains('error');
+          if (saveErrored) {
+            if (saveStatus) {
+              saveStatus.textContent = panelSaveStatus.textContent || 'Save failed';
+              saveStatus.className = 'save-status error';
+            }
+            saveBtn.disabled = false;
+            return;
+          }
+          if (saveStatus) {
+            saveStatus.textContent = 'Saved!';
+            saveStatus.className = 'save-status saved';
+          }
+          removeModal();
+          if (selectedAddress === address) {
+            displayAddressDetails(address, true);
+          }
+        });
+      }
+
+      hydrateEpicSection({ address, apnDigits, contentId: epicContentId });
     }
 
     // Display details for a specific address
@@ -6411,7 +6713,9 @@
         <div class="address-details active">
           <section class="details-section details-section--address">
             <header class="details-section__header">
-              <h3 class="details-section__title">${escapeHtml(address)}</h3>
+              <button type="button" class="details-section__title details-section__title-button" data-address-modal-trigger="${address.replace(/"/g, '&quot;')}" title="Open full address details">
+                ${escapeHtml(address)}
+              </button>
               <p class="details-section__subtitle">Address details</p>
               ${apnValueForHeader ? `<p class="details-section__apn"><abbr title="Assessor Parcel Number — the official LA County identifier for this property. Useful for looking up parcel records, permits, and ownership history." style="text-decoration: underline dotted; cursor: help;">APN</abbr>: ${escapeHtml(apnValueForHeader)}</p>` : ''}
             </header>
@@ -6599,27 +6903,7 @@
           }
         });
 
-        const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
-        const salesHistoryCol = headers.find(h => /sales?\s*history/i.test(h));
-        const soldSinceFireVal = soldSinceFireCol && rows[0] ? (rows[0][soldSinceFireCol] || '') : '';
-        const isSoldSinceFireAddress = soldSinceFireCol ? isTruthySheetCheckbox(soldSinceFireVal) : false;
-        const salesHistoryValue = salesHistoryCol && rows[0] ? String(rows[0][salesHistoryCol] || '').trim() : '';
-        if (isSoldSinceFireAddress && salesHistoryCol) {
-          if (accessToken) {
-            html += `<div class="details-field">
-              <label class="details-field__label">Sales history</label>
-              <textarea class="editable-notes"
-                   data-address="${address.replace(/"/g, '&quot;')}"
-                   data-address-level="true"
-                   data-column="${salesHistoryCol}"
-                   data-original-value="${salesHistoryValue.replace(/"/g, '&quot;')}">${salesHistoryValue}</textarea>
-            </div>`;
-          } else {
-            html += `<div class="person-info" style="margin-top:12px;"><strong>Sales History:</strong> ${salesHistoryValue || '(not set)'}</div>`;
-          }
-        }
-
-        // Address Tags: expandable section (collapsed by default) - Unit Type, For Sale, Sold Since Fire
+        // Address Tags: expandable section (open by default) - Unit Type, For Sale, Sold Since Fire
         const unitTypeCol = findColumn(headers, ['unit', 'type']);
         const forSaleCol = findColumn(headers, ['for', 'sale']);
         const recentlySoldCol = findColumn(headers, ['recently', 'sold']) || findColumn(headers, ['sold', 'since', 'fire']);
@@ -6636,9 +6920,9 @@
             (forSaleVal !== '' && forSaleLower !== 'false' && forSaleVal !== 'FALSE' && forSaleLower !== 'no');
           const recentlySoldChecked = recentlySoldLower === 'true' || recentlySoldVal === 'TRUE' || recentlySoldLower === 'yes' ||
             (recentlySoldVal !== '' && recentlySoldLower !== 'false' && recentlySoldVal !== 'FALSE' && recentlySoldLower !== 'no');
-          html += '<details class="address-tags-section" style="margin-top:12px;">';
-          html += '<summary style="cursor:pointer; font-weight:700; font-family: Chivo, sans-serif;">Address Tags</summary>';
-          html += '<div style="margin-top:12px; padding-left:0;">';
+          html += '<div class="address-tags-section" style="margin-top:12px;">';
+          html += '<div style="font-weight:700; font-family: Chivo, sans-serif; color: var(--text-secondary); margin-bottom:8px;">Address Tags</div>';
+          html += '<div style="margin-top:0; padding-left:0;">';
           if (unitTypeCol) {
             html += `<div class="person-info"><strong>Unit Type:</strong>
               <select class="editable-dropdown" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${unitTypeCol}" data-original-value="${unitTypeVal.replace(/"/g, '&quot;')}" style="margin-top:4px;">
@@ -6659,8 +6943,29 @@
               <input type="checkbox" class="editable-checkbox" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${recentlySoldCol}" data-original-value="${recentlySoldVal.replace(/"/g, '&quot;')}" ${recentlySoldChecked ? 'checked' : ''} style="width:18px; height:18px;">
               <strong>Sold Since Fire</strong></label></div>`;
           }
-          html += '</div></details>';
+          html += '</div></div>';
         }
+
+        const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
+        const salesHistoryCol = headers.find(h => /sales?\s*history/i.test(h));
+        const soldSinceFireVal = soldSinceFireCol && rows[0] ? (rows[0][soldSinceFireCol] || '') : '';
+        const isSoldSinceFireAddress = soldSinceFireCol ? isTruthySheetCheckbox(soldSinceFireVal) : false;
+        const salesHistoryValue = salesHistoryCol && rows[0] ? String(rows[0][salesHistoryCol] || '').trim() : '';
+        if (isSoldSinceFireAddress && salesHistoryCol) {
+          if (accessToken) {
+            html += `<div class="details-field">
+              <label class="details-field__label">Sales history</label>
+              <textarea class="editable-notes"
+                   data-address="${address.replace(/"/g, '&quot;')}"
+                   data-address-level="true"
+                   data-column="${salesHistoryCol}"
+                   data-original-value="${salesHistoryValue.replace(/"/g, '&quot;')}">${salesHistoryValue}</textarea>
+            </div>`;
+          } else {
+            html += `<div class="person-info" style="margin-top:12px;"><strong>Sales History:</strong> ${salesHistoryValue || '(not set)'}</div>`;
+          }
+        }
+
       }
 
       // Always close the address-section body + section wrapper
@@ -6847,6 +7152,7 @@
             if (suffix.toLowerCase() === 'unable to reach') return 'Unable to reach';
             return suffix;
           }
+          if (/^wants[\s_-]*updates$/i.test(col)) return 'Subscribe to updates';
           if (/^age$/i.test(col)) return 'Approximate Age';
           if (lower === 'last contact date' || lower === 'last outreach attempt date') return 'Last Outreach Attempt';
           return col;
@@ -6854,7 +7160,7 @@
 
         // Omit colon for phone labels and person-tag checkboxes (Renter, Needs Follow-Up, Unable to reach)
         const formatLabelForDisplay = (label) => {
-          if (label === 'Renter' || label === 'Needs Follow-Up' || label === 'Unable to reach') return label;
+          if (label === 'Renter' || label === 'Needs Follow-Up' || label === 'Unable to reach' || label === 'Subscribe to updates') return label;
           return label + ':';
         };
         
@@ -6864,7 +7170,7 @@
           renderedFields.add(col);
           
           const isNotes = col.toLowerCase().includes('note');
-          const isPersonCheckbox = col.startsWith('Person - ');
+          const isPersonCheckbox = col.startsWith('Person - ') || /^wants[\s_-]*updates$/i.test(col);
           const isEmail = isPersonEmailCol(col);
           const isEditable = accessToken;
           const value = row[col] || '';
@@ -7143,6 +7449,12 @@
 
       html += '</div>';
       addressPanelContent.innerHTML = html;
+      document.querySelectorAll('[data-address-modal-trigger]').forEach(trigger => {
+        trigger.addEventListener('click', () => {
+          const triggerAddress = trigger.getAttribute('data-address-modal-trigger');
+          if (triggerAddress) showAddressDetailsModal(triggerAddress);
+        });
+      });
 
       document.querySelectorAll('[data-person-details-trigger="true"]').forEach(trigger => {
         trigger.addEventListener('click', () => {
@@ -7311,7 +7623,7 @@
           triggerAutoSave();
         });
       });
-      
+
       // Add copy button handlers for email addresses
       document.querySelectorAll('.copy-email-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
@@ -7581,6 +7893,7 @@
         'nc name',
         'nc email',
         'damage',
+        'address note',
         'address plan',
         'household size',
         'latitude',
@@ -7742,7 +8055,7 @@
         return textField(label, col);
       };
 
-      const quickTagsHtml = quickTagCols.map(col => checkboxField(col.replace(/^Person -\s*/, ''), col)).join('');
+      const quickTagsHtml = quickTagCols.map(col => checkboxField(getQuickTagDisplayLabel(col), col)).join('');
       const modalHTML = `
         <div class="newsletter-modal-overlay" id="personDetailsModalOverlay" data-address="${escapeHtmlAttr(address)}" data-original-row-index="${originalRowIndex}">
           <div class="newsletter-modal person-details-modal" style="max-width:640px;">
@@ -7753,7 +8066,6 @@
             </div>
             <div class="newsletter-modal-content">
               <div class="newsletter-modal-section">
-                <h4 class="newsletter-modal-section-title">Person</h4>
                 <div class="person-details-grid">
                   ${textField('Name', nameCol, 'text', { fieldClass: 'person-details-field--full' })}
                   ${textField('Approximate Age', ageCol, 'text', {
@@ -7812,7 +8124,7 @@
             </div>
             <div class="newsletter-modal-actions">
               ${canEdit ? `
-                <button type="button" class="btn-copy-emails" id="personDetailsSaveBtn">Save Changes</button>
+                <button type="button" class="btn-modal-save" id="personDetailsSaveBtn">Save Changes</button>
                 <button type="button" class="btn-modal-secondary" id="personDetailsCloseBtn">Close</button>
                 <span class="save-status" id="personDetailsSaveStatus"></span>
               ` : `

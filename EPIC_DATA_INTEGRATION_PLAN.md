@@ -1,8 +1,31 @@
 # EPIC-LA Data Integration Plan (Dashboard-Only Enrichment)
 
 **Created:** April 21, 2026  
-**Status:** Planning-ready (not yet implemented)  
+**Status:** Backend/data plumbing live in production (April 23, 2026); Address Details modal UI integration in progress.  
 **Scope:** Add EPIC-LA permitting/rebuild data to the dashboard details panel without expanding the captain/master spreadsheets.
+
+---
+
+## 0) Implementation Status (April 23, 2026)
+
+What is complete:
+
+- [x] Backend EPIC modules shipped (`epic/config.js`, `epic/arcgis.js`, `epic/normalize.js`, `epic/cache.js`, `epic/sync.js`, `epic/lookup.js`, `epic/routes.js`)
+- [x] Endpoints live in production:
+  - `GET /api/epic/by-apn`
+  - `POST /api/epic/by-apns`
+  - `GET /api/epic/sync-status`
+  - `POST /api/admin/sync-epic`
+- [x] Production sync env vars configured in Vercel (`EPIC_FEATURE_SERVICE_URL`, `EPIC_CACHE_SHEET_ID`, `EPIC_SYNC_TOKEN`)
+- [x] First production sync completed successfully (`rows_fetched: 5647`, `inserted: 5147`, `updated: 500`)
+- [x] GitHub Actions daily scheduler added and manually validated (`.github/workflows/epic-sync.yml`)
+- [x] APN lookup path verified against production cache
+- [x] Address Details modal now shows EPIC records, APN editing support, and move-pin tooling
+- [x] Address-level UI now uses modal accordion sections for parcel, address data, EPIC records, and tools
+
+What is not complete:
+
+- [ ] Build-status suggestion box is intentionally hidden in UI pending field validation with captains
 
 ---
 
@@ -111,6 +134,13 @@ Map county values into the internal model as a suggestion signal while preservin
 - **Medium:** boundary/ambiguous transitions (e.g., `Building Permits Issued`)
 - **Low:** conflicting multi-case signals, temporary-only signals, or sparse records
 
+### Current product decision (April 2026)
+
+The backend still computes and stores `suggested_stage_*` fields, but the
+frontend suggestion box is currently hidden. Reason: the heuristic is useful
+as telemetry but not yet trusted enough for captain-facing guidance without
+additional validation on real addresses.
+
 ---
 
 ## 6) Performance Plan (Captain Experience)
@@ -132,9 +162,9 @@ Captain zones are small (typically 10-150 addresses), so performance is controll
 
 ---
 
-## 7) Backend Endpoints (Proposed)
+## 7) Backend Endpoints (Implemented)
 
-Add one or both:
+Implemented endpoints:
 
 1. `GET /api/epic/by-apn?apn=<value>`
    - Returns rebuild cases, temporary housing cases, and advisory suggestion fields for one APN.
@@ -143,7 +173,7 @@ Add one or both:
    - Input: `{ apns: ["...","..."] }`
    - Returns a keyed object by normalized APN (useful for prefetch and table badges).
 
-Response shape should include:
+Current response shape includes:
 - `cases_rebuild`
 - `cases_temp_housing`
 - `suggested_stage`
@@ -179,6 +209,12 @@ Inside the existing details panel, add an `EPIC-LA` section:
 4. **Empty state**
    - "No county cases found for this APN yet"
    - Clarify that Stage 1 and move-in status rely on captain outreach
+
+### Existing person quick-tag mapping note
+
+The person quick-tag checkbox labeled **Subscribe to updates** maps to the
+boolean sheet column `Wants_Updates` (legacy variants like `wants updates`
+and `wants-updates` are treated equivalently by the UI matcher).
 
 ---
 
@@ -220,14 +256,15 @@ Display last successful run timestamp in UI/API.
 
 ## 11) Phased Rollout Plan
 
-## Phase 1 - Foundation (fastest path)
+## Phase 1 - Foundation (fastest path) [COMPLETE]
 
 - Create EPIC cache sheet and sync script.
-- Add backend endpoint for APN lookup.
-- Add minimal EPIC section in address panel.
-- Ship with daily refresh + timestamp.
+- Add backend endpoints for APN lookup and sync status.
+- Add manual sync trigger with token auth support.
+- Ship daily refresh automation via GitHub Actions.
+- Validate production sync + lookup behavior.
 
-## Phase 2 - Better captain signal
+## Phase 2 - Better captain signal [NEXT]
 
 - Add grouped case cards and temporary-housing split.
 - Improve suggestion logic and tie-break rules.
