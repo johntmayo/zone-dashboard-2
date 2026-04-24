@@ -7117,7 +7117,7 @@
   list-style: none;
   cursor: pointer;
   font-family: 'Chivo', sans-serif;
-  font-size: 0.86rem;
+  font-size: 0.98rem;
   font-weight: 700;
   color: var(--text-primary);
   padding: 10px 12px 10px 28px;
@@ -7533,7 +7533,9 @@
 }
 
 .address-details .person-name-button {
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-color: rgba(49, 64, 89, 0.28);
+  text-underline-offset: 0.15em;
 }
 
 .address-details .person-name-button:hover,
