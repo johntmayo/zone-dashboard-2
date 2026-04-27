@@ -229,6 +229,18 @@
           </div>
         </div>
 
+        <!-- Lightweight onboarding tour nudge -->
+        <div id="onboardingTourNudge" class="onboarding-nudge hidden">
+          <div class="onboarding-nudge-copy">
+            <p class="onboarding-nudge-title">New here?</p>
+            <p class="onboarding-nudge-text">Take a 60-second tour of the dashboard: what to check, what to update, and where to act.</p>
+          </div>
+          <div class="onboarding-nudge-actions">
+            <button type="button" id="onboardingTourStart" class="btn-save">Start tour</button>
+            <button type="button" id="onboardingTourDismiss" class="onboarding-text-button">Dismiss</button>
+          </div>
+        </div>
+
         <!-- Zone Setup Panel (shown when address damage data is sparse) -->
         <div id="zoneSetupPanel" class="hidden" style="margin-bottom: 1rem; padding: 1.25rem 1.5rem; background: var(--bg-card); border: var(--border-thickness) solid var(--border-color); box-shadow: 4px 4px 0px #D9DBDB;">
           <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
@@ -1101,6 +1113,23 @@
   <!-- Mobile: floating button to reopen address list on map/people view -->
   <button class="mobile-list-fab hidden" id="mobileListFab">Details</button>
 
+  <!-- Lightweight onboarding tour modal -->
+  <div id="onboardingTourModal" class="onboarding-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="onboardingTourTitle">
+    <div class="onboarding-modal" role="document">
+      <button type="button" class="onboarding-modal-close" id="onboardingTourClose" aria-label="Close tour">×</button>
+      <div class="onboarding-modal-card">
+        <div class="onboarding-modal-kicker" id="onboardingTourProgress">1 / 3</div>
+        <h2 id="onboardingTourTitle" class="onboarding-modal-title"></h2>
+        <div id="onboardingTourBody" class="onboarding-modal-body"></div>
+      </div>
+      <div class="onboarding-modal-footer">
+        <button type="button" id="onboardingTourBack" class="onboarding-secondary-button">Back</button>
+        <div id="onboardingTourDots" class="onboarding-dots" aria-label="Tour progress"></div>
+        <button type="button" id="onboardingTourNext" class="btn-save">Next</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const input = document.getElementById("sheetUrlInput");
     // Refresh button removed - data auto-loads after sign-in
@@ -1199,6 +1228,35 @@
     let homeKmlLoading = false; // Prevent duplicate KML loads causing transparency issues
     const panelCollapseToggle = document.getElementById('panelCollapseToggle');
     const DETAILS_PANEL_COLLAPSED_KEY = 'detailsPanelCollapsed';
+    const ONBOARDING_TOUR_VERSION = 'v1';
+    const ONBOARDING_TOUR_CARDS = [
+      {
+        title: 'What This Dashboard Helps You Do',
+        body: [
+          'Understand your zone at a glance.',
+          'See addresses, neighbors, outreach progress, damage status, build status, and suggested next steps.',
+          'Use <strong>Map</strong> and <strong>Neighbors</strong> to explore your zone, then click an address or person to update details.'
+        ]
+      },
+      {
+        title: 'The Data Needs Your Judgment',
+        body: [
+          'This data is a starting point from voter files, county/public sources, and updates from Altagether volunteers. It will be incomplete.',
+          'Your job is to check your zone, correct what is wrong, and add what is missing.',
+          'For your zone, you and your co-captains are the source of truth.',
+          'Access is limited to authorized zone captains, co-captains, and Altagether admins. Please treat the data as private and do not share it outside approved Altagether use.'
+        ]
+      },
+      {
+        title: 'Keep The Zone Moving',
+        body: [
+          'Log outreach attempts and keep statuses current.',
+          'Use <strong>Tools &rarr; Batch Tagging</strong> when you need to update many addresses or people at once.',
+          'Check <strong>Quick Actions</strong> on Home or the <strong>Actions</strong> tab for suggested next steps.'
+        ]
+      }
+    ];
+    let onboardingTourIndex = 0;
 
     function updatePanelCollapseToggle(collapsed) {
       if (!panelCollapseToggle) return;
@@ -2267,6 +2325,147 @@
     });
     document.getElementById('profileNudgeDismiss')?.addEventListener('click', hideProfileNudge);
 
+    function getOnboardingTourStorageKey() {
+      const userPart = (currentUserEmail || 'anonymous').trim().toLowerCase();
+      return `onboardingTourSeen:${ONBOARDING_TOUR_VERSION}:${userPart}`;
+    }
+
+    function hasSeenOnboardingTour() {
+      try {
+        return localStorage.getItem(getOnboardingTourStorageKey()) === '1';
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function setOnboardingTourSeen() {
+      try {
+        localStorage.setItem(getOnboardingTourStorageKey(), '1');
+      } catch (error) {
+        console.warn('Could not persist onboarding tour state:', error);
+      }
+    }
+
+    function updateOnboardingTourNudge() {
+      const nudge = document.getElementById('onboardingTourNudge');
+      if (!nudge) return;
+
+      if (!accessToken || !currentSheetUrl || hasSeenOnboardingTour()) {
+        nudge.classList.add('hidden');
+        return;
+      }
+
+      nudge.classList.remove('hidden');
+    }
+
+    function renderOnboardingTourCard() {
+      const card = ONBOARDING_TOUR_CARDS[onboardingTourIndex];
+      const title = document.getElementById('onboardingTourTitle');
+      const body = document.getElementById('onboardingTourBody');
+      const progress = document.getElementById('onboardingTourProgress');
+      const backBtn = document.getElementById('onboardingTourBack');
+      const nextBtn = document.getElementById('onboardingTourNext');
+      const dots = document.getElementById('onboardingTourDots');
+      if (!card || !title || !body || !progress || !backBtn || !nextBtn || !dots) return;
+
+      title.textContent = card.title;
+      body.innerHTML = card.body.map(text => `<p>${text}</p>`).join('');
+      progress.textContent = `${onboardingTourIndex + 1} / ${ONBOARDING_TOUR_CARDS.length}`;
+      backBtn.disabled = onboardingTourIndex === 0;
+      nextBtn.textContent = onboardingTourIndex === ONBOARDING_TOUR_CARDS.length - 1 ? 'Finish' : 'Next';
+      dots.innerHTML = ONBOARDING_TOUR_CARDS.map((_, index) => `
+        <button
+          type="button"
+          class="onboarding-dot${index === onboardingTourIndex ? ' active' : ''}"
+          aria-label="Go to tour card ${index + 1}"
+          aria-current="${index === onboardingTourIndex ? 'step' : 'false'}"
+          data-tour-index="${index}"
+        ></button>
+      `).join('');
+
+      dots.querySelectorAll('.onboarding-dot').forEach(dot => {
+        dot.addEventListener('click', () => {
+          onboardingTourIndex = Number(dot.getAttribute('data-tour-index')) || 0;
+          renderOnboardingTourCard();
+        });
+      });
+    }
+
+    function showOnboardingTour(startIndex = 0) {
+      const modal = document.getElementById('onboardingTourModal');
+      if (!modal) return;
+      onboardingTourIndex = Math.max(0, Math.min(startIndex, ONBOARDING_TOUR_CARDS.length - 1));
+      renderOnboardingTourCard();
+      modal.classList.remove('hidden');
+      document.getElementById('onboardingTourNext')?.focus();
+      window.trackAnalyticsEvent('onboarding_tour_opened');
+    }
+
+    function hideOnboardingTour(markSeen = false) {
+      const modal = document.getElementById('onboardingTourModal');
+      if (modal) modal.classList.add('hidden');
+      if (markSeen) {
+        setOnboardingTourSeen();
+        updateOnboardingTourNudge();
+        window.trackAnalyticsEvent('onboarding_tour_completed');
+      }
+    }
+
+    document.getElementById('onboardingTourStart')?.addEventListener('click', () => {
+      showOnboardingTour(0);
+    });
+
+    document.getElementById('onboardingTourDismiss')?.addEventListener('click', () => {
+      setOnboardingTourSeen();
+      updateOnboardingTourNudge();
+      window.trackAnalyticsEvent('onboarding_tour_dismissed');
+    });
+
+    document.getElementById('onboardingTourClose')?.addEventListener('click', () => {
+      hideOnboardingTour(false);
+    });
+
+    document.getElementById('onboardingTourBack')?.addEventListener('click', () => {
+      if (onboardingTourIndex > 0) {
+        onboardingTourIndex -= 1;
+        renderOnboardingTourCard();
+      }
+    });
+
+    document.getElementById('onboardingTourNext')?.addEventListener('click', () => {
+      if (onboardingTourIndex >= ONBOARDING_TOUR_CARDS.length - 1) {
+        hideOnboardingTour(true);
+        return;
+      }
+      onboardingTourIndex += 1;
+      renderOnboardingTourCard();
+    });
+
+    document.getElementById('onboardingTourModal')?.addEventListener('click', (event) => {
+      if (event.target === event.currentTarget) {
+        hideOnboardingTour(false);
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      const modal = document.getElementById('onboardingTourModal');
+      if (!modal || modal.classList.contains('hidden')) return;
+
+      if (event.key === 'Escape') {
+        hideOnboardingTour(false);
+      } else if (event.key === 'ArrowLeft' && onboardingTourIndex > 0) {
+        onboardingTourIndex -= 1;
+        renderOnboardingTourCard();
+      } else if (event.key === 'ArrowRight') {
+        if (onboardingTourIndex >= ONBOARDING_TOUR_CARDS.length - 1) {
+          hideOnboardingTour(true);
+        } else {
+          onboardingTourIndex += 1;
+          renderOnboardingTourCard();
+        }
+      }
+    });
+
     // Update sign-in UI
     function updateSignInUI() {
       const homeSigninPrompt = document.getElementById('homeSigninPrompt');
@@ -2289,6 +2488,7 @@
       
       // Update welcome message to reflect sign-in state
       updateWelcomeMessage();
+      updateOnboardingTourNudge();
     }
 
     // Update sheet link label based on link status
@@ -13725,6 +13925,7 @@
       }
       fetchAndDisplayCentralFeed();
       displayQuickActions();
+      updateOnboardingTourNudge();
       updateZoneSetupPanel();
       updateZoneLeadership();
       
