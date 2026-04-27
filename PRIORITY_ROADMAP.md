@@ -284,7 +284,15 @@ I've also added items that weren't in your kanban but that the audit surfaced as
 - **Why this matters:** High demo value, immediate captain utility, and better rebuild visibility without disrupting existing spreadsheet workflows.
 - **Performance note:** This should query EPIC data by APN (or small APN batches) so users never download full county datasets on login.
 - **Primary plan doc:** **[EPIC_DATA_INTEGRATION_PLAN.md](EPIC_DATA_INTEGRATION_PLAN.md)**
-- **Effort:** 8–16 hours for v1 (sync + API + panel section), depending on cache implementation details.
+- **Implementation record (April 23-27, 2026):**
+  - Backend sync + cache + lookup endpoints are shipped to production.
+  - Daily automation is live via `.github/workflows/epic-sync.yml` and token-auth admin sync endpoint.
+  - EPIC case UI is live in the Address details modal (including APN workflow and move-pin context).
+  - New filter shipped in map/people filter bar:
+    - `EPIC: All addresses` (default)
+    - `EPIC: Has permitting records`
+  - EPIC filter implementation is lazy + cached (no default extra API load), and applies consistently to list/table/map with graceful fallback on fetch failures.
+- **Current status:** v1 delivered; continuing iterative UX/data-quality refinements.
 
 ---
 
