@@ -1127,10 +1127,17 @@
     let currentDamageFilter = 'all'; // Current damage filter
     let currentAddressPlanFilter = 'all'; // Current Address Plan filter (only when Damage = Partial/Total Loss)
     let currentRebuildFilter = 'all'; // Current rebuild status filter
+    let currentEpicFilter = 'all'; // EPIC permitting filter: all | has_epic
     let currentCaptainFilter = 'all'; // Current captain assigned filter
     let currentPersonSearch = ''; // Current resident-name search filter
     let showContactedAddresses = true; // Show addresses with contacted people
     let showUncontactedAddresses = true; // Show addresses with uncontacted people
+    const epicPresenceState = {
+      loading: false,
+      ready: false,
+      error: '',
+      byApnHasRecords: new Map()
+    };
     
     // Sequential rebuild stages (in order)
     const REBUILD_STAGES_SEQUENTIAL = [
@@ -2899,8 +2906,10 @@
         currentStreetFilter = 'all';
         currentDamageFilter = 'all';
         currentAddressPlanFilter = 'all';
+        currentEpicFilter = 'all';
         currentCaptainFilter = 'all';
         currentPersonSearch = '';
+        resetEpicPresenceState();
         
         // Extract zone name from ZoneName column if available
         const zoneNameCol = headers.find(h => h.toLowerCase() === 'zonename' || h.toLowerCase() === 'zone name');
@@ -3395,6 +3404,7 @@
       currentDamageFilter = 'all';
       currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
+      currentEpicFilter = 'all';
       currentCaptainFilter = 'all';
       currentPersonSearch = '';
       // Set contact filters
@@ -3444,6 +3454,7 @@
       currentDamageFilter = ''; // Empty string for "(not set)"
       currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
+      currentEpicFilter = 'all';
       currentCaptainFilter = 'all';
       currentPersonSearch = '';
       // Reset contact filters to show all
@@ -3461,6 +3472,7 @@
       currentDamageFilter = 'all';
       currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
+      currentEpicFilter = 'all';
       currentCaptainFilter = 'all';
       currentPersonSearch = '';
       showUncontactedAddresses = true;
@@ -4800,6 +4812,79 @@
       window.addEventListener('resize', onResize);
     })();
     
+    function resetEpicPresenceState() {
+      epicPresenceState.loading = false;
+      epicPresenceState.ready = false;
+      epicPresenceState.error = '';
+      epicPresenceState.byApnHasRecords = new Map();
+    }
+
+    async function ensureEpicPresenceMapLoaded() {
+      if (!sheetData || !sheetData.addressMap || !sheetData.headers) return;
+      if (epicPresenceState.loading || epicPresenceState.ready) return;
+
+      const apnCol = sheetData.headers.find(h => h.toLowerCase() === 'apn');
+      if (!apnCol) {
+        epicPresenceState.ready = true;
+        epicPresenceState.byApnHasRecords = new Map();
+        return;
+      }
+
+      const uniqueApns = [];
+      const seen = new Set();
+      Array.from(sheetData.addressMap.keys()).forEach(address => {
+        const rows = sheetData.addressMap.get(address);
+        const rawApn = rows && rows[0] ? rows[0][apnCol] : '';
+        const apn = normalizeApnDigits(rawApn);
+        if (!apn || seen.has(apn)) return;
+        seen.add(apn);
+        uniqueApns.push(apn);
+      });
+
+      epicPresenceState.loading = true;
+      epicPresenceState.error = '';
+      epicPresenceState.byApnHasRecords = new Map();
+
+      try {
+        const chunkSize = 500;
+        for (let i = 0; i < uniqueApns.length; i += chunkSize) {
+          const chunk = uniqueApns.slice(i, i + chunkSize);
+          const response = await fetch('/api/epic/by-apns', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ apns: chunk })
+          });
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.message || err.error || `EPIC lookup failed (${response.status})`);
+          }
+          const payload = await response.json();
+          const results = payload && payload.results ? payload.results : {};
+          Object.entries(results).forEach(([apn, data]) => {
+            const total = data && data.counts ? Number(data.counts.total) || 0 : 0;
+            epicPresenceState.byApnHasRecords.set(apn, total > 0);
+          });
+        }
+        epicPresenceState.ready = true;
+      } catch (error) {
+        epicPresenceState.error = error && error.message ? error.message : 'Could not load EPIC filter data.';
+        epicPresenceState.ready = false;
+      } finally {
+        epicPresenceState.loading = false;
+      }
+    }
+
+    function addressHasEpicRecords(address) {
+      if (!sheetData || !sheetData.addressMap || !sheetData.headers) return false;
+      const apnCol = sheetData.headers.find(h => h.toLowerCase() === 'apn');
+      if (!apnCol) return false;
+      const rows = sheetData.addressMap.get(address);
+      const rawApn = rows && rows[0] ? rows[0][apnCol] : '';
+      const apn = normalizeApnDigits(rawApn);
+      if (!apn) return false;
+      return epicPresenceState.byApnHasRecords.get(apn) === true;
+    }
+
     // Populate persistent filter bar
     function populateFilterBar() {
       if (!sheetData || !sheetData.addressMap) {
@@ -4864,6 +4949,15 @@
           <option value="all" ${currentRebuildFilter === 'all' ? 'selected' : ''}>All Build Status</option>
           ${rebuildStatusesArray.map(status => `<option value="${status.replace(/"/g, '&quot;')}" ${currentRebuildFilter === status ? 'selected' : ''}>${status}</option>`).join('')}
         </select>` : ''}
+        <select id="persistentEpicFilter" class="${currentEpicFilter !== 'all' ? 'filter-active' : ''}" title="Filter addresses by whether they have EPIC permitting records.">
+          <option value="all" ${currentEpicFilter === 'all' ? 'selected' : ''}>EPIC: All addresses</option>
+          <option value="has_epic" ${currentEpicFilter === 'has_epic' ? 'selected' : ''}>EPIC: Has permitting records</option>
+        </select>
+        <span id="persistentEpicFilterStatus" class="filters-label" style="font-size:0.75rem; opacity:0.85;">
+          ${epicPresenceState.error
+            ? 'EPIC filter unavailable'
+            : (currentEpicFilter === 'has_epic' && epicPresenceState.loading ? 'Loading EPIC filter...' : '')}
+        </span>
         ${hasMultipleCaptains && captainAssignedCol ? `<select id="persistentCaptainFilter" class="${currentCaptainFilter !== 'all' ? 'filter-active' : ''}" title="Filter to see addresses assigned to a specific Neighborhood Captain.">
           <option value="all" ${currentCaptainFilter === 'all' ? 'selected' : ''}>Any Captain</option>
           <option value="" ${currentCaptainFilter === '' ? 'selected' : ''}>(not specified)</option>
@@ -4919,6 +5013,10 @@
       const oldRebuildFilter = document.getElementById('persistentRebuildFilter');
       if (oldRebuildFilter) {
         oldRebuildFilter.replaceWith(oldRebuildFilter.cloneNode(true));
+      }
+      const oldEpicFilter = document.getElementById('persistentEpicFilter');
+      if (oldEpicFilter) {
+        oldEpicFilter.replaceWith(oldEpicFilter.cloneNode(true));
       }
       const oldContactedCheckbox = document.getElementById('persistentShowContactedCheckbox');
       if (oldContactedCheckbox) {
@@ -4991,6 +5089,26 @@
           } else {
             rebuildFilter.classList.remove('filter-active');
           }
+          displayAddressTable();
+          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
+          updateMapMarkers();
+        });
+      }
+
+      const epicFilter = document.getElementById('persistentEpicFilter');
+      if (epicFilter) {
+        epicFilter.addEventListener('change', async (e) => {
+          currentEpicFilter = e.target.value;
+          if (currentEpicFilter !== 'all') {
+            epicFilter.classList.add('filter-active');
+            await ensureEpicPresenceMapLoaded();
+            if (epicPresenceState.error) {
+              currentEpicFilter = 'all';
+            }
+          } else {
+            epicFilter.classList.remove('filter-active');
+          }
+          populateFilterBar();
           displayAddressTable();
           displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
           updateMapMarkers();
@@ -5149,6 +5267,9 @@
           const isContacted = isAddressContacted(addr);
           if (isContacted && !showContactedAddresses) return false;
           if (!isContacted && !showUncontactedAddresses) return false;
+        }
+        if (currentEpicFilter === 'has_epic' && epicPresenceState.ready && !addressHasEpicRecords(addr)) {
+          return false;
         }
         return true;
       });
@@ -5556,6 +5677,9 @@
           const isContacted = isAddressContacted(addr);
           if (isContacted && !showContactedAddresses) return false;
           if (!isContacted && !showUncontactedAddresses) return false;
+        }
+        if (currentEpicFilter === 'has_epic' && epicPresenceState.ready && !addressHasEpicRecords(addr)) {
+          return false;
         }
         return true;
       });
@@ -6090,6 +6214,9 @@
           const isContacted = isAddressContacted(addr);
           if (isContacted && !showContactedAddresses) return false;
           if (!isContacted && !showUncontactedAddresses) return false;
+        }
+        if (currentEpicFilter === 'has_epic' && epicPresenceState.ready && !addressHasEpicRecords(addr)) {
+          return false;
         }
         return true;
       });
@@ -12510,6 +12637,9 @@
           const isContacted = isAddressContacted(address);
           if (isContacted && !showContactedAddresses) return false;
           if (!isContacted && !showUncontactedAddresses) return false;
+        }
+        if (currentEpicFilter === 'has_epic' && epicPresenceState.ready && !addressHasEpicRecords(address)) {
+          return false;
         }
         
         return true;
