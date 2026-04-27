@@ -1,12 +1,12 @@
 # EPIC-LA Data Integration Plan (Dashboard-Only Enrichment)
 
 **Created:** April 21, 2026  
-**Status:** Backend/data plumbing live in production (April 23, 2026); Address Details modal UI integration in progress.  
+**Status:** Backend/data plumbing, Address Details modal EPIC UI, and EPIC presence filtering are live in production (updated April 27, 2026).  
 **Scope:** Add EPIC-LA permitting/rebuild data to the dashboard details panel without expanding the captain/master spreadsheets.
 
 ---
 
-## 0) Implementation Status (April 23, 2026)
+## 0) Implementation Status (updated April 27, 2026)
 
 What is complete:
 
@@ -21,7 +21,19 @@ What is complete:
 - [x] GitHub Actions daily scheduler added and manually validated (`.github/workflows/epic-sync.yml`)
 - [x] APN lookup path verified against production cache
 - [x] Address Details modal now shows EPIC records, APN editing support, and move-pin tooling
-- [x] Address-level UI now uses modal accordion sections for parcel, address data, EPIC records, and tools
+- [x] Address-level UI now uses always-open modal sections for parcel, address data, EPIC records, and tools (accordion behavior intentionally removed)
+- [x] Person quick-tag label **Subscribe to updates** is live and mapped to `Wants_Updates` in both person card and person details modal
+- [x] EPIC filter dropdown shipped in the persistent filter bar:
+  - `EPIC: All addresses` (default)
+  - `EPIC: Has permitting records`
+- [x] EPIC filter fetch strategy shipped as designed:
+  - Lazy load only when EPIC filter is activated (no extra traffic by default)
+  - APN normalization + dedupe + batched `POST /api/epic/by-apns` requests
+  - In-memory session caching (`apn -> hasEpicRecords`) to avoid repeated lookups
+  - Shared predicate applied consistently to table, list, and map marker rendering
+- [x] EPIC filter failure handling shipped:
+  - Non-blocking status message in filter bar
+  - Automatic fallback to normal filtering if EPIC lookup fails
 
 What is not complete:
 
@@ -31,7 +43,7 @@ What is not complete:
 
 ## 1) Goal in One Sentence
 
-Surface daily-refreshed EPIC-LA Fire Recovery case data (matched by APN) inside the address details panel so captains can see permitting progress at a glance, while keeping EPIC as a separate data source from their operational sheets.
+Surface daily-refreshed EPIC-LA Fire Recovery case data (matched by APN) inside the address details workflow so captains can see permitting progress at a glance, while keeping EPIC as a separate data source from their operational sheets.
 
 ---
 
@@ -185,7 +197,14 @@ Current response shape includes:
 
 ## 8) Frontend UX Integration (Address Details Panel)
 
-Inside the existing details panel, add an `EPIC-LA` section:
+### Current shipped UI state (April 2026)
+
+- EPIC records are shown in the **Address details** modal (opened by clicking the address name in the details panel), not inline in the main panel.
+- The EPIC "build status suggestion" UI block is intentionally hidden right now pending additional field validation.
+- Address details sections are currently always open (non-collapsible) by product decision.
+- A persistent EPIC filter is available in map/people filter bars for fast triage of addresses with county permitting activity.
+
+Inside the address details experience, include an `EPIC-LA` section:
 
 1. **Suggestion row (advisory)**
    - EPIC suggested stage (not authoritative)
@@ -264,11 +283,12 @@ Display last successful run timestamp in UI/API.
 - Ship daily refresh automation via GitHub Actions.
 - Validate production sync + lookup behavior.
 
-## Phase 2 - Better captain signal [NEXT]
+## Phase 2 - Better captain signal [IN PROGRESS]
 
 - Add grouped case cards and temporary-housing split.
 - Improve suggestion logic and tie-break rules.
 - Add lightweight APN-miss diagnostics.
+- Keep EPIC filter UX lightweight while evaluating optional enhancements (for example, result counts or recency filters).
 
 ## Phase 3 - Data quality and advanced logic
 
@@ -283,7 +303,7 @@ Display last successful run timestamp in UI/API.
 1. Captain opens address details and sees an EPIC section within 1-2 seconds on normal connection.
 2. Cases shown are APN-matched and include county link + status + dates.
 3. Temporary housing is separated from rebuild cases.
-4. EPIC suggestion row is visible with confidence and does not auto-overwrite captain stage.
+4. EPIC suggestion logic does not auto-overwrite captain stage, and any future suggestion UI remains clearly informational/manual.
 5. Captain/master spreadsheets remain unchanged by EPIC sync.
 6. "Last refreshed" timestamp is visible and accurate.
 
