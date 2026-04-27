@@ -896,6 +896,60 @@
       margin: 0 auto;
     }
 
+    .onboarding-nudge {
+      margin-bottom: 1rem;
+      padding: 1.1rem 1.35rem;
+      background: #FFFDF5;
+      border: var(--border-thickness) solid var(--border-color);
+      box-shadow: 4px 4px 0px #D9DBDB;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .onboarding-nudge-copy {
+      flex: 1;
+      min-width: 220px;
+    }
+
+    .onboarding-nudge-title {
+      margin: 0 0 0.2rem;
+      font-family: 'Chivo', sans-serif;
+      font-weight: 900;
+      color: var(--brand-primary-dark);
+    }
+
+    .onboarding-nudge-text {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .onboarding-nudge-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .onboarding-text-button {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 0.25rem;
+      text-decoration: underline;
+    }
+
+    .onboarding-text-button:hover {
+      color: var(--brand-primary-dark);
+    }
+
     .home-panels-grid {
       display: grid;
       grid-template-columns: minmax(0, 1.45fr) minmax(340px, 1fr);
@@ -1206,6 +1260,155 @@
       box-shadow: none;
       text-decoration: underline;
       color: var(--accent-clay);
+    }
+
+    .onboarding-modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(31, 41, 55, 0.68);
+    }
+
+    .onboarding-modal {
+      position: relative;
+      width: min(680px, 100%);
+      min-height: 420px;
+      background: var(--bg-paper);
+      border: 3px solid var(--text-primary);
+      box-shadow: 10px 10px 0px rgba(0, 0, 0, 0.45);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .onboarding-modal-close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 38px;
+      height: 38px;
+      border: 2px solid var(--text-primary);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      cursor: pointer;
+      font-size: 1.5rem;
+      line-height: 1;
+      font-family: 'Chivo', sans-serif;
+      box-shadow: 2px 2px 0px var(--text-primary);
+      z-index: 1;
+    }
+
+    .onboarding-modal-close:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0px var(--text-primary);
+    }
+
+    .onboarding-modal-card {
+      flex: 1;
+      padding: 48px 54px 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 18px;
+    }
+
+    .onboarding-modal-kicker {
+      width: fit-content;
+      background: var(--accent-gold);
+      border: 2px solid var(--text-primary);
+      box-shadow: 3px 3px 0px var(--text-primary);
+      padding: 5px 10px;
+      font-family: 'Chivo', sans-serif;
+      font-weight: 900;
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .onboarding-modal-title {
+      margin: 0;
+      color: var(--brand-primary-dark);
+      font-family: 'Chivo', sans-serif;
+      font-size: clamp(2rem, 4vw, 3rem);
+      line-height: 1;
+      letter-spacing: -0.03em;
+    }
+
+    .onboarding-modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      color: var(--text-primary);
+      font-size: 1.05rem;
+      line-height: 1.58;
+      max-width: 560px;
+    }
+
+    .onboarding-modal-body p {
+      margin: 0;
+    }
+
+    .onboarding-modal-body strong {
+      color: var(--brand-primary-dark);
+      font-weight: 900;
+    }
+
+    .onboarding-modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 24px 24px;
+      border-top: 2px dotted var(--accent-clay);
+      background: #FFFDF5;
+    }
+
+    .onboarding-secondary-button {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 2px solid var(--text-primary);
+      box-shadow: 2px 2px 0px var(--text-primary);
+      padding: 10px 18px;
+      cursor: pointer;
+      font-family: 'Chivo', sans-serif;
+      font-weight: 900;
+      transition: all 0.1s ease;
+    }
+
+    .onboarding-secondary-button:hover:not(:disabled) {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0px var(--text-primary);
+    }
+
+    .onboarding-secondary-button:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: 2px 2px 0px var(--text-primary);
+    }
+
+    .onboarding-dots {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .onboarding-dot {
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--text-primary);
+      background: var(--bg-card);
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .onboarding-dot.active {
+      background: var(--accent-clay);
     }
 
     @media (max-width: 1280px) {
@@ -6123,6 +6326,51 @@
   /* Hide zone mini-map on mobile (too small to be useful) */
   .home-panel-map {
     display: none;
+  }
+
+  .onboarding-nudge {
+    align-items: stretch;
+  }
+
+  .onboarding-nudge-actions {
+    width: 100%;
+  }
+
+  .onboarding-nudge-actions .btn-save {
+    flex: 1;
+  }
+
+  .onboarding-modal-overlay {
+    padding: 12px;
+    align-items: flex-end;
+  }
+
+  .onboarding-modal {
+    min-height: min(560px, calc(100dvh - 24px));
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    box-shadow: 0 -4px 0px var(--text-primary);
+  }
+
+  .onboarding-modal-card {
+    padding: 44px 24px 24px;
+    justify-content: flex-start;
+  }
+
+  .onboarding-modal-body {
+    font-size: 0.98rem;
+  }
+
+  .onboarding-modal-footer {
+    position: sticky;
+    bottom: 0;
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .onboarding-secondary-button,
+  .onboarding-modal-footer .btn-save {
+    padding: 10px 14px;
   }
 
   /* Hide desktop dual carousels; mobile gets its own single carousel below */
