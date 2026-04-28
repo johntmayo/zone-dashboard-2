@@ -1154,6 +1154,7 @@
     const ENABLE_ADD_RECORD = true;
     let currentStreetFilter = 'all'; // Current street filter
     let currentDamageFilter = 'all'; // Current damage filter
+    let currentSalesFilter = 'all'; // Sales filter: all | sold_since_fire
     let currentAddressPlanFilter = 'all'; // Current Address Plan filter (only when Damage = Partial/Total Loss)
     let currentRebuildFilter = 'all'; // Current rebuild status filter
     let currentEpicFilter = 'all'; // EPIC permitting filter: all | has_epic
@@ -3105,6 +3106,7 @@
         // Reset filters when loading new data
         currentStreetFilter = 'all';
         currentDamageFilter = 'all';
+        currentSalesFilter = 'all';
         currentAddressPlanFilter = 'all';
         currentEpicFilter = 'all';
         currentCaptainFilter = 'all';
@@ -3602,6 +3604,7 @@
       // Reset all filters first
       currentStreetFilter = 'all';
       currentDamageFilter = 'all';
+      currentSalesFilter = 'all';
       currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
       currentEpicFilter = 'all';
@@ -3652,6 +3655,7 @@
       // Reset all filters first
       currentStreetFilter = 'all';
       currentDamageFilter = ''; // Empty string for "(not set)"
+      currentSalesFilter = 'all';
       currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
       currentEpicFilter = 'all';
@@ -3670,6 +3674,7 @@
       // Reset all filters
       currentStreetFilter = 'all';
       currentDamageFilter = 'all';
+      currentSalesFilter = 'all';
       currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
       currentEpicFilter = 'all';
@@ -5140,6 +5145,10 @@
           <option value="" ${currentDamageFilter === '' ? 'selected' : ''}>(not set)</option>
           ${damages.map(damage => `<option value="${damage.replace(/"/g, '&quot;')}" ${currentDamageFilter === damage ? 'selected' : ''}>${damage}</option>`).join('')}
         </select>
+        <select id="persistentSalesFilter" class="${currentSalesFilter !== 'all' ? 'filter-active' : ''}" title="Filter addresses by whether they have sold since the fire.">
+          <option value="all" ${currentSalesFilter === 'all' ? 'selected' : ''}>Sales: All Addresses</option>
+          <option value="sold_since_fire" ${currentSalesFilter === 'sold_since_fire' ? 'selected' : ''}>Sales: Sold Since Fire</option>
+        </select>
         ${addressPlanCol ? `<select id="persistentAddressPlanFilter" class="${currentAddressPlanFilter !== 'all' ? 'filter-active' : ''}" title="The owner's current intent for the property—whether they plan to rebuild, sell, or are still deciding.">
           <option value="all" ${currentAddressPlanFilter === 'all' ? 'selected' : ''}>All Address Plan</option>
           <option value="" ${currentAddressPlanFilter === '' ? 'selected' : ''}>(not set)</option>
@@ -5206,6 +5215,10 @@
       if (oldDamageFilter) {
         oldDamageFilter.replaceWith(oldDamageFilter.cloneNode(true));
       }
+      const oldSalesFilter = document.getElementById('persistentSalesFilter');
+      if (oldSalesFilter) {
+        oldSalesFilter.replaceWith(oldSalesFilter.cloneNode(true));
+      }
       const oldAddressPlanFilter = document.getElementById('persistentAddressPlanFilter');
       if (oldAddressPlanFilter) {
         oldAddressPlanFilter.replaceWith(oldAddressPlanFilter.cloneNode(true));
@@ -5258,6 +5271,21 @@
             damageFilter.classList.add('filter-active');
           } else {
             damageFilter.classList.remove('filter-active');
+          }
+          displayAddressTable();
+          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
+          updateMapMarkers();
+        });
+      }
+
+      const salesFilter = document.getElementById('persistentSalesFilter');
+      if (salesFilter) {
+        salesFilter.addEventListener('change', (e) => {
+          currentSalesFilter = e.target.value;
+          if (currentSalesFilter !== 'all') {
+            salesFilter.classList.add('filter-active');
+          } else {
+            salesFilter.classList.remove('filter-active');
           }
           displayAddressTable();
           displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
@@ -5426,6 +5454,7 @@
             if (getAddressDamage(addr) !== currentDamageFilter) return false;
           }
         }
+        if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(addr)) return false;
         if (currentAddressPlanFilter !== 'all') {
           const addrPlan = getAddressPlan(addr);
           if (currentAddressPlanFilter === '') {
@@ -5654,6 +5683,9 @@
       if (currentDamageFilter !== 'all') {
         parts.push('Damage: ' + (currentDamageFilter === '' ? '(not set)' : currentDamageFilter));
       }
+      if (currentSalesFilter !== 'all') {
+        parts.push('Sales: Sold Since Fire');
+      }
       if (currentAddressPlanFilter !== 'all') {
         parts.push('Address Plan: ' + (currentAddressPlanFilter === '' ? '(not set)' : currentAddressPlanFilter));
       }
@@ -5843,6 +5875,7 @@
             if (getAddressDamage(addr) !== currentDamageFilter) return false;
           }
         }
+        if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(addr)) return false;
         if (currentAddressPlanFilter !== 'all') {
           const addrPlan = getAddressPlan(addr);
           if (currentAddressPlanFilter === '') {
@@ -6370,6 +6403,9 @@
               return false;
             }
           }
+        }
+        if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(addr)) {
+          return false;
         }
         // Status filter
         if (currentAddressPlanFilter !== 'all') {
@@ -12788,6 +12824,9 @@
           } else {
             if (damage !== currentDamageFilter) return false;
           }
+        }
+        if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(address)) {
+          return false;
         }
         
         // Address Plan filter
