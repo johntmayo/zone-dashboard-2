@@ -1152,6 +1152,8 @@
     let currentSheetId = null; // Current sheet ID for writing
     // Emergency kill switch for Add Record while stabilization/testing is in progress.
     const ENABLE_ADD_RECORD = true;
+    // Temporarily disable the homepage "zone data needs a few things" panel.
+    const ENABLE_ZONE_SETUP_PANEL = false;
     let currentStreetFilter = 'all'; // Current street filter
     let currentDamageFilter = 'all'; // Current damage filter
     let currentSalesFilter = 'all'; // Sales filter: all | sold_since_fire
@@ -3695,6 +3697,10 @@
     function updateZoneSetupPanel() {
       const panel = document.getElementById('zoneSetupPanel');
       if (!panel) return;
+      if (!ENABLE_ZONE_SETUP_PANEL) {
+        panel.classList.add('hidden');
+        return;
+      }
 
       // Don't show if user already dismissed for this zone
       const dismissKey = 'zoneSetupDismissed_' + (currentSheetUrl || '');
