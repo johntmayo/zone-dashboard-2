@@ -10323,7 +10323,7 @@
       if (!zoneMap) {
         try {
           // Default center (Altadena, CA - adjust as needed)
-          zoneMap = L.map('zoneMap', { attributionControl: true, maxZoom: 22 }).setView([34.19, -118.15], 16);
+          zoneMap = L.map('zoneMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 16);
           ensureSoldTagPane();
           
           // Add CartoDB Voyager tiles (warm, colorful with labels)
@@ -10415,7 +10415,7 @@
       if (!homeMap) {
         try {
           // Default center (Altadena, CA - adjust as needed)
-          homeMap = L.map('homeMap', { attributionControl: true, maxZoom: 22 }).setView([34.19, -118.15], 15);
+          homeMap = L.map('homeMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 15);
           
           // Add CartoDB Voyager tiles (warm, colorful with labels)
           homeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -15897,7 +15897,7 @@
         const center = bounds.length
           ? bounds.reduce((acc, point) => [acc[0] + point[0], acc[1] + point[1]], [0, 0]).map((value) => value / bounds.length)
           : defaultCenter;
-        const map = L.map(mapContainer, { attributionControl: true }).setView(center, bounds.length ? 15 : 11);
+        const map = L.map(mapContainer, { attributionControl: false }).setView(center, bounds.length ? 15 : 11);
         let batchTaggingTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
           attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
           maxZoom: 22,
