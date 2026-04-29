@@ -5136,6 +5136,11 @@
       display: none;
     }
 
+    /* Hide Leaflet’s default attribution strip (OSM/Carto/Esri/etc.). Add credits elsewhere per your layout and provider terms. */
+    .leaflet-control-attribution {
+      display: none !important;
+    }
+
     .overlay-floating-card-wrapper,
     .overlay-water-badge-wrapper {
       background: transparent;
