@@ -10328,7 +10328,7 @@
           
           // Add CartoDB Voyager tiles (warm, colorful with labels)
           currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: '© OpenStreetMap contributors, © CARTO',
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
             maxZoom: 22,
             subdomains: 'abcd'
           }).addTo(zoneMap);
@@ -10419,7 +10419,7 @@
           
           // Add CartoDB Voyager tiles (warm, colorful with labels)
           homeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: '© OpenStreetMap contributors, © CARTO',
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
             maxZoom: 22,
             subdomains: 'abcd'
           }).addTo(homeMap);
@@ -10448,7 +10448,7 @@
                 if (isHomeSatelliteMode) {
                   // Switch to street map (CartoDB Voyager)
                   homeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                    attribution: '© OpenStreetMap contributors, © CARTO',
+                    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
                     maxZoom: 22,
                     subdomains: 'abcd'
                   }).addTo(homeMap);
@@ -10456,12 +10456,8 @@
                   button.title = 'Switch to satellite view';
                   isHomeSatelliteMode = false;
                 } else {
-                  // Switch to satellite - using Google Satellite for more recent imagery
-                  homeTileLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-                    subdomains: ['0', '1', '2', '3'],
-                    attribution: '© Google',
-                    maxZoom: 22
-                  }).addTo(homeMap);
+                  // Switch to satellite — Esri World Imagery + reference labels/roads (hybrid)
+                  homeTileLayer = createEsriSatelliteHybridBasemap().addTo(homeMap);
                   button.innerHTML = '🗺️';
                   button.title = 'Switch to street map';
                   isHomeSatelliteMode = true;
@@ -12357,6 +12353,28 @@
       toggleBtn.title = expanded ? 'Collapse layers' : 'Expand layers';
     }
 
+    /** Esri World Imagery + reference layers (same idea as ArcGIS “Imagery Hybrid”: aerials plus roads and place names). */
+    function createEsriSatelliteHybridBasemap() {
+      const maxZ = 22;
+      const attribution =
+        'Tiles © <a href="https://www.esri.com/" rel="noopener noreferrer" target="_blank">Esri</a> — ' +
+        'Imagery: Esri, Maxar, Earthstar Geographics, and the GIS User Community. ' +
+        'Reference (labels & roads): Esri, HERE, Garmin, USGS, METI/NASA, EPA, USDA, USFWS, © OpenStreetMap contributors, and the GIS User Community.';
+      const imagery = L.tileLayer(
+        'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        { attribution, maxZoom: maxZ }
+      );
+      const boundaries = L.tileLayer(
+        'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+        { maxZoom: maxZ }
+      );
+      const transport = L.tileLayer(
+        'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',
+        { maxZoom: maxZ }
+      );
+      return L.layerGroup([imagery, boundaries, transport]);
+    }
+
     function setBaseMapMode(mode) {
       if (!zoneMap) return;
       const wantSatellite = mode === 'satellite';
@@ -12369,17 +12387,13 @@
       }
       if (!wantSatellite) {
         currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          attribution: '© OpenStreetMap contributors, © CARTO',
+          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
           maxZoom: 22,
           subdomains: 'abcd'
         }).addTo(zoneMap);
         isSatelliteMode = false;
       } else {
-        currentTileLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-          subdomains: ['0', '1', '2', '3'],
-          attribution: '© Google',
-          maxZoom: 22
-        }).addTo(zoneMap);
+        currentTileLayer = createEsriSatelliteHybridBasemap().addTo(zoneMap);
         isSatelliteMode = true;
       }
       updateSatelliteLayerToggleButton();
@@ -15885,8 +15899,9 @@
           : defaultCenter;
         const map = L.map(mapContainer, { attributionControl: false }).setView(center, bounds.length ? 15 : 11);
         let batchTaggingTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          attribution: '© OpenStreetMap contributors, © CARTO',
-          maxZoom: 22
+          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
+          maxZoom: 22,
+          subdomains: 'abcd'
         }).addTo(map);
         let isBatchTaggingSatellite = false;
         const SatelliteToggleControl = L.Control.extend({
@@ -15905,17 +15920,14 @@
               map.removeLayer(batchTaggingTileLayer);
               if (isBatchTaggingSatellite) {
                 batchTaggingTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                  attribution: '© OpenStreetMap contributors, © CARTO',
-                  maxZoom: 22
+                  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
+                  maxZoom: 22,
+                  subdomains: 'abcd'
                 });
                 button.title = 'Switch to satellite view';
                 isBatchTaggingSatellite = false;
               } else {
-                batchTaggingTileLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-                  subdomains: ['0', '1', '2', '3'],
-                  attribution: '© Google',
-                  maxZoom: 22
-                });
+                batchTaggingTileLayer = createEsriSatelliteHybridBasemap();
                 button.title = 'Switch to street map';
                 isBatchTaggingSatellite = true;
               }
