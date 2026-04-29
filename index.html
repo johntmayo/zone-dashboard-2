@@ -10456,10 +10456,9 @@
                   button.title = 'Switch to satellite view';
                   isHomeSatelliteMode = false;
                 } else {
-                  // Switch to satellite - using Google Satellite for more recent imagery
-                  homeTileLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-                    subdomains: ['0', '1', '2', '3'],
-                    attribution: '© Google',
+                  // Switch to satellite — Esri World Imagery (Living Atlas)
+                  homeTileLayer = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
                     maxZoom: 22
                   }).addTo(homeMap);
                   button.innerHTML = '🗺️';
@@ -12375,9 +12374,8 @@
         }).addTo(zoneMap);
         isSatelliteMode = false;
       } else {
-        currentTileLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-          subdomains: ['0', '1', '2', '3'],
-          attribution: '© Google',
+        currentTileLayer = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
           maxZoom: 22
         }).addTo(zoneMap);
         isSatelliteMode = true;
@@ -15911,9 +15909,8 @@
                 button.title = 'Switch to satellite view';
                 isBatchTaggingSatellite = false;
               } else {
-                batchTaggingTileLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-                  subdomains: ['0', '1', '2', '3'],
-                  attribution: '© Google',
+                batchTaggingTileLayer = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                  attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
                   maxZoom: 22
                 });
                 button.title = 'Switch to street map';
