@@ -1074,6 +1074,27 @@ try {
   console.error('Failed to register EPIC-LA routes:', err.message);
 }
 
+// --- Godmode admin layer (read-only master spreadsheet) ---
+try {
+  const { registerGodmodeRoutes } = require('./godmode/routes');
+  registerGodmodeRoutes(app, {
+    getSheetsClient,
+    isAdminEmail: async (email) => {
+      try {
+        const map = await readUsersMap();
+        const rows = map[String(email || '').trim().toLowerCase()] || [];
+        return rows.some((row) => row && row.role === 'admin');
+      } catch (err) {
+        console.error('Godmode admin check failed:', err.message);
+        return false;
+      }
+    }
+  });
+  console.log('Godmode routes registered.');
+} catch (err) {
+  console.error('Failed to register Godmode routes:', err.message);
+}
+
 // Explicitly serve standalone HTML pages so they're not caught by the SPA fallback
 app.get('/flyer_tool.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'flyer_tool.html'));

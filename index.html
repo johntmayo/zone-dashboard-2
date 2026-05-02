@@ -102,6 +102,7 @@
         <button class="nav-item" data-view="tools" id="navTools">Tools</button>
         <button class="nav-item" data-view="resources" id="navResources">Resources</button>
         <button class="nav-item" data-view="profile" id="navProfile">My NC Profile</button>
+        <button class="nav-item hidden" data-view="godmode" id="navGodmode">Godmode</button>
         <a href="about.html" target="_blank" rel="noopener noreferrer" class="nav-item nav-item-link">About the Dashboard</a>
       </div>
       <div class="nav-section nav-section-bottom">
@@ -460,6 +461,23 @@
         </div>
       </div>
       <div id="peopleTableView"></div>
+    </div>
+
+    <!-- Godmode Admin View (read-only master index) -->
+    <div class="content-view hidden" id="godmodeView">
+      <div class="godmode-view">
+        <section class="godmode-hero">
+          <div>
+            <p class="godmode-kicker">Admin viewer</p>
+            <h2>Godmode</h2>
+            <p class="godmode-subtitle">Read-only townwide search, profiles, and zone analysis from the master spreadsheet.</p>
+          </div>
+          <div class="godmode-freshness" id="godmodeFreshness">Not loaded yet</div>
+        </section>
+        <div id="godmodeContent" class="godmode-content">
+          <div class="loading">Loading Godmode...</div>
+        </div>
+      </div>
     </div>
 
     <!-- Resources View -->
@@ -1102,6 +1120,9 @@
         <button class="mobile-more-item" data-view="profile">
           <span>My NC Profile</span><span class="mobile-more-item-arrow">›</span>
         </button>
+        <button class="mobile-more-item hidden" data-view="godmode" id="mobileMoreGodmode">
+          <span>Godmode</span><span class="mobile-more-item-arrow">›</span>
+        </button>
         <a href="about.html" target="_blank" rel="noopener noreferrer" class="mobile-more-item">
           <span>About the Dashboard</span><span class="mobile-more-item-arrow">↗</span>
         </a>
@@ -1147,9 +1168,21 @@
     let accessToken = null; // OAuth2 access token
     let currentUserEmail = null; // Signed-in Google account email (for NC Profile row match)
     let availableSheets = []; // Sheets returned by /api/user-sheets for zone selection
+    let isCurrentUserAdmin = localStorage.getItem('godmodeAdmin') === 'true'; // UI convenience; server still enforces admin access.
     let welcomeAuthState = 'idle'; // idle | loading | zone_picker | not_registered | server_error
     let welcomeAuthMessage = '';
     let currentSheetId = null; // Current sheet ID for writing
+    const godmodeState = {
+      loading: false,
+      loaded: false,
+      error: '',
+      headers: [],
+      rows: [],
+      lastFetchedAt: '',
+      range: '',
+      query: '',
+      selectedIndex: null
+    };
     // Emergency kill switch for Add Record while stabilization/testing is in progress.
     const ENABLE_ADD_RECORD = true;
     // Temporarily disable the homepage "zone data needs a few things" panel.
@@ -1615,6 +1648,24 @@
         .filter(Boolean);
     }
 
+    function setAdminAccessFromSheets(sheets) {
+      isCurrentUserAdmin = Array.isArray(sheets) && sheets.some((sheet) => sheet?.role === 'admin');
+      if (isCurrentUserAdmin) {
+        localStorage.setItem('godmodeAdmin', 'true');
+      } else {
+        localStorage.removeItem('godmodeAdmin');
+      }
+      updateNavigationState();
+    }
+
+    async function refreshAdminAccessForCurrentUser() {
+      if (!currentUserEmail) return;
+      const sheetsResult = await fetchUserSheets(currentUserEmail);
+      if (!sheetsResult.error) {
+        setAdminAccessFromSheets(normalizeSheetAssignments(sheetsResult.sheets));
+      }
+    }
+
     function loadAuthorizedSheet(url) {
       currentSheetUrl = url;
       if (input) input.value = url;
@@ -1643,6 +1694,7 @@
     async function resolveAuthorizedSheetsForCurrentUser() {
       const sheetsResult = await fetchUserSheets(currentUserEmail);
       const normalizedSheets = normalizeSheetAssignments(sheetsResult.sheets);
+      setAdminAccessFromSheets(normalizedSheets);
       if (sheetsResult.error === 'not_registered') {
         showNotRegisteredMessage();
       } else if (sheetsResult.error) {
@@ -1719,6 +1771,7 @@
         updateNavigationState();
         updateSignInUI();
         window.trackAnalyticsEvent('sheet_loaded');
+        refreshAdminAccessForCurrentUser().catch((error) => console.warn('Could not refresh admin access:', error));
         loadAddressData(rememberedSheetUrl);
       } else {
         welcomeAuthState = 'loading';
@@ -1840,12 +1893,20 @@
       currentUserEmail = null;
       currentSheetUrl = '';
       availableSheets = [];
+      isCurrentUserAdmin = false;
+      godmodeState.loaded = false;
+      godmodeState.loading = false;
+      godmodeState.error = '';
+      godmodeState.rows = [];
+      godmodeState.headers = [];
+      godmodeState.selectedIndex = null;
       welcomeAuthState = 'idle';
       welcomeAuthMessage = '';
       selectedAddress = null;
       localStorage.removeItem('googleOAuthToken');
       localStorage.removeItem('googleOAuthTokenExpiry');
       localStorage.removeItem('ncProfileUserEmail');
+      localStorage.removeItem('godmodeAdmin');
       localStorage.removeItem('ncProfileExists');
       localStorage.removeItem('savedSheetUrl');
       localStorage.removeItem('currentView');
@@ -2725,6 +2786,12 @@
     function updateNavigationState() {
       const leftNav = document.querySelector('.left-nav');
       const navItems = document.querySelectorAll('.nav-item[data-view]');
+      const godmodeNav = document.getElementById('navGodmode');
+      const mobileGodmodeNav = document.getElementById('mobileMoreGodmode');
+      [godmodeNav, mobileGodmodeNav].forEach((item) => {
+        if (!item) return;
+        item.classList.toggle('hidden', !isCurrentUserAdmin);
+      });
       
       if (!currentSheetUrl) {
         // No spreadsheet linked - disable all navigation except Home
@@ -2733,7 +2800,8 @@
         }
         navItems.forEach(item => {
           const viewName = item.getAttribute('data-view');
-          if (viewName !== 'home') {
+          const isAllowedWithoutZone = viewName === 'home' || viewName === 'profile' || (viewName === 'godmode' && isCurrentUserAdmin);
+          if (!isAllowedWithoutZone) {
             item.disabled = true;
             item.style.pointerEvents = 'none';
           } else {
@@ -2750,6 +2818,386 @@
           item.disabled = false;
           item.style.pointerEvents = 'auto';
         });
+      }
+    }
+
+    const GODMODE_FIELD_ALIASES = {
+      residentId: ['resident_id', 'resident id', 'residentid', 'person_id', 'person id'],
+      name: ['full name', 'resident name', 'name', 'person name', 'voter name'],
+      firstName: ['first name', 'firstname'],
+      lastName: ['last name', 'lastname', 'surname'],
+      address: ['normalized address', 'full address', 'address', 'situs address', 'property address'],
+      houseNumber: ['house #', 'house number', '_situshouseno'],
+      street: ['street', 'street name', '_situsstreetname'],
+      unit: ['unit', 'apt', 'apartment', 'unit #'],
+      apn: ['apn', 'ain', 'parcel', 'parcel number'],
+      zone: ['zone', 'zone name', 'zone_id', 'zone id', 'assigned zone'],
+      captain: ['captain', 'captain name', 'neighborhood captain', 'captain_display_name'],
+      phone: ['phone', 'cell phone', 'mobile phone', 'home phone', 'primary phone'],
+      email: ['email', 'email address', 'preferred email'],
+      damage: ['damage status', 'damage', 'structure damage'],
+      rebuild: ['build status', 'rebuild status', 'rebuild stage', 'construction status'],
+      outreach: ['last outreach attempt date', 'last contact date', 'outreach log', 'contact notes', 'last outreach'],
+      sourceSheet: ['source sheet', 'source_sheet_url', 'source sheet url', 'sheet_url', 'zone sheet url'],
+      syncedAt: ['last_synced_at', 'last synced at', 'sync timestamp', 'source_last_seen_at']
+    };
+
+    function normalizeGodmodeKey(value) {
+      return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    }
+
+    function getGodmodeValue(row, aliases) {
+      if (!row || !aliases) return '';
+      const wanted = aliases.map(normalizeGodmodeKey);
+      for (const [key, value] of Object.entries(row)) {
+        if (wanted.includes(normalizeGodmodeKey(key))) {
+          return String(value || '').trim();
+        }
+      }
+      return '';
+    }
+
+    function getGodmodeName(row) {
+      const direct = getGodmodeValue(row, GODMODE_FIELD_ALIASES.name);
+      if (direct) return direct;
+      return [getGodmodeValue(row, GODMODE_FIELD_ALIASES.firstName), getGodmodeValue(row, GODMODE_FIELD_ALIASES.lastName)]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+    }
+
+    function getGodmodeAddress(row) {
+      const direct = getGodmodeValue(row, GODMODE_FIELD_ALIASES.address);
+      if (direct) return direct;
+      return [
+        getGodmodeValue(row, GODMODE_FIELD_ALIASES.houseNumber),
+        getGodmodeValue(row, GODMODE_FIELD_ALIASES.street),
+        getGodmodeValue(row, GODMODE_FIELD_ALIASES.unit)
+      ].filter(Boolean).join(' ').trim();
+    }
+
+    function buildGodmodeSearchText(row) {
+      return Object.values(row || {})
+        .map((value) => String(value || '').toLowerCase())
+        .join(' ');
+    }
+
+    function formatGodmodeCount(value) {
+      return Number(value || 0).toLocaleString();
+    }
+
+    function getGodmodeFilteredRows() {
+      const query = godmodeState.query.trim().toLowerCase();
+      return godmodeState.rows
+        .map((row, index) => ({ row, index }))
+        .filter(({ row }) => !query || buildGodmodeSearchText(row).includes(query));
+    }
+
+    async function loadGodmodeData(force = false) {
+      if (!accessToken || !currentUserEmail) {
+        godmodeState.error = 'Sign in with an admin account to open Godmode.';
+        godmodeState.loaded = false;
+        renderGodmodeView();
+        return;
+      }
+      if (godmodeState.loading || (godmodeState.loaded && !force)) {
+        renderGodmodeView();
+        return;
+      }
+
+      godmodeState.loading = true;
+      godmodeState.error = '';
+      renderGodmodeView();
+
+      try {
+        const res = await fetch(`/api/admin/godmode-master?email=${encodeURIComponent(currentUserEmail)}`);
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          if (payload.error === 'godmode_not_configured') {
+            throw new Error('Godmode master sheet is not configured yet. Add GODMODE_MASTER_SHEET_ID and GODMODE_MASTER_RANGE on the server.');
+          }
+          if (payload.error === 'not_admin') {
+            isCurrentUserAdmin = false;
+            localStorage.removeItem('godmodeAdmin');
+            updateNavigationState();
+            throw new Error('This account is not marked as an admin in the Access Sheet.');
+          }
+          throw new Error(payload.message || payload.error || 'Could not load the Godmode master sheet.');
+        }
+
+        godmodeState.headers = Array.isArray(payload.headers) ? payload.headers : [];
+        godmodeState.rows = Array.isArray(payload.rows) ? payload.rows : [];
+        godmodeState.lastFetchedAt = payload.lastFetchedAt || '';
+        godmodeState.range = payload.range || '';
+        godmodeState.loaded = true;
+        godmodeState.selectedIndex = godmodeState.rows.length ? 0 : null;
+      } catch (error) {
+        console.error('Godmode load error:', error);
+        godmodeState.error = error.message || 'Could not load Godmode.';
+        godmodeState.loaded = false;
+      } finally {
+        godmodeState.loading = false;
+        renderGodmodeView();
+      }
+    }
+
+    function renderGodmodeSummary(filteredRows) {
+      const allRows = filteredRows.map(({ row }) => row);
+      const uniqueAddresses = new Set();
+      const zones = new Set();
+      const captains = new Set();
+      let unzoned = 0;
+      let outreachRows = 0;
+
+      allRows.forEach((row) => {
+        const address = getGodmodeAddress(row);
+        const apn = getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn);
+        const zone = getGodmodeValue(row, GODMODE_FIELD_ALIASES.zone);
+        const captain = getGodmodeValue(row, GODMODE_FIELD_ALIASES.captain);
+        const outreach = getGodmodeValue(row, GODMODE_FIELD_ALIASES.outreach);
+        if (address || apn) uniqueAddresses.add((address || apn).toLowerCase());
+        if (zone) zones.add(zone.toLowerCase()); else unzoned++;
+        if (captain) captains.add(captain.toLowerCase());
+        if (outreach) outreachRows++;
+      });
+
+      const cards = [
+        ['People', allRows.length],
+        ['Addresses', uniqueAddresses.size],
+        ['Zones', zones.size],
+        ['Captains', captains.size],
+        ['Unzoned rows', unzoned],
+        ['Rows with outreach', outreachRows]
+      ];
+
+      return `
+        <div class="godmode-summary-grid">
+          ${cards.map(([label, value]) => `
+            <div class="godmode-stat-card">
+              <span class="godmode-stat-value">${formatGodmodeCount(value)}</span>
+              <span class="godmode-stat-label">${escapeHtml(label)}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function getTopGodmodeCounts(rows, aliases, fallbackLabel = 'Not set', limit = 8) {
+      const counts = new Map();
+      rows.forEach((row) => {
+        const raw = getGodmodeValue(row, aliases);
+        const label = raw || fallbackLabel;
+        counts.set(label, (counts.get(label) || 0) + 1);
+      });
+      return Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, limit);
+    }
+
+    function renderGodmodeBreakdowns(filteredRows) {
+      const rows = filteredRows.map(({ row }) => row);
+      const groups = [
+        ['Zones', getTopGodmodeCounts(rows, GODMODE_FIELD_ALIASES.zone, 'Unzoned', 10)],
+        ['Captains', getTopGodmodeCounts(rows, GODMODE_FIELD_ALIASES.captain, 'No captain listed', 8)],
+        ['Damage', getTopGodmodeCounts(rows, GODMODE_FIELD_ALIASES.damage, 'Not set', 6)],
+        ['Rebuild', getTopGodmodeCounts(rows, GODMODE_FIELD_ALIASES.rebuild, 'Not set', 6)]
+      ];
+
+      return `
+        <div class="godmode-breakdown-grid">
+          ${groups.map(([title, items]) => `
+            <section class="godmode-breakdown-card">
+              <h3>${escapeHtml(title)}</h3>
+              <div class="godmode-breakdown-list">
+                ${items.map(([label, count]) => `
+                  <div class="godmode-breakdown-row">
+                    <span>${escapeHtml(label)}</span>
+                    <strong>${formatGodmodeCount(count)}</strong>
+                  </div>
+                `).join('') || '<p class="godmode-breakdown-empty">No values found.</p>'}
+              </div>
+            </section>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderGodmodeResults(filteredRows) {
+      const visible = filteredRows.slice(0, 100);
+      if (!visible.length) {
+        return '<div class="godmode-empty">No master rows match this search.</div>';
+      }
+
+      return `
+        <div class="godmode-results-list">
+          ${visible.map(({ row, index }) => {
+            const name = getGodmodeName(row) || 'Unnamed person';
+            const address = getGodmodeAddress(row) || 'No address';
+            const zone = getGodmodeValue(row, GODMODE_FIELD_ALIASES.zone) || 'Unzoned';
+            const apn = getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn);
+            const selected = index === godmodeState.selectedIndex ? ' selected' : '';
+            return `
+              <button type="button" class="godmode-result-card${selected}" data-godmode-index="${index}">
+                <span class="godmode-result-name">${escapeHtml(name)}</span>
+                <span class="godmode-result-address">${escapeHtml(address)}</span>
+                <span class="godmode-result-meta">${escapeHtml(zone)}${apn ? ` - APN ${escapeHtml(apn)}` : ''}</span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+        ${filteredRows.length > visible.length ? `<p class="godmode-result-limit">Showing first ${visible.length} of ${filteredRows.length} matches. Refine search to narrow the list.</p>` : ''}
+      `;
+    }
+
+    function renderGodmodeProfile() {
+      const row = godmodeState.selectedIndex == null ? null : godmodeState.rows[godmodeState.selectedIndex];
+      if (!row) {
+        return '<div class="godmode-profile-empty">Select a result to see its read-only profile.</div>';
+      }
+
+      const name = getGodmodeName(row) || 'Unnamed person';
+      const address = getGodmodeAddress(row) || 'No address';
+      const fields = [
+        ['Resident ID', getGodmodeValue(row, GODMODE_FIELD_ALIASES.residentId)],
+        ['Zone', getGodmodeValue(row, GODMODE_FIELD_ALIASES.zone)],
+        ['Captain', getGodmodeValue(row, GODMODE_FIELD_ALIASES.captain)],
+        ['APN', getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn)],
+        ['Phone', getGodmodeValue(row, GODMODE_FIELD_ALIASES.phone)],
+        ['Email', getGodmodeValue(row, GODMODE_FIELD_ALIASES.email)],
+        ['Damage', getGodmodeValue(row, GODMODE_FIELD_ALIASES.damage)],
+        ['Rebuild', getGodmodeValue(row, GODMODE_FIELD_ALIASES.rebuild)],
+        ['Outreach', getGodmodeValue(row, GODMODE_FIELD_ALIASES.outreach)],
+        ['Source sheet', getGodmodeValue(row, GODMODE_FIELD_ALIASES.sourceSheet)],
+        ['Last synced', getGodmodeValue(row, GODMODE_FIELD_ALIASES.syncedAt)]
+      ].filter(([, value]) => value);
+
+      const extraFields = Object.entries(row)
+        .filter(([key, value]) => value && !fields.some(([label]) => normalizeGodmodeKey(label) === normalizeGodmodeKey(key)))
+        .slice(0, 18);
+
+      return `
+        <article class="godmode-profile-card">
+          <div class="godmode-profile-header">
+            <p class="godmode-kicker">Read-only profile</p>
+            <h3>${escapeHtml(name)}</h3>
+            <p>${escapeHtml(address)}</p>
+          </div>
+          <dl class="godmode-profile-fields">
+            ${fields.map(([label, value]) => `
+              <div>
+                <dt>${escapeHtml(label)}</dt>
+                <dd>${escapeHtml(value)}</dd>
+              </div>
+            `).join('')}
+          </dl>
+          ${extraFields.length ? `
+            <details class="godmode-extra-fields">
+              <summary>More master fields</summary>
+              <dl class="godmode-profile-fields">
+                ${extraFields.map(([label, value]) => `
+                  <div>
+                    <dt>${escapeHtml(label)}</dt>
+                    <dd>${escapeHtml(value)}</dd>
+                  </div>
+                `).join('')}
+              </dl>
+            </details>
+          ` : ''}
+        </article>
+      `;
+    }
+
+    function renderGodmodeView(preserveSearchFocus = false) {
+      const content = document.getElementById('godmodeContent');
+      const freshness = document.getElementById('godmodeFreshness');
+      if (!content) return;
+
+      if (freshness) {
+        const fetched = godmodeState.lastFetchedAt ? new Date(godmodeState.lastFetchedAt).toLocaleString() : 'Not loaded yet';
+        freshness.textContent = godmodeState.loaded ? `Fetched ${fetched}` : 'Not loaded yet';
+      }
+
+      if (!accessToken || !currentUserEmail) {
+        content.innerHTML = `
+          <div class="godmode-state-card">
+            <h3>Admin sign-in required</h3>
+            <p>Sign in with an admin Google account to load the read-only master index.</p>
+            <button type="button" class="btn-save" id="godmodeSignInBtn">Sign in</button>
+          </div>
+        `;
+        document.getElementById('godmodeSignInBtn')?.addEventListener('click', signIn);
+        return;
+      }
+
+      if (godmodeState.loading) {
+        content.innerHTML = '<div class="loading">Loading the master spreadsheet...</div>';
+        return;
+      }
+
+      if (godmodeState.error) {
+        content.innerHTML = `
+          <div class="godmode-state-card godmode-state-card--error">
+            <h3>Godmode is not available yet</h3>
+            <p>${escapeHtml(godmodeState.error)}</p>
+            <button type="button" class="btn-save" id="godmodeRetryBtn">Try again</button>
+          </div>
+        `;
+        document.getElementById('godmodeRetryBtn')?.addEventListener('click', () => loadGodmodeData(true));
+        return;
+      }
+
+      if (!godmodeState.loaded) {
+        content.innerHTML = `
+          <div class="godmode-state-card">
+            <h3>Ready to load the master index</h3>
+            <p>This view reads from the configured master spreadsheet and does not write back to any sheet.</p>
+            <button type="button" class="btn-save" id="godmodeLoadBtn">Load Godmode</button>
+          </div>
+        `;
+        document.getElementById('godmodeLoadBtn')?.addEventListener('click', () => loadGodmodeData(true));
+        return;
+      }
+
+      const filteredRows = getGodmodeFilteredRows();
+      content.innerHTML = `
+        ${renderGodmodeSummary(filteredRows)}
+        ${renderGodmodeBreakdowns(filteredRows)}
+        <section class="godmode-workspace">
+          <div class="godmode-search-panel">
+            <div class="godmode-search-row">
+              <label for="godmodeSearchInput">Search master index</label>
+              <button type="button" class="godmode-refresh-btn" id="godmodeRefreshBtn">Refresh</button>
+            </div>
+            <input id="godmodeSearchInput" class="godmode-search-input" type="search" value="${escapeHtml(godmodeState.query)}" placeholder="Name, address, APN, phone, email, zone, captain..." autocomplete="off">
+            <p class="godmode-search-meta">${formatGodmodeCount(filteredRows.length)} matching rows from ${formatGodmodeCount(godmodeState.rows.length)} total. Range: ${escapeHtml(godmodeState.range || 'configured range')}</p>
+            ${renderGodmodeResults(filteredRows)}
+          </div>
+          <div class="godmode-profile-panel">
+            ${renderGodmodeProfile()}
+          </div>
+        </section>
+      `;
+
+      document.getElementById('godmodeSearchInput')?.addEventListener('input', (event) => {
+        godmodeState.query = event.target.value;
+        const nextRows = getGodmodeFilteredRows();
+        godmodeState.selectedIndex = nextRows[0]?.index ?? null;
+        renderGodmodeView(true);
+      });
+      document.getElementById('godmodeRefreshBtn')?.addEventListener('click', () => loadGodmodeData(true));
+      content.querySelectorAll('[data-godmode-index]').forEach((button) => {
+        button.addEventListener('click', () => {
+          godmodeState.selectedIndex = Number(button.getAttribute('data-godmode-index'));
+          renderGodmodeView();
+        });
+      });
+      if (preserveSearchFocus) {
+        const input = document.getElementById('godmodeSearchInput');
+        if (input) {
+          input.focus();
+          const end = input.value.length;
+          input.setSelectionRange(end, end);
+        }
       }
     }
 
@@ -8713,9 +9161,10 @@
     // Navigation System - Single Page Navigation
     function switchView(viewName) {
       // Prevent switching to non-home views if no spreadsheet is linked
-      // Exception: Profile view is always accessible
+      // Exception: Profile and admin Godmode views are accessible without a zone sheet
       const hasSheet = currentSheetUrl || localStorage.getItem('savedSheetUrl');
-      if (!hasSheet && viewName !== 'home' && viewName !== 'profile') {
+      const canOpenWithoutSheet = viewName === 'home' || viewName === 'profile' || (viewName === 'godmode' && isCurrentUserAdmin);
+      if (!hasSheet && !canOpenWithoutSheet) {
         // Force back to home view
         viewName = 'home';
         currentView = 'home';
@@ -8906,6 +9355,8 @@
         }, 100);
       } else if (viewName === 'profile') {
         loadProfileView();
+      } else if (viewName === 'godmode') {
+        loadGodmodeData();
       }
       // Map view doesn't need special content updates - it just shows the map with floating panel
     }
@@ -8915,8 +9366,9 @@
       item.addEventListener('click', (e) => {
         // Use currentTarget to get the button, not the clicked child element (like span)
         const viewName = e.currentTarget.getAttribute('data-view');
-        // Prevent navigation if no spreadsheet is linked (except Home, Profile)
-        if (!currentSheetUrl && viewName !== 'home' && viewName !== 'profile') {
+        // Prevent navigation if no spreadsheet is linked (except Home, Profile, and admin Godmode)
+        const canOpenWithoutSheet = viewName === 'home' || viewName === 'profile' || (viewName === 'godmode' && isCurrentUserAdmin);
+        if (!currentSheetUrl && !canOpenWithoutSheet) {
           e.preventDefault();
           e.stopPropagation();
           return false;
@@ -8929,7 +9381,7 @@
     const savedView = localStorage.getItem('currentView');
     // Allow restoring any view if we have a saved sheet URL, or if it's home view
     // Note: savedSheetUrl is already loaded above (line 2177), so we can check it directly
-    if (savedView && (savedView === 'home' || savedSheetUrl)) {
+    if (savedView && (savedView === 'home' || savedView === 'profile' || (savedView === 'godmode' && isCurrentUserAdmin) || savedSheetUrl)) {
       currentView = savedView;
       switchView(savedView);
     } else {
@@ -18753,7 +19205,7 @@
 
       // ---- Sync mobile bottom nav active state ----
       function syncMobileNav(viewName) {
-        var moreViews = ['tools', 'resources', 'profile'];
+        var moreViews = ['tools', 'resources', 'profile', 'godmode'];
         document.querySelectorAll('.mobile-nav-tab[data-view]').forEach(function(tab) {
           tab.classList.toggle('active', tab.getAttribute('data-view') === viewName);
         });
