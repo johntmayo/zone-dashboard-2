@@ -187,7 +187,9 @@ async function readUsersMap() {
           url,
           name: meta.name || url,
           captainName: primary.name + (extras > 0 ? ` +${extras}` : ''),
+          captainNames: meta.captains.map((captain) => captain.name).filter(Boolean),
           contactEmail: primary.contactEmail,
+          contactEmails: meta.captains.map((captain) => captain.contactEmail).filter(Boolean),
           role: 'admin'
         });
       }
