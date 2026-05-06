@@ -1,16 +1,16 @@
-# Godmode Development Plan
+# Admin Mode Development Plan
 
 **Status:** Living product/engineering plan  
 **Created:** May 6, 2026  
 **Purpose:** Guide future agents and collaborators as the Zone Dashboard grows a true admin intelligence layer for Altagether managers.
 
-This document is the source of truth for Godmode product intent. Update it whenever Godmode behavior, data contracts, priorities, or implementation status changes.
+This document is the source of truth for Admin Mode product intent. The early implementation used the internal name "Godmode" in routes, DOM IDs, and file names; the user-facing product label should be **Admin Mode**. Update it whenever Admin Mode behavior, data contracts, priorities, or implementation status changes.
 
 ---
 
 ## 1. Product Intent
 
-Godmode is the manager-facing layer of the Zone Dashboard. It is not a separate app and not merely "admin access to every captain zone." It should help Altagether leadership quickly understand:
+Admin Mode is the manager-facing layer of the Zone Dashboard. It is not a separate app and not merely "admin access to every captain zone." It should help Altagether leadership quickly understand:
 
 - What is happening across all covered zones.
 - Which people and addresses have captain coverage.
@@ -26,7 +26,7 @@ The current MVP is read-only and powered by a master Google Sheet. That is inten
 
 ## 2. Current Implementation Snapshot
 
-Godmode currently exists as a read-only admin view inside `index.html`.
+Admin Mode currently exists as a read-only admin view inside `index.html`.
 
 Implemented pieces:
 
@@ -36,20 +36,20 @@ Implemented pieces:
 - Required env var: `GODMODE_MASTER_SHEET_ID`.
 - Recommended env var: `GODMODE_MASTER_RANGE`.
 - Optional env var: `GODMODE_MASTER_CACHE_TTL_MS`.
-- Frontend view: `#godmodeView`.
-- Desktop nav item: `#navGodmode`, shown only when the current user has `role: admin`.
-- Mobile More drawer item: `#mobileMoreGodmode`.
-- Current UI includes summary cards, basic breakdowns, global search, result list, and a read-only profile panel.
+- Frontend view: `#godmodeView` (internal ID retained).
+- Desktop nav item: `#navGodmode`, shown only when the current user has `role: admin`; visible label is "Admin Mode".
+- Mobile More drawer item: `#mobileMoreGodmode`; visible label is "Admin Mode".
+- Current UI includes richer townwide cards, basic breakdowns, global search, result list, a read-only profile panel, a first-pass "one row = one zone" table, and a first-pass "one row = one captain" table.
 
 Important limitation:
 
-- The current frontend loads the master range into the browser and filters client-side. With ~35k rows, initial load and rendering can feel clunky. This is acceptable for the MVP, but not the final architecture.
+- The current frontend loads the master range into the browser and filters/client-rolls-up client-side. With ~35k rows, initial load and rendering can feel clunky. This is acceptable for the MVP, but not the final architecture.
 
 ---
 
 ## 3. Core Product Principles
 
-### 3.1 Godmode should reveal patterns, not just expose rows
+### 3.1 Admin Mode should reveal patterns, not just expose rows
 
 The admin user should not have to manually inspect hundreds of records to understand the organization. The dashboard should surface:
 
@@ -79,7 +79,7 @@ Current caveat:
 
 ### 3.4 Read-only is useful, but may not be sufficient forever
 
-Godmode will expose incorrect or stale data. Admins will naturally want to fix it. Future editing should be considered, but not bolted on casually.
+Admin Mode will expose incorrect or stale data. Admins will naturally want to fix it. Future editing should be considered, but not bolted on casually.
 
 Future edit paths should prefer:
 
@@ -93,7 +93,7 @@ Future edit paths should prefer:
 
 ## 4. Priority Dashboard Layout
 
-The first serious Godmode dashboard should have these sections.
+The first serious Admin Mode dashboard should have these sections.
 
 ### 4.1 Townwide Trend Cards
 
@@ -118,7 +118,7 @@ Notes:
 
 - "With a captain" should mean the record belongs to a zone with captain coverage.
 - "Unzoned" should mean outside current coverage or not assigned to a covered zone.
-- Use unique addresses for address-level counts, not person rows.
+- Use unique addresses for address-level counts, not person rows. The current frontend uses address/APN keys where available.
 
 ### 4.2 Operational Watchlist
 
@@ -167,7 +167,7 @@ Minimum useful columns:
 - EPIC/permitting count, if available.
 - Source zone sheet link.
 
-This table should be sortable and searchable. Clicking a zone should open a Zone Profile.
+Current first version: a read-only table is rendered from the loaded master rows, filtered by the global search. Sorting and Zone Profile drilldown remain future work.
 
 ### 4.4 Captain Directory / Workload Table
 
@@ -188,7 +188,7 @@ Minimum useful columns:
 - Follow-up burden, if available.
 - Missing profile/contact fields.
 
-This table is not meant to be punitive. It should help leadership understand workload, support needs, and coverage structure.
+This table is not meant to be punitive. It should help leadership understand workload, support needs, and coverage structure. Current first version shows workload and contact/profile gaps only from fields present in the master sheet.
 
 ### 4.5 Search And Profile
 
@@ -326,15 +326,48 @@ Recommended fields:
 
 The system should tolerate missing optional fields but should make missing data visible rather than silently pretending it does not matter.
 
+Current master-sheet columns provided May 6, 2026:
+
+- `_SitusHouseNo`, `_SitusDirection`, `_SitusStreet`, `_SitusUnit`
+- `House`, `Street`, `City`, `State`, `Zip`, `Latitude`, `Longitude`
+- `APN`, `resident_id`
+- `Resident Name`, `First Name`, `Middle Name`, `Last Name`, `Age`, `Gender`
+- `Home Phone`, `Cell`, `Email`
+- `Damage`, `Address Plan`, `Build Status`
+- `Person - Renter`, `Person - Needs Follow-Up`, `Person - Unable to Reach`, `Person Notes`
+- `Last Outreach Attempt Date`, `Outreach Log`
+- `Address Notes`, `Address - Unit Type`
+- `Captain Assigned`
+- `Address - For Sale`, `Address - Sold Since Fire`, `Sale Date`, `Sale Price`, `New Owner`, `Lot SqFt`, `Sales History`
+- `Former Resident`, `Deceased`, `Wants_Updates`
+- `ZoneName`, `NC Name`, `NC Phone`, `NC Email`
+
+Current frontend rollup mapping:
+
+- Zone: `ZoneName`
+- Captain: `Captain Assigned`, with `NC Name` as an additional accepted captain/name source
+- Captain contact: `NC Phone`, `NC Email`
+- Address Plan: `Address Plan`
+- Build Stage/Status: `Build Status`
+- Sold-since-fire: `Address - Sold Since Fire`
+- Outreach: `Last Outreach Attempt Date` or `Outreach Log`
+- Follow-up burden: `Person - Needs Follow-Up`
+
+Known current gaps:
+
+- No dedicated co-captain column exists in the provided master headers. The UI supports common co-captain aliases, but will show blank values until the master exposes them.
+- No onboarding month column exists in the provided master headers. The captain table supports onboarding/newness when a future `Onboarding Month`-style column is added.
+- No source zone sheet URL exists in the provided master headers. The zone table supports source links when a future source sheet column is added.
+
 ---
 
 ## 7. Implementation Roadmap
 
 ### Phase 1: Make Current MVP More Useful
 
-- Improve the search result cards to make captain/co-captains and zone obvious.
-- Add explicit unzoned labeling in search/profile results.
-- Add more accurate townwide trend cards using the user's priority metrics.
+- Improve the search result cards to make captain/co-captains and zone obvious. **First pass implemented May 6, 2026.**
+- Add explicit unzoned labeling in search/profile results. **First pass implemented May 6, 2026.**
+- Add more accurate townwide trend cards using the user's priority metrics. **First pass implemented May 6, 2026.**
 - Add better empty/config/error states for missing master columns.
 - Tune performance for 35k rows:
   - narrower range,
@@ -344,8 +377,8 @@ The system should tolerate missing optional fields but should make missing data 
 
 ### Phase 2: Zone And Captain Tables
 
-- Add "1 row = 1 zone" table.
-- Add "1 row = 1 captain" table.
+- Add "1 row = 1 zone" table. **First pass implemented May 6, 2026.**
+- Add "1 row = 1 captain" table. **First pass implemented May 6, 2026.**
 - Add sortable columns.
 - Add quick filters for unzoned, low outreach, sold-since-fire, missing APN, etc.
 - Add CSV/export later if useful.
@@ -397,13 +430,13 @@ Potential approach:
 - Which Build Stage values are canonical?
 - Will onboarding month live in the master sheet, Access Sheet, NC Directory, or a joined export?
 - How should unzoned addresses be identified reliably?
-- Should Godmode eventually include EPIC rollups directly, or only per-profile/per-address EPIC detail?
+- Should Admin Mode eventually include EPIC rollups directly, or only per-profile/per-address EPIC detail?
 
 ---
 
 ## 9. Instructions For Future Agents
 
-When working on Godmode:
+When working on Admin Mode:
 
 1. Read this file before making changes.
 2. Update this file when product decisions, data contracts, or implementation status changes.
@@ -413,5 +446,5 @@ When working on Godmode:
 6. Prefer clear drilldowns over opaque scores.
 7. Use `resident_id` and source sheet fields as the foundation for any future write path.
 8. Keep the frontend scoped and careful; `index.html` is a large monolith.
-9. Add or update tests for backend Godmode logic when changing route/data parsing behavior.
+9. Add or update tests for backend Admin Mode/Godmode route logic when changing route/data parsing behavior.
 
