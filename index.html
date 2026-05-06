@@ -2720,10 +2720,8 @@
               const showSearch = availableSheets.length > 6;
               const getSheetCaptainNames = (sheet) => {
                 const names = Array.isArray(sheet.captainNames) ? sheet.captainNames : [];
-                return uniqueGodmodeList([
-                  sheet.captainName,
-                  ...names
-                ]);
+                if (names.length) return uniqueGodmodeList(names);
+                return uniqueGodmodeList([sheet.captainName]);
               };
               const renderList = (filter = '') => {
                 const filterLower = filter.trim().toLowerCase();

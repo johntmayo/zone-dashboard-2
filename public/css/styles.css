@@ -6014,6 +6014,7 @@
     .welcome-overlay {
       position: fixed;
       inset: 0;
+      padding: 24px;
       background: rgba(0, 0, 0, 0.6);
       display: flex;
       align-items: center;
@@ -6064,12 +6065,12 @@
     .welcome-message {
       background: var(--light-cream);
       border-radius: 16px;
-      padding: 48px;
+      padding: 28px;
       max-width: 560px;
       width: calc(100% - 48px);
-      margin: 24px;
       max-height: 90vh;
       max-height: 90dvh;
+      overflow: hidden;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
       border: 1px solid rgba(96, 108, 56, 0.1);
       text-align: center;
@@ -6162,8 +6163,10 @@
       flex-direction: column;
       gap: 10px;
       margin-bottom: 4px;
-      max-height: 60vh;
+      max-height: min(34vh, 320px);
       overflow-y: auto;
+      overscroll-behavior: contain;
+      padding-right: 4px;
     }
 
     .welcome-zone-btn {
@@ -6283,7 +6286,7 @@
     .welcome-step {
       text-align: left;
       margin-bottom: 24px;
-      padding: 24px;
+      padding: 18px;
       background: rgba(255, 255, 255, 0.6);
       border-radius: 12px;
       border: 1px solid rgba(96, 108, 56, 0.12);
