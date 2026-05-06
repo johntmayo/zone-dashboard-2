@@ -388,6 +388,89 @@ function findColumn(headers, keywords, excludeKeywords = []) {
 }
 
 /**
+ * Split a sheet header into searchable words for exact-ish field matching.
+ * This avoids false positives like treating "Latest Sale Date" as "lat".
+ * @param {string} header - Raw sheet header text
+ * @returns {string[]} Lowercase alphanumeric words
+ */
+function getHeaderWords(header) {
+  return String(header || '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+/**
+ * Find the latitude column without matching unrelated words such as "Latest".
+ * @param {Array<string>} headers - Array of column headers
+ * @returns {string|null} Matching header string, or null
+ */
+function findLatitudeColumn(headers) {
+  if (!headers || !Array.isArray(headers)) return null;
+  return headers.find((header) => {
+    const normalized = normalizeHeaderKey(header);
+    if (normalized === 'latitude' || normalized === 'lat') return true;
+    const words = getHeaderWords(header);
+    return words.includes('latitude') || words.includes('lat');
+  }) || null;
+}
+
+/**
+ * Find the longitude column without broad substring matching.
+ * @param {Array<string>} headers - Array of column headers
+ * @returns {string|null} Matching header string, or null
+ */
+function findLongitudeColumn(headers) {
+  if (!headers || !Array.isArray(headers)) return null;
+  return headers.find((header) => {
+    const normalized = normalizeHeaderKey(header);
+    if (['longitude', 'lon', 'lng', 'long'].includes(normalized)) return true;
+    const words = getHeaderWords(header);
+    return words.includes('longitude') ||
+           words.includes('lon') ||
+           words.includes('lng') ||
+           words.includes('long');
+  }) || null;
+}
+
+/**
+ * Parse a row's latitude/longitude cells into a usable coordinate pair.
+ * @param {Object} row - Sheet row object
+ * @param {string|null} latCol - Latitude column header
+ * @param {string|null} lonCol - Longitude column header
+ * @returns {{ lat: number, lon: number, row: Object }|null}
+ */
+function getValidCoordinatePair(row, latCol, lonCol) {
+  if (!row || !latCol || !lonCol) return null;
+  const latVal = row[latCol];
+  const lonVal = row[lonCol];
+  if (latVal === undefined || latVal === null || String(latVal).trim() === '') return null;
+  if (lonVal === undefined || lonVal === null || String(lonVal).trim() === '') return null;
+
+  const lat = parseFloat(String(latVal).trim());
+  const lon = parseFloat(String(lonVal).trim());
+  if (Number.isNaN(lat) || Number.isNaN(lon)) return null;
+  if (Math.abs(lat) < 0.0001 && Math.abs(lon) < 0.0001) return null;
+  return { lat, lon, row };
+}
+
+/**
+ * Find usable coordinates anywhere in an address's grouped rows.
+ * @param {Object[]} rows - Rows grouped under one address
+ * @param {string|null} latCol - Latitude column header
+ * @param {string|null} lonCol - Longitude column header
+ * @returns {{ lat: number, lon: number, row: Object }|null}
+ */
+function getFirstValidCoordinatePair(rows, latCol, lonCol) {
+  if (!Array.isArray(rows)) return null;
+  for (const row of rows) {
+    const coords = getValidCoordinatePair(row, latCol, lonCol);
+    if (coords) return coords;
+  }
+  return null;
+}
+
+/**
  * Find the "Last Outreach Attempt Date" column, accepting both the legacy
  * "Last Contact Date" naming and the current "Last Outreach Attempt Date"
  * naming (plus common variations) so the app keeps working regardless of

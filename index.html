@@ -5522,8 +5522,8 @@
       const firstNameCol = headers.find(h => /^first\s*name$/i.test(h));
       const middleNameCol = headers.find(h => /^middle\s*name$/i.test(h));
       const lastNameCol = headers.find(h => /^last\s*name$/i.test(h));
-      const latCol = headers.find(h => /latitude|^lat$/i.test(h));
-      const lonCol = headers.find(h => /longitude|^lon$|^lng$/i.test(h));
+      const latCol = findLatitudeColumn(headers);
+      const lonCol = findLongitudeColumn(headers);
       const cityCol = headers.find(h => /^city$/i.test(h));
       const stateCol = headers.find(h => /^state$/i.test(h));
       const zipCol = headers.find(h => /zip|postal/i.test(h));
@@ -9123,14 +9123,15 @@
       const headers = sheetData.headers || [];
 
       // Detect lat/lon columns
-      const latCol = headers.find(h => /latitude|^lat$/i.test(h));
-      const lonCol = headers.find(h => /longitude|^lon$|^lng$/i.test(h));
+      const latCol = findLatitudeColumn(headers);
+      const lonCol = findLongitudeColumn(headers);
 
       // Get current coordinates from first row
       const firstRow = rows[0];
-      const currentLat = latCol ? parseFloat(firstRow[latCol]) : NaN;
-      const currentLon = lonCol ? parseFloat(firstRow[lonCol]) : NaN;
-      const hasCoords = !isNaN(currentLat) && !isNaN(currentLon);
+      const currentCoords = getFirstValidCoordinatePair(rows, latCol, lonCol);
+      const currentLat = currentCoords ? currentCoords.lat : NaN;
+      const currentLon = currentCoords ? currentCoords.lon : NaN;
+      const hasCoords = Boolean(currentCoords);
       const defaultCenter = [34.19, -118.15];
       const center = hasCoords ? [currentLat, currentLon] : defaultCenter;
 
@@ -11589,14 +11590,8 @@
       const addressMap = sheetData.addressMap;
       
       // Find lat/lon columns
-      const latCol = headers.find(h => {
-        const lower = h.toLowerCase().trim();
-        return lower.includes('lat') || lower === 'latitude';
-      });
-      const lonCol = headers.find(h => {
-        const lower = h.toLowerCase().trim();
-        return lower.includes('lon') || lower.includes('lng') || lower === 'longitude';
-      });
+      const latCol = findLatitudeColumn(headers);
+      const lonCol = findLongitudeColumn(headers);
       
       if (!latCol || !lonCol) {
         return;
@@ -11610,19 +11605,10 @@
         const rows = addressMap.get(address);
         if (!rows || rows.length === 0) return;
         
-        const row = rows[0];
-        const latVal = row[latCol];
-        const lonVal = row[lonCol];
-        
-        if (latVal && lonVal) {
-          const lat = parseFloat(latVal);
-          const lon = parseFloat(lonVal);
-          
-          if (!isNaN(lat) && !isNaN(lon)) {
-            addHomeMapMarker(address, lat, lon, rows);
-            bounds.push([lat, lon]);
-          }
-        }
+        const coords = getFirstValidCoordinatePair(rows, latCol, lonCol);
+        if (!coords) return;
+        addHomeMapMarker(address, coords.lat, coords.lon, rows);
+        bounds.push([coords.lat, coords.lon]);
       });
       
       // Fit bounds to show all markers
@@ -13971,14 +13957,8 @@
       });
       
       // Check for lat/lon columns
-      const latCol = sheetData.headers.find(h => {
-        const lower = h.toLowerCase().trim();
-        return lower.includes('lat') || lower === 'latitude';
-      });
-      const lonCol = sheetData.headers.find(h => {
-        const lower = h.toLowerCase().trim();
-        return lower.includes('lon') || lower.includes('lng') || lower === 'longitude';
-      });
+      const latCol = findLatitudeColumn(sheetData.headers);
+      const lonCol = findLongitudeColumn(sheetData.headers);
       
       if (!latCol || !lonCol) {
         return;
@@ -13992,26 +13972,9 @@
         if (!rows || rows.length === 0) return;
         
         const firstRow = rows[0];
-        let lat, lon;
-        
-        // Try to get coordinates from lat/lon columns
-        const latVal = firstRow[latCol];
-        const lonVal = firstRow[lonCol];
-        
-        if (latVal !== undefined && latVal !== null && latVal !== '' && 
-            lonVal !== undefined && lonVal !== null && lonVal !== '') {
-          lat = parseFloat(String(latVal).trim());
-          lon = parseFloat(String(lonVal).trim());
-          if (isNaN(lat) || isNaN(lon)) {
-            return;
-          }
-          // Skip placeholder coordinates that can zoom the map way out
-          if (Math.abs(lat) < 0.0001 && Math.abs(lon) < 0.0001) {
-            return;
-          }
-        } else {
-          return; // Skip if no coordinates
-        }
+        const coords = getFirstValidCoordinatePair(rows, latCol, lonCol);
+        if (!coords) return;
+        const { lat, lon } = coords;
         
         // Create marker
         try {
@@ -16408,14 +16371,8 @@
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
-      const latCol = headers.find((h) => {
-        const lower = String(h || '').toLowerCase().trim();
-        return lower.includes('lat') || lower === 'latitude';
-      });
-      const lonCol = headers.find((h) => {
-        const lower = String(h || '').toLowerCase().trim();
-        return lower.includes('lon') || lower.includes('lng') || lower === 'longitude';
-      });
+      const latCol = findLatitudeColumn(headers);
+      const lonCol = findLongitudeColumn(headers);
       const hasLatLon = Boolean(latCol && lonCol);
 
       const allPeople = (sheetData.data || [])
@@ -16745,13 +16702,7 @@
         }
         const withCoords = filteredAddresses.filter((address) => {
           const rows = sheetData.addressMap.get(address);
-          if (!rows || !rows[0]) return false;
-          const latVal = rows[0][latCol];
-          const lonVal = rows[0][lonCol];
-          if (latVal == null || latVal === '' || lonVal == null || lonVal === '') return false;
-          const lat = parseFloat(String(latVal).trim());
-          const lon = parseFloat(String(lonVal).trim());
-          return !(isNaN(lat) || isNaN(lon) || (Math.abs(lat) < 0.0001 && Math.abs(lon) < 0.0001));
+          return Boolean(getFirstValidCoordinatePair(rows, latCol, lonCol));
         });
         const withoutCoords = filteredAddresses.length - withCoords.length;
         if (withoutCoords > 0) {
@@ -16940,14 +16891,9 @@
         if (!hasLatLon || !sheetData || !sheetData.addressMap) return out;
         getBatchFilteredAddresses().forEach((address) => {
           const rows = sheetData.addressMap.get(address);
-          if (!rows || !rows[0]) return;
-          const latVal = rows[0][latCol];
-          const lonVal = rows[0][lonCol];
-          if (latVal == null || latVal === '' || lonVal == null || lonVal === '') return;
-          const lat = parseFloat(String(latVal).trim());
-          const lon = parseFloat(String(lonVal).trim());
-          if (isNaN(lat) || isNaN(lon) || (Math.abs(lat) < 0.0001 && Math.abs(lon) < 0.0001)) return;
-          out[address] = { lat, lon };
+          const coords = getFirstValidCoordinatePair(rows, latCol, lonCol);
+          if (!coords) return;
+          out[address] = { lat: coords.lat, lon: coords.lon };
         });
         return out;
       }
