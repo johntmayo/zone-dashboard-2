@@ -40,6 +40,7 @@ Implemented pieces:
 - Desktop nav item: `#navGodmode`, shown only when the current user has `role: admin`; visible label is "Admin Mode".
 - Mobile More drawer item: `#mobileMoreGodmode`; visible label is "Admin Mode".
 - Current UI includes richer townwide cards, basic breakdowns, global search, result list, a read-only profile panel, a first-pass "one row = one zone" table, and a first-pass "one row = one captain" table.
+- Admin users have a visible "Switch Zone" control so they can reopen the authorized-zone picker without signing out.
 
 Important limitation:
 
@@ -349,6 +350,7 @@ Current frontend rollup mapping:
 - Captain contact: `NC Phone`, `NC Email`
 - Address Plan: `Address Plan`
 - Build Stage/Status: `Build Status`
+- Unit/apartment signal: `_SitusUnit`
 - Sold-since-fire: `Address - Sold Since Fire`
 - Outreach: `Last Outreach Attempt Date` or `Outreach Log`
 - Follow-up burden: `Person - Needs Follow-Up`
@@ -379,9 +381,16 @@ Known current gaps:
 
 - Add "1 row = 1 zone" table. **First pass implemented May 6, 2026.**
 - Add "1 row = 1 captain" table. **First pass implemented May 6, 2026.**
-- Add sortable columns.
+- Add sortable columns. **First pass implemented May 6, 2026.**
 - Add quick filters for unzoned, low outreach, sold-since-fire, missing APN, etc.
 - Add CSV/export later if useful.
+
+### Phase 2.5: Admin Zone Switching And Apartment Visibility
+
+- Add unit/apartment indicators from `_SitusUnit` so admins can spot zones with many apartment/unit addresses. **First pass implemented May 6, 2026.**
+- Show likely apartment-building counts by grouping unit rows by situs house/direction/street. **First pass implemented May 6, 2026.**
+- Let admins reopen the zone picker without signing out. **First pass implemented May 6, 2026.**
+- Ensure wildcard-admin zone picker search can match any captain assigned to a zone, not only the first captain. **First pass implemented May 6, 2026.**
 
 ### Phase 3: Zone Profiles
 

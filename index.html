@@ -102,6 +102,7 @@
         <button class="nav-item" data-view="tools" id="navTools">Tools</button>
         <button class="nav-item" data-view="resources" id="navResources">Resources</button>
         <button class="nav-item" data-view="profile" id="navProfile">My NC Profile</button>
+        <button class="nav-item hidden" type="button" id="navSwitchZone">Switch Zone</button>
         <button class="nav-item hidden" data-view="godmode" id="navGodmode">Admin Mode</button>
         <a href="about.html" target="_blank" rel="noopener noreferrer" class="nav-item nav-item-link">About the Dashboard</a>
       </div>
@@ -1123,6 +1124,9 @@
         <button class="mobile-more-item hidden" data-view="godmode" id="mobileMoreGodmode">
           <span>Admin Mode</span><span class="mobile-more-item-arrow">›</span>
         </button>
+        <button class="mobile-more-item hidden" type="button" id="mobileMoreSwitchZone">
+          <span>Switch Zone</span><span class="mobile-more-item-arrow">›</span>
+        </button>
         <a href="about.html" target="_blank" rel="noopener noreferrer" class="mobile-more-item">
           <span>About the Dashboard</span><span class="mobile-more-item-arrow">↗</span>
         </a>
@@ -1181,7 +1185,9 @@
       lastFetchedAt: '',
       range: '',
       query: '',
-      selectedIndex: null
+      selectedIndex: null,
+      zoneSort: { key: 'zone', direction: 'asc' },
+      captainSort: { key: 'captain', direction: 'asc' }
     };
     // Emergency kill switch for Add Record while stabilization/testing is in progress.
     const ENABLE_ADD_RECORD = true;
@@ -1546,7 +1552,7 @@
 
     // Load saved sheet URL from localStorage
     const savedSheetUrl = localStorage.getItem('savedSheetUrl');
-    if (savedSheetUrl) {
+    if (savedSheetUrl && !isCurrentUserAdmin) {
       if (input) input.value = savedSheetUrl;
       currentSheetUrl = savedSheetUrl;
       // Auto-load the sheet if user is signed in (wait a bit for OAuth to initialize)
@@ -1639,7 +1645,13 @@
               url,
               name: String(sheet.name || '').trim() || url,
               captainName: String(sheet.captainName || '').trim(),
+              captainNames: Array.isArray(sheet.captainNames)
+                ? sheet.captainNames.map((name) => String(name || '').trim()).filter(Boolean)
+                : [],
               contactEmail: String(sheet.contactEmail || '').trim(),
+              contactEmails: Array.isArray(sheet.contactEmails)
+                ? sheet.contactEmails.map((email) => String(email || '').trim()).filter(Boolean)
+                : [],
               role: String(sheet.role || '').trim().toLowerCase()
             };
           }
@@ -1689,6 +1701,36 @@
       welcomeAuthState = 'zone_picker';
       welcomeAuthMessage = '';
       updateWelcomeMessage();
+    }
+
+    async function openAdminZoneSwitcher() {
+      if (!accessToken || !currentUserEmail) {
+        welcomeAuthState = 'server_error';
+        welcomeAuthMessage = 'Sign in with an admin account before switching zones.';
+        switchView('home');
+        updateWelcomeMessage();
+        return;
+      }
+      welcomeAuthState = 'loading';
+      welcomeAuthMessage = '';
+      switchView('home');
+      updateWelcomeMessage();
+      const sheetsResult = await fetchUserSheets(currentUserEmail);
+      const normalizedSheets = normalizeSheetAssignments(sheetsResult.sheets);
+      setAdminAccessFromSheets(normalizedSheets);
+      if (sheetsResult.error) {
+        welcomeAuthState = 'server_error';
+        welcomeAuthMessage = 'We could not load your spreadsheet access right now. Please try again in a moment.';
+        updateWelcomeMessage();
+        return;
+      }
+      if (!normalizedSheets.length) {
+        welcomeAuthState = 'server_error';
+        welcomeAuthMessage = 'No spreadsheet is assigned to your account yet. Contact your Altagether admin.';
+        updateWelcomeMessage();
+        return;
+      }
+      showZonePicker(normalizedSheets);
     }
 
     async function resolveAuthorizedSheetsForCurrentUser() {
@@ -1762,7 +1804,22 @@
       window.trackAnalyticsEvent('sign_in_completed');
 
       const rememberedSheetUrl = currentSheetUrl || localStorage.getItem('savedSheetUrl') || '';
-      if (rememberedSheetUrl) {
+      welcomeAuthState = 'loading';
+      welcomeAuthMessage = '';
+      updateSignInUI();
+      const sheetsResult = await fetchUserSheets(currentUserEmail);
+      const normalizedSheets = normalizeSheetAssignments(sheetsResult.sheets);
+      setAdminAccessFromSheets(normalizedSheets);
+
+      if (sheetsResult.error === 'not_registered') {
+        showNotRegisteredMessage();
+      } else if (sheetsResult.error) {
+        welcomeAuthState = 'server_error';
+        welcomeAuthMessage = 'We could not load your spreadsheet access right now. Please try again in a moment.';
+        updateSignInUI();
+      } else if (isCurrentUserAdmin && normalizedSheets.length > 1) {
+        showZonePicker(normalizedSheets);
+      } else if (rememberedSheetUrl) {
         currentSheetUrl = rememberedSheetUrl;
         if (input) input.value = rememberedSheetUrl;
         welcomeAuthState = 'idle';
@@ -1771,13 +1828,17 @@
         updateNavigationState();
         updateSignInUI();
         window.trackAnalyticsEvent('sheet_loaded');
-        refreshAdminAccessForCurrentUser().catch((error) => console.warn('Could not refresh admin access:', error));
         loadAddressData(rememberedSheetUrl);
-      } else {
-        welcomeAuthState = 'loading';
+      } else if (normalizedSheets.length === 1) {
+        welcomeAuthState = 'idle';
         welcomeAuthMessage = '';
+        loadAuthorizedSheet(normalizedSheets[0].url);
+      } else if (normalizedSheets.length > 1) {
+        showZonePicker(normalizedSheets);
+      } else {
+        welcomeAuthState = 'server_error';
+        welcomeAuthMessage = 'No spreadsheet is assigned to your account yet. Contact your Altagether admin.';
         updateSignInUI();
-        await resolveAuthorizedSheetsForCurrentUser();
       }
       if (currentView === 'profile') loadProfileView();
       checkProfileAndMaybeNudge();
@@ -2590,8 +2651,10 @@
       
       if (!welcomeOverlay) return;
       
-      // Show welcome message only on home page when no spreadsheet is linked
-      if (currentView === 'home' && !currentSheetUrl) {
+      // Show welcome message on home when onboarding, or when admins intentionally reopen zone selection.
+      const forceZonePicker = currentView === 'home' && welcomeAuthState === 'zone_picker';
+      const forceZoneLoading = currentView === 'home' && welcomeAuthState === 'loading';
+      if (currentView === 'home' && (!currentSheetUrl || forceZonePicker || forceZoneLoading)) {
         welcomeOverlay.classList.remove('hidden');
         document.body.classList.remove('dashboard-active');
         
@@ -2655,12 +2718,25 @@
               `;
             } else if (welcomeAuthState === 'zone_picker') {
               const showSearch = availableSheets.length > 6;
+              const getSheetCaptainNames = (sheet) => {
+                const names = Array.isArray(sheet.captainNames) ? sheet.captainNames : [];
+                return uniqueGodmodeList([
+                  sheet.captainName,
+                  ...names
+                ]);
+              };
               const renderList = (filter = '') => {
                 const filterLower = filter.trim().toLowerCase();
                 const filtered = availableSheets.filter((sheet) => {
                   if (!filterLower) return true;
+                  const captainSearch = getSheetCaptainNames(sheet).join(' ').toLowerCase();
+                  const emailSearch = [
+                    sheet.contactEmail,
+                    ...(Array.isArray(sheet.contactEmails) ? sheet.contactEmails : [])
+                  ].join(' ').toLowerCase();
                   return (sheet.name || '').toLowerCase().includes(filterLower)
-                    || (sheet.captainName || '').toLowerCase().includes(filterLower);
+                    || captainSearch.includes(filterLower)
+                    || emailSearch.includes(filterLower);
                 });
                 const sorted = filtered
                   .slice()
@@ -2668,12 +2744,15 @@
                 return sorted.map((sheet) => {
                   const realIndex = availableSheets.indexOf(sheet);
                   const zoneName = escapeHtml(sheet.name || `Zone ${realIndex + 1}`);
-                  const captain = sheet.captainName ? escapeHtml(sheet.captainName) : '';
+                  const captain = getSheetCaptainNames(sheet).join(', ');
                   const roleChip = sheet.role === 'admin'
                     ? '<span class="welcome-zone-role">admin</span>'
                     : '';
                   const captainLine = captain
-                    ? `<span class="welcome-zone-captain">Captain: ${captain}</span>`
+                    ? `<span class="welcome-zone-captain">Captains: ${escapeHtml(captain)}</span>`
+                    : '';
+                  const selectedChip = currentSheetUrl && sheet.url === currentSheetUrl
+                    ? '<span class="welcome-zone-current">current</span>'
                     : '';
                   return `
                     <button class="welcome-load-btn welcome-zone-btn"
@@ -2682,6 +2761,7 @@
                       <span class="welcome-zone-name">${zoneName}</span>
                       ${captainLine}
                       ${roleChip}
+                      ${selectedChip}
                     </button>`;
                 }).join('') || '<p class="welcome-zone-empty">No zones match your search.</p>';
               };
@@ -2694,6 +2774,7 @@
                 <p class="welcome-step-description">Select one of your authorized zone spreadsheets.</p>
                 ${showSearch ? '<input type="text" id="welcomeZoneSearch" class="welcome-zone-search" placeholder="Search by zone or captain name..." autocomplete="off">' : ''}
                 <div class="welcome-zone-list" id="welcomeZoneList">${renderList('')}</div>
+                ${currentSheetUrl ? '<button type="button" class="welcome-secondary-btn" id="welcomeKeepCurrentZoneBtn">Keep current zone</button>' : ''}
               `;
 
               const listEl = document.getElementById('welcomeZoneList');
@@ -2711,6 +2792,11 @@
                 });
               };
               attachClickHandlers();
+              document.getElementById('welcomeKeepCurrentZoneBtn')?.addEventListener('click', () => {
+                welcomeAuthState = 'idle';
+                welcomeAuthMessage = '';
+                updateWelcomeMessage();
+              });
 
               if (showSearch) {
                 const searchEl = document.getElementById('welcomeZoneSearch');
@@ -2788,7 +2874,9 @@
       const navItems = document.querySelectorAll('.nav-item[data-view]');
       const godmodeNav = document.getElementById('navGodmode');
       const mobileGodmodeNav = document.getElementById('mobileMoreGodmode');
-      [godmodeNav, mobileGodmodeNav].forEach((item) => {
+      const switchZoneNav = document.getElementById('navSwitchZone');
+      const mobileSwitchZoneNav = document.getElementById('mobileMoreSwitchZone');
+      [godmodeNav, mobileGodmodeNav, switchZoneNav, mobileSwitchZoneNav].forEach((item) => {
         if (!item) return;
         item.classList.toggle('hidden', !isCurrentUserAdmin);
       });
@@ -2895,6 +2983,20 @@
         getGodmodeValue(row, GODMODE_FIELD_ALIASES.street),
         getGodmodeValue(row, GODMODE_FIELD_ALIASES.unit)
       ].filter(Boolean).join(' ').trim();
+    }
+
+    function getGodmodeUnit(row) {
+      return getGodmodeValue(row, GODMODE_FIELD_ALIASES.unit);
+    }
+
+    function getGodmodeBuildingKey(row) {
+      const parts = [
+        getGodmodeValue(row, GODMODE_FIELD_ALIASES.houseNumber),
+        getGodmodeValue(row, GODMODE_FIELD_ALIASES.direction),
+        getGodmodeValue(row, GODMODE_FIELD_ALIASES.street)
+      ].filter(Boolean);
+      if (parts.length) return normalizeGodmodeKey(parts.join(' '));
+      return getGodmodeAddressKey(row);
     }
 
     function getGodmodeZone(row) {
@@ -3024,6 +3126,9 @@
         const damage = getGodmodeValue(row, GODMODE_FIELD_ALIASES.damage);
         const sold = hasGodmodeTruthyValue(getGodmodeValue(row, GODMODE_FIELD_ALIASES.soldSinceFire));
         const outreach = hasGodmodeOutreach(row);
+        const unit = getGodmodeUnit(row);
+        const hasUnit = Boolean(unit);
+        const buildingKey = getGodmodeBuildingKey(row);
 
         if (covered) peopleWithCaptain++;
         if (unzoned) unzonedPeople++;
@@ -3039,6 +3144,8 @@
               covered,
               sold: false,
               outreach: false,
+              hasUnit: false,
+              buildingKey,
               addressPlan,
               buildStage,
               damage
@@ -3049,6 +3156,8 @@
           address.unzoned = address.unzoned || unzoned;
           address.sold = address.sold || sold;
           address.outreach = address.outreach || outreach;
+          address.hasUnit = address.hasUnit || hasUnit;
+          address.buildingKey = address.buildingKey || buildingKey;
           address.zone = address.zone || zone;
           address.addressPlan = address.addressPlan || addressPlan;
           address.buildStage = address.buildStage || buildStage;
@@ -3065,6 +3174,8 @@
               captainEmails: new Set(),
               people: 0,
               addressKeys: new Set(),
+              unitAddressKeys: new Set(),
+              unitBuildingKeys: new Set(),
               outreachKeys: new Set(),
               soldKeys: new Set(),
               followUp: 0,
@@ -3086,6 +3197,8 @@
           if (captainPhone) zoneRollup.captainPhones.add(captainPhone);
           if (captainEmail) zoneRollup.captainEmails.add(captainEmail);
           if (addressKey) zoneRollup.addressKeys.add(addressKey);
+          if (addressKey && hasUnit) zoneRollup.unitAddressKeys.add(addressKey);
+          if (buildingKey && hasUnit) zoneRollup.unitBuildingKeys.add(buildingKey);
           if (addressKey && outreach) zoneRollup.outreachKeys.add(addressKey);
           if (addressKey && sold) zoneRollup.soldKeys.add(addressKey);
           if (hasGodmodeTruthyValue(getGodmodeValue(row, GODMODE_FIELD_ALIASES.followUp))) zoneRollup.followUp++;
@@ -3148,6 +3261,8 @@
       const coveredAddresses = addressList.filter((address) => address.covered);
       const unzonedAddresses = addressList.filter((address) => address.unzoned);
       const coveredOutreach = coveredAddresses.filter((address) => address.outreach).length;
+      const unitAddresses = addressList.filter((address) => address.hasUnit);
+      const unitBuildings = new Set(unitAddresses.map((address) => address.buildingKey).filter(Boolean));
 
       return {
         rows,
@@ -3158,6 +3273,8 @@
         totalAddresses: addressList.length,
         addressesWithCaptain: coveredAddresses.length,
         unzonedAddresses: unzonedAddresses.length,
+        unitAddresses: unitAddresses.length,
+        unitBuildings: unitBuildings.size,
         activeCoveredZones: zones.size,
         totalCaptains: captains.size,
         soldSinceFireAddresses: addressList.filter((address) => address.sold).length,
@@ -3243,6 +3360,7 @@
         ['Total addresses', rollups.totalAddresses, 'Unique addresses/APNs'],
         ['Unzoned people', rollups.unzonedPeople, 'Coverage gaps'],
         ['Unzoned addresses', rollups.unzonedAddresses, 'Coverage gaps'],
+        ['Unit addresses', rollups.unitAddresses, `${formatGodmodeCount(rollups.unitBuildings)} likely apartment buildings`],
         ['Active covered zones', rollups.activeCoveredZones, 'Zones with captain coverage'],
         ['Total captains', rollups.totalCaptains, 'From captain fields'],
         ['Sold since fire', rollups.soldSinceFireAddresses, 'Unique addresses'],
@@ -3419,6 +3537,25 @@
       return `<td>${escapeHtml(formatGodmodeValue(value))}</td>`;
     }
 
+    function compareGodmodeSortValues(a, b) {
+      const aNum = typeof a === 'number' ? a : Number(a);
+      const bNum = typeof b === 'number' ? b : Number(b);
+      if (Number.isFinite(aNum) && Number.isFinite(bNum)) return aNum - bNum;
+      return String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' });
+    }
+
+    function sortGodmodeRows(rows, sortState, getters) {
+      const getter = getters[sortState.key] || getters.name || (() => '');
+      const direction = sortState.direction === 'desc' ? -1 : 1;
+      return rows.slice().sort((a, b) => direction * compareGodmodeSortValues(getter(a), getter(b)));
+    }
+
+    function renderGodmodeSortHeader(table, key, label, sortState) {
+      const active = sortState.key === key;
+      const indicator = active ? (sortState.direction === 'asc' ? ' ▲' : ' ▼') : '';
+      return `<th><button type="button" class="godmode-sort-btn ${active ? 'active' : ''}" data-godmode-sort-table="${table}" data-godmode-sort-key="${key}">${escapeHtml(label)}${indicator}</button></th>`;
+    }
+
     function renderGodmodeSourceCell(url) {
       const clean = String(url || '').trim();
       if (!clean) return '<td>-</td>';
@@ -3426,7 +3563,22 @@
     }
 
     function renderGodmodeZoneDirectory(rollups) {
-      const rows = rollups.zones;
+      const rows = sortGodmodeRows(rollups.zones, godmodeState.zoneSort, {
+        zone: (zone) => zone.zone,
+        captains: (zone) => Array.from(zone.captains).join(', '),
+        contact: (zone) => [...Array.from(zone.captainEmails), ...Array.from(zone.captainPhones)].join(' / '),
+        people: (zone) => zone.people,
+        addresses: (zone) => zone.addressKeys.size,
+        unitAddresses: (zone) => zone.unitAddressKeys.size,
+        unitBuildings: (zone) => zone.unitBuildingKeys.size,
+        outreach: (zone) => zone.addressKeys.size ? zone.outreachKeys.size / zone.addressKeys.size : 0,
+        sold: (zone) => zone.soldKeys.size,
+        addressPlan: (zone) => formatGodmodeBreakdown(zone.addressPlans),
+        buildStatus: (zone) => formatGodmodeBreakdown(zone.buildStages),
+        damage: (zone) => formatGodmodeBreakdown(zone.damage),
+        followUp: (zone) => zone.followUp,
+        source: (zone) => zone.sourceSheet
+      });
       return `
         <section class="godmode-directory-card">
           <div class="godmode-section-heading">
@@ -3440,18 +3592,20 @@
             <table class="godmode-table">
               <thead>
                 <tr>
-                  <th>Zone</th>
-                  <th>Captain(s)</th>
-                  <th>Contact</th>
-                  <th>People</th>
-                  <th>Addresses</th>
-                  <th>Outreach</th>
-                  <th>Sold</th>
-                  <th>Address Plan</th>
-                  <th>Build Status</th>
-                  <th>Damage</th>
-                  <th>Follow-up</th>
-                  <th>Source</th>
+                  ${renderGodmodeSortHeader('zone', 'zone', 'Zone', godmodeState.zoneSort)}
+                  ${renderGodmodeSortHeader('zone', 'captains', 'Captain(s)', godmodeState.zoneSort)}
+                  ${renderGodmodeSortHeader('zone', 'contact', 'Contact', godmodeState.zoneSort)}
+                  ${renderGodmodeSortHeader('zone', 'people', 'People', godmodeState.zoneSort)}
+                  ${renderGodmodeSortHeader('zone', 'addresses', 'Addresses', godmodeState.zoneSort)}
+                  ${renderGodmodeSortHeader('zone', 'unitAddresses', 'Unit addresses', godmodeState.zoneSort)}
+                  ${renderGodmodeSortHeader('zone', 'unitBuildings', 'Likely apartment buildings', godmodeState.zoneSort)}
+                  ${renderGodmodeSortHeader('zone', 'outreach', 'Outreach', godmodeState.zoneSort)}
+                  ${renderGodmodeSortHeader('zone', 'sold', 'Sold', godmodeState.zoneSort)}
+                  ${renderGodmodeSortHeader('zone', 'addressPlan', 'Address Plan', godmodeState.zoneSort)}
+                  ${renderGodmodeSortHeader('zone', 'buildStatus', 'Build Status', godmodeState.zoneSort)}
+                  ${renderGodmodeSortHeader('zone', 'damage', 'Damage', godmodeState.zoneSort)}
+                  ${renderGodmodeSortHeader('zone', 'followUp', 'Follow-up', godmodeState.zoneSort)}
+                  ${renderGodmodeSortHeader('zone', 'source', 'Source', godmodeState.zoneSort)}
                 </tr>
               </thead>
               <tbody>
@@ -3462,6 +3616,8 @@
                     ${renderGodmodeTableCell([...Array.from(zone.captainEmails), ...Array.from(zone.captainPhones)].join(' / '))}
                     ${renderGodmodeTableCell(zone.people)}
                     ${renderGodmodeTableCell(zone.addressKeys.size)}
+                    ${renderGodmodeTableCell(zone.unitAddressKeys.size)}
+                    ${renderGodmodeTableCell(zone.unitBuildingKeys.size)}
                     ${renderGodmodeTableCell(`${zone.outreachKeys.size} (${formatGodmodePercent(zone.outreachKeys.size, zone.addressKeys.size)})`)}
                     ${renderGodmodeTableCell(zone.soldKeys.size)}
                     ${renderGodmodeTableCell(formatGodmodeBreakdown(zone.addressPlans))}
@@ -3470,7 +3626,7 @@
                     ${renderGodmodeTableCell(zone.followUp)}
                     ${renderGodmodeSourceCell(zone.sourceSheet)}
                   </tr>
-                `).join('') || '<tr><td colspan="12">No covered zones found in this search.</td></tr>'}
+                `).join('') || '<tr><td colspan="14">No covered zones found in this search.</td></tr>'}
               </tbody>
             </table>
           </div>
@@ -3479,7 +3635,20 @@
     }
 
     function renderGodmodeCaptainDirectory(rollups) {
-      const rows = rollups.captains;
+      const rows = sortGodmodeRows(rollups.captains, godmodeState.captainSort, {
+        captain: (captain) => captain.captain,
+        zones: (captain) => Array.from(captain.zones).join(', '),
+        coCaptains: (captain) => Array.from(captain.coCaptains).join(', '),
+        email: (captain) => captain.email,
+        phone: (captain) => captain.phone,
+        onboarding: (captain) => captain.onboardingMonth,
+        newness: (captain) => getGodmodeNewness(captain.onboardingMonth),
+        people: (captain) => captain.people,
+        addresses: (captain) => captain.addressKeys.size,
+        outreach: (captain) => captain.addressKeys.size ? captain.outreachKeys.size / captain.addressKeys.size : 0,
+        followUp: (captain) => captain.followUp,
+        missing: (captain) => captain.missingFields.size
+      });
       return `
         <section class="godmode-directory-card">
           <div class="godmode-section-heading">
@@ -3493,18 +3662,18 @@
             <table class="godmode-table">
               <thead>
                 <tr>
-                  <th>Captain</th>
-                  <th>Zone(s)</th>
-                  <th>Co-captains</th>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th>Onboarding</th>
-                  <th>How new</th>
-                  <th>People covered</th>
-                  <th>Addresses covered</th>
-                  <th>Outreach</th>
-                  <th>Follow-up</th>
-                  <th>Missing fields</th>
+                  ${renderGodmodeSortHeader('captain', 'captain', 'Captain', godmodeState.captainSort)}
+                  ${renderGodmodeSortHeader('captain', 'zones', 'Zone(s)', godmodeState.captainSort)}
+                  ${renderGodmodeSortHeader('captain', 'coCaptains', 'Co-captains', godmodeState.captainSort)}
+                  ${renderGodmodeSortHeader('captain', 'email', 'Email', godmodeState.captainSort)}
+                  ${renderGodmodeSortHeader('captain', 'phone', 'Phone', godmodeState.captainSort)}
+                  ${renderGodmodeSortHeader('captain', 'onboarding', 'Onboarding', godmodeState.captainSort)}
+                  ${renderGodmodeSortHeader('captain', 'newness', 'How new', godmodeState.captainSort)}
+                  ${renderGodmodeSortHeader('captain', 'people', 'People covered', godmodeState.captainSort)}
+                  ${renderGodmodeSortHeader('captain', 'addresses', 'Addresses covered', godmodeState.captainSort)}
+                  ${renderGodmodeSortHeader('captain', 'outreach', 'Outreach', godmodeState.captainSort)}
+                  ${renderGodmodeSortHeader('captain', 'followUp', 'Follow-up', godmodeState.captainSort)}
+                  ${renderGodmodeSortHeader('captain', 'missing', 'Missing fields', godmodeState.captainSort)}
                 </tr>
               </thead>
               <tbody>
@@ -3612,6 +3781,19 @@
         renderGodmodeView(true);
       });
       document.getElementById('godmodeRefreshBtn')?.addEventListener('click', () => loadGodmodeData(true));
+      content.querySelectorAll('[data-godmode-sort-table][data-godmode-sort-key]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const table = button.getAttribute('data-godmode-sort-table');
+          const key = button.getAttribute('data-godmode-sort-key');
+          const stateKey = table === 'captain' ? 'captainSort' : 'zoneSort';
+          const currentSort = godmodeState[stateKey];
+          godmodeState[stateKey] = {
+            key,
+            direction: currentSort.key === key && currentSort.direction === 'asc' ? 'desc' : 'asc'
+          };
+          renderGodmodeView();
+        });
+      });
       content.querySelectorAll('[data-godmode-index]').forEach((button) => {
         button.addEventListener('click', () => {
           godmodeState.selectedIndex = Number(button.getAttribute('data-godmode-index'));
@@ -3633,6 +3815,12 @@
     if (signOutBtn) {
       signOutBtn.addEventListener('click', signOut);
     }
+    document.getElementById('navSwitchZone')?.addEventListener('click', openAdminZoneSwitcher);
+    document.getElementById('mobileMoreSwitchZone')?.addEventListener('click', () => {
+      const drawer = document.getElementById('mobileMoreDrawer');
+      if (drawer) drawer.classList.add('hidden');
+      openAdminZoneSwitcher();
+    });
 
     // Home sign-in button handler (uses same signIn function)
     const homeSignInBtn = document.getElementById('homeSignInBtn');
@@ -9808,7 +9996,8 @@
     const savedView = localStorage.getItem('currentView');
     // Allow restoring any view if we have a saved sheet URL, or if it's home view
     // Note: savedSheetUrl is already loaded above (line 2177), so we can check it directly
-    if (savedView && (savedView === 'home' || savedView === 'profile' || (savedView === 'godmode' && isCurrentUserAdmin) || savedSheetUrl)) {
+    const canRestoreSavedZoneView = savedSheetUrl && !isCurrentUserAdmin;
+    if (savedView && (savedView === 'home' || savedView === 'profile' || (savedView === 'godmode' && isCurrentUserAdmin) || canRestoreSavedZoneView)) {
       currentView = savedView;
       switchView(savedView);
     } else {
