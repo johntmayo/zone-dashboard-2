@@ -2928,13 +2928,13 @@
 
     .godmode-summary-grid {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 14px;
       margin-bottom: 20px;
     }
 
     .godmode-stat-card {
-      min-height: 104px;
+      min-height: 126px;
       padding: 16px;
       background: #FFFDF5;
       border: var(--border-thickness) solid var(--border-color);
@@ -2957,6 +2957,14 @@
       font-weight: 800;
       letter-spacing: 0.06em;
       text-transform: uppercase;
+    }
+
+    .godmode-stat-detail {
+      margin-top: 8px;
+      color: var(--text-secondary);
+      font-family: 'Merriweather', serif;
+      font-size: 0.78rem;
+      line-height: 1.35;
     }
 
     .godmode-workspace {
@@ -3108,6 +3116,53 @@
       transform: translateX(2px);
     }
 
+    .godmode-result-badges,
+    .godmode-profile-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .godmode-profile-badges {
+      margin-top: 14px;
+      margin-bottom: 0;
+    }
+
+    .godmode-pill {
+      display: inline-flex;
+      align-items: center;
+      max-width: 100%;
+      padding: 4px 7px;
+      background: rgba(96, 108, 56, 0.12);
+      border: 1px solid rgba(96, 108, 56, 0.28);
+      color: var(--brand-primary-dark);
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.68rem;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      line-height: 1.15;
+      text-transform: uppercase;
+    }
+
+    .godmode-profile-header .godmode-pill {
+      background: rgba(253, 251, 247, 0.12);
+      border-color: rgba(253, 251, 247, 0.32);
+      color: #FDFBF7;
+    }
+
+    .godmode-pill--gap {
+      background: rgba(180, 83, 9, 0.14);
+      border-color: rgba(180, 83, 9, 0.32);
+      color: #92400E;
+    }
+
+    .godmode-profile-header .godmode-pill--gap {
+      background: rgba(245, 158, 11, 0.18);
+      border-color: rgba(245, 158, 11, 0.45);
+      color: #FDE68A;
+    }
+
     .godmode-result-name,
     .godmode-result-address,
     .godmode-result-meta {
@@ -3212,9 +3267,94 @@
       font-weight: 900;
     }
 
+    .godmode-directory-card {
+      margin-bottom: 20px;
+      background: var(--bg-card);
+      border: var(--border-thickness) solid var(--border-color);
+      box-shadow: 4px 4px 0 #D9DBDB;
+      overflow: hidden;
+    }
+
+    .godmode-section-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px;
+      border-bottom: 2px solid rgba(31, 41, 55, 0.18);
+    }
+
+    .godmode-section-heading h3 {
+      margin: 0;
+      color: var(--brand-primary-dark);
+      font-size: 1.2rem;
+      letter-spacing: -0.02em;
+    }
+
+    .godmode-section-heading > span {
+      flex-shrink: 0;
+      padding: 7px 9px;
+      background: #FFFDF5;
+      border: 1px solid rgba(31, 41, 55, 0.18);
+      color: var(--text-secondary);
+      font-size: 0.76rem;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .godmode-table-wrap {
+      overflow-x: auto;
+    }
+
+    .godmode-table {
+      width: 100%;
+      min-width: 1160px;
+      border-collapse: collapse;
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.78rem;
+    }
+
+    .godmode-table th,
+    .godmode-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(31, 41, 55, 0.14);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .godmode-table th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #FFFDF5;
+      color: var(--brand-primary-dark);
+      font-size: 0.7rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .godmode-table td {
+      color: var(--text-primary);
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    .godmode-table tbody tr:hover {
+      background: rgba(245, 158, 11, 0.08);
+    }
+
+    .godmode-table a {
+      color: var(--accent-clay);
+      font-weight: 900;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
     @media (max-width: 1100px) {
       .godmode-summary-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .godmode-workspace {
@@ -3242,7 +3382,7 @@
       }
 
       .godmode-summary-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: 1fr;
       }
 
       .godmode-breakdown-grid {
