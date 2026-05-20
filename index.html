@@ -2934,6 +2934,8 @@
       addressPlan: ['address plan', 'household status', 'property plan'],
       rebuild: ['build status', 'rebuild status', 'rebuild stage', 'construction status'],
       followUp: ['person - needs follow-up', 'needs follow-up', 'needs follow up', 'follow up'],
+      lotWeedingRequested: ['lot_weeding_requested_spring_2026', 'lot weeding requested spring 2026', 'lot weeding requested'],
+      lotWeedingDetails: ['lot_weeding_request_details_spring_2026', 'lot weeding request details spring 2026', 'lot weeding request details'],
       unableToReach: ['person - unable to reach', 'unable to reach'],
       renter: ['person - renter', 'renter'],
       outreachDate: ['last outreach attempt date', 'last contact date', 'last outreach'],
@@ -3058,6 +3060,22 @@
       return ['true', 'yes', 'y', '1', 'x', 'sold'].includes(normalized);
     }
 
+    function getGodmodeLotWeedingRequestCount(row) {
+      const value = getGodmodeValue(row, GODMODE_FIELD_ALIASES.lotWeedingRequested);
+      const clean = String(value || '').trim();
+      if (!clean) return 0;
+
+      const normalized = clean.toLowerCase();
+      if (['false', 'no', 'n', '0', 'none', 'not requested'].includes(normalized)) return 0;
+
+      const numericValue = Number(clean);
+      if (Number.isFinite(numericValue) && numericValue > 0) {
+        return Math.max(1, Math.floor(numericValue));
+      }
+
+      return 1;
+    }
+
     function hasGodmodeOutreach(row) {
       return Boolean(
         getGodmodeValue(row, GODMODE_FIELD_ALIASES.outreachDate) ||
@@ -3123,6 +3141,7 @@
         const buildStage = getGodmodeValue(row, GODMODE_FIELD_ALIASES.rebuild);
         const damage = getGodmodeValue(row, GODMODE_FIELD_ALIASES.damage);
         const sold = hasGodmodeTruthyValue(getGodmodeValue(row, GODMODE_FIELD_ALIASES.soldSinceFire));
+        const lotWeedingRequests = getGodmodeLotWeedingRequestCount(row);
         const outreach = hasGodmodeOutreach(row);
         const unit = getGodmodeUnit(row);
         const hasUnit = Boolean(unit);
@@ -3183,6 +3202,7 @@
               buildStageKeys: new Set(),
               damage: new Map(),
               damageKeys: new Set(),
+              lotWeedingRequests: 0,
               sourceSheet: ''
             });
           }
@@ -3212,6 +3232,7 @@
             incrementGodmodeMap(zoneRollup.damage, damage);
             zoneRollup.damageKeys.add(addressKey);
           }
+          zoneRollup.lotWeedingRequests += lotWeedingRequests;
           zoneRollup.sourceSheet = zoneRollup.sourceSheet || getGodmodeValue(row, GODMODE_FIELD_ALIASES.sourceSheet);
 
           captainList.forEach((captain) => {
@@ -3569,6 +3590,7 @@
         addresses: (zone) => zone.addressKeys.size,
         unitAddresses: (zone) => zone.unitAddressKeys.size,
         unitBuildings: (zone) => zone.unitBuildingKeys.size,
+        lotWeedingRequests: (zone) => zone.lotWeedingRequests,
         outreach: (zone) => zone.addressKeys.size ? zone.outreachKeys.size / zone.addressKeys.size : 0,
         sold: (zone) => zone.soldKeys.size,
         addressPlan: (zone) => formatGodmodeBreakdown(zone.addressPlans),
@@ -3597,6 +3619,7 @@
                   ${renderGodmodeSortHeader('zone', 'addresses', 'Addresses', godmodeState.zoneSort)}
                   ${renderGodmodeSortHeader('zone', 'unitAddresses', 'Unit addresses', godmodeState.zoneSort)}
                   ${renderGodmodeSortHeader('zone', 'unitBuildings', 'Likely apartment buildings', godmodeState.zoneSort)}
+                  ${renderGodmodeSortHeader('zone', 'lotWeedingRequests', 'Number of lot weeding requests', godmodeState.zoneSort)}
                   ${renderGodmodeSortHeader('zone', 'outreach', 'Outreach', godmodeState.zoneSort)}
                   ${renderGodmodeSortHeader('zone', 'sold', 'Sold', godmodeState.zoneSort)}
                   ${renderGodmodeSortHeader('zone', 'addressPlan', 'Address Plan', godmodeState.zoneSort)}
@@ -3616,6 +3639,7 @@
                     ${renderGodmodeTableCell(zone.addressKeys.size)}
                     ${renderGodmodeTableCell(zone.unitAddressKeys.size)}
                     ${renderGodmodeTableCell(zone.unitBuildingKeys.size)}
+                    ${renderGodmodeTableCell(zone.lotWeedingRequests)}
                     ${renderGodmodeTableCell(`${zone.outreachKeys.size} (${formatGodmodePercent(zone.outreachKeys.size, zone.addressKeys.size)})`)}
                     ${renderGodmodeTableCell(zone.soldKeys.size)}
                     ${renderGodmodeTableCell(formatGodmodeBreakdown(zone.addressPlans))}
@@ -3624,7 +3648,7 @@
                     ${renderGodmodeTableCell(zone.followUp)}
                     ${renderGodmodeSourceCell(zone.sourceSheet)}
                   </tr>
-                `).join('') || '<tr><td colspan="14">No covered zones found in this search.</td></tr>'}
+                `).join('') || '<tr><td colspan="15">No covered zones found in this search.</td></tr>'}
               </tbody>
             </table>
           </div>
