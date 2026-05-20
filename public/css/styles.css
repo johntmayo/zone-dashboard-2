@@ -5506,6 +5506,10 @@
       animation: slideUp 0.3s ease-out;
     }
 
+    .welcome-message:has(.welcome-zone-table-wrap) {
+      max-width: 980px;
+    }
+
     @keyframes slideUp {
       from {
         opacity: 0;
@@ -5606,6 +5610,85 @@
       white-space: normal;
       padding: 0.75rem 1rem;
       padding-right: 4.5rem;
+    }
+
+    .welcome-zone-table-wrap {
+      max-height: 60vh;
+      overflow: auto;
+      border: 1px solid rgba(96, 108, 56, 0.18);
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    .welcome-zone-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.86rem;
+    }
+
+    .welcome-zone-table th,
+    .welcome-zone-table td {
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid rgba(96, 108, 56, 0.12);
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    .welcome-zone-table th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--light-cream);
+      color: var(--primary-dark);
+      font-family: 'Chivo', sans-serif;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .welcome-zone-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .welcome-zone-table-zone {
+      font-weight: 700;
+      color: var(--primary-dark);
+      min-width: 11rem;
+    }
+
+    .welcome-zone-request-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 2rem;
+      padding: 0.18rem 0.5rem;
+      border-radius: 999px;
+      background: rgba(96, 108, 56, 0.1);
+      color: var(--text-light);
+      font-weight: 800;
+      font-family: 'Chivo', sans-serif;
+    }
+
+    .welcome-zone-request-count--active {
+      background: rgba(188, 108, 37, 0.16);
+      color: var(--primary-dark);
+    }
+
+    .welcome-zone-open-btn {
+      padding: 0.35rem 0.7rem;
+      background: var(--accent-gold);
+      color: var(--text-primary);
+      border: 2px solid var(--border-color);
+      border-radius: 0;
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-family: 'Chivo', sans-serif;
+      font-weight: 800;
+      box-shadow: 2px 2px 0 var(--text-primary);
+    }
+
+    .welcome-zone-open-btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0 var(--text-primary);
     }
 
     .welcome-zone-search {

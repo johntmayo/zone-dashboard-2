@@ -1607,7 +1607,8 @@
               name: String(sheet.name || '').trim() || url,
               captainName: String(sheet.captainName || '').trim(),
               contactEmail: String(sheet.contactEmail || '').trim(),
-              role: String(sheet.role || '').trim().toLowerCase()
+              role: String(sheet.role || '').trim().toLowerCase(),
+              lotWeedingRequestCount: Number(sheet.lotWeedingRequestCount || 0)
             };
           }
           return null;
@@ -2594,6 +2595,7 @@
               `;
             } else if (welcomeAuthState === 'zone_picker') {
               const showSearch = availableSheets.length > 6;
+              const isAdminPicker = availableSheets.some((sheet) => sheet.role === 'admin');
               const renderList = (filter = '') => {
                 const filterLower = filter.trim().toLowerCase();
                 const filtered = availableSheets.filter((sheet) => {
@@ -2603,7 +2605,49 @@
                 });
                 const sorted = filtered
                   .slice()
-                  .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                  .sort((a, b) => {
+                    if (isAdminPicker) {
+                      const requestDelta = Number(b.lotWeedingRequestCount || 0) - Number(a.lotWeedingRequestCount || 0);
+                      if (requestDelta !== 0) return requestDelta;
+                    }
+                    return (a.name || '').localeCompare(b.name || '');
+                  });
+                if (isAdminPicker) {
+                  if (sorted.length === 0) {
+                    return '<p class="welcome-zone-empty">No zones match your search.</p>';
+                  }
+                  return `
+                    <div class="welcome-zone-table-wrap">
+                      <table class="welcome-zone-table">
+                        <thead>
+                          <tr>
+                            <th>Zone</th>
+                            <th>Captain</th>
+                            <th>Number of lot weeding requests</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${sorted.map((sheet) => {
+                            const realIndex = availableSheets.indexOf(sheet);
+                            const zoneName = escapeHtml(sheet.name || `Zone ${realIndex + 1}`);
+                            const captain = sheet.captainName ? escapeHtml(sheet.captainName) : '-';
+                            const requestCount = Number(sheet.lotWeedingRequestCount || 0);
+                            const requestClass = requestCount > 0 ? 'welcome-zone-request-count--active' : '';
+                            return `
+                              <tr>
+                                <td class="welcome-zone-table-zone" title="${escapeHtml(sheet.url)}">${zoneName}</td>
+                                <td>${captain}</td>
+                                <td><span class="welcome-zone-request-count ${requestClass}">${requestCount}</span></td>
+                                <td><button type="button" class="welcome-zone-open-btn" data-sheet-index="${realIndex}">Open</button></td>
+                              </tr>
+                            `;
+                          }).join('')}
+                        </tbody>
+                      </table>
+                    </div>
+                  `;
+                }
                 return sorted.map((sheet) => {
                   const realIndex = availableSheets.indexOf(sheet);
                   const zoneName = escapeHtml(sheet.name || `Zone ${realIndex + 1}`);
@@ -2638,7 +2682,7 @@
               const listEl = document.getElementById('welcomeZoneList');
               const attachClickHandlers = () => {
                 if (!listEl) return;
-                listEl.querySelectorAll('.welcome-zone-btn').forEach((button) => {
+                listEl.querySelectorAll('.welcome-zone-btn, .welcome-zone-open-btn').forEach((button) => {
                   button.addEventListener('click', () => {
                     const index = Number(button.getAttribute('data-sheet-index'));
                     const selectedSheet = Number.isFinite(index) ? availableSheets[index] : null;

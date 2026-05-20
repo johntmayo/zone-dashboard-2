@@ -97,6 +97,41 @@ let cachedUsersMap = null;
 let cachedAt = 0;
 const USERS_CACHE_TTL_MS = 60 * 1000;
 
+function normalizeAccessHeader(value) {
+  return String(value || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+}
+
+function buildAccessHeaderIndex(headers) {
+  const index = {};
+  headers.forEach((header, i) => {
+    const key = normalizeAccessHeader(header);
+    if (key && index[key] === undefined) index[key] = i;
+  });
+  return index;
+}
+
+function getAccessCell(row, headerIndex, headerName, fallbackIndex) {
+  const normalized = normalizeAccessHeader(headerName);
+  const index = headerIndex[normalized];
+  if (index !== undefined) return row[index];
+  return fallbackIndex !== undefined ? row[fallbackIndex] : undefined;
+}
+
+function getLotWeedingRequestContribution(value) {
+  const text = String(value || '').trim();
+  if (!text) return 0;
+
+  const lower = text.toLowerCase();
+  if (['false', 'no', 'n', '0', 'none', 'not requested'].includes(lower)) return 0;
+
+  const numericValue = Number(text);
+  if (Number.isFinite(numericValue) && numericValue > 0) {
+    return Math.max(1, Math.floor(numericValue));
+  }
+
+  return 1;
+}
+
 async function readUsersMap() {
   if (String(process.env.USE_LEGACY_USERS || '').trim() === '1') {
     return readUsersMapLegacy();
@@ -114,9 +149,12 @@ async function readUsersMap() {
     const sheets = await getSheetsClient();
     const result = await sheets.spreadsheets.values.get({
       spreadsheetId: accessSheetId,
-      range: 'Access!A2:I10000'
+      range: 'Access!A1:ZZ10000'
     });
-    const rows = result.data.values || [];
+    const values = result.data.values || [];
+    const headers = values[0] || [];
+    const headerIndex = buildAccessHeaderIndex(headers);
+    const rows = values.slice(1);
 
     const usersMap = {};
     const zoneByUrl = {};
@@ -124,16 +162,16 @@ async function readUsersMap() {
     const seenUrlsByEmail = {};
     const captainAssignmentCount = {};
 
-    for (const row of rows) {
-      const [
-        loginEmailRaw,
-        sheetUrlRaw,
-        zoneNameRaw,
-        captainNameRaw,
-        contactEmailRaw,
-        roleRaw,
-        activeRaw
-      ] = row;
+    for (const [rowIndex, row] of rows.entries()) {
+      const loginEmailRaw = getAccessCell(row, headerIndex, 'login_email', 0);
+      const sheetUrlRaw = getAccessCell(row, headerIndex, 'sheet_url', 1);
+      const zoneNameRaw = getAccessCell(row, headerIndex, 'zone_name', 2);
+      const captainNameRaw = getAccessCell(row, headerIndex, 'captain_display_name', 3);
+      const contactEmailRaw = getAccessCell(row, headerIndex, 'contact_email', 4);
+      const roleRaw = getAccessCell(row, headerIndex, 'role', 5);
+      const activeRaw = getAccessCell(row, headerIndex, 'active', 6);
+      const lotWeedingRequestedRaw = getAccessCell(row, headerIndex, 'lot_weeding_requested_spring_2026');
+      const lotWeedingDetailsRaw = getAccessCell(row, headerIndex, 'lot_weeding_request_details_spring_2026');
 
       if (!loginEmailRaw || !sheetUrlRaw) continue;
       if (String(activeRaw || '').toUpperCase() !== 'TRUE') continue;
@@ -158,10 +196,26 @@ async function readUsersMap() {
       const captainName = String(captainNameRaw || '').trim();
       const contactEmail = String(contactEmailRaw || '').trim();
 
-      if (!zoneByUrl[url]) zoneByUrl[url] = { name: '', captains: [] };
+      if (!zoneByUrl[url]) {
+        zoneByUrl[url] = {
+          name: '',
+          captains: [],
+          lotWeedingRequestCount: 0,
+          lotWeedingRequestKeys: new Set()
+        };
+      }
       if (!zoneByUrl[url].name && zoneName) zoneByUrl[url].name = zoneName;
       if (role !== 'admin' && captainName) {
         zoneByUrl[url].captains.push({ name: captainName, contactEmail });
+      }
+      const lotWeedingContribution = getLotWeedingRequestContribution(lotWeedingRequestedRaw);
+      if (lotWeedingContribution > 0) {
+        const detailsKey = String(lotWeedingDetailsRaw || '').trim().toLowerCase();
+        const requestKey = detailsKey || `row:${rowIndex}`;
+        if (!zoneByUrl[url].lotWeedingRequestKeys.has(requestKey)) {
+          zoneByUrl[url].lotWeedingRequestKeys.add(requestKey);
+          zoneByUrl[url].lotWeedingRequestCount += lotWeedingContribution;
+        }
       }
 
       if (role !== 'admin') {
@@ -174,7 +228,8 @@ async function readUsersMap() {
         name: zoneName || url,
         captainName,
         contactEmail,
-        role
+        role,
+        lotWeedingRequestCount: zoneByUrl[url].lotWeedingRequestCount || 0
       });
     }
 
@@ -188,7 +243,8 @@ async function readUsersMap() {
           name: meta.name || url,
           captainName: primary.name + (extras > 0 ? ` +${extras}` : ''),
           contactEmail: primary.contactEmail,
-          role: 'admin'
+          role: 'admin',
+          lotWeedingRequestCount: meta.lotWeedingRequestCount || 0
         });
       }
       adminEntries.sort((a, b) => a.name.localeCompare(b.name));
