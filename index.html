@@ -1196,6 +1196,7 @@
     let currentStreetFilter = 'all'; // Current street filter
     let currentDamageFilter = 'all'; // Current damage filter
     let currentSalesFilter = 'all'; // Sales filter: all | sold_since_fire
+    let currentLotWeedingFilter = 'all'; // Lot weeding filter: all | requested
     let currentAddressPlanFilter = 'all'; // Current Address Plan filter (only when Damage = Partial/Total Loss)
     let currentRebuildFilter = 'all'; // Current rebuild status filter
     let currentEpicFilter = 'all'; // EPIC permitting filter: all | has_epic
@@ -4194,6 +4195,7 @@
         currentStreetFilter = 'all';
         currentDamageFilter = 'all';
         currentSalesFilter = 'all';
+        currentLotWeedingFilter = 'all';
         currentAddressPlanFilter = 'all';
         currentEpicFilter = 'all';
         currentCaptainFilter = 'all';
@@ -4677,7 +4679,7 @@
 
     function buildLotWeedingRequestsCopyText(requests) {
       const zoneLabel = currentZoneName ? ` for ${currentZoneName}` : '';
-      const lines = [`Lot cleanup requests${zoneLabel}: ${requests.length}`];
+      const lines = [`Lot weeding requests${zoneLabel}: ${requests.length}`];
       requests.forEach((request, index) => {
         const details = request.details.length > 0 ? request.details.join(' | ') : 'No details provided';
         const apn = request.apn ? `APN ${request.apn}` : 'APN not listed';
@@ -4686,10 +4688,25 @@
       return lines.join('\n');
     }
 
+    function addressHasLotWeedingRequest(address) {
+      return Boolean(getLotWeedingRequestForAddress(address));
+    }
+
+    function showLotWeedingRequestsOnMap() {
+      currentLotWeedingFilter = 'requested';
+      switchView('map');
+      setTimeout(() => {
+        populateFilterBar();
+        displayAddressTable();
+        displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
+        updateMapMarkers();
+      }, 100);
+    }
+
     function showLotWeedingRequestsModal() {
       const requests = getLotWeedingRequests();
       if (requests.length === 0) {
-        alert('No lot cleanup requests were found in this zone.');
+        alert('No lot weeding requests were found in this zone.');
         return;
       }
 
@@ -4724,13 +4741,13 @@
           <div class="newsletter-modal lot-weeding-modal">
             <button class="newsletter-modal-close" id="lotWeedingRequestsModalClose">&times;</button>
             <div class="newsletter-modal-header">
-              <h3 class="newsletter-modal-title">Lot cleanup requests</h3>
-              <p class="newsletter-modal-subtitle">${requests.length} requested lot${requests.length !== 1 ? 's' : ''} in this zone, deduped by APN.</p>
+              <h3 class="newsletter-modal-title">Lot weeding requests</h3>
+              <p class="newsletter-modal-subtitle">Residents requested weeding help for ${requests.length} lot${requests.length !== 1 ? 's' : ''} in this zone.</p>
             </div>
             <div class="newsletter-modal-content">
               <section class="newsletter-modal-section lot-weeding-help-section">
                 <h4 class="newsletter-modal-section-title">How to use this</h4>
-                <p>Review the lots below. If you are interested in helping organize or support a cleanup, copy the summary and tell Altagether which lot or lots you can help with.</p>
+                <p>Review the lots below. If you are interested in helping organize or support a weeding effort, copy the summary and tell Altagether which lot or lots you can help with.</p>
               </section>
               <section class="newsletter-modal-section">
                 <h4 class="newsletter-modal-section-title">Requested lots</h4>
@@ -4739,6 +4756,7 @@
             </div>
             <div class="newsletter-modal-actions">
               <button type="button" class="btn-copy-emails" id="copyLotWeedingSummaryBtn">Copy summary</button>
+              <button type="button" class="btn-modal-secondary" id="showLotWeedingOnMapBtn">Show on map</button>
               <button type="button" class="btn-modal-secondary" id="lotWeedingRequestsModalCloseBtn">Close</button>
             </div>
           </div>
@@ -4751,6 +4769,7 @@
       const closeBtn = document.getElementById('lotWeedingRequestsModalClose');
       const closeActionBtn = document.getElementById('lotWeedingRequestsModalCloseBtn');
       const copyBtn = document.getElementById('copyLotWeedingSummaryBtn');
+      const showOnMapBtn = document.getElementById('showLotWeedingOnMapBtn');
       const removeModal = () => {
         if (overlay && overlay.parentNode) overlay.remove();
       };
@@ -4760,6 +4779,10 @@
       });
       closeBtn?.addEventListener('click', removeModal);
       closeActionBtn?.addEventListener('click', removeModal);
+      showOnMapBtn?.addEventListener('click', () => {
+        removeModal();
+        showLotWeedingRequestsOnMap();
+      });
 
       document.querySelectorAll(`#${modalId} .lot-weeding-open-address`).forEach(button => {
         button.addEventListener('click', () => {
@@ -4785,7 +4808,7 @@
           document.body.removeChild(textArea);
         }
         copyBtn.textContent = 'Copied';
-        showAppToast('Lot cleanup summary copied.');
+        showAppToast('Lot weeding summary copied.');
         setTimeout(() => {
           copyBtn.textContent = 'Copy summary';
         }, 1800);
@@ -4901,6 +4924,7 @@
       currentStreetFilter = 'all';
       currentDamageFilter = 'all';
       currentSalesFilter = 'all';
+      currentLotWeedingFilter = 'all';
       currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
       currentEpicFilter = 'all';
@@ -4952,6 +4976,7 @@
       currentStreetFilter = 'all';
       currentDamageFilter = ''; // Empty string for "(not set)"
       currentSalesFilter = 'all';
+      currentLotWeedingFilter = 'all';
       currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
       currentEpicFilter = 'all';
@@ -4971,6 +4996,7 @@
       currentStreetFilter = 'all';
       currentDamageFilter = 'all';
       currentSalesFilter = 'all';
+      currentLotWeedingFilter = 'all';
       currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
       currentEpicFilter = 'all';
@@ -5113,17 +5139,17 @@
         `;
       }
 
-      // Lot cleanup request action
+      // Lot weeding request action
       if (actions.lotWeedingRequests && actions.lotWeedingRequests.length > 0) {
         hasActions = true;
         const requestCount = actions.lotWeedingRequests.length;
         html += `
           <div class="quick-action-item quick-action-item--lot-weeding">
             <div class="quick-action-text">
-              <strong>${requestCount}</strong> lot${requestCount !== 1 ? 's have' : ' has'} requested cleanup or weeding help. Review the list and tell Altagether if you are interested in helping with one.
+              Residents requested weed cleanup help for <strong>${requestCount}</strong> lot${requestCount !== 1 ? 's' : ''}. Review the list and tell Altagether if you are interested in helping with one.
             </div>
             <div class="quick-action-links">
-              <a href="#" class="quick-action-link" id="showLotWeedingRequestsLink">review lot cleanup requests</a>
+              <a href="#" class="quick-action-link" id="showLotWeedingRequestsLink">review lot weeding requests</a>
             </div>
           </div>
         `;
@@ -5257,18 +5283,18 @@
           `);
         }
 
-        // Lot cleanup request action
+        // Lot weeding request action
         if (actions.lotWeedingRequests && actions.lotWeedingRequests.length > 0) {
           hasCalculatedActions = true;
           const requestCount = actions.lotWeedingRequests.length;
           calculatedActions.push(`
             <div class="action-card action-card--lot-weeding">
-              <div class="action-card-title">Lot Cleanup Requests</div>
+              <div class="action-card-title">Lot Weeding Requests</div>
               <div class="action-card-content">
-                There ${requestCount === 1 ? 'is' : 'are'} cleanup or weeding request${requestCount !== 1 ? 's' : ''} at <strong>${requestCount}</strong> lot${requestCount !== 1 ? 's' : ''}. Review the requests, then tell Altagether if you are interested in helping support one of these cleanups.
+                There ${requestCount === 1 ? 'is' : 'are'} weed cleanup request${requestCount !== 1 ? 's' : ''} at <strong>${requestCount}</strong> lot${requestCount !== 1 ? 's' : ''}. Review the requests, then tell Altagether if you are interested in helping support one of these weeding efforts.
               </div>
               <div class="action-card-links">
-                <a href="#" class="action-card-link" id="actionsPageLotWeedingRequestsLink">review requested lots</a>
+                <a href="#" class="action-card-link" id="actionsPageLotWeedingRequestsLink">review weeding requests</a>
               </div>
             </div>
           `);
@@ -6457,6 +6483,7 @@
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const contactDateCol = findOutreachDateColumn(headers);
+      const hasLotWeedingRequestColumn = Boolean(findLotWeedingRequestColumns(headers).requestedCol);
 
       const streets = getUniqueStreets(addresses);
       const damages = getFullDamageOptions();
@@ -6498,6 +6525,10 @@
           <option value="all" ${currentSalesFilter === 'all' ? 'selected' : ''}>Sales: All Addresses</option>
           <option value="sold_since_fire" ${currentSalesFilter === 'sold_since_fire' ? 'selected' : ''}>Sales: Sold Since Fire</option>
         </select>
+        ${hasLotWeedingRequestColumn ? `<select id="persistentLotWeedingFilter" class="${currentLotWeedingFilter !== 'all' ? 'filter-active' : ''}" title="Filter to lots where residents requested weed cleanup help.">
+          <option value="all" ${currentLotWeedingFilter === 'all' ? 'selected' : ''}>Weeding: All lots</option>
+          <option value="requested" ${currentLotWeedingFilter === 'requested' ? 'selected' : ''}>Weeding: Requests only</option>
+        </select>` : ''}
         ${addressPlanCol ? `<select id="persistentAddressPlanFilter" class="${currentAddressPlanFilter !== 'all' ? 'filter-active' : ''}" title="The owner's current intent for the property—whether they plan to rebuild, sell, or are still deciding.">
           <option value="all" ${currentAddressPlanFilter === 'all' ? 'selected' : ''}>All Address Plan</option>
           <option value="" ${currentAddressPlanFilter === '' ? 'selected' : ''}>(not set)</option>
@@ -6568,6 +6599,10 @@
       if (oldSalesFilter) {
         oldSalesFilter.replaceWith(oldSalesFilter.cloneNode(true));
       }
+      const oldLotWeedingFilter = document.getElementById('persistentLotWeedingFilter');
+      if (oldLotWeedingFilter) {
+        oldLotWeedingFilter.replaceWith(oldLotWeedingFilter.cloneNode(true));
+      }
       const oldAddressPlanFilter = document.getElementById('persistentAddressPlanFilter');
       if (oldAddressPlanFilter) {
         oldAddressPlanFilter.replaceWith(oldAddressPlanFilter.cloneNode(true));
@@ -6635,6 +6670,21 @@
             salesFilter.classList.add('filter-active');
           } else {
             salesFilter.classList.remove('filter-active');
+          }
+          displayAddressTable();
+          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
+          updateMapMarkers();
+        });
+      }
+
+      const lotWeedingFilter = document.getElementById('persistentLotWeedingFilter');
+      if (lotWeedingFilter) {
+        lotWeedingFilter.addEventListener('change', (e) => {
+          currentLotWeedingFilter = e.target.value;
+          if (currentLotWeedingFilter !== 'all') {
+            lotWeedingFilter.classList.add('filter-active');
+          } else {
+            lotWeedingFilter.classList.remove('filter-active');
           }
           displayAddressTable();
           displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
@@ -6804,6 +6854,7 @@
           }
         }
         if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(addr)) return false;
+        if (currentLotWeedingFilter === 'requested' && !addressHasLotWeedingRequest(addr)) return false;
         if (currentAddressPlanFilter !== 'all') {
           const addrPlan = getAddressPlan(addr);
           if (currentAddressPlanFilter === '') {
@@ -7035,6 +7086,9 @@
       if (currentSalesFilter !== 'all') {
         parts.push('Sales: Sold Since Fire');
       }
+      if (currentLotWeedingFilter !== 'all') {
+        parts.push('Weeding: Requests only');
+      }
       if (currentAddressPlanFilter !== 'all') {
         parts.push('Address Plan: ' + (currentAddressPlanFilter === '' ? '(not set)' : currentAddressPlanFilter));
       }
@@ -7225,6 +7279,7 @@
           }
         }
         if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(addr)) return false;
+        if (currentLotWeedingFilter === 'requested' && !addressHasLotWeedingRequest(addr)) return false;
         if (currentAddressPlanFilter !== 'all') {
           const addrPlan = getAddressPlan(addr);
           if (currentAddressPlanFilter === '') {
@@ -7754,6 +7809,9 @@
           }
         }
         if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(addr)) {
+          return false;
+        }
+        if (currentLotWeedingFilter === 'requested' && !addressHasLotWeedingRequest(addr)) {
           return false;
         }
         // Status filter
@@ -8448,9 +8506,9 @@
           : '<p class="lot-weeding-request-empty">No details provided.</p>';
         html += `
           <div class="lot-weeding-address-notice">
-            <div class="lot-weeding-address-notice__label">Lot cleanup requested</div>
+            <div class="lot-weeding-address-notice__label">Lot weeding requested</div>
             <div class="lot-weeding-address-notice__details">${detailsHtml}</div>
-            <button type="button" class="quick-action-link lot-weeding-address-notice__button" data-lot-weeding-requests-trigger="true">Review all requested lots</button>
+            <button type="button" class="quick-action-link lot-weeding-address-notice__button" data-lot-weeding-requests-trigger="true">Review all weeding requests</button>
           </div>
         `;
       }
@@ -9655,7 +9713,11 @@
         'lot sqft',
         'lot sq ft',
         'sales history',
-        'unit type'
+        'unit type',
+        'lot_weeding_requested_spring_2026',
+        'lot weeding requested spring 2026',
+        'lot_weeding_request_details_spring_2026',
+        'lot weeding request details spring 2026'
       ];
       const isHouseOrZipField = (lower) => {
         const normalized = lower.trim();
@@ -14204,6 +14266,9 @@
           }
         }
         if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(address)) {
+          return false;
+        }
+        if (currentLotWeedingFilter === 'requested' && !addressHasLotWeedingRequest(address)) {
           return false;
         }
         

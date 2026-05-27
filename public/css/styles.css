@@ -1590,13 +1590,13 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: var(--accent-gold);
+      background: var(--brand-primary-dark);
       border: 2px solid var(--text-primary);
       box-shadow: 2px 2px 0 var(--text-primary);
       font-family: 'Chivo', sans-serif;
       font-weight: 900;
       font-size: 0.82rem;
-      color: var(--text-primary);
+      color: #ffffff;
     }
 
     .lot-weeding-request-main h4 {
