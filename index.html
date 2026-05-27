@@ -4586,18 +4586,226 @@
       return null;
     }
 
+    function findLotWeedingRequestColumns(headers) {
+      if (!headers || !Array.isArray(headers)) {
+        return { requestedCol: null, detailsCol: null, apnCol: null };
+      }
+
+      const normalize = (value) => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      const requestedCol = headers.find(h => normalize(h) === 'lotweedingrequestedspring2026') ||
+        headers.find(h => {
+          const lower = String(h || '').toLowerCase();
+          return lower.includes('lot') && lower.includes('weeding') && lower.includes('requested') && lower.includes('spring') && lower.includes('2026');
+        }) ||
+        null;
+      const detailsCol = headers.find(h => normalize(h) === 'lotweedingrequestdetailsspring2026') ||
+        headers.find(h => {
+          const lower = String(h || '').toLowerCase();
+          return lower.includes('lot') && lower.includes('weeding') && lower.includes('request') && lower.includes('detail') && lower.includes('spring') && lower.includes('2026');
+        }) ||
+        null;
+      const apnCol = headers.find(h => normalize(h) === 'apn') || null;
+
+      return { requestedCol, detailsCol, apnCol };
+    }
+
+    function getLotWeedingRequests() {
+      if (!sheetData || !sheetData.addressMap) return [];
+
+      const headers = sheetData.headers || [];
+      const { requestedCol, detailsCol, apnCol } = findLotWeedingRequestColumns(headers);
+      if (!requestedCol) return [];
+
+      const requestsByKey = new Map();
+
+      sheetData.addressMap.forEach((rows, address) => {
+        (rows || []).forEach(row => {
+          if (!isTruthySheetCheckbox(row[requestedCol])) return;
+
+          const rawApn = apnCol ? String(row[apnCol] || '').trim() : '';
+          const apnDigits = normalizeApnDigits(rawApn);
+          const key = apnDigits ? `apn:${apnDigits}` : `address:${address}`;
+          const detailValue = detailsCol ? String(row[detailsCol] || '').trim() : '';
+
+          if (!requestsByKey.has(key)) {
+            requestsByKey.set(key, {
+              key,
+              apn: rawApn,
+              apnDigits,
+              primaryAddress: address,
+              addresses: new Set([address]),
+              details: new Set(),
+              requestedCol,
+              detailsCol
+            });
+          }
+
+          const request = requestsByKey.get(key);
+          if (!request.apn && rawApn) request.apn = rawApn;
+          request.addresses.add(address);
+          if (detailValue) request.details.add(detailValue);
+        });
+      });
+
+      return Array.from(requestsByKey.values())
+        .map(request => ({
+          ...request,
+          addresses: Array.from(request.addresses).sort(),
+          details: Array.from(request.details)
+        }))
+        .sort((a, b) => a.primaryAddress.localeCompare(b.primaryAddress));
+    }
+
+    function getLotWeedingRequestForAddress(address) {
+      if (!address) return null;
+      if (!sheetData || !sheetData.addressMap || !sheetData.addressMap.has(address)) return null;
+
+      const headers = sheetData.headers || [];
+      const { apnCol } = findLotWeedingRequestColumns(headers);
+      const rows = sheetData.addressMap.get(address) || [];
+      const addressApns = new Set(
+        rows
+          .map(row => apnCol ? normalizeApnDigits(row[apnCol]) : '')
+          .filter(Boolean)
+      );
+
+      return getLotWeedingRequests().find(request => {
+        if (request.apnDigits && addressApns.has(request.apnDigits)) return true;
+        return request.addresses.includes(address);
+      }) || null;
+    }
+
+    function buildLotWeedingRequestsCopyText(requests) {
+      const zoneLabel = currentZoneName ? ` for ${currentZoneName}` : '';
+      const lines = [`Lot cleanup requests${zoneLabel}: ${requests.length}`];
+      requests.forEach((request, index) => {
+        const details = request.details.length > 0 ? request.details.join(' | ') : 'No details provided';
+        const apn = request.apn ? `APN ${request.apn}` : 'APN not listed';
+        lines.push(`${index + 1}. ${request.primaryAddress} (${apn}) - ${details}`);
+      });
+      return lines.join('\n');
+    }
+
+    function showLotWeedingRequestsModal() {
+      const requests = getLotWeedingRequests();
+      if (requests.length === 0) {
+        alert('No lot cleanup requests were found in this zone.');
+        return;
+      }
+
+      const modalId = 'lotWeedingRequestsModalOverlay';
+      document.getElementById(modalId)?.remove();
+
+      const rowsHtml = requests.map((request, index) => {
+        const detailsHtml = request.details.length > 0
+          ? request.details.map(detail => `<p>${escapeHtml(detail)}</p>`).join('')
+          : '<p class="lot-weeding-request-empty">No details provided.</p>';
+        const addressNote = request.addresses.length > 1
+          ? `<div class="lot-weeding-request-meta">Also appears as: ${request.addresses.map(escapeHtml).join(', ')}</div>`
+          : '';
+        return `
+          <article class="lot-weeding-request-row">
+            <div class="lot-weeding-request-index">${index + 1}</div>
+            <div class="lot-weeding-request-main">
+              <h4>${escapeHtml(request.primaryAddress)}</h4>
+              <div class="lot-weeding-request-meta">${request.apn ? `APN: ${escapeHtml(request.apn)}` : 'APN not listed'}</div>
+              ${addressNote}
+              <div class="lot-weeding-request-details">${detailsHtml}</div>
+            </div>
+            <div class="lot-weeding-request-actions">
+              <button type="button" class="btn-modal-secondary lot-weeding-open-address" data-address="${escapeHtmlAttr(request.primaryAddress)}">Open address</button>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      const modalHtml = `
+        <div class="newsletter-modal-overlay" id="${modalId}">
+          <div class="newsletter-modal lot-weeding-modal">
+            <button class="newsletter-modal-close" id="lotWeedingRequestsModalClose">&times;</button>
+            <div class="newsletter-modal-header">
+              <h3 class="newsletter-modal-title">Lot cleanup requests</h3>
+              <p class="newsletter-modal-subtitle">${requests.length} requested lot${requests.length !== 1 ? 's' : ''} in this zone, deduped by APN.</p>
+            </div>
+            <div class="newsletter-modal-content">
+              <section class="newsletter-modal-section lot-weeding-help-section">
+                <h4 class="newsletter-modal-section-title">How to use this</h4>
+                <p>Review the lots below. If you are interested in helping organize or support a cleanup, copy the summary and tell Altagether which lot or lots you can help with.</p>
+              </section>
+              <section class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">Requested lots</h4>
+                <div class="lot-weeding-request-list">${rowsHtml}</div>
+              </section>
+            </div>
+            <div class="newsletter-modal-actions">
+              <button type="button" class="btn-copy-emails" id="copyLotWeedingSummaryBtn">Copy summary</button>
+              <button type="button" class="btn-modal-secondary" id="lotWeedingRequestsModalCloseBtn">Close</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+      const overlay = document.getElementById(modalId);
+      const closeBtn = document.getElementById('lotWeedingRequestsModalClose');
+      const closeActionBtn = document.getElementById('lotWeedingRequestsModalCloseBtn');
+      const copyBtn = document.getElementById('copyLotWeedingSummaryBtn');
+      const removeModal = () => {
+        if (overlay && overlay.parentNode) overlay.remove();
+      };
+
+      overlay?.addEventListener('click', (e) => {
+        if (e.target === overlay) removeModal();
+      });
+      closeBtn?.addEventListener('click', removeModal);
+      closeActionBtn?.addEventListener('click', removeModal);
+
+      document.querySelectorAll(`#${modalId} .lot-weeding-open-address`).forEach(button => {
+        button.addEventListener('click', () => {
+          const address = button.getAttribute('data-address');
+          if (!address) return;
+          removeModal();
+          navigateToAddress(address);
+        });
+      });
+
+      copyBtn?.addEventListener('click', async () => {
+        const summary = buildLotWeedingRequestsCopyText(requests);
+        try {
+          await navigator.clipboard.writeText(summary);
+        } catch (err) {
+          const textArea = document.createElement('textarea');
+          textArea.value = summary;
+          textArea.style.position = 'fixed';
+          textArea.style.opacity = '0';
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+        }
+        copyBtn.textContent = 'Copied';
+        showAppToast('Lot cleanup summary copied.');
+        setTimeout(() => {
+          copyBtn.textContent = 'Copy summary';
+        }, 1800);
+      });
+    }
+
     // Calculate quick actions based on spreadsheet data
     function calculateQuickActions() {
       if (!sheetData || !sheetData.addressMap) {
         return {
           uncontactedCount: 0,
           noDamageStatusCount: 0,
-          followupPeople: []
+          followupPeople: [],
+          lotWeedingRequests: []
         };
       }
 
       const headers = sheetData.headers;
       const addressMap = sheetData.addressMap;
+      const lotWeedingRequests = getLotWeedingRequests();
       
       // Find contact columns (same logic as Zone Overview)
       const contactStatusCol = headers.find(h => {
@@ -4682,7 +4890,8 @@
       return {
         uncontactedCount,
         noDamageStatusCount,
-        followupPeople
+        followupPeople,
+        lotWeedingRequests
       };
     }
 
@@ -4904,6 +5113,22 @@
         `;
       }
 
+      // Lot cleanup request action
+      if (actions.lotWeedingRequests && actions.lotWeedingRequests.length > 0) {
+        hasActions = true;
+        const requestCount = actions.lotWeedingRequests.length;
+        html += `
+          <div class="quick-action-item quick-action-item--lot-weeding">
+            <div class="quick-action-text">
+              <strong>${requestCount}</strong> lot${requestCount !== 1 ? 's have' : ' has'} requested cleanup or weeding help. Review the list and tell Altagether if you are interested in helping with one.
+            </div>
+            <div class="quick-action-links">
+              <a href="#" class="quick-action-link" id="showLotWeedingRequestsLink">review lot cleanup requests</a>
+            </div>
+          </div>
+        `;
+      }
+
       // Follow-up people action
       if (actions.followupPeople && actions.followupPeople.length > 0) {
         hasActions = true;
@@ -4950,6 +5175,14 @@
         noDamageStatusLink.addEventListener('click', (e) => {
           e.preventDefault();
           navigateToAddressesWithoutDamageStatus();
+        });
+      }
+
+      const lotWeedingRequestsLink = document.getElementById('showLotWeedingRequestsLink');
+      if (lotWeedingRequestsLink) {
+        lotWeedingRequestsLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          showLotWeedingRequestsModal();
         });
       }
 
@@ -5019,6 +5252,23 @@
               </div>
               <div class="action-card-links">
                 <a href="#" class="action-card-link" id="actionsPageNoDamageStatusLink">see addresses without damage status</a>
+              </div>
+            </div>
+          `);
+        }
+
+        // Lot cleanup request action
+        if (actions.lotWeedingRequests && actions.lotWeedingRequests.length > 0) {
+          hasCalculatedActions = true;
+          const requestCount = actions.lotWeedingRequests.length;
+          calculatedActions.push(`
+            <div class="action-card action-card--lot-weeding">
+              <div class="action-card-title">Lot Cleanup Requests</div>
+              <div class="action-card-content">
+                There ${requestCount === 1 ? 'is' : 'are'} cleanup or weeding request${requestCount !== 1 ? 's' : ''} at <strong>${requestCount}</strong> lot${requestCount !== 1 ? 's' : ''}. Review the requests, then tell Altagether if you are interested in helping support one of these cleanups.
+              </div>
+              <div class="action-card-links">
+                <a href="#" class="action-card-link" id="actionsPageLotWeedingRequestsLink">review requested lots</a>
               </div>
             </div>
           `);
@@ -5100,6 +5350,14 @@
         noDamageStatusLink.addEventListener('click', (e) => {
           e.preventDefault();
           navigateToAddressesWithoutDamageStatus();
+        });
+      }
+
+      const lotWeedingRequestsLink = document.getElementById('actionsPageLotWeedingRequestsLink');
+      if (lotWeedingRequestsLink) {
+        lotWeedingRequestsLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          showLotWeedingRequestsModal();
         });
       }
 
@@ -7865,6 +8123,9 @@
           if (movePinAddress) openMovePinModal(movePinAddress);
         });
       });
+      document.querySelectorAll('#addressDetailsModalOverlay [data-lot-weeding-requests-trigger="true"]').forEach(btn => {
+        btn.addEventListener('click', showLotWeedingRequestsModal);
+      });
 
       document.querySelectorAll('#addressDetailsModalOverlay .editable-dropdown').forEach(dropdown => {
         dropdown.addEventListener('change', () => {
@@ -8079,7 +8340,11 @@
         'sales history',
         'unit type',
         'former resident',
-        'deceased'
+        'deceased',
+        'lot_weeding_requested_spring_2026',
+        'lot weeding requested spring 2026',
+        'lot_weeding_request_details_spring_2026',
+        'lot weeding request details spring 2026'
       ];
 
       const isHouseOrZipField = (lower) => {
@@ -8146,6 +8411,7 @@
 
       const apnColForHeader = headers.find(h => h.toLowerCase() === 'apn');
       const apnValueForHeader = apnColForHeader && rows[0] ? String(rows[0][apnColForHeader] || '').trim() : '';
+      const lotWeedingRequestForAddress = getLotWeedingRequestForAddress(address);
 
       let html = `
         <div class="details-toolbar">
@@ -8175,6 +8441,19 @@
             </header>
             <div class="details-section__body">
       `;
+
+      if (lotWeedingRequestForAddress) {
+        const detailsHtml = lotWeedingRequestForAddress.details.length > 0
+          ? lotWeedingRequestForAddress.details.map(detail => `<p>${escapeHtml(detail)}</p>`).join('')
+          : '<p class="lot-weeding-request-empty">No details provided.</p>';
+        html += `
+          <div class="lot-weeding-address-notice">
+            <div class="lot-weeding-address-notice__label">Lot cleanup requested</div>
+            <div class="lot-weeding-address-notice__details">${detailsHtml}</div>
+            <button type="button" class="quick-action-link lot-weeding-address-notice__button" data-lot-weeding-requests-trigger="true">Review all requested lots</button>
+          </div>
+        `;
+      }
 
       // Collect unique values for dropdown fields from ALL data
       const damageValues = new Set();
@@ -8908,6 +9187,9 @@
           const triggerAddress = trigger.getAttribute('data-address-modal-trigger');
           if (triggerAddress) showAddressDetailsModal(triggerAddress);
         });
+      });
+      document.querySelectorAll('[data-lot-weeding-requests-trigger="true"]').forEach(trigger => {
+        trigger.addEventListener('click', showLotWeedingRequestsModal);
       });
 
       document.querySelectorAll('[data-person-details-trigger="true"]').forEach(trigger => {
