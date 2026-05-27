@@ -8106,6 +8106,7 @@
         const lower = colName.toLowerCase();
         return lower.includes('email') && !lower.includes('nc email');
       };
+      const quickTagCols = getPersonQuickTagColumns(headers);
       
       const personLevelCols = headers.filter(h => {
         const lower = h.toLowerCase();
@@ -8116,15 +8117,14 @@
         if (hiddenFromPersonView.some(field => lower.includes(field)) || isHouseOrZipField(lower)) return false;
         // Skip outreach/contact log column - rendered in dedicated outreach logger UI
         if ((lower.includes('contact') && lower.includes('note')) || (lower.includes('outreach') && (lower.includes('note') || lower.includes('log')))) return false;
-        // Person-level: Person - X checkboxes (Renter, Needs Follow-Up, Unable to reach, etc.), Person Notes, phones, etc.
-        return lower.startsWith('person - ') ||
+        // Person-level fields are intentionally opt-in so new sheet columns do not auto-appear.
+        return quickTagCols.includes(h) ||
                lower.includes('person note') ||
                lower.includes('home phone') ||
                lower.includes('cell') ||
                isPersonEmailCol(h) ||
                lower.includes('gender') ||
-               lower.includes('age') ||
-               (!addressLevelCols.includes(h) && detailCols.includes(h));
+               lower.includes('age');
       });
       
       // Find Notes columns separately - always show them if signed in, even if empty
@@ -8132,7 +8132,7 @@
       const allNotesCols = headers.filter(h => 
         h !== addressCol &&
         h.toLowerCase() !== 'resident_id' &&
-        h.toLowerCase().includes('note') &&
+        h.toLowerCase().includes('person note') &&
         !((h.toLowerCase().includes('contact') && h.toLowerCase().includes('note')) || (h.toLowerCase().includes('outreach') && (h.toLowerCase().includes('note') || h.toLowerCase().includes('log')))) &&
         accessToken // Only if signed in
       );
@@ -8439,7 +8439,6 @@
         return (lower.includes('contact') && lower.includes('note')) ||
                (lower.includes('outreach') && (lower.includes('note') || lower.includes('log')));
       });
-      const quickTagCols = getPersonQuickTagColumns(headers);
       const activeRows = [];
       const formerResidentRows = [];
 
@@ -9494,15 +9493,9 @@
           </label>
         `;
       };
-      const additionalCols = headers.filter(col => {
-        const lower = col.toLowerCase();
-        if (col.startsWith('_')) return false;
-        if (standardCols.has(col)) return false;
-        if (lower.includes('apn status')) return false;
-        if (lower.includes('situshouseno') || lower.includes('situsdirection') || lower.includes('situsstreet') || lower.includes('situsunit')) return false;
-        if (modalHiddenKeywords.some(keyword => lower.includes(keyword)) || isHouseOrZipField(lower)) return false;
-        return Boolean(row[col] && String(row[col]).trim());
-      });
+      // Keep person modal fields opt-in. New sheet columns should not appear
+      // just because they contain data.
+      const additionalCols = [];
       const renderAdditionalField = (col) => {
         const label = col.startsWith('Person - ') ? col.substring(9) : col;
         if (col.startsWith('Person - ')) return checkboxField(label, col);
