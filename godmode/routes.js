@@ -16,7 +16,7 @@ function intEnv(name, fallback) {
 function getGodmodeConfig() {
   return {
     masterSheetId: strEnv('GODMODE_MASTER_SHEET_ID'),
-    masterRange: strEnv('GODMODE_MASTER_RANGE', 'Master!A1:ZZ5000'),
+    masterRange: strEnv('GODMODE_MASTER_RANGE', 'A1:ZZ5000'),
     cacheTtlMs: intEnv('GODMODE_MASTER_CACHE_TTL_MS', 60 * 1000)
   };
 }

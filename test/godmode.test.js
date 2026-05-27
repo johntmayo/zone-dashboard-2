@@ -5,7 +5,8 @@ const assert = require('node:assert');
 
 const {
   normalizeSheetValues,
-  fetchGodmodeMaster
+  fetchGodmodeMaster,
+  getGodmodeConfig
 } = require('../godmode/routes');
 
 test('normalizeSheetValues: converts header row and records into objects', () => {
@@ -67,4 +68,20 @@ test('fetchGodmodeMaster: fails clearly when not configured', async () => {
     }),
     /GODMODE_MASTER_SHEET_ID/
   );
+});
+
+test('getGodmodeConfig: defaults to first sheet range when no range env is set', (t) => {
+  const originalSheetId = process.env.GODMODE_MASTER_SHEET_ID;
+  const originalRange = process.env.GODMODE_MASTER_RANGE;
+
+  process.env.GODMODE_MASTER_SHEET_ID = 'sheet-id';
+  delete process.env.GODMODE_MASTER_RANGE;
+  t.after(() => {
+    if (originalSheetId === undefined) delete process.env.GODMODE_MASTER_SHEET_ID;
+    else process.env.GODMODE_MASTER_SHEET_ID = originalSheetId;
+    if (originalRange === undefined) delete process.env.GODMODE_MASTER_RANGE;
+    else process.env.GODMODE_MASTER_RANGE = originalRange;
+  });
+
+  assert.strictEqual(getGodmodeConfig().masterRange, 'A1:ZZ5000');
 });
