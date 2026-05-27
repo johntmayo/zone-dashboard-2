@@ -1262,6 +1262,11 @@
       color: var(--accent-clay);
     }
 
+    .quick-action-item--lot-weeding {
+      border-left-color: var(--accent-altagether-green, #606c38);
+      background: rgba(96, 108, 56, 0.06);
+    }
+
     .onboarding-modal-overlay {
       position: fixed;
       inset: 0;
@@ -1540,6 +1545,107 @@
     .action-card-people-list .action-card-link {
       padding: 6px 12px;
       font-size: 0.85rem;
+    }
+
+    .action-card--lot-weeding {
+      background: #FFFDF5;
+      border-color: var(--brand-primary-dark);
+    }
+
+    .action-card--lot-weeding .action-card-title {
+      color: var(--brand-primary-dark);
+      border-bottom-color: var(--accent-altagether-green, #606c38);
+    }
+
+    .lot-weeding-modal {
+      max-width: 860px;
+    }
+
+    .lot-weeding-help-section p {
+      margin: 0;
+      color: var(--text-primary);
+      line-height: 1.55;
+    }
+
+    .lot-weeding-request-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .lot-weeding-request-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: flex-start;
+      padding: 14px;
+      background: #FDFBF7;
+      border: 1px solid rgba(31, 41, 55, 0.12);
+      border-radius: 10px;
+    }
+
+    .lot-weeding-request-index {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--accent-gold);
+      border: 2px solid var(--text-primary);
+      box-shadow: 2px 2px 0 var(--text-primary);
+      font-family: 'Chivo', sans-serif;
+      font-weight: 900;
+      font-size: 0.82rem;
+      color: var(--text-primary);
+    }
+
+    .lot-weeding-request-main h4 {
+      margin: 0 0 4px;
+      color: var(--brand-primary-dark);
+      font-family: 'Chivo', sans-serif;
+      font-size: 1rem;
+      font-weight: 900;
+    }
+
+    .lot-weeding-request-meta {
+      margin: 0 0 6px;
+      color: var(--text-secondary);
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+
+    .lot-weeding-request-details {
+      display: grid;
+      gap: 6px;
+      margin-top: 8px;
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    .lot-weeding-request-details p {
+      margin: 0;
+    }
+
+    .lot-weeding-request-empty {
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+
+    .lot-weeding-request-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    @media (max-width: 640px) {
+      .lot-weeding-request-row {
+        grid-template-columns: auto minmax(0, 1fr);
+      }
+
+      .lot-weeding-request-actions {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+      }
     }
 
     /* Newsletter Email Modal */
@@ -8348,6 +8454,43 @@
 
 .details-section__body > .person-info {
   margin: 5px 0;
+}
+
+.lot-weeding-address-notice {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: rgba(96, 108, 56, 0.07);
+  border: 1px solid rgba(96, 108, 56, 0.22);
+  border-left: 4px solid var(--accent-altagether-green, #606c38);
+  border-radius: 10px;
+}
+
+.lot-weeding-address-notice__label {
+  color: var(--brand-primary-dark);
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.lot-weeding-address-notice__details {
+  display: grid;
+  gap: 5px;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.lot-weeding-address-notice__details p {
+  margin: 0;
+}
+
+.lot-weeding-address-notice__button {
+  width: fit-content;
+  border: 2px solid var(--text-primary);
 }
 
 /* Section divider: "People at this address" */
