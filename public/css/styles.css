@@ -1567,6 +1567,56 @@
       line-height: 1.55;
     }
 
+    .lot-weeding-program-callout {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+      background: rgba(31, 41, 55, 0.04);
+      border: 2px solid var(--brand-primary-dark);
+      box-shadow: 4px 4px 0 rgba(31, 41, 55, 0.18);
+    }
+
+    .lot-weeding-program-steps {
+      margin: 0;
+      padding-left: 22px;
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    .lot-weeding-program-steps li {
+      margin-bottom: 6px;
+    }
+
+    .lot-weeding-program-steps li:last-child {
+      margin-bottom: 0;
+    }
+
+    .lot-weeding-program-note {
+      font-family: 'Chivo', sans-serif;
+      font-weight: 800;
+      color: var(--brand-primary-dark);
+    }
+
+    .btn-copy-emails.btn-lot-weeding-organize {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      background: var(--accent-gold);
+      color: var(--text-primary);
+      border: 2px solid var(--text-primary);
+      border-radius: 0;
+      box-shadow: 3px 3px 0 var(--text-primary);
+      font-family: 'Chivo', sans-serif;
+      font-weight: 900;
+    }
+
+    .btn-copy-emails.btn-lot-weeding-organize:hover {
+      text-decoration: none;
+      transform: translate(-2px, -2px);
+      box-shadow: 5px 5px 0 var(--text-primary);
+    }
+
     .lot-weeding-request-list {
       display: flex;
       flex-direction: column;
