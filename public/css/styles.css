@@ -1262,6 +1262,11 @@
       color: var(--accent-clay);
     }
 
+    .quick-action-item--lot-weeding {
+      border-left-color: var(--accent-altagether-green, #606c38);
+      background: rgba(96, 108, 56, 0.06);
+    }
+
     .onboarding-modal-overlay {
       position: fixed;
       inset: 0;
@@ -1540,6 +1545,200 @@
     .action-card-people-list .action-card-link {
       padding: 6px 12px;
       font-size: 0.85rem;
+    }
+
+    .action-card--lot-weeding {
+      background: #FFFDF5;
+      border-color: var(--brand-primary-dark);
+    }
+
+    .action-card--lot-weeding .action-card-title {
+      color: var(--brand-primary-dark);
+      border-bottom-color: var(--accent-altagether-green, #606c38);
+    }
+
+    .lot-weeding-modal {
+      max-width: 860px;
+    }
+
+    .lot-weeding-help-section p {
+      margin: 0;
+      color: var(--text-primary);
+      line-height: 1.55;
+    }
+
+    .lot-weeding-program-callout {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+      background: rgba(31, 41, 55, 0.04);
+      border: 2px solid var(--brand-primary-dark);
+      box-shadow: 4px 4px 0 rgba(31, 41, 55, 0.18);
+    }
+
+    .lot-weeding-program-steps {
+      margin: 0;
+      padding-left: 22px;
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    .lot-weeding-program-steps li {
+      margin-bottom: 6px;
+    }
+
+    .lot-weeding-program-steps li:last-child {
+      margin-bottom: 0;
+    }
+
+    .lot-weeding-program-note {
+      font-family: 'Chivo', sans-serif;
+      font-weight: 800;
+      color: var(--brand-primary-dark);
+    }
+
+    .btn-copy-emails.btn-lot-weeding-organize {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      background: var(--accent-gold);
+      color: var(--text-primary);
+      border: 2px solid var(--text-primary);
+      border-radius: 0;
+      box-shadow: 3px 3px 0 var(--text-primary);
+      font-family: 'Chivo', sans-serif;
+      font-weight: 900;
+    }
+
+    .btn-copy-emails.btn-lot-weeding-organize:hover {
+      text-decoration: none;
+      transform: translate(-2px, -2px);
+      box-shadow: 5px 5px 0 var(--text-primary);
+    }
+
+    .lot-weeding-request-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .lot-weeding-request-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: flex-start;
+      padding: 14px;
+      background: #FDFBF7;
+      border: 1px solid rgba(31, 41, 55, 0.12);
+      border-radius: 10px;
+    }
+
+    .lot-weeding-request-row--completed {
+      opacity: 0.72;
+    }
+
+    .lot-weeding-request-index {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--brand-primary-dark);
+      border: 2px solid var(--text-primary);
+      box-shadow: 2px 2px 0 var(--text-primary);
+      font-family: 'Chivo', sans-serif;
+      font-weight: 900;
+      font-size: 0.82rem;
+      color: #ffffff;
+    }
+
+    .lot-weeding-request-main h4 {
+      margin: 0 0 4px;
+      color: var(--brand-primary-dark);
+      font-family: 'Chivo', sans-serif;
+      font-size: 1rem;
+      font-weight: 900;
+    }
+
+    .lot-weeding-request-meta {
+      margin: 0 0 6px;
+      color: var(--text-secondary);
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+
+    .lot-weeding-request-status {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 4px 0 8px;
+      font-family: 'Chivo', sans-serif;
+    }
+
+    .lot-weeding-status-badge {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      padding: 3px 8px;
+      border: 1px solid var(--text-primary);
+      box-shadow: 2px 2px 0 rgba(31, 41, 55, 0.18);
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    .lot-weeding-status-badge--scheduled {
+      background: rgba(31, 41, 55, 0.08);
+      color: var(--brand-primary-dark);
+    }
+
+    .lot-weeding-status-badge--completed {
+      background: rgba(96, 108, 56, 0.12);
+      color: var(--accent-altagether-green, #606c38);
+    }
+
+    .lot-weeding-status-date {
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .lot-weeding-request-details {
+      display: grid;
+      gap: 6px;
+      margin-top: 8px;
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    .lot-weeding-request-details p {
+      margin: 0;
+    }
+
+    .lot-weeding-request-empty {
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+
+    .lot-weeding-request-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    @media (max-width: 640px) {
+      .lot-weeding-request-row {
+        grid-template-columns: auto minmax(0, 1fr);
+      }
+
+      .lot-weeding-request-actions {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+      }
     }
 
     /* Newsletter Email Modal */
@@ -8348,6 +8547,43 @@
 
 .details-section__body > .person-info {
   margin: 5px 0;
+}
+
+.lot-weeding-address-notice {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: rgba(96, 108, 56, 0.07);
+  border: 1px solid rgba(96, 108, 56, 0.22);
+  border-left: 4px solid var(--accent-altagether-green, #606c38);
+  border-radius: 10px;
+}
+
+.lot-weeding-address-notice__label {
+  color: var(--brand-primary-dark);
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.lot-weeding-address-notice__details {
+  display: grid;
+  gap: 5px;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.lot-weeding-address-notice__details p {
+  margin: 0;
+}
+
+.lot-weeding-address-notice__button {
+  width: fit-content;
+  border: 2px solid var(--text-primary);
 }
 
 /* Section divider: "People at this address" */

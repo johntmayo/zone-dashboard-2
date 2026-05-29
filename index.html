@@ -1196,6 +1196,7 @@
     let currentStreetFilter = 'all'; // Current street filter
     let currentDamageFilter = 'all'; // Current damage filter
     let currentSalesFilter = 'all'; // Sales filter: all | sold_since_fire
+    let currentLotWeedingFilter = 'all'; // Lot weeding filter: all | requested
     let currentAddressPlanFilter = 'all'; // Current Address Plan filter (only when Damage = Partial/Total Loss)
     let currentRebuildFilter = 'all'; // Current rebuild status filter
     let currentEpicFilter = 'all'; // EPIC permitting filter: all | has_epic
@@ -1203,6 +1204,7 @@
     let currentPersonSearch = ''; // Current resident-name search filter
     let showContactedAddresses = true; // Show addresses with contacted people
     let showUncontactedAddresses = true; // Show addresses with uncontacted people
+    let showSoldSinceJan25Tags = false; // Show SOLD labels next to sold-since-fire map dots
     const epicPresenceState = {
       loading: false,
       ready: false,
@@ -4194,6 +4196,7 @@
         currentStreetFilter = 'all';
         currentDamageFilter = 'all';
         currentSalesFilter = 'all';
+        currentLotWeedingFilter = 'all';
         currentAddressPlanFilter = 'all';
         currentEpicFilter = 'all';
         currentCaptainFilter = 'all';
@@ -4586,18 +4589,343 @@
       return null;
     }
 
+    function findLotWeedingRequestColumns(headers) {
+      if (!headers || !Array.isArray(headers)) {
+        return { requestedCol: null, detailsCol: null, statusCol: null, dateScheduledCol: null, apnCol: null };
+      }
+
+      const normalize = (value) => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      const requestedCol = headers.find(h => normalize(h) === 'lotweedingrequestedspring2026') ||
+        headers.find(h => {
+          const lower = String(h || '').toLowerCase();
+          return lower.includes('lot') && lower.includes('weeding') && lower.includes('requested') && lower.includes('spring') && lower.includes('2026');
+        }) ||
+        null;
+      const detailsCol = headers.find(h => normalize(h) === 'lotweedingrequestdetailsspring2026') ||
+        headers.find(h => {
+          const lower = String(h || '').toLowerCase();
+          return lower.includes('lot') && lower.includes('weeding') && lower.includes('request') && lower.includes('detail') && lower.includes('spring') && lower.includes('2026');
+        }) ||
+        null;
+      const statusCol = headers.find(h => normalize(h) === 'lotweedingstatusspring2026') ||
+        headers.find(h => {
+          const lower = String(h || '').toLowerCase();
+          return lower.includes('lot') && lower.includes('weeding') && lower.includes('status') && lower.includes('spring') && lower.includes('2026');
+        }) ||
+        null;
+      const dateScheduledCol = headers.find(h => normalize(h) === 'lotweedingdatescheduledspring2026') ||
+        headers.find(h => {
+          const lower = String(h || '').toLowerCase();
+          return lower.includes('lot') && lower.includes('weeding') && lower.includes('date') && lower.includes('scheduled') && lower.includes('spring') && lower.includes('2026');
+        }) ||
+        null;
+      const apnCol = headers.find(h => normalize(h) === 'apn') || null;
+
+      return { requestedCol, detailsCol, statusCol, dateScheduledCol, apnCol };
+    }
+
+    function normalizeLotWeedingStatus(value) {
+      const normalized = String(value || '').trim().toLowerCase();
+      if (normalized === 'scheduled') return 'Scheduled';
+      if (normalized === 'completed') return 'Completed';
+      return '';
+    }
+
+    function formatLotWeedingScheduledDate(value) {
+      const text = String(value || '').trim();
+      if (!text) return '';
+
+      const numericValue = Number(text);
+      if (Number.isFinite(numericValue) && numericValue > 20000 && numericValue < 80000) {
+        const date = new Date(Date.UTC(1899, 11, 30) + numericValue * 24 * 60 * 60 * 1000);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+      }
+
+      const mdyMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+      if (mdyMatch) {
+        const month = Number(mdyMatch[1]);
+        const day = Number(mdyMatch[2]);
+        const year = Number(mdyMatch[3].length === 2 ? `20${mdyMatch[3]}` : mdyMatch[3]);
+        const date = new Date(year, month - 1, day);
+        if (!Number.isNaN(date.getTime())) {
+          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+      }
+
+      const parsed = new Date(text);
+      if (Number.isNaN(parsed.getTime())) return text;
+      return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function getLotWeedingStatusPriority(status) {
+      if (status === 'Completed') return 2;
+      if (status === 'Scheduled') return 1;
+      return 0;
+    }
+
+    function isOpenLotWeedingRequest(request) {
+      return !request || !['Scheduled', 'Completed'].includes(request.status);
+    }
+
+    function getLotWeedingOpenRequests() {
+      return getLotWeedingRequests().filter(isOpenLotWeedingRequest);
+    }
+
+    function getLotWeedingRequests() {
+      if (!sheetData || !sheetData.addressMap) return [];
+
+      const headers = sheetData.headers || [];
+      const { requestedCol, detailsCol, statusCol, dateScheduledCol, apnCol } = findLotWeedingRequestColumns(headers);
+      if (!requestedCol) return [];
+
+      const requestsByKey = new Map();
+
+      sheetData.addressMap.forEach((rows, address) => {
+        (rows || []).forEach(row => {
+          if (!isTruthySheetCheckbox(row[requestedCol])) return;
+
+          const rawApn = apnCol ? String(row[apnCol] || '').trim() : '';
+          const apnDigits = normalizeApnDigits(rawApn);
+          const key = apnDigits ? `apn:${apnDigits}` : `address:${address}`;
+          const detailValue = detailsCol ? String(row[detailsCol] || '').trim() : '';
+          const statusValue = statusCol ? normalizeLotWeedingStatus(row[statusCol]) : '';
+          const scheduledDateValue = dateScheduledCol ? formatLotWeedingScheduledDate(row[dateScheduledCol]) : '';
+
+          if (!requestsByKey.has(key)) {
+            requestsByKey.set(key, {
+              key,
+              apn: rawApn,
+              apnDigits,
+              primaryAddress: address,
+              addresses: new Set([address]),
+              details: new Set(),
+              scheduledDates: new Set(),
+              status: '',
+              requestedCol,
+              detailsCol,
+              statusCol,
+              dateScheduledCol
+            });
+          }
+
+          const request = requestsByKey.get(key);
+          if (!request.apn && rawApn) request.apn = rawApn;
+          request.addresses.add(address);
+          if (detailValue) request.details.add(detailValue);
+          if (scheduledDateValue) request.scheduledDates.add(scheduledDateValue);
+          if (getLotWeedingStatusPriority(statusValue) > getLotWeedingStatusPriority(request.status)) {
+            request.status = statusValue;
+          }
+        });
+      });
+
+      return Array.from(requestsByKey.values())
+        .map(request => ({
+          ...request,
+          addresses: Array.from(request.addresses).sort(),
+          details: Array.from(request.details),
+          scheduledDates: Array.from(request.scheduledDates)
+        }))
+        .sort((a, b) => {
+          const statusDiff = getLotWeedingStatusPriority(a.status) - getLotWeedingStatusPriority(b.status);
+          if (statusDiff !== 0) return statusDiff;
+          return a.primaryAddress.localeCompare(b.primaryAddress);
+        });
+    }
+
+    function getLotWeedingRequestForAddress(address) {
+      if (!address) return null;
+      if (!sheetData || !sheetData.addressMap || !sheetData.addressMap.has(address)) return null;
+
+      const headers = sheetData.headers || [];
+      const { apnCol } = findLotWeedingRequestColumns(headers);
+      const rows = sheetData.addressMap.get(address) || [];
+      const addressApns = new Set(
+        rows
+          .map(row => apnCol ? normalizeApnDigits(row[apnCol]) : '')
+          .filter(Boolean)
+      );
+
+      return getLotWeedingRequests().find(request => {
+        if (request.apnDigits && addressApns.has(request.apnDigits)) return true;
+        return request.addresses.includes(address);
+      }) || null;
+    }
+
+    const LOT_WEEDING_ORGANIZER_FORM_URL = 'https://forms.gle/rmCcPLBGtEBxpSfdA';
+
+    function buildLotWeedingRequestsCopyText(requests) {
+      const zoneLabel = currentZoneName ? ` for ${currentZoneName}` : '';
+      const lines = [
+        `Lot weeding requests${zoneLabel}: ${requests.length}`,
+        `Organizer signup: ${LOT_WEEDING_ORGANIZER_FORM_URL}`
+      ];
+      requests.forEach((request, index) => {
+        const details = request.details.length > 0 ? request.details.join(' | ') : 'No details provided';
+        const apn = request.apn ? `APN ${request.apn}` : 'APN not listed';
+        const dateText = request.scheduledDates.length > 0 ? ` (${request.scheduledDates.join(', ')})` : '';
+        const statusText = request.status ? ` - ${request.status}${dateText}` : '';
+        lines.push(`${index + 1}. ${request.primaryAddress} (${apn})${statusText} - ${details}`);
+      });
+      return lines.join('\n');
+    }
+
+    function addressHasLotWeedingRequest(address) {
+      return Boolean(getLotWeedingRequestForAddress(address));
+    }
+
+    function showLotWeedingRequestsOnMap() {
+      currentLotWeedingFilter = 'requested';
+      switchView('map');
+      setTimeout(() => {
+        populateFilterBar();
+        displayAddressTable();
+        displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
+        updateMapMarkers();
+      }, 100);
+    }
+
+    function showLotWeedingRequestsModal() {
+      const requests = getLotWeedingRequests();
+      if (requests.length === 0) {
+        alert('No lot weeding requests were found in this zone.');
+        return;
+      }
+
+      const modalId = 'lotWeedingRequestsModalOverlay';
+      document.getElementById(modalId)?.remove();
+
+      const rowsHtml = requests.map((request, index) => {
+        const detailsHtml = request.details.length > 0
+          ? request.details.map(detail => `<p>${escapeHtml(detail)}</p>`).join('')
+          : '<p class="lot-weeding-request-empty">No details provided.</p>';
+        const addressNote = request.addresses.length > 1
+          ? `<div class="lot-weeding-request-meta">Also appears as: ${request.addresses.map(escapeHtml).join(', ')}</div>`
+          : '';
+        const scheduledDateText = request.scheduledDates.length > 0 ? request.scheduledDates.join(', ') : '';
+        const statusHtml = request.status
+          ? `<div class="lot-weeding-request-status"><span class="lot-weeding-status-badge lot-weeding-status-badge--${request.status.toLowerCase()}">${escapeHtml(request.status)}</span>${scheduledDateText ? `<span class="lot-weeding-status-date">${escapeHtml(scheduledDateText)}</span>` : ''}</div>`
+          : '';
+        return `
+          <article class="lot-weeding-request-row${request.status ? ` lot-weeding-request-row--${request.status.toLowerCase()}` : ''}">
+            <div class="lot-weeding-request-index">${index + 1}</div>
+            <div class="lot-weeding-request-main">
+              <h4>${escapeHtml(request.primaryAddress)}</h4>
+              <div class="lot-weeding-request-meta">${request.apn ? `APN: ${escapeHtml(request.apn)}` : 'APN not listed'}</div>
+              ${statusHtml}
+              ${addressNote}
+              <div class="lot-weeding-request-details">${detailsHtml}</div>
+            </div>
+            <div class="lot-weeding-request-actions">
+              <button type="button" class="btn-modal-secondary lot-weeding-open-address" data-address="${escapeHtmlAttr(request.primaryAddress)}">Open address</button>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      const modalHtml = `
+        <div class="newsletter-modal-overlay" id="${modalId}">
+          <div class="newsletter-modal lot-weeding-modal">
+            <button class="newsletter-modal-close" id="lotWeedingRequestsModalClose">&times;</button>
+            <div class="newsletter-modal-header">
+              <h3 class="newsletter-modal-title">Organize a lot weeding event</h3>
+              <p class="newsletter-modal-subtitle">Residents requested weeding help for ${requests.length} lot${requests.length !== 1 ? 's' : ''} in this zone. Pick a date, invite neighbors, and Altagether can help coordinate supplies, tools, and paid day laborer support through NDLON/Pasadena Job Center.</p>
+            </div>
+            <div class="newsletter-modal-content">
+              <section class="newsletter-modal-section lot-weeding-help-section">
+                <h4 class="newsletter-modal-section-title">How the program works</h4>
+                <div class="lot-weeding-program-callout">
+                  <p>Altadena Talks Foundation already has a pipeline of 200+ lot-weeding requests. Altagether is partnering with them and NDLON to help residents remove weeds, reduce fire risk, avoid county issues, and build community with neighbors and local workers.</p>
+                  <ol class="lot-weeding-program-steps">
+                    <li>Review requested lots in your zone.</li>
+                    <li>Choose a date and time. If there are multiple requests nearby, consider doing them in one day.</li>
+                    <li>Sign up to organize the event, ideally at least one week ahead, so Altagether can coordinate tools, supplies, and laborer support.</li>
+                    <li>Invite neighbors and make it a social event.</li>
+                  </ol>
+                  <p class="lot-weeding-program-note">Funds for laborer support are limited, so sign up soon if you are interested.</p>
+                </div>
+              </section>
+              <section class="newsletter-modal-section">
+                <h4 class="newsletter-modal-section-title">Requested lots</h4>
+                <div class="lot-weeding-request-list">${rowsHtml}</div>
+              </section>
+            </div>
+            <div class="newsletter-modal-actions">
+              <a href="${LOT_WEEDING_ORGANIZER_FORM_URL}" target="_blank" rel="noopener noreferrer" class="btn-copy-emails btn-lot-weeding-organize">Help organize a weeding event in your zone</a>
+              <button type="button" class="btn-copy-emails" id="copyLotWeedingSummaryBtn">Copy summary</button>
+              <button type="button" class="btn-modal-secondary" id="showLotWeedingOnMapBtn">Show on map</button>
+              <button type="button" class="btn-modal-secondary" id="lotWeedingRequestsModalCloseBtn">Close</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+      const overlay = document.getElementById(modalId);
+      const closeBtn = document.getElementById('lotWeedingRequestsModalClose');
+      const closeActionBtn = document.getElementById('lotWeedingRequestsModalCloseBtn');
+      const copyBtn = document.getElementById('copyLotWeedingSummaryBtn');
+      const showOnMapBtn = document.getElementById('showLotWeedingOnMapBtn');
+      const removeModal = () => {
+        if (overlay && overlay.parentNode) overlay.remove();
+      };
+
+      overlay?.addEventListener('click', (e) => {
+        if (e.target === overlay) removeModal();
+      });
+      closeBtn?.addEventListener('click', removeModal);
+      closeActionBtn?.addEventListener('click', removeModal);
+      showOnMapBtn?.addEventListener('click', () => {
+        removeModal();
+        showLotWeedingRequestsOnMap();
+      });
+
+      document.querySelectorAll(`#${modalId} .lot-weeding-open-address`).forEach(button => {
+        button.addEventListener('click', () => {
+          const address = button.getAttribute('data-address');
+          if (!address) return;
+          removeModal();
+          navigateToAddress(address);
+        });
+      });
+
+      copyBtn?.addEventListener('click', async () => {
+        const summary = buildLotWeedingRequestsCopyText(requests);
+        try {
+          await navigator.clipboard.writeText(summary);
+        } catch (err) {
+          const textArea = document.createElement('textarea');
+          textArea.value = summary;
+          textArea.style.position = 'fixed';
+          textArea.style.opacity = '0';
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+        }
+        copyBtn.textContent = 'Copied';
+        showAppToast('Lot weeding summary copied.');
+        setTimeout(() => {
+          copyBtn.textContent = 'Copy summary';
+        }, 1800);
+      });
+    }
+
     // Calculate quick actions based on spreadsheet data
     function calculateQuickActions() {
       if (!sheetData || !sheetData.addressMap) {
         return {
           uncontactedCount: 0,
           noDamageStatusCount: 0,
-          followupPeople: []
+          followupPeople: [],
+          lotWeedingRequests: []
         };
       }
 
       const headers = sheetData.headers;
       const addressMap = sheetData.addressMap;
+      const lotWeedingRequests = getLotWeedingOpenRequests();
       
       // Find contact columns (same logic as Zone Overview)
       const contactStatusCol = headers.find(h => {
@@ -4682,7 +5010,8 @@
       return {
         uncontactedCount,
         noDamageStatusCount,
-        followupPeople
+        followupPeople,
+        lotWeedingRequests
       };
     }
 
@@ -4692,6 +5021,7 @@
       currentStreetFilter = 'all';
       currentDamageFilter = 'all';
       currentSalesFilter = 'all';
+      currentLotWeedingFilter = 'all';
       currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
       currentEpicFilter = 'all';
@@ -4743,6 +5073,7 @@
       currentStreetFilter = 'all';
       currentDamageFilter = ''; // Empty string for "(not set)"
       currentSalesFilter = 'all';
+      currentLotWeedingFilter = 'all';
       currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
       currentEpicFilter = 'all';
@@ -4762,6 +5093,7 @@
       currentStreetFilter = 'all';
       currentDamageFilter = 'all';
       currentSalesFilter = 'all';
+      currentLotWeedingFilter = 'all';
       currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
       currentEpicFilter = 'all';
@@ -4904,6 +5236,23 @@
         `;
       }
 
+      // Lot weeding request action
+      if (actions.lotWeedingRequests && actions.lotWeedingRequests.length > 0) {
+        hasActions = true;
+        const requestCount = actions.lotWeedingRequests.length;
+        html += `
+          <div class="quick-action-item quick-action-item--lot-weeding">
+            <div class="quick-action-text">
+              Residents requested weeding help for <strong>${requestCount}</strong> lot${requestCount !== 1 ? 's' : ''} that ${requestCount === 1 ? 'is' : 'are'} not yet scheduled or completed. Help organize a weeding event in your zone; Altagether can coordinate supplies, tools, and paid day laborer support through NDLON/Pasadena Job Center.
+            </div>
+            <div class="quick-action-links">
+              <a href="#" class="quick-action-link" id="showLotWeedingRequestsLink">review lot weeding requests</a>
+              <a href="${LOT_WEEDING_ORGANIZER_FORM_URL}" target="_blank" rel="noopener noreferrer" class="quick-action-link">help organize a weeding event in your zone</a>
+            </div>
+          </div>
+        `;
+      }
+
       // Follow-up people action
       if (actions.followupPeople && actions.followupPeople.length > 0) {
         hasActions = true;
@@ -4950,6 +5299,14 @@
         noDamageStatusLink.addEventListener('click', (e) => {
           e.preventDefault();
           navigateToAddressesWithoutDamageStatus();
+        });
+      }
+
+      const lotWeedingRequestsLink = document.getElementById('showLotWeedingRequestsLink');
+      if (lotWeedingRequestsLink) {
+        lotWeedingRequestsLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          showLotWeedingRequestsModal();
         });
       }
 
@@ -5019,6 +5376,24 @@
               </div>
               <div class="action-card-links">
                 <a href="#" class="action-card-link" id="actionsPageNoDamageStatusLink">see addresses without damage status</a>
+              </div>
+            </div>
+          `);
+        }
+
+        // Lot weeding request action
+        if (actions.lotWeedingRequests && actions.lotWeedingRequests.length > 0) {
+          hasCalculatedActions = true;
+          const requestCount = actions.lotWeedingRequests.length;
+          calculatedActions.push(`
+            <div class="action-card action-card--lot-weeding">
+              <div class="action-card-title">Organize Lot Weeding</div>
+              <div class="action-card-content">
+                There ${requestCount === 1 ? 'is' : 'are'} weeding request${requestCount !== 1 ? 's' : ''} at <strong>${requestCount}</strong> lot${requestCount !== 1 ? 's' : ''} that ${requestCount === 1 ? 'is' : 'are'} not yet scheduled or completed. Choose a date, invite neighbors, and sign up so Altagether can help coordinate tools, supplies, and paid day laborer support through NDLON/Pasadena Job Center.
+              </div>
+              <div class="action-card-links">
+                <a href="${LOT_WEEDING_ORGANIZER_FORM_URL}" target="_blank" rel="noopener noreferrer" class="action-card-link">help organize a weeding event</a>
+                <a href="#" class="action-card-link" id="actionsPageLotWeedingRequestsLink">review weeding requests</a>
               </div>
             </div>
           `);
@@ -5100,6 +5475,14 @@
         noDamageStatusLink.addEventListener('click', (e) => {
           e.preventDefault();
           navigateToAddressesWithoutDamageStatus();
+        });
+      }
+
+      const lotWeedingRequestsLink = document.getElementById('actionsPageLotWeedingRequestsLink');
+      if (lotWeedingRequestsLink) {
+        lotWeedingRequestsLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          showLotWeedingRequestsModal();
         });
       }
 
@@ -6199,6 +6582,8 @@
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const contactDateCol = findOutreachDateColumn(headers);
+      const hasLotWeedingRequestColumn = Boolean(findLotWeedingRequestColumns(headers).requestedCol);
+      const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
 
       const streets = getUniqueStreets(addresses);
       const damages = getFullDamageOptions();
@@ -6240,6 +6625,10 @@
           <option value="all" ${currentSalesFilter === 'all' ? 'selected' : ''}>Sales: All Addresses</option>
           <option value="sold_since_fire" ${currentSalesFilter === 'sold_since_fire' ? 'selected' : ''}>Sales: Sold Since Fire</option>
         </select>
+        ${hasLotWeedingRequestColumn ? `<select id="persistentLotWeedingFilter" class="${currentLotWeedingFilter !== 'all' ? 'filter-active' : ''}" title="Filter to lots where residents requested weed cleanup help.">
+          <option value="all" ${currentLotWeedingFilter === 'all' ? 'selected' : ''}>Weeding: All lots</option>
+          <option value="requested" ${currentLotWeedingFilter === 'requested' ? 'selected' : ''}>Weeding: Requests only</option>
+        </select>` : ''}
         ${addressPlanCol ? `<select id="persistentAddressPlanFilter" class="${currentAddressPlanFilter !== 'all' ? 'filter-active' : ''}" title="The owner's current intent for the property—whether they plan to rebuild, sell, or are still deciding.">
           <option value="all" ${currentAddressPlanFilter === 'all' ? 'selected' : ''}>All Address Plan</option>
           <option value="" ${currentAddressPlanFilter === '' ? 'selected' : ''}>(not set)</option>
@@ -6264,8 +6653,9 @@
           ${captainNames.map(name => `<option value="${escapeHtml(name).replace(/"/g, '&quot;')}" ${currentCaptainFilter === name ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}
         </select>` : ''}
         <input type="text" id="persistentPersonSearch" placeholder="Search Person" value="${escapeHtml(currentPersonSearch)}" class="${currentPersonSearch.trim() ? 'filter-active' : ''}" title="Filter addresses by resident name (partial match).">
-        ${contactDateCol ? `
+        ${(contactDateCol || soldSinceFireCol) ? `
         <div class="contact-filter-group">
+          ${contactDateCol ? `
           <label class="contact-filter-checkbox" title="View only addresses where at least one outreach attempt has been logged.">
             <input type="checkbox" id="persistentShowContactedCheckbox" ${showContactedAddresses ? 'checked' : ''}>
             <span>Show outreach-attempted addresses</span>
@@ -6274,6 +6664,13 @@
             <input type="checkbox" id="persistentShowUncontactedCheckbox" ${showUncontactedAddresses ? 'checked' : ''}>
             <span>Show no-outreach-yet addresses</span>
           </label>
+          ` : ''}
+          ${soldSinceFireCol ? `
+          <label class="contact-filter-checkbox" title="Show SOLD tags next to addresses marked as sold since January 2025.">
+            <input type="checkbox" id="persistentShowSoldTagsCheckbox" ${showSoldSinceJan25Tags ? 'checked' : ''}>
+            <span>Show sold since Jan '25</span>
+          </label>
+          ` : ''}
         </div>
         ` : ''}
       `;
@@ -6310,6 +6707,10 @@
       if (oldSalesFilter) {
         oldSalesFilter.replaceWith(oldSalesFilter.cloneNode(true));
       }
+      const oldLotWeedingFilter = document.getElementById('persistentLotWeedingFilter');
+      if (oldLotWeedingFilter) {
+        oldLotWeedingFilter.replaceWith(oldLotWeedingFilter.cloneNode(true));
+      }
       const oldAddressPlanFilter = document.getElementById('persistentAddressPlanFilter');
       if (oldAddressPlanFilter) {
         oldAddressPlanFilter.replaceWith(oldAddressPlanFilter.cloneNode(true));
@@ -6329,6 +6730,10 @@
       const oldUncontactedCheckbox = document.getElementById('persistentShowUncontactedCheckbox');
       if (oldUncontactedCheckbox) {
         oldUncontactedCheckbox.replaceWith(oldUncontactedCheckbox.cloneNode(true));
+      }
+      const oldSoldTagsCheckbox = document.getElementById('persistentShowSoldTagsCheckbox');
+      if (oldSoldTagsCheckbox) {
+        oldSoldTagsCheckbox.replaceWith(oldSoldTagsCheckbox.cloneNode(true));
       }
       const oldCaptainFilter = document.getElementById('persistentCaptainFilter');
       if (oldCaptainFilter) {
@@ -6377,6 +6782,21 @@
             salesFilter.classList.add('filter-active');
           } else {
             salesFilter.classList.remove('filter-active');
+          }
+          displayAddressTable();
+          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
+          updateMapMarkers();
+        });
+      }
+
+      const lotWeedingFilter = document.getElementById('persistentLotWeedingFilter');
+      if (lotWeedingFilter) {
+        lotWeedingFilter.addEventListener('change', (e) => {
+          currentLotWeedingFilter = e.target.value;
+          if (currentLotWeedingFilter !== 'all') {
+            lotWeedingFilter.classList.add('filter-active');
+          } else {
+            lotWeedingFilter.classList.remove('filter-active');
           }
           displayAddressTable();
           displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
@@ -6469,6 +6889,14 @@
         });
       }
 
+      const showSoldTagsCheckbox = document.getElementById('persistentShowSoldTagsCheckbox');
+      if (showSoldTagsCheckbox) {
+        showSoldTagsCheckbox.addEventListener('change', (e) => {
+          showSoldSinceJan25Tags = e.target.checked;
+          scheduleSoldTagVisibilityUpdate(0);
+        });
+      }
+
       const personSearchInput = document.getElementById('persistentPersonSearch');
       if (personSearchInput) {
         personSearchInput.addEventListener('input', (e) => {
@@ -6546,6 +6974,7 @@
           }
         }
         if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(addr)) return false;
+        if (currentLotWeedingFilter === 'requested' && !addressHasLotWeedingRequest(addr)) return false;
         if (currentAddressPlanFilter !== 'all') {
           const addrPlan = getAddressPlan(addr);
           if (currentAddressPlanFilter === '') {
@@ -6777,6 +7206,9 @@
       if (currentSalesFilter !== 'all') {
         parts.push('Sales: Sold Since Fire');
       }
+      if (currentLotWeedingFilter !== 'all') {
+        parts.push('Weeding: Requests only');
+      }
       if (currentAddressPlanFilter !== 'all') {
         parts.push('Address Plan: ' + (currentAddressPlanFilter === '' ? '(not set)' : currentAddressPlanFilter));
       }
@@ -6967,6 +7399,7 @@
           }
         }
         if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(addr)) return false;
+        if (currentLotWeedingFilter === 'requested' && !addressHasLotWeedingRequest(addr)) return false;
         if (currentAddressPlanFilter !== 'all') {
           const addrPlan = getAddressPlan(addr);
           if (currentAddressPlanFilter === '') {
@@ -7498,6 +7931,9 @@
         if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(addr)) {
           return false;
         }
+        if (currentLotWeedingFilter === 'requested' && !addressHasLotWeedingRequest(addr)) {
+          return false;
+        }
         // Status filter
         if (currentAddressPlanFilter !== 'all') {
           const addrPlan = getAddressPlan(addr);
@@ -7865,6 +8301,9 @@
           if (movePinAddress) openMovePinModal(movePinAddress);
         });
       });
+      document.querySelectorAll('#addressDetailsModalOverlay [data-lot-weeding-requests-trigger="true"]').forEach(btn => {
+        btn.addEventListener('click', showLotWeedingRequestsModal);
+      });
 
       document.querySelectorAll('#addressDetailsModalOverlay .editable-dropdown').forEach(dropdown => {
         dropdown.addEventListener('change', () => {
@@ -8079,7 +8518,15 @@
         'sales history',
         'unit type',
         'former resident',
-        'deceased'
+        'deceased',
+        'lot_weeding_requested_spring_2026',
+        'lot weeding requested spring 2026',
+        'lot_weeding_request_details_spring_2026',
+        'lot weeding request details spring 2026',
+        'lot_weeding_status_spring_2026',
+        'lot weeding status spring 2026',
+        'lot_weeding_date_scheduled_spring_2026',
+        'lot weeding date scheduled spring 2026'
       ];
 
       const isHouseOrZipField = (lower) => {
@@ -8146,6 +8593,7 @@
 
       const apnColForHeader = headers.find(h => h.toLowerCase() === 'apn');
       const apnValueForHeader = apnColForHeader && rows[0] ? String(rows[0][apnColForHeader] || '').trim() : '';
+      const lotWeedingRequestForAddress = getLotWeedingRequestForAddress(address);
 
       let html = `
         <div class="details-toolbar">
@@ -8175,6 +8623,25 @@
             </header>
             <div class="details-section__body">
       `;
+
+      if (lotWeedingRequestForAddress) {
+        const detailsHtml = lotWeedingRequestForAddress.details.length > 0
+          ? lotWeedingRequestForAddress.details.map(detail => `<p>${escapeHtml(detail)}</p>`).join('')
+          : '<p class="lot-weeding-request-empty">No details provided.</p>';
+        const scheduledDateText = lotWeedingRequestForAddress.scheduledDates.length > 0
+          ? lotWeedingRequestForAddress.scheduledDates.join(', ')
+          : '';
+        const statusHtml = lotWeedingRequestForAddress.status
+          ? `<p><strong>Status:</strong> ${escapeHtml(lotWeedingRequestForAddress.status)}${scheduledDateText ? ` (${escapeHtml(scheduledDateText)})` : ''}</p>`
+          : '';
+        html += `
+          <div class="lot-weeding-address-notice">
+            <div class="lot-weeding-address-notice__label">Lot weeding requested</div>
+            <div class="lot-weeding-address-notice__details">${statusHtml}${detailsHtml}</div>
+            <button type="button" class="quick-action-link lot-weeding-address-notice__button" data-lot-weeding-requests-trigger="true">Review all weeding requests</button>
+          </div>
+        `;
+      }
 
       // Collect unique values for dropdown fields from ALL data
       const damageValues = new Set();
@@ -8909,6 +9376,9 @@
           if (triggerAddress) showAddressDetailsModal(triggerAddress);
         });
       });
+      document.querySelectorAll('[data-lot-weeding-requests-trigger="true"]').forEach(trigger => {
+        trigger.addEventListener('click', showLotWeedingRequestsModal);
+      });
 
       document.querySelectorAll('[data-person-details-trigger="true"]').forEach(trigger => {
         trigger.addEventListener('click', () => {
@@ -9373,7 +9843,15 @@
         'lot sqft',
         'lot sq ft',
         'sales history',
-        'unit type'
+        'unit type',
+        'lot_weeding_requested_spring_2026',
+        'lot weeding requested spring 2026',
+        'lot_weeding_request_details_spring_2026',
+        'lot weeding request details spring 2026',
+        'lot_weeding_status_spring_2026',
+        'lot weeding status spring 2026',
+        'lot_weeding_date_scheduled_spring_2026',
+        'lot weeding date scheduled spring 2026'
       ];
       const isHouseOrZipField = (lower) => {
         const normalized = lower.trim();
@@ -10622,7 +11100,7 @@
 
     function updateSoldTagVisibility() {
       if (!zoneMap || !Array.isArray(addressMarkers) || addressMarkers.length === 0) return;
-      const showLabels = zoneMap.getZoom() >= SOLD_TAG_MIN_ZOOM;
+      const showLabels = showSoldSinceJan25Tags && zoneMap.getZoom() >= SOLD_TAG_MIN_ZOOM;
       const mapRect = zoneMap.getContainer().getBoundingClientRect();
       const soldEntries = [];
 
@@ -13924,6 +14402,9 @@
         if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(address)) {
           return false;
         }
+        if (currentLotWeedingFilter === 'requested' && !addressHasLotWeedingRequest(address)) {
+          return false;
+        }
         
         // Address Plan filter
         if (currentAddressPlanFilter !== 'all') {
@@ -14027,7 +14508,7 @@
               permanent: true,
               direction: 'right',
               offset: [SOLD_TAG_OFFSET_X, 0],
-              className: 'sold-status-tooltip',
+              className: `sold-status-tooltip${showSoldSinceJan25Tags ? '' : ' sold-status-tooltip-hidden'}`,
               pane: SOLD_TAG_PANE,
               interactive: false,
               opacity: 1
