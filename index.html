@@ -1204,6 +1204,7 @@
     let currentPersonSearch = ''; // Current resident-name search filter
     let showContactedAddresses = true; // Show addresses with contacted people
     let showUncontactedAddresses = true; // Show addresses with uncontacted people
+    let showSoldSinceJan25Tags = false; // Show SOLD labels next to sold-since-fire map dots
     const epicPresenceState = {
       loading: false,
       ready: false,
@@ -5164,8 +5165,8 @@
               Residents requested weeding help for <strong>${requestCount}</strong> lot${requestCount !== 1 ? 's' : ''}. Help organize a weeding event in your zone; Altagether can coordinate supplies, tools, and paid day laborer support through NDLON/Pasadena Job Center.
             </div>
             <div class="quick-action-links">
-              <a href="${LOT_WEEDING_ORGANIZER_FORM_URL}" target="_blank" rel="noopener noreferrer" class="quick-action-link">help organize a weeding event in your zone</a>
               <a href="#" class="quick-action-link" id="showLotWeedingRequestsLink">review lot weeding requests</a>
+              <a href="${LOT_WEEDING_ORGANIZER_FORM_URL}" target="_blank" rel="noopener noreferrer" class="quick-action-link">help organize a weeding event in your zone</a>
             </div>
           </div>
         `;
@@ -6501,6 +6502,7 @@
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const contactDateCol = findOutreachDateColumn(headers);
       const hasLotWeedingRequestColumn = Boolean(findLotWeedingRequestColumns(headers).requestedCol);
+      const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
 
       const streets = getUniqueStreets(addresses);
       const damages = getFullDamageOptions();
@@ -6570,8 +6572,9 @@
           ${captainNames.map(name => `<option value="${escapeHtml(name).replace(/"/g, '&quot;')}" ${currentCaptainFilter === name ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}
         </select>` : ''}
         <input type="text" id="persistentPersonSearch" placeholder="Search Person" value="${escapeHtml(currentPersonSearch)}" class="${currentPersonSearch.trim() ? 'filter-active' : ''}" title="Filter addresses by resident name (partial match).">
-        ${contactDateCol ? `
+        ${(contactDateCol || soldSinceFireCol) ? `
         <div class="contact-filter-group">
+          ${contactDateCol ? `
           <label class="contact-filter-checkbox" title="View only addresses where at least one outreach attempt has been logged.">
             <input type="checkbox" id="persistentShowContactedCheckbox" ${showContactedAddresses ? 'checked' : ''}>
             <span>Show outreach-attempted addresses</span>
@@ -6580,6 +6583,13 @@
             <input type="checkbox" id="persistentShowUncontactedCheckbox" ${showUncontactedAddresses ? 'checked' : ''}>
             <span>Show no-outreach-yet addresses</span>
           </label>
+          ` : ''}
+          ${soldSinceFireCol ? `
+          <label class="contact-filter-checkbox" title="Show SOLD tags next to addresses marked as sold since January 2025.">
+            <input type="checkbox" id="persistentShowSoldTagsCheckbox" ${showSoldSinceJan25Tags ? 'checked' : ''}>
+            <span>Show sold since Jan '25</span>
+          </label>
+          ` : ''}
         </div>
         ` : ''}
       `;
@@ -6639,6 +6649,10 @@
       const oldUncontactedCheckbox = document.getElementById('persistentShowUncontactedCheckbox');
       if (oldUncontactedCheckbox) {
         oldUncontactedCheckbox.replaceWith(oldUncontactedCheckbox.cloneNode(true));
+      }
+      const oldSoldTagsCheckbox = document.getElementById('persistentShowSoldTagsCheckbox');
+      if (oldSoldTagsCheckbox) {
+        oldSoldTagsCheckbox.replaceWith(oldSoldTagsCheckbox.cloneNode(true));
       }
       const oldCaptainFilter = document.getElementById('persistentCaptainFilter');
       if (oldCaptainFilter) {
@@ -6791,6 +6805,14 @@
           displayAddressTable();
           displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
           updateMapMarkers();
+        });
+      }
+
+      const showSoldTagsCheckbox = document.getElementById('persistentShowSoldTagsCheckbox');
+      if (showSoldTagsCheckbox) {
+        showSoldTagsCheckbox.addEventListener('change', (e) => {
+          showSoldSinceJan25Tags = e.target.checked;
+          scheduleSoldTagVisibilityUpdate(0);
         });
       }
 
@@ -10983,7 +11005,7 @@
 
     function updateSoldTagVisibility() {
       if (!zoneMap || !Array.isArray(addressMarkers) || addressMarkers.length === 0) return;
-      const showLabels = zoneMap.getZoom() >= SOLD_TAG_MIN_ZOOM;
+      const showLabels = showSoldSinceJan25Tags && zoneMap.getZoom() >= SOLD_TAG_MIN_ZOOM;
       const mapRect = zoneMap.getContainer().getBoundingClientRect();
       const soldEntries = [];
 
@@ -14391,7 +14413,7 @@
               permanent: true,
               direction: 'right',
               offset: [SOLD_TAG_OFFSET_X, 0],
-              className: 'sold-status-tooltip',
+              className: `sold-status-tooltip${showSoldSinceJan25Tags ? '' : ' sold-status-tooltip-hidden'}`,
               pane: SOLD_TAG_PANE,
               interactive: false,
               opacity: 1
