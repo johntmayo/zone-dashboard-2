@@ -4677,9 +4677,14 @@
       }) || null;
     }
 
+    const LOT_WEEDING_ORGANIZER_FORM_URL = 'https://forms.gle/rmCcPLBGtEBxpSfdA';
+
     function buildLotWeedingRequestsCopyText(requests) {
       const zoneLabel = currentZoneName ? ` for ${currentZoneName}` : '';
-      const lines = [`Lot weeding requests${zoneLabel}: ${requests.length}`];
+      const lines = [
+        `Lot weeding requests${zoneLabel}: ${requests.length}`,
+        `Organizer signup: ${LOT_WEEDING_ORGANIZER_FORM_URL}`
+      ];
       requests.forEach((request, index) => {
         const details = request.details.length > 0 ? request.details.join(' | ') : 'No details provided';
         const apn = request.apn ? `APN ${request.apn}` : 'APN not listed';
@@ -4741,13 +4746,22 @@
           <div class="newsletter-modal lot-weeding-modal">
             <button class="newsletter-modal-close" id="lotWeedingRequestsModalClose">&times;</button>
             <div class="newsletter-modal-header">
-              <h3 class="newsletter-modal-title">Lot weeding requests</h3>
-              <p class="newsletter-modal-subtitle">Residents requested weeding help for ${requests.length} lot${requests.length !== 1 ? 's' : ''} in this zone.</p>
+              <h3 class="newsletter-modal-title">Organize a lot weeding event</h3>
+              <p class="newsletter-modal-subtitle">Residents requested weeding help for ${requests.length} lot${requests.length !== 1 ? 's' : ''} in this zone. Pick a date, invite neighbors, and Altagether can help coordinate supplies, tools, and paid day laborer support through NDLON/Pasadena Job Center.</p>
             </div>
             <div class="newsletter-modal-content">
               <section class="newsletter-modal-section lot-weeding-help-section">
-                <h4 class="newsletter-modal-section-title">How to use this</h4>
-                <p>Review the lots below. If you are interested in helping organize or support a weeding effort, copy the summary and tell Altagether which lot or lots you can help with.</p>
+                <h4 class="newsletter-modal-section-title">How the program works</h4>
+                <div class="lot-weeding-program-callout">
+                  <p>Altadena Talks Foundation already has a pipeline of 200+ lot-weeding requests. Altagether is partnering with them and NDLON to help residents remove weeds, reduce fire risk, avoid county issues, and build community with neighbors and local workers.</p>
+                  <ol class="lot-weeding-program-steps">
+                    <li>Review requested lots in your zone.</li>
+                    <li>Choose a date and time. If there are multiple requests nearby, consider doing them in one day.</li>
+                    <li>Sign up to organize the event, ideally at least one week ahead, so Altagether can coordinate tools, supplies, and laborer support.</li>
+                    <li>Invite neighbors and make it a social event.</li>
+                  </ol>
+                  <p class="lot-weeding-program-note">Funds for laborer support are limited, so sign up soon if you are interested.</p>
+                </div>
               </section>
               <section class="newsletter-modal-section">
                 <h4 class="newsletter-modal-section-title">Requested lots</h4>
@@ -4755,6 +4769,7 @@
               </section>
             </div>
             <div class="newsletter-modal-actions">
+              <a href="${LOT_WEEDING_ORGANIZER_FORM_URL}" target="_blank" rel="noopener noreferrer" class="btn-copy-emails btn-lot-weeding-organize">Help organize a weeding event in your zone</a>
               <button type="button" class="btn-copy-emails" id="copyLotWeedingSummaryBtn">Copy summary</button>
               <button type="button" class="btn-modal-secondary" id="showLotWeedingOnMapBtn">Show on map</button>
               <button type="button" class="btn-modal-secondary" id="lotWeedingRequestsModalCloseBtn">Close</button>
@@ -5146,9 +5161,10 @@
         html += `
           <div class="quick-action-item quick-action-item--lot-weeding">
             <div class="quick-action-text">
-              Residents requested weed cleanup help for <strong>${requestCount}</strong> lot${requestCount !== 1 ? 's' : ''}. Review the list and tell Altagether if you are interested in helping with one.
+              Residents requested weeding help for <strong>${requestCount}</strong> lot${requestCount !== 1 ? 's' : ''}. Help organize a weeding event in your zone; Altagether can coordinate supplies, tools, and paid day laborer support through NDLON/Pasadena Job Center.
             </div>
             <div class="quick-action-links">
+              <a href="${LOT_WEEDING_ORGANIZER_FORM_URL}" target="_blank" rel="noopener noreferrer" class="quick-action-link">help organize a weeding event in your zone</a>
               <a href="#" class="quick-action-link" id="showLotWeedingRequestsLink">review lot weeding requests</a>
             </div>
           </div>
@@ -5289,11 +5305,12 @@
           const requestCount = actions.lotWeedingRequests.length;
           calculatedActions.push(`
             <div class="action-card action-card--lot-weeding">
-              <div class="action-card-title">Lot Weeding Requests</div>
+              <div class="action-card-title">Organize Lot Weeding</div>
               <div class="action-card-content">
-                There ${requestCount === 1 ? 'is' : 'are'} weed cleanup request${requestCount !== 1 ? 's' : ''} at <strong>${requestCount}</strong> lot${requestCount !== 1 ? 's' : ''}. Review the requests, then tell Altagether if you are interested in helping support one of these weeding efforts.
+                There ${requestCount === 1 ? 'is' : 'are'} weeding request${requestCount !== 1 ? 's' : ''} at <strong>${requestCount}</strong> lot${requestCount !== 1 ? 's' : ''}. Choose a date, invite neighbors, and sign up so Altagether can help coordinate tools, supplies, and paid day laborer support through NDLON/Pasadena Job Center.
               </div>
               <div class="action-card-links">
+                <a href="${LOT_WEEDING_ORGANIZER_FORM_URL}" target="_blank" rel="noopener noreferrer" class="action-card-link">help organize a weeding event</a>
                 <a href="#" class="action-card-link" id="actionsPageLotWeedingRequestsLink">review weeding requests</a>
               </div>
             </div>
