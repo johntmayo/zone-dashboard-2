@@ -1634,6 +1634,10 @@
       border-radius: 10px;
     }
 
+    .lot-weeding-request-row--completed {
+      opacity: 0.72;
+    }
+
     .lot-weeding-request-index {
       width: 28px;
       height: 28px;
@@ -1663,6 +1667,45 @@
       font-family: 'Chivo', sans-serif;
       font-size: 0.78rem;
       line-height: 1.35;
+    }
+
+    .lot-weeding-request-status {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 4px 0 8px;
+      font-family: 'Chivo', sans-serif;
+    }
+
+    .lot-weeding-status-badge {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      padding: 3px 8px;
+      border: 1px solid var(--text-primary);
+      box-shadow: 2px 2px 0 rgba(31, 41, 55, 0.18);
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    .lot-weeding-status-badge--scheduled {
+      background: rgba(31, 41, 55, 0.08);
+      color: var(--brand-primary-dark);
+    }
+
+    .lot-weeding-status-badge--completed {
+      background: rgba(96, 108, 56, 0.12);
+      color: var(--accent-altagether-green, #606c38);
+    }
+
+    .lot-weeding-status-date {
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+      font-weight: 700;
     }
 
     .lot-weeding-request-details {

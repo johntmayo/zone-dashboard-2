@@ -4591,7 +4591,7 @@
 
     function findLotWeedingRequestColumns(headers) {
       if (!headers || !Array.isArray(headers)) {
-        return { requestedCol: null, detailsCol: null, apnCol: null };
+        return { requestedCol: null, detailsCol: null, statusCol: null, dateScheduledCol: null, apnCol: null };
       }
 
       const normalize = (value) => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -4607,16 +4607,75 @@
           return lower.includes('lot') && lower.includes('weeding') && lower.includes('request') && lower.includes('detail') && lower.includes('spring') && lower.includes('2026');
         }) ||
         null;
+      const statusCol = headers.find(h => normalize(h) === 'lotweedingstatusspring2026') ||
+        headers.find(h => {
+          const lower = String(h || '').toLowerCase();
+          return lower.includes('lot') && lower.includes('weeding') && lower.includes('status') && lower.includes('spring') && lower.includes('2026');
+        }) ||
+        null;
+      const dateScheduledCol = headers.find(h => normalize(h) === 'lotweedingdatescheduledspring2026') ||
+        headers.find(h => {
+          const lower = String(h || '').toLowerCase();
+          return lower.includes('lot') && lower.includes('weeding') && lower.includes('date') && lower.includes('scheduled') && lower.includes('spring') && lower.includes('2026');
+        }) ||
+        null;
       const apnCol = headers.find(h => normalize(h) === 'apn') || null;
 
-      return { requestedCol, detailsCol, apnCol };
+      return { requestedCol, detailsCol, statusCol, dateScheduledCol, apnCol };
+    }
+
+    function normalizeLotWeedingStatus(value) {
+      const normalized = String(value || '').trim().toLowerCase();
+      if (normalized === 'scheduled') return 'Scheduled';
+      if (normalized === 'completed') return 'Completed';
+      return '';
+    }
+
+    function formatLotWeedingScheduledDate(value) {
+      const text = String(value || '').trim();
+      if (!text) return '';
+
+      const numericValue = Number(text);
+      if (Number.isFinite(numericValue) && numericValue > 20000 && numericValue < 80000) {
+        const date = new Date(Date.UTC(1899, 11, 30) + numericValue * 24 * 60 * 60 * 1000);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+      }
+
+      const mdyMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+      if (mdyMatch) {
+        const month = Number(mdyMatch[1]);
+        const day = Number(mdyMatch[2]);
+        const year = Number(mdyMatch[3].length === 2 ? `20${mdyMatch[3]}` : mdyMatch[3]);
+        const date = new Date(year, month - 1, day);
+        if (!Number.isNaN(date.getTime())) {
+          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+      }
+
+      const parsed = new Date(text);
+      if (Number.isNaN(parsed.getTime())) return text;
+      return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function getLotWeedingStatusPriority(status) {
+      if (status === 'Completed') return 2;
+      if (status === 'Scheduled') return 1;
+      return 0;
+    }
+
+    function isOpenLotWeedingRequest(request) {
+      return !request || !['Scheduled', 'Completed'].includes(request.status);
+    }
+
+    function getLotWeedingOpenRequests() {
+      return getLotWeedingRequests().filter(isOpenLotWeedingRequest);
     }
 
     function getLotWeedingRequests() {
       if (!sheetData || !sheetData.addressMap) return [];
 
       const headers = sheetData.headers || [];
-      const { requestedCol, detailsCol, apnCol } = findLotWeedingRequestColumns(headers);
+      const { requestedCol, detailsCol, statusCol, dateScheduledCol, apnCol } = findLotWeedingRequestColumns(headers);
       if (!requestedCol) return [];
 
       const requestsByKey = new Map();
@@ -4629,6 +4688,8 @@
           const apnDigits = normalizeApnDigits(rawApn);
           const key = apnDigits ? `apn:${apnDigits}` : `address:${address}`;
           const detailValue = detailsCol ? String(row[detailsCol] || '').trim() : '';
+          const statusValue = statusCol ? normalizeLotWeedingStatus(row[statusCol]) : '';
+          const scheduledDateValue = dateScheduledCol ? formatLotWeedingScheduledDate(row[dateScheduledCol]) : '';
 
           if (!requestsByKey.has(key)) {
             requestsByKey.set(key, {
@@ -4638,8 +4699,12 @@
               primaryAddress: address,
               addresses: new Set([address]),
               details: new Set(),
+              scheduledDates: new Set(),
+              status: '',
               requestedCol,
-              detailsCol
+              detailsCol,
+              statusCol,
+              dateScheduledCol
             });
           }
 
@@ -4647,6 +4712,10 @@
           if (!request.apn && rawApn) request.apn = rawApn;
           request.addresses.add(address);
           if (detailValue) request.details.add(detailValue);
+          if (scheduledDateValue) request.scheduledDates.add(scheduledDateValue);
+          if (getLotWeedingStatusPriority(statusValue) > getLotWeedingStatusPriority(request.status)) {
+            request.status = statusValue;
+          }
         });
       });
 
@@ -4654,9 +4723,14 @@
         .map(request => ({
           ...request,
           addresses: Array.from(request.addresses).sort(),
-          details: Array.from(request.details)
+          details: Array.from(request.details),
+          scheduledDates: Array.from(request.scheduledDates)
         }))
-        .sort((a, b) => a.primaryAddress.localeCompare(b.primaryAddress));
+        .sort((a, b) => {
+          const statusDiff = getLotWeedingStatusPriority(a.status) - getLotWeedingStatusPriority(b.status);
+          if (statusDiff !== 0) return statusDiff;
+          return a.primaryAddress.localeCompare(b.primaryAddress);
+        });
     }
 
     function getLotWeedingRequestForAddress(address) {
@@ -4689,7 +4763,9 @@
       requests.forEach((request, index) => {
         const details = request.details.length > 0 ? request.details.join(' | ') : 'No details provided';
         const apn = request.apn ? `APN ${request.apn}` : 'APN not listed';
-        lines.push(`${index + 1}. ${request.primaryAddress} (${apn}) - ${details}`);
+        const dateText = request.scheduledDates.length > 0 ? ` (${request.scheduledDates.join(', ')})` : '';
+        const statusText = request.status ? ` - ${request.status}${dateText}` : '';
+        lines.push(`${index + 1}. ${request.primaryAddress} (${apn})${statusText} - ${details}`);
       });
       return lines.join('\n');
     }
@@ -4726,12 +4802,17 @@
         const addressNote = request.addresses.length > 1
           ? `<div class="lot-weeding-request-meta">Also appears as: ${request.addresses.map(escapeHtml).join(', ')}</div>`
           : '';
+        const scheduledDateText = request.scheduledDates.length > 0 ? request.scheduledDates.join(', ') : '';
+        const statusHtml = request.status
+          ? `<div class="lot-weeding-request-status"><span class="lot-weeding-status-badge lot-weeding-status-badge--${request.status.toLowerCase()}">${escapeHtml(request.status)}</span>${scheduledDateText ? `<span class="lot-weeding-status-date">${escapeHtml(scheduledDateText)}</span>` : ''}</div>`
+          : '';
         return `
-          <article class="lot-weeding-request-row">
+          <article class="lot-weeding-request-row${request.status ? ` lot-weeding-request-row--${request.status.toLowerCase()}` : ''}">
             <div class="lot-weeding-request-index">${index + 1}</div>
             <div class="lot-weeding-request-main">
               <h4>${escapeHtml(request.primaryAddress)}</h4>
               <div class="lot-weeding-request-meta">${request.apn ? `APN: ${escapeHtml(request.apn)}` : 'APN not listed'}</div>
+              ${statusHtml}
               ${addressNote}
               <div class="lot-weeding-request-details">${detailsHtml}</div>
             </div>
@@ -4844,7 +4925,7 @@
 
       const headers = sheetData.headers;
       const addressMap = sheetData.addressMap;
-      const lotWeedingRequests = getLotWeedingRequests();
+      const lotWeedingRequests = getLotWeedingOpenRequests();
       
       // Find contact columns (same logic as Zone Overview)
       const contactStatusCol = headers.find(h => {
@@ -5162,7 +5243,7 @@
         html += `
           <div class="quick-action-item quick-action-item--lot-weeding">
             <div class="quick-action-text">
-              Residents requested weeding help for <strong>${requestCount}</strong> lot${requestCount !== 1 ? 's' : ''}. Help organize a weeding event in your zone; Altagether can coordinate supplies, tools, and paid day laborer support through NDLON/Pasadena Job Center.
+              Residents requested weeding help for <strong>${requestCount}</strong> lot${requestCount !== 1 ? 's' : ''} that ${requestCount === 1 ? 'is' : 'are'} not yet scheduled or completed. Help organize a weeding event in your zone; Altagether can coordinate supplies, tools, and paid day laborer support through NDLON/Pasadena Job Center.
             </div>
             <div class="quick-action-links">
               <a href="#" class="quick-action-link" id="showLotWeedingRequestsLink">review lot weeding requests</a>
@@ -5308,7 +5389,7 @@
             <div class="action-card action-card--lot-weeding">
               <div class="action-card-title">Organize Lot Weeding</div>
               <div class="action-card-content">
-                There ${requestCount === 1 ? 'is' : 'are'} weeding request${requestCount !== 1 ? 's' : ''} at <strong>${requestCount}</strong> lot${requestCount !== 1 ? 's' : ''}. Choose a date, invite neighbors, and sign up so Altagether can help coordinate tools, supplies, and paid day laborer support through NDLON/Pasadena Job Center.
+                There ${requestCount === 1 ? 'is' : 'are'} weeding request${requestCount !== 1 ? 's' : ''} at <strong>${requestCount}</strong> lot${requestCount !== 1 ? 's' : ''} that ${requestCount === 1 ? 'is' : 'are'} not yet scheduled or completed. Choose a date, invite neighbors, and sign up so Altagether can help coordinate tools, supplies, and paid day laborer support through NDLON/Pasadena Job Center.
               </div>
               <div class="action-card-links">
                 <a href="${LOT_WEEDING_ORGANIZER_FORM_URL}" target="_blank" rel="noopener noreferrer" class="action-card-link">help organize a weeding event</a>
@@ -8441,7 +8522,11 @@
         'lot_weeding_requested_spring_2026',
         'lot weeding requested spring 2026',
         'lot_weeding_request_details_spring_2026',
-        'lot weeding request details spring 2026'
+        'lot weeding request details spring 2026',
+        'lot_weeding_status_spring_2026',
+        'lot weeding status spring 2026',
+        'lot_weeding_date_scheduled_spring_2026',
+        'lot weeding date scheduled spring 2026'
       ];
 
       const isHouseOrZipField = (lower) => {
@@ -8543,10 +8628,16 @@
         const detailsHtml = lotWeedingRequestForAddress.details.length > 0
           ? lotWeedingRequestForAddress.details.map(detail => `<p>${escapeHtml(detail)}</p>`).join('')
           : '<p class="lot-weeding-request-empty">No details provided.</p>';
+        const scheduledDateText = lotWeedingRequestForAddress.scheduledDates.length > 0
+          ? lotWeedingRequestForAddress.scheduledDates.join(', ')
+          : '';
+        const statusHtml = lotWeedingRequestForAddress.status
+          ? `<p><strong>Status:</strong> ${escapeHtml(lotWeedingRequestForAddress.status)}${scheduledDateText ? ` (${escapeHtml(scheduledDateText)})` : ''}</p>`
+          : '';
         html += `
           <div class="lot-weeding-address-notice">
             <div class="lot-weeding-address-notice__label">Lot weeding requested</div>
-            <div class="lot-weeding-address-notice__details">${detailsHtml}</div>
+            <div class="lot-weeding-address-notice__details">${statusHtml}${detailsHtml}</div>
             <button type="button" class="quick-action-link lot-weeding-address-notice__button" data-lot-weeding-requests-trigger="true">Review all weeding requests</button>
           </div>
         `;
@@ -9756,7 +9847,11 @@
         'lot_weeding_requested_spring_2026',
         'lot weeding requested spring 2026',
         'lot_weeding_request_details_spring_2026',
-        'lot weeding request details spring 2026'
+        'lot weeding request details spring 2026',
+        'lot_weeding_status_spring_2026',
+        'lot weeding status spring 2026',
+        'lot_weeding_date_scheduled_spring_2026',
+        'lot weeding date scheduled spring 2026'
       ];
       const isHouseOrZipField = (lower) => {
         const normalized = lower.trim();
