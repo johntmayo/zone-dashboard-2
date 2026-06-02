@@ -3204,6 +3204,7 @@
               buildStageKeys: new Set(),
               damage: new Map(),
               damageKeys: new Set(),
+              lotWeedingRequestKeys: new Set(),
               lotWeedingRequests: 0,
               sourceSheet: ''
             });
@@ -3234,7 +3235,14 @@
             incrementGodmodeMap(zoneRollup.damage, damage);
             zoneRollup.damageKeys.add(addressKey);
           }
-          zoneRollup.lotWeedingRequests += lotWeedingRequests;
+          if (lotWeedingRequests > 0) {
+            const apnKey = normalizeGodmodeKey(getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn));
+            const lotWeedingRequestKey = apnKey ? `apn:${apnKey}` : (addressKey ? `address:${addressKey}` : '');
+            if (lotWeedingRequestKey) {
+              zoneRollup.lotWeedingRequestKeys.add(lotWeedingRequestKey);
+              zoneRollup.lotWeedingRequests = zoneRollup.lotWeedingRequestKeys.size;
+            }
+          }
           zoneRollup.sourceSheet = zoneRollup.sourceSheet || getGodmodeValue(row, GODMODE_FIELD_ALIASES.sourceSheet);
 
           captainList.forEach((captain) => {
