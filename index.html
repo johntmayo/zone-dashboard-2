@@ -3092,6 +3092,22 @@
       return 1;
     }
 
+    function isCentralLotWeedingAvailable() {
+      return lotWeedingCentralState.configured && lotWeedingCentralState.loaded && !lotWeedingCentralState.error;
+    }
+
+    function getGodmodeLotWeedingRequestKey(row, addressKey) {
+      const rawApn = getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn);
+      const apnDigits = normalizeApnDigits(rawApn);
+
+      if (isCentralLotWeedingAvailable()) {
+        return apnDigits && lotWeedingCentralState.byApn.has(apnDigits) ? `apn:${apnDigits}` : '';
+      }
+
+      if (getGodmodeLotWeedingRequestCount(row) <= 0) return '';
+      return apnDigits ? `apn:${apnDigits}` : (addressKey ? `address:${addressKey}` : '');
+    }
+
     function hasGodmodeOutreach(row) {
       return Boolean(
         getGodmodeValue(row, GODMODE_FIELD_ALIASES.outreachDate) ||
@@ -3157,7 +3173,7 @@
         const buildStage = getGodmodeValue(row, GODMODE_FIELD_ALIASES.rebuild);
         const damage = getGodmodeValue(row, GODMODE_FIELD_ALIASES.damage);
         const sold = hasGodmodeTruthyValue(getGodmodeValue(row, GODMODE_FIELD_ALIASES.soldSinceFire));
-        const lotWeedingRequests = getGodmodeLotWeedingRequestCount(row);
+        const lotWeedingRequestKey = getGodmodeLotWeedingRequestKey(row, addressKey);
         const outreach = hasGodmodeOutreach(row);
         const unit = getGodmodeUnit(row);
         const hasUnit = Boolean(unit);
@@ -3249,13 +3265,9 @@
             incrementGodmodeMap(zoneRollup.damage, damage);
             zoneRollup.damageKeys.add(addressKey);
           }
-          if (lotWeedingRequests > 0) {
-            const apnKey = normalizeGodmodeKey(getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn));
-            const lotWeedingRequestKey = apnKey ? `apn:${apnKey}` : (addressKey ? `address:${addressKey}` : '');
-            if (lotWeedingRequestKey) {
-              zoneRollup.lotWeedingRequestKeys.add(lotWeedingRequestKey);
-              zoneRollup.lotWeedingRequests = zoneRollup.lotWeedingRequestKeys.size;
-            }
+          if (lotWeedingRequestKey) {
+            zoneRollup.lotWeedingRequestKeys.add(lotWeedingRequestKey);
+            zoneRollup.lotWeedingRequests = zoneRollup.lotWeedingRequestKeys.size;
           }
           zoneRollup.sourceSheet = zoneRollup.sourceSheet || getGodmodeValue(row, GODMODE_FIELD_ALIASES.sourceSheet);
 
@@ -3369,7 +3381,10 @@
       renderGodmodeView();
 
       try {
-        const res = await fetch(`/api/admin/godmode-master?email=${encodeURIComponent(currentUserEmail)}`);
+        const [res] = await Promise.all([
+          fetch(`/api/admin/godmode-master?email=${encodeURIComponent(currentUserEmail)}`),
+          loadCentralLotWeedingData()
+        ]);
         const payload = await res.json().catch(() => ({}));
         if (!res.ok) {
           if (payload.error === 'godmode_not_configured') {
