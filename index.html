@@ -1211,6 +1211,14 @@
       error: '',
       byApnHasRecords: new Map()
     };
+    const lotWeedingCentralState = {
+      loading: false,
+      loaded: false,
+      configured: false,
+      error: '',
+      byApn: new Map(),
+      lastFetchedAt: null
+    };
     
     // Sequential rebuild stages (in order)
     const REBUILD_STAGES_SEQUENTIAL = [
@@ -4230,6 +4238,8 @@
           currentZoneName = '';
         }
         updateHeaderTitle();
+
+        await loadCentralLotWeedingData();
         
         // If an address was selected, restore that view; otherwise show list
         if (selectedAddress && addressMap.has(selectedAddress)) {
@@ -4613,38 +4623,62 @@
         return { requestedCol: null, detailsCol: null, statusCol: null, dateScheduledCol: null, apnCol: null };
       }
 
-      const normalize = (value) => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-      const requestedCol = headers.find(h => normalize(h) === 'lotweedingrequestedspring2026') ||
-        headers.find(h => {
-          const lower = String(h || '').toLowerCase();
-          return lower.includes('lot') && lower.includes('weeding') && lower.includes('requested') && lower.includes('spring') && lower.includes('2026');
-        }) ||
-        null;
-      const detailsCol = headers.find(h => normalize(h) === 'lotweedingrequestdetailsspring2026') ||
-        headers.find(h => {
-          const lower = String(h || '').toLowerCase();
-          return lower.includes('lot') && lower.includes('weeding') && lower.includes('request') && lower.includes('detail') && lower.includes('spring') && lower.includes('2026');
-        }) ||
-        null;
-      const statusCol = headers.find(h => normalize(h) === 'lotweedingstatusspring2026') ||
-        headers.find(h => {
-          const lower = String(h || '').toLowerCase();
-          return lower.includes('lot') && lower.includes('weeding') && lower.includes('status') && lower.includes('spring') && lower.includes('2026');
-        }) ||
-        null;
-      const dateScheduledCol = headers.find(h => normalize(h) === 'lotweedingdatescheduledspring2026') ||
-        headers.find(h => {
-          const lower = String(h || '').toLowerCase();
-          return lower.includes('lot') && lower.includes('weeding') && lower.includes('date') && lower.includes('scheduled') && lower.includes('spring') && lower.includes('2026');
-        }) ||
-        null;
-      const apnCol = headers.find(h => normalize(h) === 'apn') || null;
+      const requestedCol = findLotWeedingColumn(headers, [
+        'lot_weeding_requested_spring_2026',
+        'lot weeding requested spring 2026',
+        'lot weeding requested',
+        'weeding requested'
+      ], lower => lower.includes('lot') && lower.includes('weeding') && lower.includes('requested'));
+      const detailsCol = findLotWeedingColumn(headers, [
+        'lot_weeding_request_details_spring_2026',
+        'lot weeding request details spring 2026',
+        'lot weeding request details',
+        'request details',
+        'details'
+      ], lower => lower.includes('lot') && lower.includes('weeding') && lower.includes('detail'));
+      const statusCol = findLotWeedingColumn(headers, [
+        'lot_weeding_status_spring_2026',
+        'lot weeding status spring 2026',
+        'lot weeding status',
+        'weeding status',
+        'status'
+      ], lower => lower.includes('lot') && lower.includes('weeding') && lower.includes('status'));
+      const dateScheduledCol = findLotWeedingColumn(headers, [
+        'lot_weeding_date_scheduled_spring_2026',
+        'lot weeding date scheduled spring 2026',
+        'lot weeding date scheduled',
+        'date scheduled',
+        'scheduled date'
+      ], lower => lower.includes('scheduled') && lower.includes('date'));
+      const apnCol = findLotWeedingColumn(headers, [
+        'apn',
+        'parcel',
+        'parcel number',
+        'parcel id',
+        'assessor parcel number',
+        'assessor parcel no'
+      ], lower => lower.includes('apn') || lower.includes('parcel'));
 
       return { requestedCol, detailsCol, statusCol, dateScheduledCol, apnCol };
     }
 
+    function normalizeLotWeedingColumnKey(value) {
+      return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    }
+
+    function findLotWeedingColumn(headers, aliases, fallbackMatcher) {
+      const aliasKeys = aliases.map(normalizeLotWeedingColumnKey);
+      return headers.find(h => aliasKeys.includes(normalizeLotWeedingColumnKey(h))) ||
+        headers.find(h => {
+          const lower = String(h || '').toLowerCase();
+          return typeof fallbackMatcher === 'function' && fallbackMatcher(lower);
+        }) ||
+        null;
+    }
+
     function normalizeLotWeedingStatus(value) {
       const normalized = String(value || '').trim().toLowerCase();
+      if (normalized === 'requested' || normalized === 'request') return 'Requested';
       if (normalized === 'scheduled') return 'Scheduled';
       if (normalized === 'completed') return 'Completed';
       return '';
@@ -4683,21 +4717,98 @@
     }
 
     function isOpenLotWeedingRequest(request) {
-      return !request || !['Scheduled', 'Completed'].includes(request.status);
+      return request && request.status === 'Requested';
     }
 
     function getLotWeedingOpenRequests() {
       return getLotWeedingRequests().filter(isOpenLotWeedingRequest);
     }
 
-    function getLotWeedingRequests() {
-      if (!sheetData || !sheetData.addressMap) return [];
+    async function loadCentralLotWeedingData() {
+      lotWeedingCentralState.loading = true;
+      lotWeedingCentralState.error = '';
 
+      try {
+        const response = await fetch('/api/lot-weeding/values');
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.message || err.error || 'Failed to fetch central lot weeding data');
+        }
+
+        const payload = await response.json();
+        lotWeedingCentralState.configured = Boolean(payload.configured);
+        lotWeedingCentralState.byApn = new Map();
+
+        if (payload.configured && Array.isArray(payload.values) && payload.values.length > 0) {
+          const parsed = parseApiData(payload.values);
+          lotWeedingCentralState.byApn = buildCentralLotWeedingMap(parsed.headers, parsed.data);
+        }
+
+        lotWeedingCentralState.loaded = true;
+        lotWeedingCentralState.lastFetchedAt = new Date().toISOString();
+      } catch (error) {
+        console.warn('Central lot weeding data unavailable; using embedded sheet columns only.', error);
+        lotWeedingCentralState.loaded = false;
+        lotWeedingCentralState.error = error && error.message ? error.message : 'Central lot weeding data unavailable.';
+        lotWeedingCentralState.byApn = new Map();
+      } finally {
+        lotWeedingCentralState.loading = false;
+      }
+    }
+
+    function buildCentralLotWeedingMap(headers, rows) {
+      const { requestedCol, detailsCol, statusCol, dateScheduledCol, apnCol } = findLotWeedingRequestColumns(headers || []);
+      if (!apnCol) return new Map();
+
+      const byApn = new Map();
+      (rows || []).forEach(row => {
+        const rawApn = String(row[apnCol] || '').trim();
+        const apnDigits = normalizeApnDigits(rawApn);
+        if (!apnDigits) return;
+
+        const status = normalizeLotWeedingStatus(statusCol ? row[statusCol] : '') ||
+          (!statusCol && requestedCol && isTruthySheetCheckbox(row[requestedCol]) ? 'Requested' : '');
+        if (!status) return;
+
+        if (!byApn.has(apnDigits)) {
+          byApn.set(apnDigits, {
+            key: `apn:${apnDigits}`,
+            apn: rawApn,
+            apnDigits,
+            details: new Set(),
+            scheduledDates: new Set(),
+            status: '',
+            sourceRows: []
+          });
+        }
+
+        const request = byApn.get(apnDigits);
+        if (!request.apn && rawApn) request.apn = rawApn;
+        const detailValue = detailsCol ? String(row[detailsCol] || '').trim() : '';
+        const scheduledDateValue = dateScheduledCol ? formatLotWeedingScheduledDate(row[dateScheduledCol]) : '';
+        if (detailValue) request.details.add(detailValue);
+        if (scheduledDateValue) request.scheduledDates.add(scheduledDateValue);
+        if (getLotWeedingStatusPriority(status) > getLotWeedingStatusPriority(request.status)) {
+          request.status = status;
+        }
+        request.sourceRows.push(row);
+      });
+
+      return byApn;
+    }
+
+    function getAddressLotWeedingApns(address, apnColOverride = null) {
+      if (!sheetData || !sheetData.addressMap || !sheetData.headers || !address) return new Set();
+      const apnCol = apnColOverride || findLotWeedingRequestColumns(sheetData.headers).apnCol;
+      if (!apnCol) return new Set();
+      const rows = sheetData.addressMap.get(address) || [];
+      return new Set(rows.map(row => normalizeApnDigits(row[apnCol])).filter(Boolean));
+    }
+
+    function addLotWeedingEmbeddedFallbackRequests(requestsByKey, centralMatchedApns, centralMatchedAddresses) {
       const headers = sheetData.headers || [];
       const { requestedCol, detailsCol, statusCol, dateScheduledCol, apnCol } = findLotWeedingRequestColumns(headers);
-      if (!requestedCol) return [];
-
-      const requestsByKey = new Map();
+      if (!requestedCol) return;
 
       sheetData.addressMap.forEach((rows, address) => {
         (rows || []).forEach(row => {
@@ -4705,9 +4816,11 @@
 
           const rawApn = apnCol ? String(row[apnCol] || '').trim() : '';
           const apnDigits = normalizeApnDigits(rawApn);
+          if ((apnDigits && centralMatchedApns.has(apnDigits)) || centralMatchedAddresses.has(address)) return;
+
           const key = apnDigits ? `apn:${apnDigits}` : `address:${address}`;
           const detailValue = detailsCol ? String(row[detailsCol] || '').trim() : '';
-          const statusValue = statusCol ? normalizeLotWeedingStatus(row[statusCol]) : '';
+          const statusValue = normalizeLotWeedingStatus(statusCol ? row[statusCol] : '') || 'Requested';
           const scheduledDateValue = dateScheduledCol ? formatLotWeedingScheduledDate(row[dateScheduledCol]) : '';
 
           if (!requestsByKey.has(key)) {
@@ -4720,6 +4833,7 @@
               details: new Set(),
               scheduledDates: new Set(),
               status: '',
+              source: 'embedded',
               requestedCol,
               detailsCol,
               statusCol,
@@ -4737,6 +4851,45 @@
           }
         });
       });
+    }
+
+    function getLotWeedingRequests() {
+      if (!sheetData || !sheetData.addressMap) return [];
+
+      const headers = sheetData.headers || [];
+      const requestsByKey = new Map();
+      const centralMatchedApns = new Set();
+      const centralMatchedAddresses = new Set();
+      const apnCol = findLotWeedingRequestColumns(headers).apnCol;
+
+      sheetData.addressMap.forEach((rows, address) => {
+        getAddressLotWeedingApns(address, apnCol).forEach(apnDigits => {
+          const centralRequest = lotWeedingCentralState.byApn.get(apnDigits);
+          if (!centralRequest) return;
+
+          const key = `apn:${apnDigits}`;
+          centralMatchedApns.add(apnDigits);
+          centralMatchedAddresses.add(address);
+
+          if (!requestsByKey.has(key)) {
+            requestsByKey.set(key, {
+              key,
+              apn: centralRequest.apn,
+              apnDigits,
+              primaryAddress: address,
+              addresses: new Set([address]),
+              details: new Set(centralRequest.details),
+              scheduledDates: new Set(centralRequest.scheduledDates),
+              status: centralRequest.status,
+              source: 'central'
+            });
+          } else {
+            requestsByKey.get(key).addresses.add(address);
+          }
+        });
+      });
+
+      addLotWeedingEmbeddedFallbackRequests(requestsByKey, centralMatchedApns, centralMatchedAddresses);
 
       return Array.from(requestsByKey.values())
         .map(request => ({
@@ -6601,7 +6754,7 @@
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const contactDateCol = findOutreachDateColumn(headers);
-      const hasLotWeedingRequestColumn = Boolean(findLotWeedingRequestColumns(headers).requestedCol);
+      const hasLotWeedingRequestData = getLotWeedingRequests().length > 0 || Boolean(findLotWeedingRequestColumns(headers).requestedCol);
       const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
 
       const streets = getUniqueStreets(addresses);
@@ -6644,7 +6797,7 @@
           <option value="all" ${currentSalesFilter === 'all' ? 'selected' : ''}>Sales: All Addresses</option>
           <option value="sold_since_fire" ${currentSalesFilter === 'sold_since_fire' ? 'selected' : ''}>Sales: Sold Since Fire</option>
         </select>
-        ${hasLotWeedingRequestColumn ? `<select id="persistentLotWeedingFilter" class="${currentLotWeedingFilter !== 'all' ? 'filter-active' : ''}" title="Filter to lots where residents requested weed cleanup help.">
+        ${hasLotWeedingRequestData ? `<select id="persistentLotWeedingFilter" class="${currentLotWeedingFilter !== 'all' ? 'filter-active' : ''}" title="Filter to lots with lot weeding program status.">
           <option value="all" ${currentLotWeedingFilter === 'all' ? 'selected' : ''}>Weeding: All lots</option>
           <option value="requested" ${currentLotWeedingFilter === 'requested' ? 'selected' : ''}>Weeding: Requests only</option>
         </select>` : ''}
