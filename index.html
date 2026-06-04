@@ -4620,7 +4620,7 @@
 
     function findLotWeedingRequestColumns(headers) {
       if (!headers || !Array.isArray(headers)) {
-        return { requestedCol: null, detailsCol: null, statusCol: null, dateScheduledCol: null, apnCol: null };
+        return { requestedCol: null, detailsCol: null, statusCol: null, dateScheduledCol: null, apnCol: null, timestampCol: null };
       }
 
       const requestedCol = findLotWeedingColumn(headers, [
@@ -4658,8 +4658,16 @@
         'assessor parcel number',
         'assessor parcel no'
       ], lower => lower.includes('apn') || lower.includes('parcel'));
+      const timestampCol = findLotWeedingColumn(headers, [
+        'timestamp',
+        'submitted at',
+        'submission timestamp',
+        'form submitted at',
+        'request timestamp',
+        'created at'
+      ], lower => lower.includes('timestamp') || lower.includes('submitted') || (lower.includes('created') && lower.includes('at')));
 
-      return { requestedCol, detailsCol, statusCol, dateScheduledCol, apnCol };
+      return { requestedCol, detailsCol, statusCol, dateScheduledCol, apnCol, timestampCol };
     }
 
     function normalizeLotWeedingColumnKey(value) {
@@ -4716,6 +4724,42 @@
       return 0;
     }
 
+    function parseLotWeedingTimestamp(value) {
+      const text = String(value || '').trim();
+      if (!text) return null;
+
+      const numericValue = Number(text);
+      if (Number.isFinite(numericValue) && numericValue > 20000 && numericValue < 80000) {
+        return Date.UTC(1899, 11, 30) + numericValue * 24 * 60 * 60 * 1000;
+      }
+
+      const mdyTimeMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?$/i);
+      if (mdyTimeMatch) {
+        const month = Number(mdyTimeMatch[1]);
+        const day = Number(mdyTimeMatch[2]);
+        const year = Number(mdyTimeMatch[3].length === 2 ? `20${mdyTimeMatch[3]}` : mdyTimeMatch[3]);
+        let hour = Number(mdyTimeMatch[4] || 0);
+        const minute = Number(mdyTimeMatch[5] || 0);
+        const second = Number(mdyTimeMatch[6] || 0);
+        const meridiem = String(mdyTimeMatch[7] || '').toUpperCase();
+        if (meridiem === 'PM' && hour < 12) hour += 12;
+        if (meridiem === 'AM' && hour === 12) hour = 0;
+        const date = new Date(year, month - 1, day, hour, minute, second);
+        return Number.isNaN(date.getTime()) ? null : date.getTime();
+      }
+
+      const parsed = new Date(text);
+      return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
+    }
+
+    function shouldReplaceLotWeedingStatus(currentStatus, currentTimestamp, nextStatus, nextTimestamp) {
+      if (!currentStatus) return true;
+      if (nextTimestamp !== null || currentTimestamp !== null) {
+        return nextTimestamp !== null && (currentTimestamp === null || nextTimestamp >= currentTimestamp);
+      }
+      return getLotWeedingStatusPriority(nextStatus) > getLotWeedingStatusPriority(currentStatus);
+    }
+
     function isOpenLotWeedingRequest(request) {
       return request && request.status === 'Requested';
     }
@@ -4757,7 +4801,7 @@
     }
 
     function buildCentralLotWeedingMap(headers, rows) {
-      const { requestedCol, detailsCol, statusCol, dateScheduledCol, apnCol } = findLotWeedingRequestColumns(headers || []);
+      const { requestedCol, detailsCol, statusCol, dateScheduledCol, apnCol, timestampCol } = findLotWeedingRequestColumns(headers || []);
       if (!apnCol) return new Map();
 
       const byApn = new Map();
@@ -4778,18 +4822,21 @@
             details: new Set(),
             scheduledDates: new Set(),
             status: '',
+            statusTimestamp: null,
             sourceRows: []
           });
         }
 
         const request = byApn.get(apnDigits);
+        const rowTimestamp = timestampCol ? parseLotWeedingTimestamp(row[timestampCol]) : null;
         if (!request.apn && rawApn) request.apn = rawApn;
         const detailValue = detailsCol ? String(row[detailsCol] || '').trim() : '';
         const scheduledDateValue = dateScheduledCol ? formatLotWeedingScheduledDate(row[dateScheduledCol]) : '';
         if (detailValue) request.details.add(detailValue);
         if (scheduledDateValue) request.scheduledDates.add(scheduledDateValue);
-        if (getLotWeedingStatusPriority(status) > getLotWeedingStatusPriority(request.status)) {
+        if (shouldReplaceLotWeedingStatus(request.status, request.statusTimestamp, status, rowTimestamp)) {
           request.status = status;
+          request.statusTimestamp = rowTimestamp;
         }
         request.sourceRows.push(row);
       });
@@ -4928,8 +4975,10 @@
 
     function buildLotWeedingRequestsCopyText(requests) {
       const zoneLabel = currentZoneName ? ` for ${currentZoneName}` : '';
+      const openRequestCount = requests.filter(isOpenLotWeedingRequest).length;
       const lines = [
-        `Lot weeding requests${zoneLabel}: ${requests.length}`,
+        `Lot weeding statuses${zoneLabel}: ${requests.length}`,
+        `Open requested lots: ${openRequestCount}`,
         `Organizer signup: ${LOT_WEEDING_ORGANIZER_FORM_URL}`
       ];
       requests.forEach((request, index) => {
@@ -4960,12 +5009,16 @@
     function showLotWeedingRequestsModal() {
       const requests = getLotWeedingRequests();
       if (requests.length === 0) {
-        alert('No lot weeding requests were found in this zone.');
+        alert('No lot weeding statuses were found in this zone.');
         return;
       }
 
       const modalId = 'lotWeedingRequestsModalOverlay';
       document.getElementById(modalId)?.remove();
+      const openRequestCount = requests.filter(isOpenLotWeedingRequest).length;
+      const openRequestText = openRequestCount > 0
+        ? `${openRequestCount} lot${openRequestCount !== 1 ? 's are' : ' is'} still marked Requested.`
+        : 'No lots are currently marked Requested.';
 
       const rowsHtml = requests.map((request, index) => {
         const detailsHtml = request.details.length > 0
@@ -5000,8 +5053,8 @@
           <div class="newsletter-modal lot-weeding-modal">
             <button class="newsletter-modal-close" id="lotWeedingRequestsModalClose">&times;</button>
             <div class="newsletter-modal-header">
-              <h3 class="newsletter-modal-title">Organize a lot weeding event</h3>
-              <p class="newsletter-modal-subtitle">Residents requested weeding help for ${requests.length} lot${requests.length !== 1 ? 's' : ''} in this zone. Pick a date, invite neighbors, and Altagether can help coordinate supplies, tools, and paid day laborer support through NDLON/Pasadena Job Center.</p>
+              <h3 class="newsletter-modal-title">Lot weeding requests and statuses</h3>
+              <p class="newsletter-modal-subtitle">This zone has ${requests.length} lot${requests.length !== 1 ? 's' : ''} with lot-weeding program status. ${openRequestText} For requested lots, pick a date, invite neighbors, and Altagether can help coordinate supplies, tools, and paid day laborer support through NDLON/Pasadena Job Center.</p>
             </div>
             <div class="newsletter-modal-content">
               <section class="newsletter-modal-section lot-weeding-help-section">
@@ -5009,7 +5062,7 @@
                 <div class="lot-weeding-program-callout">
                   <p>Altadena Talks Foundation already has a pipeline of 200+ lot-weeding requests. Altagether is partnering with them and NDLON to help residents remove weeds, reduce fire risk, avoid county issues, and build community with neighbors and local workers.</p>
                   <ol class="lot-weeding-program-steps">
-                    <li>Review requested lots in your zone.</li>
+                    <li>Review lots marked Requested in your zone.</li>
                     <li>Choose a date and time. If there are multiple requests nearby, consider doing them in one day.</li>
                     <li>Sign up to organize the event, ideally at least one week ahead, so Altagether can coordinate tools, supplies, and laborer support.</li>
                     <li>Invite neighbors and make it a social event.</li>
@@ -5018,7 +5071,7 @@
                 </div>
               </section>
               <section class="newsletter-modal-section">
-                <h4 class="newsletter-modal-section-title">Requested lots</h4>
+                <h4 class="newsletter-modal-section-title">Lot weeding statuses</h4>
                 <div class="lot-weeding-request-list">${rowsHtml}</div>
               </section>
             </div>
@@ -5565,7 +5618,7 @@
               </div>
               <div class="action-card-links">
                 <a href="${LOT_WEEDING_ORGANIZER_FORM_URL}" target="_blank" rel="noopener noreferrer" class="action-card-link">help organize a weeding event</a>
-                <a href="#" class="action-card-link" id="actionsPageLotWeedingRequestsLink">review weeding requests</a>
+                <a href="#" class="action-card-link" id="actionsPageLotWeedingRequestsLink">review lot weeding statuses</a>
               </div>
             </div>
           `);
@@ -6799,7 +6852,7 @@
         </select>
         ${hasLotWeedingRequestData ? `<select id="persistentLotWeedingFilter" class="${currentLotWeedingFilter !== 'all' ? 'filter-active' : ''}" title="Filter to lots with lot weeding program status.">
           <option value="all" ${currentLotWeedingFilter === 'all' ? 'selected' : ''}>Weeding: All lots</option>
-          <option value="requested" ${currentLotWeedingFilter === 'requested' ? 'selected' : ''}>Weeding: Requests only</option>
+          <option value="requested" ${currentLotWeedingFilter === 'requested' ? 'selected' : ''}>Weeding: With status</option>
         </select>` : ''}
         ${addressPlanCol ? `<select id="persistentAddressPlanFilter" class="${currentAddressPlanFilter !== 'all' ? 'filter-active' : ''}" title="The owner's current intent for the property—whether they plan to rebuild, sell, or are still deciding.">
           <option value="all" ${currentAddressPlanFilter === 'all' ? 'selected' : ''}>All Address Plan</option>
@@ -7379,7 +7432,7 @@
         parts.push('Sales: Sold Since Fire');
       }
       if (currentLotWeedingFilter !== 'all') {
-        parts.push('Weeding: Requests only');
+        parts.push('Weeding: With status');
       }
       if (currentAddressPlanFilter !== 'all') {
         parts.push('Address Plan: ' + (currentAddressPlanFilter === '' ? '(not set)' : currentAddressPlanFilter));
@@ -8808,9 +8861,9 @@
           : '';
         html += `
           <div class="lot-weeding-address-notice">
-            <div class="lot-weeding-address-notice__label">Lot weeding requested</div>
+            <div class="lot-weeding-address-notice__label">Lot weeding status</div>
             <div class="lot-weeding-address-notice__details">${statusHtml}${detailsHtml}</div>
-            <button type="button" class="quick-action-link lot-weeding-address-notice__button" data-lot-weeding-requests-trigger="true">Review all weeding requests</button>
+            <button type="button" class="quick-action-link lot-weeding-address-notice__button" data-lot-weeding-requests-trigger="true">Review all lot weeding statuses</button>
           </div>
         `;
       }
