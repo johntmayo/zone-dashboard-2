@@ -1196,7 +1196,7 @@
     let currentStreetFilter = 'all'; // Current street filter
     let currentDamageFilter = 'all'; // Current damage filter
     let currentSalesFilter = 'all'; // Sales filter: all | sold_since_fire
-    let currentLotWeedingFilter = 'all'; // Lot weeding filter: all | requested
+    let currentLotWeedingFilter = 'all'; // Lot weeding filter: all | pending | completed | all_requests
     let currentAddressPlanFilter = 'all'; // Current Address Plan filter (only when Damage = Partial/Total Loss)
     let currentRebuildFilter = 'all'; // Current rebuild status filter
     let currentEpicFilter = 'all'; // EPIC permitting filter: all | has_epic
@@ -4995,8 +4995,20 @@
       return Boolean(getLotWeedingRequestForAddress(address));
     }
 
+    function addressMatchesLotWeedingFilter(address) {
+      if (currentLotWeedingFilter === 'all') return true;
+
+      const request = getLotWeedingRequestForAddress(address);
+      if (!request) return false;
+
+      if (currentLotWeedingFilter === 'all_requests') return true;
+      if (currentLotWeedingFilter === 'pending') return request.status === 'Requested' || request.status === 'Scheduled';
+      if (currentLotWeedingFilter === 'completed') return request.status === 'Completed';
+      return true;
+    }
+
     function showLotWeedingRequestsOnMap() {
-      currentLotWeedingFilter = 'requested';
+      currentLotWeedingFilter = 'all_requests';
       switchView('map');
       setTimeout(() => {
         populateFilterBar();
@@ -6850,9 +6862,11 @@
           <option value="all" ${currentSalesFilter === 'all' ? 'selected' : ''}>Sales: All Addresses</option>
           <option value="sold_since_fire" ${currentSalesFilter === 'sold_since_fire' ? 'selected' : ''}>Sales: Sold Since Fire</option>
         </select>
-        ${hasLotWeedingRequestData ? `<select id="persistentLotWeedingFilter" class="${currentLotWeedingFilter !== 'all' ? 'filter-active' : ''}" title="Filter to lots with lot weeding program status.">
-          <option value="all" ${currentLotWeedingFilter === 'all' ? 'selected' : ''}>Weeding: All lots</option>
-          <option value="requested" ${currentLotWeedingFilter === 'requested' ? 'selected' : ''}>Weeding: With status</option>
+        ${hasLotWeedingRequestData ? `<select id="persistentLotWeedingFilter" class="${currentLotWeedingFilter !== 'all' ? 'filter-active' : ''}" title="Filter lots by lot weeding request status.">
+          <option value="all" ${currentLotWeedingFilter === 'all' ? 'selected' : ''}>Weeding: No filter</option>
+          <option value="pending" ${currentLotWeedingFilter === 'pending' ? 'selected' : ''}>Weeding: Pending requests</option>
+          <option value="completed" ${currentLotWeedingFilter === 'completed' ? 'selected' : ''}>Weeding: Completed requests</option>
+          <option value="all_requests" ${currentLotWeedingFilter === 'all_requests' ? 'selected' : ''}>Weeding: All requests</option>
         </select>` : ''}
         ${addressPlanCol ? `<select id="persistentAddressPlanFilter" class="${currentAddressPlanFilter !== 'all' ? 'filter-active' : ''}" title="The owner's current intent for the property—whether they plan to rebuild, sell, or are still deciding.">
           <option value="all" ${currentAddressPlanFilter === 'all' ? 'selected' : ''}>All Address Plan</option>
@@ -7199,7 +7213,7 @@
           }
         }
         if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(addr)) return false;
-        if (currentLotWeedingFilter === 'requested' && !addressHasLotWeedingRequest(addr)) return false;
+        if (!addressMatchesLotWeedingFilter(addr)) return false;
         if (currentAddressPlanFilter !== 'all') {
           const addrPlan = getAddressPlan(addr);
           if (currentAddressPlanFilter === '') {
@@ -7432,7 +7446,12 @@
         parts.push('Sales: Sold Since Fire');
       }
       if (currentLotWeedingFilter !== 'all') {
-        parts.push('Weeding: With status');
+        const lotWeedingFilterLabels = {
+          pending: 'Weeding: Pending requests',
+          completed: 'Weeding: Completed requests',
+          all_requests: 'Weeding: All requests'
+        };
+        parts.push(lotWeedingFilterLabels[currentLotWeedingFilter] || 'Weeding: Filtered');
       }
       if (currentAddressPlanFilter !== 'all') {
         parts.push('Address Plan: ' + (currentAddressPlanFilter === '' ? '(not set)' : currentAddressPlanFilter));
@@ -7624,7 +7643,7 @@
           }
         }
         if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(addr)) return false;
-        if (currentLotWeedingFilter === 'requested' && !addressHasLotWeedingRequest(addr)) return false;
+        if (!addressMatchesLotWeedingFilter(addr)) return false;
         if (currentAddressPlanFilter !== 'all') {
           const addrPlan = getAddressPlan(addr);
           if (currentAddressPlanFilter === '') {
@@ -8156,7 +8175,7 @@
         if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(addr)) {
           return false;
         }
-        if (currentLotWeedingFilter === 'requested' && !addressHasLotWeedingRequest(addr)) {
+        if (!addressMatchesLotWeedingFilter(addr)) {
           return false;
         }
         // Status filter
@@ -14627,7 +14646,7 @@
         if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(address)) {
           return false;
         }
-        if (currentLotWeedingFilter === 'requested' && !addressHasLotWeedingRequest(address)) {
+        if (!addressMatchesLotWeedingFilter(address)) {
           return false;
         }
         
