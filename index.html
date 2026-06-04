@@ -2952,6 +2952,12 @@
       syncedAt: ['last_synced_at', 'last synced at', 'sync timestamp', 'source_last_seen_at']
     };
 
+    const GODMODE_SEARCH_EXCLUDED_FIELD_KEYS = new Set([
+      ...GODMODE_FIELD_ALIASES.captain,
+      ...GODMODE_FIELD_ALIASES.ncName,
+      ...GODMODE_FIELD_ALIASES.coCaptains
+    ].map(normalizeGodmodeKey));
+
     function normalizeGodmodeKey(value) {
       return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
     }
@@ -3316,9 +3322,14 @@
       };
     }
 
+    function isGodmodeSearchExcludedField(fieldName) {
+      return GODMODE_SEARCH_EXCLUDED_FIELD_KEYS.has(normalizeGodmodeKey(fieldName));
+    }
+
     function buildGodmodeSearchText(row) {
-      return Object.values(row || {})
-        .map((value) => String(value || '').toLowerCase())
+      return Object.entries(row || {})
+        .filter(([key]) => !isGodmodeSearchExcludedField(key))
+        .map(([, value]) => String(value || '').toLowerCase())
         .join(' ');
     }
 
@@ -3796,7 +3807,7 @@
               <label for="godmodeSearchInput">Search master index</label>
               <button type="button" class="godmode-refresh-btn" id="godmodeRefreshBtn">Refresh</button>
             </div>
-            <input id="godmodeSearchInput" class="godmode-search-input" type="search" value="${escapeHtml(godmodeState.query)}" placeholder="Name, address, APN, phone, email, zone, captain..." autocomplete="off">
+            <input id="godmodeSearchInput" class="godmode-search-input" type="search" value="${escapeHtml(godmodeState.query)}" placeholder="Resident name, address, APN, phone, email, zone..." autocomplete="off">
             <p class="godmode-search-meta">${formatGodmodeCount(filteredRows.length)} matching rows from ${formatGodmodeCount(godmodeState.rows.length)} total. Range: ${escapeHtml(godmodeState.range || 'configured range')}</p>
             ${renderGodmodeResults(filteredRows)}
           </div>
