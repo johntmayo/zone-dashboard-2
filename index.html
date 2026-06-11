@@ -751,6 +751,10 @@
                             <label style="display:block; margin-bottom:4px; font-weight:600;">Build Status</label>
                             <select id="batchTaggingRebuild" class="add-record-select" style="min-width:200px;"></select>
                           </div>
+                          <div>
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Remediation Status</label>
+                            <select id="batchTaggingRemediation" class="add-record-select" style="min-width:160px;"></select>
+                          </div>
                         </div>
                         <button type="button" class="btn-generate-report" id="batchTaggingApply">Apply to selected addresses</button>
                         <div id="batchTaggingStatusMsg" class="batch-tag-status-msg"></div>
@@ -4403,6 +4407,8 @@
     // Full option lists for filters (always show all options; empty result is user's problem)
     const DEFAULT_DAMAGE_VALUES = ['Total Loss', 'Partial Loss', 'Standing'];
     const ADDRESS_PLAN_OPTIONS = ['Undecided', 'Building', 'Selling', 'Other', 'Unknown'];
+    // Remediation Status is ADDRESS-LEVEL data: all residents at an address share one value
+    const REMEDIATION_STATUS_OPTIONS = ['Not Started', 'In Progress', 'Complete'];
 
     // Get all damage options for filter: full list always, then any custom values from data
     function getFullDamageOptions() {
@@ -4434,6 +4440,22 @@
       });
       const custom = Array.from(fromData).filter(s => !ADDRESS_PLAN_OPTIONS.some(def => def.toLowerCase() === s.toLowerCase())).sort();
       return [...ADDRESS_PLAN_OPTIONS, ...custom];
+    }
+
+    // Get all Remediation Status options: full list always, then any custom values from data
+    function getFullRemediationStatusOptions() {
+      if (!sheetData || !sheetData.headers) return [...REMEDIATION_STATUS_OPTIONS];
+      const remediationStatusCol = findColumn(sheetData.headers, ['remediation', 'status'], ['note']);
+      if (!remediationStatusCol) return [...REMEDIATION_STATUS_OPTIONS];
+      const fromData = new Set();
+      sheetData.data.forEach(row => {
+        if (row[remediationStatusCol] !== undefined && row[remediationStatusCol] !== null) {
+          const v = String(row[remediationStatusCol]).trim();
+          if (v) fromData.add(v);
+        }
+      });
+      const custom = Array.from(fromData).filter(s => !REMEDIATION_STATUS_OPTIONS.some(def => def.toLowerCase() === s.toLowerCase())).sort();
+      return [...REMEDIATION_STATUS_OPTIONS, ...custom];
     }
 
     // Normalize rebuild status label (remove spaces around slashes) for consistent display
@@ -6193,6 +6215,7 @@
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
+      const remediationStatusCol = findColumn(headers, ['remediation', 'status'], ['note']);
       const addressNotesCol = headers.find(h => /address\s*note/i.test(h));
       const captainCol = findColumn(headers, ['captain', 'assign']) || headers.find(h => /captain/i.test(h));
       const apnCol = headers.find(h => /^apn$/i.test(h));
@@ -6240,6 +6263,7 @@
         damageCol,
         addressPlanCol,
         rebuildCol,
+        remediationStatusCol,
         addressNotesCol,
         captainCol,
         apnCol,
@@ -6296,6 +6320,7 @@
         selectField('Damage', 'addRecordDamage', addressDamageOptions),
         selectField('Address Plan', 'addRecordAddressPlan', addressPlanOptions),
         selectField('Build Status', 'addRecordRebuild', addressRebuildOptions),
+        selectField('Remediation Status', 'addRecordRemediationStatus', getFullRemediationStatusOptions()),
         notesField('Address Notes', 'addRecordAddressNotes')
       ].join('');
       const personDetailsFields = buildPersonDetailsHtml('addRecord');
@@ -6511,6 +6536,7 @@
         if (damageCol) { const el = document.getElementById('addRecordDamage'); if (el && el.value) out[damageCol] = el.value; }
         if (addressPlanCol) { const el = document.getElementById('addRecordAddressPlan'); if (el && el.value) out[addressPlanCol] = el.value; }
         if (rebuildCol) { const el = document.getElementById('addRecordRebuild'); if (el && el.value) out[rebuildCol] = el.value; }
+        if (remediationStatusCol) { const el = document.getElementById('addRecordRemediationStatus'); if (el && el.value) out[remediationStatusCol] = el.value; }
         if (addressNotesCol) { const el = document.getElementById('addRecordAddressNotes'); if (el && el.value) out[addressNotesCol] = el.value.trim(); }
         return out;
       }
@@ -7752,6 +7778,7 @@
       });
       const indoorsRemediatedCol = findColumn(headers, ['indoors', 'remediated']);
       const soilRemediatedCol = findColumn(headers, ['soil', 'remediated']);
+      const remediationStatusCol = findColumn(headers, ['remediation', 'status'], ['note']);
       const captainAssignedCol = findColumn(headers, ['captain', 'assigned']);
       
       // Outreach and notes columns
@@ -7795,6 +7822,7 @@
           addressNotes: addressNotesCol && firstRow ? (firstRow[addressNotesCol] || '').trim() : '',
           indoorsRemediated: indoorsRemediatedCol && firstRow ? (firstRow[indoorsRemediatedCol] || '').trim() : '',
           soilRemediated: soilRemediatedCol && firstRow ? (firstRow[soilRemediatedCol] || '').trim() : '',
+          remediationStatus: remediationStatusCol && firstRow ? (firstRow[remediationStatusCol] || '').trim() : '',
           captainAssigned: captainAssignedCol && firstRow ? (firstRow[captainAssignedCol] || '').trim() : '',
           people: []
         };
@@ -7980,6 +8008,7 @@
               ${data.householdSize ? `<span class="address-info-item"><strong>HH Size:</strong>${escapeHtml(data.householdSize)}</span>` : ''}
               ${data.indoorsRemediated ? `<span class="address-info-item"><strong>Indoors Remed:</strong>${formatCheckbox(data.indoorsRemediated)}</span>` : ''}
               ${data.soilRemediated ? `<span class="address-info-item"><strong>Soil Remed:</strong>${formatCheckbox(data.soilRemediated)}</span>` : ''}
+              ${data.remediationStatus ? `<span class="address-info-item"><strong>Remediation:</strong>${escapeHtml(data.remediationStatus)}</span>` : ''}
               ${data.captainAssigned ? `<span class="address-info-item"><strong>Captain:</strong>${escapeHtml(data.captainAssigned)}</span>` : ''}
             </div>
             ${data.addressNotes ? `
@@ -8076,6 +8105,7 @@
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
+      const remediationStatusCol = findColumn(headers, ['remediation', 'status'], ['note']);
       const contactDateCol = findOutreachDateColumn(headers);
       
       // Build CSV headers
@@ -8085,6 +8115,7 @@
       if (damageCol) csvHeaders.push('Damage Status');
       if (addressPlanCol) csvHeaders.push('Address Plan');
       if (rebuildCol) csvHeaders.push('Build Status');
+      if (remediationStatusCol) csvHeaders.push('Remediation Status');
       if (contactDateCol) csvHeaders.push('Last Outreach Attempt');
       
       // Build CSV rows
@@ -8099,6 +8130,7 @@
           if (damageCol) row.push('');
           if (addressPlanCol) row.push('');
           if (rebuildCol) row.push('');
+          if (remediationStatusCol) row.push('');
           if (contactDateCol) row.push('');
           csvRows.push(row);
           return;
@@ -8115,6 +8147,7 @@
             if (damageCol) csvRow.push(index === 0 ? (rows[0][damageCol] || '') : '');
             if (addressPlanCol) csvRow.push(index === 0 ? (rows[0][addressPlanCol] || '') : '');
             if (rebuildCol) csvRow.push(index === 0 ? (rows[0][rebuildCol] || '') : '');
+            if (remediationStatusCol) csvRow.push(index === 0 ? (rows[0][remediationStatusCol] || '') : '');
             if (contactDateCol) csvRow.push(row[contactDateCol] || '');
             csvRows.push(csvRow);
           }
@@ -8692,6 +8725,7 @@
         'rebuild status',
         'build stage',
         'build status',
+        'remediation status',
         'apn'
       ];
       
@@ -8721,6 +8755,7 @@
           'build stage',
           'rebuild status',
           'rebuild stage',
+          'remediation status',
           'address notes',
           'household size',
           'apn'
@@ -8763,6 +8798,7 @@
         'rebuild status',
         'build stage',
         'build status',
+        'remediation status',
         'indoors remediated',
         'soil remediated',
         'for sale',
@@ -8952,6 +8988,7 @@
             lower.includes('build status');
           const isIndoorsRemediated = lower.includes('indoors remediated');
           const isSoilRemediated = lower.includes('soil remediated');
+          const isRemediationStatus = lower.includes('remediation status');
           const isCaptainAssigned = lower.includes('captain assigned');
           const isEditable = accessToken; // All fields editable when signed in
           
@@ -9019,6 +9056,23 @@
                         data-original-value="${(firstRowValue || '').replace(/"/g, '&quot;')}">
                   <option value="">(not set)</option>
                   ${rebuildStageOptions.map(opt => `<option value="${opt.replace(/"/g, '&quot;')}" ${opt === normalizedFirst ? 'selected' : ''}>${opt}</option>`).join('')}
+                </select>
+              </div>`;
+            } else if (isRemediationStatus) {
+              // Remediation Status: address-level dropdown (synced to all residents at this address)
+              const remediationOptions = getFullRemediationStatusOptions();
+              if (firstRowValue && !remediationOptions.some(opt => opt.toLowerCase() === firstRowValue.toLowerCase())) {
+                remediationOptions.push(firstRowValue);
+              }
+              html += `<div class="person-info">
+                <strong>${col}:</strong>
+                <select class="editable-dropdown" 
+                        data-address="${address.replace(/"/g, '&quot;')}" 
+                        data-address-level="true"
+                        data-column="${col}"
+                        data-original-value="${firstRowValue.replace(/"/g, '&quot;')}">
+                  <option value="">(not set)</option>
+                  ${remediationOptions.map(opt => `<option value="${opt.replace(/"/g, '&quot;')}" ${opt.toLowerCase() === firstRowValue.toLowerCase() ? 'selected' : ''}>${escapeHtml(opt)}</option>`).join('')}
                 </select>
               </div>`;
             } else if (isCaptainAssigned && hasMultipleCaptains && captains.length > 0) {
@@ -10090,6 +10144,7 @@
         'rebuild status',
         'build stage',
         'build status',
+        'remediation status',
         'indoors remediated',
         'soil remediated',
         'for sale',
@@ -16998,6 +17053,7 @@
       const damageSelect = document.getElementById('batchTaggingDamage');
       const addressPlanSelect = document.getElementById('batchTaggingAddressPlan');
       const rebuildSelect = document.getElementById('batchTaggingRebuild');
+      const remediationSelect = document.getElementById('batchTaggingRemediation');
       const applyBtn = document.getElementById('batchTaggingApply');
       const statusMsg = document.getElementById('batchTaggingStatusMsg');
       const selectAllBtn = document.getElementById('batchTaggingSelectAll');
@@ -17135,6 +17191,7 @@
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
+      const remediationStatusCol = findColumn(headers, ['remediation', 'status'], ['note']);
       const latCol = findLatitudeColumn(headers);
       const lonCol = findLongitudeColumn(headers);
       const hasLatLon = Boolean(latCol && lonCol);
@@ -17173,7 +17230,8 @@
       const computeAddressTagValues = (rows) => ({
         damage: firstNonEmpty(rows, damageCol),
         addressPlan: firstNonEmpty(rows, addressPlanCol),
-        buildStatus: firstNonEmpty(rows, rebuildCol)
+        buildStatus: firstNonEmpty(rows, rebuildCol),
+        remediationStatus: firstNonEmpty(rows, remediationStatusCol)
       });
       allAddresses.forEach((address) => {
         const rows = sheetData.addressMap.get(address) || [];
@@ -17198,7 +17256,8 @@
           residentSearchText: residentNames.join(' ').toLowerCase(),
           damage: tagValues.damage,
           addressPlan: tagValues.addressPlan,
-          buildStatus: tagValues.buildStatus
+          buildStatus: tagValues.buildStatus,
+          remediationStatus: tagValues.remediationStatus
         });
       });
       const selectedAddresses = new Set();
@@ -17222,9 +17281,14 @@
       const damageOpts = getFullDamageOptions();
       const addressPlanOpts = getFullAddressPlanOptions();
       const rebuildOpts = getFullRebuildStatusOptions();
+      const remediationOpts = getFullRemediationStatusOptions();
       damageSelect.innerHTML = '<option value="">—</option>' + damageOpts.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
       addressPlanSelect.innerHTML = '<option value="">—</option>' + addressPlanOpts.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
       rebuildSelect.innerHTML = '<option value="">—</option>' + rebuildOpts.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+      if (remediationSelect) {
+        remediationSelect.innerHTML = '<option value="">—</option>' + remediationOpts.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+        remediationSelect.disabled = !remediationStatusCol;
+      }
 
       const buildTagFilterOptions = (label, opts) =>
         `<option value="all">All ${label}</option><option value="__unset__">Not set</option>` +
@@ -17510,6 +17574,7 @@
             if (damageCol && details.damage) chips.push({ label: 'Damage', value: details.damage });
             if (addressPlanCol && details.addressPlan) chips.push({ label: 'Plan', value: details.addressPlan });
             if (rebuildCol && details.buildStatus) chips.push({ label: 'Build', value: details.buildStatus });
+            if (remediationStatusCol && details.remediationStatus) chips.push({ label: 'Remediation', value: details.remediationStatus });
             if (chips.length > 0) {
               const chipsWrap = document.createElement('span');
               chipsWrap.className = 'batch-tag-row-chips';
@@ -17895,6 +17960,7 @@
         setArmedApplyClass(damageSelect, (damageSelect.value || '').trim() !== '');
         setArmedApplyClass(addressPlanSelect, (addressPlanSelect.value || '').trim() !== '');
         setArmedApplyClass(rebuildSelect, (rebuildSelect.value || '').trim() !== '');
+        if (remediationSelect) setArmedApplyClass(remediationSelect, (remediationSelect.value || '').trim() !== '');
         setArmedApplyClass(personContactedSelect, personContactedSelect && (personContactedSelect.value || '').trim() !== '');
         setArmedApplyClass(personNewsletterSelect, personNewsletterSelect && (personNewsletterSelect.value || '').trim() !== '');
         setArmedApplyClass(personFormerResidentSelect, personFormerResidentSelect && (personFormerResidentSelect.value || '').trim() !== '');
@@ -17913,7 +17979,7 @@
       if (addressPlanFilter) addressPlanFilter.onchange = handleSharedFilterChange;
       if (buildStatusFilter) buildStatusFilter.onchange = handleSharedFilterChange;
 
-      [damageSelect, addressPlanSelect, rebuildSelect, personContactedSelect, personNewsletterSelect, personFormerResidentSelect].forEach((el) => {
+      [damageSelect, addressPlanSelect, rebuildSelect, remediationSelect, personContactedSelect, personNewsletterSelect, personFormerResidentSelect].forEach((el) => {
         if (!el) return;
         const prev = el.onchange;
         el.onchange = (event) => {
@@ -17985,8 +18051,9 @@
         const damageVal = (damageSelect.value || '').trim();
         const addressPlanVal = (addressPlanSelect.value || '').trim();
         const rebuildVal = (rebuildSelect.value || '').trim();
-        if (!damageVal && !addressPlanVal && !rebuildVal) {
-          if (statusMsg) statusMsg.textContent = 'Choose at least one value (Damage, Address Plan, or Build Status).';
+        const remediationVal = remediationSelect ? (remediationSelect.value || '').trim() : '';
+        if (!damageVal && !addressPlanVal && !rebuildVal && !remediationVal) {
+          if (statusMsg) statusMsg.textContent = 'Choose at least one value (Damage, Address Plan, Build Status, or Remediation Status).';
           return;
         }
 
@@ -17996,6 +18063,7 @@
         const damageColIndex = damageCol != null ? headers.indexOf(damageCol) : -1;
         const addressPlanColIndex = addressPlanCol != null ? headers.indexOf(addressPlanCol) : -1;
         const rebuildColIndex = rebuildCol != null ? headers.indexOf(rebuildCol) : -1;
+        const remediationColIndex = remediationStatusCol != null ? headers.indexOf(remediationStatusCol) : -1;
 
         selected.forEach((address) => {
           const rows = sheetData.addressMap.get(address);
@@ -18008,10 +18076,12 @@
               if (damageVal && damageCol) updatesByResidentId.push({ resident_id: residentId, column: damageCol, value: damageVal });
               if (addressPlanVal && addressPlanCol) updatesByResidentId.push({ resident_id: residentId, column: addressPlanCol, value: addressPlanVal });
               if (rebuildVal && rebuildCol) updatesByResidentId.push({ resident_id: residentId, column: rebuildCol, value: rebuildVal });
+              if (remediationVal && remediationStatusCol) updatesByResidentId.push({ resident_id: residentId, column: remediationStatusCol, value: remediationVal });
             } else if (rowNumber) {
               if (damageVal && damageColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(damageColIndex) + rowNumber, values: [[damageVal]] });
               if (addressPlanVal && addressPlanColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(addressPlanColIndex) + rowNumber, values: [[addressPlanVal]] });
               if (rebuildVal && rebuildColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(rebuildColIndex) + rowNumber, values: [[rebuildVal]] });
+              if (remediationVal && remediationColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(remediationColIndex) + rowNumber, values: [[remediationVal]] });
             }
           });
         });
@@ -18043,12 +18113,14 @@
               if (damageVal && damageCol) row[damageCol] = damageVal;
               if (addressPlanVal && addressPlanCol) row[addressPlanCol] = addressPlanVal;
               if (rebuildVal && rebuildCol) row[rebuildCol] = rebuildVal;
+              if (remediationVal && remediationStatusCol) row[remediationStatusCol] = remediationVal;
             });
             const details = addressDetails.get(address);
             if (details) {
               if (damageVal && damageCol) details.damage = damageVal;
               if (addressPlanVal && addressPlanCol) details.addressPlan = addressPlanVal;
               if (rebuildVal && rebuildCol) details.buildStatus = rebuildVal;
+              if (remediationVal && remediationStatusCol) details.remediationStatus = remediationVal;
             }
           });
 
