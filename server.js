@@ -410,6 +410,15 @@ function getSheetsClient() {
 const CENTRAL_SHEET_ID = process.env.CENTRAL_SHEET_ID || '1PaqcX2BSypJjLBDMA3DnlAxCHK5y0TWMSbCIkTScIQU';
 const ACTIONS_SHEET_ID = process.env.ACTIONS_SHEET_ID || '1g6gmdXF1yjrejpmT3HTY7JI1Zzb7jErYZQ2pwiH37I0';
 const NC_DIRECTORY_SHEET_ID = process.env.NC_DIRECTORY_SHEET_ID || '1E77qmT4eGtyokaDvD2wlK3q2NeMcS4itmkbYp6Rz0qM';
+const LOT_WEEDING_SHEET_ID = extractSpreadsheetId(process.env.LOT_WEEDING_SHEET_ID || process.env.LOT_WEEDING_SHEET_URL || '');
+const LOT_WEEDING_SHEET_NAME = process.env.LOT_WEEDING_SHEET_NAME || '';
+
+function extractSpreadsheetId(value) {
+  const clean = String(value || '').trim();
+  if (!clean) return '';
+  const match = clean.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  return match ? match[1] : clean;
+}
 
 // Helper function to get sheet gid (grid ID) from sheet name for public sheets
 async function getSheetGid(sheetId, sheetName) {
@@ -869,6 +878,31 @@ app.post('/api/sheets/values', async (req, res) => {
   }
 });
 
+// GET /api/lot-weeding/values - read central lot-weeding mirror sheet
+app.get('/api/lot-weeding/values', async (req, res) => {
+  if (!LOT_WEEDING_SHEET_ID) {
+    return res.json({ configured: false, values: [] });
+  }
+
+  try {
+    const sheets = await getSheetsClient();
+    const range = req.query.range || 'A1:ZZ5000';
+    const sheetName = req.query.sheetName || LOT_WEEDING_SHEET_NAME || null;
+    const rangeStr = sheetName ? `${sheetName}!${range}` : range;
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId: LOT_WEEDING_SHEET_ID,
+      range: rangeStr
+    });
+    res.json({ configured: true, values: result.data.values || [] });
+  } catch (err) {
+    const status = sheetsErrorStatus(err);
+    const message = err.message || (err.response && err.response.data && err.response.data.error && err.response.data.error.message) || 'Sheets API error';
+    console.error('Lot weeding sheet values get error:', message);
+    console.error('Lot weeding sheet error details: code=', err.code, 'response=', err.response && err.response.data ? JSON.stringify(err.response.data) : 'none');
+    res.status(status).json({ error: 'Failed to fetch lot weeding values', message });
+  }
+});
+
 // POST /api/sheets/append - append rows
 app.post('/api/sheets/append', async (req, res) => {
   const { sheetId, values, sheetName = 'Sheet1' } = req.body || {};
@@ -1122,6 +1156,7 @@ app.listen(PORT, () => {
   console.log(`Central sheet ID (announcements): ${CENTRAL_SHEET_ID}`);
   console.log(`Actions sheet ID: ${ACTIONS_SHEET_ID}`);
   console.log(`NC Directory sheet ID: ${NC_DIRECTORY_SHEET_ID}`);
+  console.log(`Lot weeding mirror sheet ID: ${LOT_WEEDING_SHEET_ID || 'not configured'}`);
   console.log(`To change sheets, update the IDs in server.js or set environment variables`);
   logUsersConfigStatusAtStartup();
 });
