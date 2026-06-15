@@ -1203,6 +1203,7 @@
     let currentLotWeedingFilter = 'all'; // Lot weeding filter: all | pending | completed | all_requests
     let currentAddressPlanFilter = 'all'; // Current Address Plan filter (only when Damage = Partial/Total Loss)
     let currentRebuildFilter = 'all'; // Current rebuild status filter
+    let currentRemediationFilter = 'all'; // Current Remediation Status filter (address-level)
     let currentEpicFilter = 'all'; // EPIC permitting filter: all | has_epic
     let currentCaptainFilter = 'all'; // Current captain assigned filter
     let currentPersonSearch = ''; // Current resident-name search filter
@@ -4472,6 +4473,7 @@
         currentSalesFilter = 'all';
         currentLotWeedingFilter = 'all';
         currentAddressPlanFilter = 'all';
+        currentRemediationFilter = 'all';
         currentEpicFilter = 'all';
         currentCaptainFilter = 'all';
         currentPersonSearch = '';
@@ -5526,6 +5528,7 @@
       currentLotWeedingFilter = 'all';
       currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
+      currentRemediationFilter = 'all';
       currentEpicFilter = 'all';
       currentCaptainFilter = 'all';
       currentPersonSearch = '';
@@ -5578,6 +5581,7 @@
       currentLotWeedingFilter = 'all';
       currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
+      currentRemediationFilter = 'all';
       currentEpicFilter = 'all';
       currentCaptainFilter = 'all';
       currentPersonSearch = '';
@@ -5598,6 +5602,7 @@
       currentLotWeedingFilter = 'all';
       currentAddressPlanFilter = 'all';
       currentRebuildFilter = 'all';
+      currentRemediationFilter = 'all';
       currentEpicFilter = 'all';
       currentCaptainFilter = 'all';
       currentPersonSearch = '';
@@ -7087,6 +7092,7 @@
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
+      const remediationStatusCol = findColumn(headers, ['remediation', 'status'], ['note']);
       const contactDateCol = findOutreachDateColumn(headers);
       const hasLotWeedingRequestData = getLotWeedingRequests().length > 0 || Boolean(findLotWeedingRequestColumns(headers).requestedCol);
       const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
@@ -7095,6 +7101,7 @@
       const damages = getFullDamageOptions();
       const addressPlans = addressPlanCol ? getFullAddressPlanOptions() : [];
       const rebuildStatusesArray = rebuildCol ? getFullRebuildStatusOptions() : [];
+      const remediationStatuses = remediationStatusCol ? getFullRemediationStatusOptions() : [];
       
       // Check if zone has multiple captains and get captain names for filter
       const ncNameCol = findColumn(headers, 'nc name');
@@ -7145,6 +7152,11 @@
         ${rebuildCol ? `<select id="persistentRebuildFilter" class="${currentRebuildFilter !== 'all' ? 'filter-active' : ''}" title="For properties in recovery, this tracks the physical progress of construction.">
           <option value="all" ${currentRebuildFilter === 'all' ? 'selected' : ''}>All Build Status</option>
           ${rebuildStatusesArray.map(status => `<option value="${status.replace(/"/g, '&quot;')}" ${currentRebuildFilter === status ? 'selected' : ''}>${status}</option>`).join('')}
+        </select>` : ''}
+        ${remediationStatusCol ? `<select id="persistentRemediationFilter" class="${currentRemediationFilter !== 'all' ? 'filter-active' : ''}" title="Tracks environmental remediation progress for this address (e.g. soil/debris cleanup).">
+          <option value="all" ${currentRemediationFilter === 'all' ? 'selected' : ''}>All Remediation Status</option>
+          <option value="" ${currentRemediationFilter === '' ? 'selected' : ''}>(not set)</option>
+          ${remediationStatuses.map(status => `<option value="${status.replace(/"/g, '&quot;')}" ${currentRemediationFilter === status ? 'selected' : ''}>${status}</option>`).join('')}
         </select>` : ''}
         <select id="persistentEpicFilter" class="${currentEpicFilter !== 'all' ? 'filter-active' : ''}" title="Filter addresses by whether they have EPIC permitting records.">
           <option value="all" ${currentEpicFilter === 'all' ? 'selected' : ''}>EPIC: All addresses</option>
@@ -7226,6 +7238,10 @@
       const oldRebuildFilter = document.getElementById('persistentRebuildFilter');
       if (oldRebuildFilter) {
         oldRebuildFilter.replaceWith(oldRebuildFilter.cloneNode(true));
+      }
+      const oldRemediationFilter = document.getElementById('persistentRemediationFilter');
+      if (oldRemediationFilter) {
+        oldRemediationFilter.replaceWith(oldRemediationFilter.cloneNode(true));
       }
       const oldEpicFilter = document.getElementById('persistentEpicFilter');
       if (oldEpicFilter) {
@@ -7342,6 +7358,21 @@
         });
       }
 
+      const remediationFilter = document.getElementById('persistentRemediationFilter');
+      if (remediationFilter) {
+        remediationFilter.addEventListener('change', (e) => {
+          currentRemediationFilter = e.target.value;
+          if (currentRemediationFilter !== 'all') {
+            remediationFilter.classList.add('filter-active');
+          } else {
+            remediationFilter.classList.remove('filter-active');
+          }
+          displayAddressTable();
+          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
+          updateMapMarkers();
+        });
+      }
+
       const epicFilter = document.getElementById('persistentEpicFilter');
       if (epicFilter) {
         epicFilter.addEventListener('change', async (e) => {
@@ -7445,6 +7476,7 @@
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
+      const remediationStatusCol = findColumn(headers, ['remediation', 'status'], ['note']);
       const residentNameCol = getResidentNameColumn(headers);
       const ageCol = headers.find(h => h.toLowerCase() === 'age');
       const phoneCol = findColumn(headers, 'phone', ['nc']);
@@ -7497,6 +7529,15 @@
             const rebuildValue = normalizeRebuildStatusLabel((rows[0][rebuildCol] || '').trim());
             if (rebuildValue !== currentRebuildFilter) return false;
           } else {
+            return false;
+          }
+        }
+        if (currentRemediationFilter !== 'all' && remediationStatusCol) {
+          const rows = sheetData.addressMap.get(addr);
+          const remediationValue = rows && rows[0] ? (rows[0][remediationStatusCol] || '').trim() : '';
+          if (currentRemediationFilter === '') {
+            if (remediationValue !== '') return false;
+          } else if (remediationValue !== currentRemediationFilter) {
             return false;
           }
         }
@@ -7728,6 +7769,9 @@
       if (currentRebuildFilter !== 'all') {
         parts.push('Build Status: ' + currentRebuildFilter);
       }
+      if (currentRemediationFilter !== 'all') {
+        parts.push('Remediation Status: ' + (currentRemediationFilter === '' ? '(not set)' : currentRemediationFilter));
+      }
       if (currentCaptainFilter !== 'all') {
         parts.push('Captain: ' + (currentCaptainFilter === '' ? '(not specified)' : currentCaptainFilter));
       }
@@ -7897,6 +7941,7 @@
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
+      const remediationStatusCol = findColumn(headers, ['remediation', 'status'], ['note']);
       const contactDateCol = findOutreachDateColumn(headers);
       const captainAssignedCol = findColumn(headers, 'captain assigned');
       
@@ -7927,6 +7972,15 @@
             const rebuildValue = normalizeRebuildStatusLabel((rows[0][rebuildCol] || '').trim());
             if (rebuildValue !== currentRebuildFilter) return false;
           } else {
+            return false;
+          }
+        }
+        if (currentRemediationFilter !== 'all' && remediationStatusCol) {
+          const rows = sheetData.addressMap.get(addr);
+          const remediationValue = rows && rows[0] ? (rows[0][remediationStatusCol] || '').trim() : '';
+          if (currentRemediationFilter === '') {
+            if (remediationValue !== '') return false;
+          } else if (remediationValue !== currentRemediationFilter) {
             return false;
           }
         }
@@ -8424,6 +8478,7 @@
       // Filter addresses by all selected filters (same logic as displayAddressTable)
       const headers = sheetData.headers;
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
+      const remediationStatusCol = findColumn(headers, ['remediation', 'status'], ['note']);
       const contactDateCol = findOutreachDateColumn(headers);
       
       const filteredAddresses = addresses.filter(addr => {
@@ -8470,6 +8525,16 @@
             const rebuildValue = normalizeRebuildStatusLabel((rows[0][rebuildCol] || '').trim());
             if (rebuildValue !== currentRebuildFilter) return false;
           } else {
+            return false;
+          }
+        }
+        // Remediation Status filter
+        if (currentRemediationFilter !== 'all' && remediationStatusCol) {
+          const rows = sheetData.addressMap.get(addr);
+          const remediationValue = rows && rows[0] ? (rows[0][remediationStatusCol] || '').trim() : '';
+          if (currentRemediationFilter === '') {
+            if (remediationValue !== '') return false;
+          } else if (remediationValue !== currentRemediationFilter) {
             return false;
           }
         }
@@ -8990,6 +9055,24 @@
         ];
         const forceAddressLevel = forceAddressLevelFields.some(field => lower.includes(field));
         return isSameForAll || forceAddressLevel;
+      });
+
+      // Pin display order in the address card (independent of spreadsheet column order)
+      const addressLevelFieldSortRank = (col) => {
+        const lower = col.toLowerCase();
+        if (lower.includes('damage')) return 10;
+        if (lower.includes('address') && lower.includes('plan') && !lower.includes('note')) return 20;
+        if (lower.includes('rebuild stage') || lower.includes('rebuild status') ||
+            lower.includes('build stage') || lower.includes('build status')) return 30;
+        if (lower.includes('remediation status')) return 40;
+        if (lower.includes('address note')) return 50;
+        if (lower.includes('captain assigned')) return 60;
+        if (lower.includes('household size')) return 70;
+        return 999;
+      };
+      addressLevelCols.sort((a, b) => {
+        const rankDiff = addressLevelFieldSortRank(a) - addressLevelFieldSortRank(b);
+        return rankDiff !== 0 ? rankDiff : a.localeCompare(b);
       });
       
       // Fields to hide from person view (address-level; address is shown as header)
@@ -14966,6 +15049,17 @@
             const rebuildValue = normalizeRebuildStatusLabel((rows[0][rebuildCol] || '').trim());
             if (rebuildValue !== currentRebuildFilter) return false;
           } else {
+            return false;
+          }
+        }
+        // Remediation Status filter
+        const remediationStatusCol = findColumn(headers, ['remediation', 'status'], ['note']);
+        if (currentRemediationFilter !== 'all' && remediationStatusCol) {
+          const rows = sheetData.addressMap.get(address);
+          const remediationValue = rows && rows[0] ? (rows[0][remediationStatusCol] || '').trim() : '';
+          if (currentRemediationFilter === '') {
+            if (remediationValue !== '') return false;
+          } else if (remediationValue !== currentRemediationFilter) {
             return false;
           }
         }
