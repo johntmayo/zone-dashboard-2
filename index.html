@@ -6472,11 +6472,86 @@
       return addressString;
     }
 
-    function copyAddRecordAddressFields(sourceRow, valuesByColumn, addressFieldCols) {
-      if (!sourceRow || !addressFieldCols) return;
+    function isAddRecordPersonOrSystemColumn(column) {
+      const lower = String(column || '').trim().toLowerCase();
+      const normalized = typeof normalizeHeaderKey === 'function'
+        ? normalizeHeaderKey(column)
+        : lower.replace(/[^a-z0-9]/g, '');
+      if (!lower || lower.startsWith('_') || normalized === 'residentid') return true;
+      if (lower.startsWith('person - ') || lower.startsWith('person_')) return true;
+      if (lower.includes('person note')) return true;
+      if (lower.includes('former resident') || lower === 'deceased') return true;
+      if (lower.includes('unable to reach') || lower.includes('needs follow')) return true;
+      if (normalized === 'wantsupdates' || normalized === 'newslettersubscriber') return true;
+      if (normalized === 'age' || normalized === 'gender' || normalized === 'renter') return true;
+      if ((lower.includes('name') || lower.includes('phone') || lower.includes('email')) && !lower.includes('nc')) return true;
+      if (lower.includes('contact') || lower.includes('outreach')) return true;
+      return false;
+    }
+
+    function isAddRecordAddressInheritedColumn(column) {
+      if (isAddRecordPersonOrSystemColumn(column)) return false;
+      const lower = String(column || '').trim().toLowerCase();
+      const normalized = typeof normalizeHeaderKey === 'function'
+        ? normalizeHeaderKey(column)
+        : lower.replace(/[^a-z0-9]/g, '');
+
+      if (lower.startsWith('address') || lower.startsWith('address -')) return true;
+      if (lower.startsWith('sale') || lower.startsWith('sales')) return true;
+      if (lower.startsWith('lot') || normalized.startsWith('lotweeding')) return true;
+      if (normalized.startsWith('situs')) return true;
+      if (['apn', 'parcel', 'zone', 'zonename', 'city', 'state', 'zip', 'zipcode', 'postalcode'].includes(normalized)) return true;
+      if (['house', 'house#', 'housenumber', 'housenum', 'street', 'unit', 'latitude', 'lat', 'longitude', 'lon', 'lng', 'long'].includes(normalized)) return true;
+      if (lower.includes('damage') || lower.includes('remediation')) return true;
+      if (lower.includes('build status') || lower.includes('build stage') || lower.includes('rebuild status') || lower.includes('rebuild stage')) return true;
+      if (lower.includes('captain') || lower.includes('household size')) return true;
+      if (lower.includes('nc name') || lower.includes('nc phone') || lower.includes('nc email')) return true;
+      if (lower.includes('for sale') || lower.includes('sold since fire') || lower.includes('recently sold') || lower.includes('unit type')) return true;
+      if (lower.includes('new owner') || lower.includes('sale price') || lower.includes('lot sqft') || lower.includes('lot sq ft') || lower.includes('lot square feet')) return true;
+      return false;
+    }
+
+    function getAddRecordAddressInheritanceColumns(headers, explicitColumns) {
+      const cols = new Set();
+      if (explicitColumns) {
+        explicitColumns.forEach((col) => {
+          if (col && !isAddRecordPersonOrSystemColumn(col)) cols.add(col);
+        });
+      }
+      (headers || []).forEach((col) => {
+        if (isAddRecordAddressInheritedColumn(col)) cols.add(col);
+      });
+      return cols;
+    }
+
+    function getAddRecordInheritedAddressValue(rows, column) {
+      const counts = new Map();
+      const firstSeen = new Map();
+      (Array.isArray(rows) ? rows : [rows]).forEach((row, index) => {
+        if (!row || !column) return;
+        const value = row[column] == null ? '' : String(row[column]).trim();
+        if (!value) return;
+        const key = value.toLowerCase();
+        counts.set(key, (counts.get(key) || 0) + 1);
+        if (!firstSeen.has(key)) firstSeen.set(key, { value, index });
+      });
+
+      let best = null;
+      counts.forEach((count, key) => {
+        const candidate = firstSeen.get(key);
+        if (!candidate) return;
+        if (!best || count > best.count || (count === best.count && candidate.index < best.index)) {
+          best = { value: candidate.value, index: candidate.index, count };
+        }
+      });
+      return best ? best.value : '';
+    }
+
+    function copyAddRecordAddressFields(sourceRows, valuesByColumn, addressFieldCols) {
+      if (!sourceRows || !addressFieldCols) return;
       addressFieldCols.forEach((col) => {
         if (!col) return;
-        setAddRecordValue(valuesByColumn, col, sourceRow[col]);
+        setAddRecordValue(valuesByColumn, col, getAddRecordInheritedAddressValue(sourceRows, col));
       });
     }
 
@@ -6597,7 +6672,7 @@
       const deceasedCol = headers.find(h => /^deceased$/i.test(h) || /deceased/i.test(h));
       const zoneDefaults = getAddRecordZoneDefaults(headers, zoneCol);
       const nameColumns = { nameCol, firstNameCol, middleNameCol, lastNameCol };
-      const addressFieldCols = new Set([
+      const explicitAddressFieldCols = new Set([
         houseNumCol,
         directionCol,
         streetCol,
@@ -6631,6 +6706,7 @@
         indoorsCol,
         soilCol
       ].filter(Boolean));
+      const addressFieldCols = getAddRecordAddressInheritanceColumns(headers, explicitAddressFieldCols);
       const addressInputOptions = {
         addressColumns,
         houseNumCol,
@@ -6977,8 +7053,7 @@
             if (!existingAddr) { alert('Please select an address.'); return; }
             const existingRows = sheetData.addressMap.get(existingAddr);
             if (!existingRows || !existingRows.length) { alert('Could not find that address.'); return; }
-            const firstRow = existingRows[0];
-            copyAddRecordAddressFields(firstRow, rowValuesByColumn, addressFieldCols);
+            copyAddRecordAddressFields(existingRows, rowValuesByColumn, addressFieldCols);
             applyAddRecordZoneDefaults(rowValuesByColumn, zoneDefaults);
             applyAddRecordPersonName(rowValuesByColumn, personName, nameColumns);
             Object.assign(rowValuesByColumn, collectPersonDetails('addRecordP'));
