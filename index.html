@@ -3134,6 +3134,23 @@
       return null;
     }
 
+    function getGodmodeApnLookupKeys(rawApn) {
+      const apnDigits = normalizeApnDigits(rawApn);
+      if (!apnDigits) return [];
+      const keys = [apnDigits];
+      const trimmed = apnDigits.replace(/^0+/, '');
+      if (trimmed && trimmed !== apnDigits) keys.push(trimmed);
+      return keys;
+    }
+
+    function findGodmodeMasterMatchByApn(apnLookup, rawApn) {
+      for (const key of getGodmodeApnLookupKeys(rawApn)) {
+        const match = apnLookup.get(key);
+        if (match) return match;
+      }
+      return null;
+    }
+
     function getGodmodeLotWeedingRequestKey(row, addressKey) {
       const rawApn = getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn);
       const apnDigits = normalizeApnDigits(rawApn);
@@ -3197,6 +3214,8 @@
       const zones = new Map();
       const captains = new Map();
       const lotWeedingRequestsByKey = new Map();
+      const apnLookup = new Map();
+      const useCentralLotWeeding = isCentralLotWeedingAvailable();
       const totalPlanCounts = new Map();
       const totalBuildCounts = new Map();
       let peopleWithCaptain = 0;
@@ -3222,6 +3241,41 @@
         const hasUnit = Boolean(unit);
         const buildingKey = getGodmodeBuildingKey(row);
         const apn = getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn);
+
+        getGodmodeApnLookupKeys(apn).forEach((key) => {
+          if (!apnLookup.has(key)) {
+            apnLookup.set(key, {
+              apn,
+              apnDigits: normalizeApnDigits(apn),
+              address: getGodmodeAddress(row),
+              addressKey,
+              zone,
+              unzoned,
+              covered,
+              captains: new Set(),
+              coCaptains: new Set(),
+              sourceSheet: getGodmodeValue(row, GODMODE_FIELD_ALIASES.sourceSheet)
+            });
+          }
+          const match = apnLookup.get(key);
+          const preferCurrentRow = covered && !match.covered;
+          if (preferCurrentRow) {
+            match.address = getGodmodeAddress(row) || match.address;
+            match.addressKey = addressKey || match.addressKey;
+            match.zone = zone || match.zone;
+            match.unzoned = unzoned;
+            match.sourceSheet = getGodmodeValue(row, GODMODE_FIELD_ALIASES.sourceSheet) || match.sourceSheet;
+          } else {
+            match.address = match.address || getGodmodeAddress(row);
+            match.addressKey = match.addressKey || addressKey;
+            match.zone = match.zone || zone;
+            match.unzoned = match.unzoned || unzoned;
+            match.sourceSheet = match.sourceSheet || getGodmodeValue(row, GODMODE_FIELD_ALIASES.sourceSheet);
+          }
+          match.covered = match.covered || covered;
+          captainList.forEach((captain) => match.captains.add(captain));
+          coCaptainList.forEach((captain) => match.coCaptains.add(captain));
+        });
 
         if (covered) peopleWithCaptain++;
         if (unzoned) unzonedPeople++;
@@ -3309,9 +3363,7 @@
             incrementGodmodeMap(zoneRollup.damage, damage);
             zoneRollup.damageKeys.add(addressKey);
           }
-          if (lotWeedingRequestKey) {
-            zoneRollup.lotWeedingRequestKeys.add(lotWeedingRequestKey);
-            zoneRollup.lotWeedingRequests = zoneRollup.lotWeedingRequestKeys.size;
+          if (!useCentralLotWeeding && lotWeedingRequestKey) {
             if (!lotWeedingRequestsByKey.has(lotWeedingRequestKey)) {
               lotWeedingRequestsByKey.set(lotWeedingRequestKey, {
                 key: lotWeedingRequestKey,
@@ -3386,6 +3438,34 @@
         }
       });
 
+      if (useCentralLotWeeding) {
+        const includeUnmatchedCentralRequests = !(godmodeState.query || '').trim();
+        lotWeedingCentralState.byApn.forEach((centralRequest) => {
+          const masterMatch = findGodmodeMasterMatchByApn(apnLookup, centralRequest.apnDigits || centralRequest.apn);
+          if (!masterMatch && !includeUnmatchedCentralRequests) return;
+
+          const lotWeedingRequestKey = centralRequest.key || `apn:${centralRequest.apnDigits}`;
+          if (!lotWeedingRequestKey) return;
+
+          const zone = masterMatch && masterMatch.zone ? masterMatch.zone : 'Unmatched APN';
+          const request = {
+            key: lotWeedingRequestKey,
+            address: masterMatch ? masterMatch.address : '',
+            apn: centralRequest.apn || centralRequest.apnDigits || '',
+            zone,
+            captains: new Set(masterMatch ? Array.from(masterMatch.captains) : []),
+            coCaptains: new Set(masterMatch ? Array.from(masterMatch.coCaptains) : []),
+            details: new Set(centralRequest.details || []),
+            status: centralRequest.status || 'Requested',
+            scheduledDates: new Set(centralRequest.scheduledDates || []),
+            sourceSheet: masterMatch ? masterMatch.sourceSheet : '',
+            unmatched: !masterMatch
+          };
+
+          lotWeedingRequestsByKey.set(lotWeedingRequestKey, request);
+        });
+      }
+
       Array.from(addresses.values()).forEach((address) => {
         incrementGodmodeMap(totalPlanCounts, address.addressPlan);
         incrementGodmodeMap(totalBuildCounts, address.buildStage);
@@ -3416,6 +3496,8 @@
       lotWeedingRequests.forEach((request) => {
         const zoneRollup = zones.get(request.zone);
         if (zoneRollup) {
+          zoneRollup.lotWeedingRequestKeys.add(request.key);
+          zoneRollup.lotWeedingRequests = zoneRollup.lotWeedingRequestKeys.size;
           if (request.status === 'Completed') zoneRollup.lotWeedingCompleted = (zoneRollup.lotWeedingCompleted || 0) + 1;
           else if (request.status === 'Scheduled') zoneRollup.lotWeedingScheduled = (zoneRollup.lotWeedingScheduled || 0) + 1;
           else zoneRollup.lotWeedingOpen = (zoneRollup.lotWeedingOpen || 0) + 1;
@@ -3437,6 +3519,7 @@
       const lotWeedingCompleted = lotWeedingRequests.filter((request) => request.status === 'Completed').length;
       const lotWeedingScheduled = lotWeedingRequests.filter((request) => request.status === 'Scheduled').length;
       const lotWeedingOpen = lotWeedingRequests.length - lotWeedingCompleted - lotWeedingScheduled;
+      const lotWeedingUnmatched = lotWeedingRequests.filter((request) => request.unmatched).length;
 
       return {
         rows,
@@ -3445,6 +3528,7 @@
         lotWeedingOpen,
         lotWeedingScheduled,
         lotWeedingCompleted,
+        lotWeedingUnmatched,
         lotWeedingCompletionPercent: formatGodmodePercent(lotWeedingCompleted, lotWeedingRequests.length),
         peopleWithCaptain,
         unzonedPeople,
@@ -3584,7 +3668,7 @@
         .slice(0, 8);
       const statusItems = [
         ['Open', rollups.lotWeedingOpen, 'Needs a captain/organizer next step'],
-        ['Scheduled', rollups.lotWeedingScheduled, 'Date appears in the master sheet'],
+        ['Scheduled', rollups.lotWeedingScheduled, 'Date appears in the central sheet'],
         ['Completed', rollups.lotWeedingCompleted, `${rollups.lotWeedingCompletionPercent} complete`]
       ];
       const statusTotal = Math.max(1, requests.length);
@@ -3598,6 +3682,7 @@
               <p class="godmode-kicker">Lot Weeding Planner</p>
               <h3>Townwide request command center</h3>
               <p>Track how many requests exist, where they are clustered, who owns the busiest zones, and which requests still need scheduling or completion.</p>
+              ${rollups.lotWeedingUnmatched ? `<p>${formatGodmodeCount(rollups.lotWeedingUnmatched)} central request${rollups.lotWeedingUnmatched !== 1 ? 's have' : ' has'} an APN that did not match the master sheet.</p>` : ''}
             </div>
             <div class="godmode-lot-weeding-total">
               <span>${formatGodmodeCount(requests.length)}</span>
@@ -3616,6 +3701,14 @@
                 </div>
               </div>
             `).join('')}
+            <div class="godmode-lot-weeding-stat">
+              <span>${formatGodmodeCount(rollups.lotWeedingUnmatched || 0)}</span>
+              <strong>unmatched APNs</strong>
+              <em>Central requests not found in the master sheet</em>
+              <div class="godmode-lot-weeding-meter" aria-hidden="true">
+                <i style="width: ${Math.round(((rollups.lotWeedingUnmatched || 0) / statusTotal) * 100)}%"></i>
+              </div>
+            </div>
             <div class="godmode-lot-weeding-stat">
               <span>${formatGodmodeCount(demandZones.length)}</span>
               <strong>zones with demand</strong>
@@ -3676,7 +3769,7 @@
                 ${activeRequests.map((request) => `
                   <article class="godmode-lot-weeding-request">
                     <div>
-                      <strong>${escapeHtml(request.address || 'Address not listed')}</strong>
+                      <strong>${escapeHtml(request.address || 'Address not matched')}</strong>
                       <span>${escapeHtml(request.zone || 'No zone')} ${request.captains.length ? `- ${escapeHtml(request.captains.join(', '))}` : ''}</span>
                       ${request.details.length ? `<p>${escapeHtml(request.details[0])}</p>` : ''}
                     </div>
