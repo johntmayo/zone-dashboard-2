@@ -2946,6 +2946,8 @@
       followUp: ['person - needs follow-up', 'needs follow-up', 'needs follow up', 'follow up'],
       lotWeedingRequested: ['lot_weeding_requested_spring_2026', 'lot weeding requested spring 2026', 'lot weeding requested'],
       lotWeedingDetails: ['lot_weeding_request_details_spring_2026', 'lot weeding request details spring 2026', 'lot weeding request details'],
+      lotWeedingStatus: ['lot_weeding_status_spring_2026', 'lot weeding status spring 2026', 'lot weeding status'],
+      lotWeedingScheduledDate: ['lot_weeding_date_scheduled_spring_2026', 'lot_weeding_scheduled_date_spring_2026', 'lot weeding date scheduled spring 2026', 'lot weeding scheduled date spring 2026', 'lot weeding scheduled date'],
       unableToReach: ['person - unable to reach', 'unable to reach'],
       renter: ['person - renter', 'renter'],
       outreachDate: ['last outreach attempt date', 'last contact date', 'last outreach'],
@@ -3092,6 +3094,14 @@
       return 1;
     }
 
+    function normalizeGodmodeLotWeedingStatus(value) {
+      const normalized = String(value || '').trim().toLowerCase();
+      if (!normalized) return '';
+      if (normalized.includes('complete') || normalized === 'done') return 'Completed';
+      if (normalized.includes('scheduled') || normalized.includes('booked') || normalized.includes('planned')) return 'Scheduled';
+      return '';
+    }
+
     function isCentralLotWeedingAvailable() {
       return lotWeedingCentralState.configured && lotWeedingCentralState.loaded && !lotWeedingCentralState.error;
     }
@@ -3157,6 +3167,7 @@
       const addresses = new Map();
       const zones = new Map();
       const captains = new Map();
+      const lotWeedingRequestsByKey = new Map();
       const totalPlanCounts = new Map();
       const totalBuildCounts = new Map();
       let peopleWithCaptain = 0;
@@ -3174,10 +3185,14 @@
         const damage = getGodmodeValue(row, GODMODE_FIELD_ALIASES.damage);
         const sold = hasGodmodeTruthyValue(getGodmodeValue(row, GODMODE_FIELD_ALIASES.soldSinceFire));
         const lotWeedingRequestKey = getGodmodeLotWeedingRequestKey(row, addressKey);
+        const lotWeedingStatus = normalizeGodmodeLotWeedingStatus(getGodmodeValue(row, GODMODE_FIELD_ALIASES.lotWeedingStatus));
+        const lotWeedingScheduledDate = formatLotWeedingScheduledDate(getGodmodeValue(row, GODMODE_FIELD_ALIASES.lotWeedingScheduledDate));
+        const lotWeedingDetails = getGodmodeValue(row, GODMODE_FIELD_ALIASES.lotWeedingDetails);
         const outreach = hasGodmodeOutreach(row);
         const unit = getGodmodeUnit(row);
         const hasUnit = Boolean(unit);
         const buildingKey = getGodmodeBuildingKey(row);
+        const apn = getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn);
 
         if (covered) peopleWithCaptain++;
         if (unzoned) unzonedPeople++;
@@ -3268,6 +3283,43 @@
           if (lotWeedingRequestKey) {
             zoneRollup.lotWeedingRequestKeys.add(lotWeedingRequestKey);
             zoneRollup.lotWeedingRequests = zoneRollup.lotWeedingRequestKeys.size;
+            if (!lotWeedingRequestsByKey.has(lotWeedingRequestKey)) {
+              lotWeedingRequestsByKey.set(lotWeedingRequestKey, {
+                key: lotWeedingRequestKey,
+                address: getGodmodeAddress(row),
+                apn,
+                zone,
+                captains: new Set(),
+                coCaptains: new Set(),
+                details: new Set(),
+                status: '',
+                scheduledDates: new Set(),
+                sourceSheet: getGodmodeValue(row, GODMODE_FIELD_ALIASES.sourceSheet)
+              });
+            }
+            const request = lotWeedingRequestsByKey.get(lotWeedingRequestKey);
+            request.address = request.address || getGodmodeAddress(row);
+            request.apn = request.apn || apn;
+            request.zone = request.zone || zone;
+            request.sourceSheet = request.sourceSheet || getGodmodeValue(row, GODMODE_FIELD_ALIASES.sourceSheet);
+            captainList.forEach((captain) => request.captains.add(captain));
+            coCaptainList.forEach((captain) => request.coCaptains.add(captain));
+            if (lotWeedingDetails) request.details.add(lotWeedingDetails);
+            if (lotWeedingScheduledDate) request.scheduledDates.add(lotWeedingScheduledDate);
+            if (getLotWeedingStatusPriority(lotWeedingStatus) > getLotWeedingStatusPriority(request.status)) {
+              request.status = lotWeedingStatus;
+            }
+            // When the central lot weeding sheet is the active source, let its
+            // status/details/dates inform the planner entry too (it is the
+            // source of truth that getGodmodeLotWeedingRequestKey counted from)
+            const centralRequest = isCentralLotWeedingAvailable() ? lotWeedingCentralState.byApn.get(normalizeApnDigits(apn)) : null;
+            if (centralRequest) {
+              centralRequest.details.forEach((detail) => request.details.add(detail));
+              centralRequest.scheduledDates.forEach((date) => request.scheduledDates.add(date));
+              if (getLotWeedingStatusPriority(centralRequest.status) > getLotWeedingStatusPriority(request.status)) {
+                request.status = centralRequest.status;
+              }
+            }
           }
           zoneRollup.sourceSheet = zoneRollup.sourceSheet || getGodmodeValue(row, GODMODE_FIELD_ALIASES.sourceSheet);
 
@@ -3283,6 +3335,10 @@
                 people: 0,
                 addressKeys: new Set(),
                 outreachKeys: new Set(),
+                lotWeedingRequestKeys: new Set(),
+                lotWeedingOpen: 0,
+                lotWeedingScheduled: 0,
+                lotWeedingCompleted: 0,
                 followUp: 0,
                 missingFields: new Set()
               });
@@ -3313,15 +3369,54 @@
       });
 
       const addressList = Array.from(addresses.values());
+      const lotWeedingRequests = Array.from(lotWeedingRequestsByKey.values())
+        .map((request) => ({
+          ...request,
+          captains: Array.from(request.captains),
+          coCaptains: Array.from(request.coCaptains),
+          details: Array.from(request.details),
+          scheduledDates: Array.from(request.scheduledDates),
+          status: request.status || 'Open'
+        }))
+        .sort((a, b) => {
+          const statusDiff = getLotWeedingStatusPriority(a.status) - getLotWeedingStatusPriority(b.status);
+          if (statusDiff !== 0) return statusDiff;
+          return String(a.zone || '').localeCompare(String(b.zone || ''), undefined, { numeric: true, sensitivity: 'base' }) ||
+            String(a.address || '').localeCompare(String(b.address || ''), undefined, { numeric: true, sensitivity: 'base' });
+        });
+      lotWeedingRequests.forEach((request) => {
+        const zoneRollup = zones.get(request.zone);
+        if (zoneRollup) {
+          if (request.status === 'Completed') zoneRollup.lotWeedingCompleted = (zoneRollup.lotWeedingCompleted || 0) + 1;
+          else if (request.status === 'Scheduled') zoneRollup.lotWeedingScheduled = (zoneRollup.lotWeedingScheduled || 0) + 1;
+          else zoneRollup.lotWeedingOpen = (zoneRollup.lotWeedingOpen || 0) + 1;
+        }
+        request.captains.forEach((captainName) => {
+          const captainRollup = captains.get(captainName);
+          if (!captainRollup) return;
+          captainRollup.lotWeedingRequestKeys.add(request.key);
+          if (request.status === 'Completed') captainRollup.lotWeedingCompleted++;
+          else if (request.status === 'Scheduled') captainRollup.lotWeedingScheduled++;
+          else captainRollup.lotWeedingOpen++;
+        });
+      });
       const coveredAddresses = addressList.filter((address) => address.covered);
       const unzonedAddresses = addressList.filter((address) => address.unzoned);
       const coveredOutreach = coveredAddresses.filter((address) => address.outreach).length;
       const unitAddresses = addressList.filter((address) => address.hasUnit);
       const unitBuildings = new Set(unitAddresses.map((address) => address.buildingKey).filter(Boolean));
+      const lotWeedingCompleted = lotWeedingRequests.filter((request) => request.status === 'Completed').length;
+      const lotWeedingScheduled = lotWeedingRequests.filter((request) => request.status === 'Scheduled').length;
+      const lotWeedingOpen = lotWeedingRequests.length - lotWeedingCompleted - lotWeedingScheduled;
 
       return {
         rows,
         addresses: addressList,
+        lotWeedingRequests,
+        lotWeedingOpen,
+        lotWeedingScheduled,
+        lotWeedingCompleted,
+        lotWeedingCompletionPercent: formatGodmodePercent(lotWeedingCompleted, lotWeedingRequests.length),
         peopleWithCaptain,
         unzonedPeople,
         totalPeople: rows.length,
@@ -3442,6 +3537,130 @@
             </div>
           `).join('')}
         </div>
+      `;
+    }
+
+    function renderGodmodeLotWeedingPlanner(rollups) {
+      const requests = rollups.lotWeedingRequests || [];
+      const demandZones = rollups.zones
+        .filter((zone) => zone.lotWeedingRequests > 0)
+        .sort((a, b) => b.lotWeedingRequests - a.lotWeedingRequests || a.zone.localeCompare(b.zone, undefined, { numeric: true, sensitivity: 'base' }));
+      const demandCaptains = rollups.captains
+        .filter((captain) => captain.lotWeedingRequestKeys && captain.lotWeedingRequestKeys.size > 0)
+        .sort((a, b) => b.lotWeedingRequestKeys.size - a.lotWeedingRequestKeys.size || a.captain.localeCompare(b.captain));
+      const topZones = demandZones.slice(0, 8);
+      const topCaptains = demandCaptains.slice(0, 8);
+      const activeRequests = requests
+        .filter((request) => request.status !== 'Completed')
+        .slice(0, 8);
+      const statusItems = [
+        ['Open', rollups.lotWeedingOpen, 'Needs a captain/organizer next step'],
+        ['Scheduled', rollups.lotWeedingScheduled, 'Date appears in the master sheet'],
+        ['Completed', rollups.lotWeedingCompleted, `${rollups.lotWeedingCompletionPercent} complete`]
+      ];
+      const statusTotal = Math.max(1, requests.length);
+      const zoneRequestMax = Math.max(1, ...topZones.map((zone) => zone.lotWeedingRequests));
+      const captainRequestMax = Math.max(1, ...topCaptains.map((captain) => captain.lotWeedingRequestKeys.size));
+
+      return `
+        <section class="godmode-lot-weeding-planner">
+          <div class="godmode-lot-weeding-header">
+            <div>
+              <p class="godmode-kicker">Lot Weeding Planner</p>
+              <h3>Townwide request command center</h3>
+              <p>Track how many requests exist, where they are clustered, who owns the busiest zones, and which requests still need scheduling or completion.</p>
+            </div>
+            <div class="godmode-lot-weeding-total">
+              <span>${formatGodmodeCount(requests.length)}</span>
+              <strong>total requests</strong>
+            </div>
+          </div>
+
+          <div class="godmode-lot-weeding-stats">
+            ${statusItems.map(([label, count, detail]) => `
+              <div class="godmode-lot-weeding-stat">
+                <span>${formatGodmodeCount(count)}</span>
+                <strong>${escapeHtml(label)}</strong>
+                <em>${escapeHtml(detail)}</em>
+                <div class="godmode-lot-weeding-meter" aria-hidden="true">
+                  <i style="width: ${Math.round((count / statusTotal) * 100)}%"></i>
+                </div>
+              </div>
+            `).join('')}
+            <div class="godmode-lot-weeding-stat">
+              <span>${formatGodmodeCount(demandZones.length)}</span>
+              <strong>zones with demand</strong>
+              <em>${formatGodmodeCount(demandCaptains.length)} captains currently tied to requests</em>
+              <div class="godmode-lot-weeding-meter" aria-hidden="true">
+                <i style="width: ${Math.min(100, Math.round((demandZones.length / Math.max(1, rollups.activeCoveredZones)) * 100))}%"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="godmode-lot-weeding-grid">
+            <section class="godmode-lot-weeding-panel">
+              <div class="godmode-lot-weeding-panel-heading">
+                <h4>Zones with the most requests</h4>
+                <span>${formatGodmodeCount(topZones.length)} shown</span>
+              </div>
+              <div class="godmode-lot-weeding-rank-list">
+                ${topZones.map((zone, index) => `
+                  <button type="button" class="godmode-lot-weeding-rank" data-godmode-planner-search="${escapeHtmlAttr(zone.zone)}">
+                    <span class="godmode-lot-weeding-rank-number">${index + 1}</span>
+                    <span class="godmode-lot-weeding-rank-main">
+                      <strong>${escapeHtml(zone.zone)}</strong>
+                      <em>${escapeHtml(Array.from(zone.captains).join(', ') || 'No captain listed')}</em>
+                      <i style="width: ${Math.round((zone.lotWeedingRequests / zoneRequestMax) * 100)}%"></i>
+                    </span>
+                    <span class="godmode-lot-weeding-rank-count">${formatGodmodeCount(zone.lotWeedingRequests)}</span>
+                  </button>
+                `).join('') || '<p class="godmode-breakdown-empty">No lot weeding requests found in the current search.</p>'}
+              </div>
+            </section>
+
+            <section class="godmode-lot-weeding-panel">
+              <div class="godmode-lot-weeding-panel-heading">
+                <h4>Captains with the most requests</h4>
+                <span>${formatGodmodeCount(topCaptains.length)} shown</span>
+              </div>
+              <div class="godmode-lot-weeding-rank-list">
+                ${topCaptains.map((captain, index) => `
+                  <button type="button" class="godmode-lot-weeding-rank" data-godmode-planner-search="${escapeHtmlAttr(Array.from(captain.zones)[0] || captain.captain)}">
+                    <span class="godmode-lot-weeding-rank-number">${index + 1}</span>
+                    <span class="godmode-lot-weeding-rank-main">
+                      <strong>${escapeHtml(captain.captain)}</strong>
+                      <em>${escapeHtml(Array.from(captain.zones).join(', ') || 'No zone listed')}</em>
+                      <i style="width: ${Math.round((captain.lotWeedingRequestKeys.size / captainRequestMax) * 100)}%"></i>
+                    </span>
+                    <span class="godmode-lot-weeding-rank-count">${formatGodmodeCount(captain.lotWeedingRequestKeys.size)}</span>
+                  </button>
+                `).join('') || '<p class="godmode-breakdown-empty">No captain request totals found in the current search.</p>'}
+              </div>
+            </section>
+
+            <section class="godmode-lot-weeding-panel godmode-lot-weeding-panel--queue">
+              <div class="godmode-lot-weeding-panel-heading">
+                <h4>Open and scheduled request queue</h4>
+                <span>${formatGodmodeCount(activeRequests.length)} shown</span>
+              </div>
+              <div class="godmode-lot-weeding-request-list">
+                ${activeRequests.map((request) => `
+                  <article class="godmode-lot-weeding-request">
+                    <div>
+                      <strong>${escapeHtml(request.address || 'Address not listed')}</strong>
+                      <span>${escapeHtml(request.zone || 'No zone')} ${request.captains.length ? `- ${escapeHtml(request.captains.join(', '))}` : ''}</span>
+                      ${request.details.length ? `<p>${escapeHtml(request.details[0])}</p>` : ''}
+                    </div>
+                    <div>
+                      <span class="lot-weeding-status-badge lot-weeding-status-badge--${request.status.toLowerCase()}">${escapeHtml(request.status)}</span>
+                      <em>${escapeHtml(request.scheduledDates.join(', ') || request.apn || 'No date/APN')}</em>
+                    </div>
+                  </article>
+                `).join('') || '<p class="godmode-breakdown-empty">No open or scheduled lot weeding requests in the current search.</p>'}
+              </div>
+            </section>
+          </div>
+        </section>
       `;
     }
 
@@ -3821,6 +4040,7 @@
       const rollups = buildGodmodeRollups(filteredRows);
       content.innerHTML = `
         ${renderGodmodeSummary(rollups)}
+        ${renderGodmodeLotWeedingPlanner(rollups)}
         ${renderGodmodeBreakdowns(filteredRows)}
         ${renderGodmodeZoneDirectory(rollups)}
         ${renderGodmodeCaptainDirectory(rollups)}
@@ -3847,6 +4067,14 @@
         renderGodmodeView(true);
       });
       document.getElementById('godmodeRefreshBtn')?.addEventListener('click', () => loadGodmodeData(true));
+      content.querySelectorAll('[data-godmode-planner-search]').forEach((button) => {
+        button.addEventListener('click', () => {
+          godmodeState.query = button.getAttribute('data-godmode-planner-search') || '';
+          const nextRows = getGodmodeFilteredRows();
+          godmodeState.selectedIndex = nextRows[0]?.index ?? null;
+          renderGodmodeView(true);
+        });
+      });
       content.querySelectorAll('[data-godmode-sort-table][data-godmode-sort-key]').forEach((button) => {
         button.addEventListener('click', () => {
           const table = button.getAttribute('data-godmode-sort-table');
