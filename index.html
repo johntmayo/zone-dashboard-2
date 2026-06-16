@@ -2935,7 +2935,7 @@
       city: ['city'],
       state: ['state'],
       zip: ['zip', 'zipcode', 'zip code'],
-      apn: ['apn', 'ain', 'parcel', 'parcel number'],
+      apn: ['apn', 'ain', 'parcel', 'parcel number', 'parcel id', 'assessor parcel number', 'assessor parcel no', 'assessor parcel #'],
       zone: ['zonename', 'zone', 'zone name', 'zone_id', 'zone id', 'assigned zone'],
       captain: ['captain assigned', 'captain', 'captain name', 'neighborhood captain', 'captain_display_name', 'nc name'],
       ncName: ['nc name', 'neighborhood captain name'],
@@ -3108,7 +3108,30 @@
     }
 
     function isCentralLotWeedingAvailable() {
-      return lotWeedingCentralState.configured && lotWeedingCentralState.loaded && !lotWeedingCentralState.error;
+      return lotWeedingCentralState.configured &&
+        lotWeedingCentralState.loaded &&
+        !lotWeedingCentralState.error &&
+        lotWeedingCentralState.byApn instanceof Map &&
+        lotWeedingCentralState.byApn.size > 0;
+    }
+
+    function getCentralLotWeedingRequestByApn(rawApn) {
+      const apnDigits = normalizeApnDigits(rawApn);
+      if (!apnDigits || !(lotWeedingCentralState.byApn instanceof Map)) return null;
+
+      const exact = lotWeedingCentralState.byApn.get(apnDigits);
+      if (exact) return exact;
+
+      const trimmed = apnDigits.replace(/^0+/, '');
+      if (!trimmed || trimmed === apnDigits) return null;
+
+      for (const [centralApnDigits, request] of lotWeedingCentralState.byApn.entries()) {
+        if (String(centralApnDigits || '').replace(/^0+/, '') === trimmed) {
+          return request;
+        }
+      }
+
+      return null;
     }
 
     function getGodmodeLotWeedingRequestKey(row, addressKey) {
@@ -3116,7 +3139,8 @@
       const apnDigits = normalizeApnDigits(rawApn);
 
       if (isCentralLotWeedingAvailable()) {
-        return apnDigits && lotWeedingCentralState.byApn.has(apnDigits) ? `apn:${apnDigits}` : '';
+        const centralRequest = getCentralLotWeedingRequestByApn(rawApn);
+        return centralRequest && centralRequest.apnDigits ? `apn:${centralRequest.apnDigits}` : '';
       }
 
       if (getGodmodeLotWeedingRequestCount(row) <= 0) return '';
@@ -3317,7 +3341,7 @@
             // When the central lot weeding sheet is the active source, let its
             // status/details/dates inform the planner entry too (it is the
             // source of truth that getGodmodeLotWeedingRequestKey counted from)
-            const centralRequest = isCentralLotWeedingAvailable() ? lotWeedingCentralState.byApn.get(normalizeApnDigits(apn)) : null;
+            const centralRequest = isCentralLotWeedingAvailable() ? getCentralLotWeedingRequestByApn(apn) : null;
             if (centralRequest) {
               centralRequest.details.forEach((detail) => request.details.add(detail));
               centralRequest.scheduledDates.forEach((date) => request.scheduledDates.add(date));
@@ -4919,6 +4943,7 @@
       ], lower => lower.includes('scheduled') && lower.includes('date'));
       const apnCol = findLotWeedingColumn(headers, [
         'apn',
+        'ain',
         'parcel',
         'parcel number',
         'parcel id',
