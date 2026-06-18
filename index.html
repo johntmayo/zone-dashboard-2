@@ -6477,7 +6477,9 @@
       const normalized = typeof normalizeHeaderKey === 'function'
         ? normalizeHeaderKey(column)
         : lower.replace(/[^a-z0-9]/g, '');
-      if (!lower || lower.startsWith('_') || normalized === 'residentid') return true;
+      if (!lower || normalized === 'residentid') return true;
+      if (lower.startsWith('__')) return true;
+      if (lower.startsWith('_') && !normalized.startsWith('situs')) return true;
       if (lower.startsWith('person - ') || lower.startsWith('person_')) return true;
       if (lower.includes('person note')) return true;
       if (lower.includes('former resident') || lower === 'deceased') return true;
@@ -6495,7 +6497,24 @@
       const normalized = typeof normalizeHeaderKey === 'function'
         ? normalizeHeaderKey(column)
         : lower.replace(/[^a-z0-9]/g, '');
+      const alwaysInherited = new Set([
+        'apn',
+        'damage',
+        'addressplan',
+        'buildstatus',
+        'addressnotes',
+        'addressunittype',
+        'captainassigned',
+        'addressforsale',
+        'addresssoldsincefire',
+        'latestsaledate',
+        'latestsaleprice',
+        'latestnewowner',
+        'lotsqft',
+        'saleshistory'
+      ]);
 
+      if (alwaysInherited.has(normalized)) return true;
       if (lower.startsWith('address') || lower.startsWith('address -')) return true;
       if (lower.startsWith('sale') || lower.startsWith('sales')) return true;
       if (lower.startsWith('lot') || normalized.startsWith('lotweeding')) return true;
