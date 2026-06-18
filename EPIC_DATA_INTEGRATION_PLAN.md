@@ -323,7 +323,7 @@ Display last successful run timestamp in UI/API.
 Given the current architecture (Express backend + large frontend script + Google Sheets operational model), this plan is intentionally designed to:
 
 - minimize invasive refactors,
-- avoid loading large county payloads client-side,
+- avoid loading large county payloads client-side,no one's here.
 - and preserve current captain sheet workflows.
 
 That keeps risk low while adding high demo value and day-to-day utility for recovery work.
