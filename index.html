@@ -104,6 +104,7 @@
         <button class="nav-item" data-view="profile" id="navProfile">My NC Profile</button>
         <button class="nav-item hidden" type="button" id="navSwitchZone">Switch Zone</button>
         <button class="nav-item hidden" data-view="godmode" id="navGodmode">Admin Mode</button>
+        <button class="nav-item hidden" data-view="lotWeedingAdmin" id="navLotWeedingAdmin">Lot Weeding Admin</button>
         <a href="about.html" target="_blank" rel="noopener noreferrer" class="nav-item nav-item-link">About the Dashboard</a>
       </div>
       <div class="nav-section nav-section-bottom">
@@ -477,6 +478,23 @@
         </section>
         <div id="godmodeContent" class="godmode-content">
           <div class="loading">Loading Admin Mode...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lot Weeding Admin view (specialty zoneless operations console) -->
+    <div class="content-view hidden" id="lotWeedingAdminView">
+      <div class="lot-weeding-admin-view">
+        <section class="lot-weeding-admin-hero">
+          <div>
+            <p class="godmode-kicker">Specialty operations</p>
+            <h2>Lot Weeding Admin</h2>
+            <p class="godmode-subtitle">Townwide request intake, scheduling prep, and status tracking for volunteer-led lot weeding.</p>
+          </div>
+          <div class="godmode-freshness" id="lotWeedingAdminFreshness">Not loaded yet</div>
+        </section>
+        <div id="lotWeedingAdminContent" class="lot-weeding-admin-content">
+          <div class="loading">Loading Lot Weeding Admin...</div>
         </div>
       </div>
     </div>
@@ -1128,6 +1146,9 @@
         <button class="mobile-more-item hidden" data-view="godmode" id="mobileMoreGodmode">
           <span>Admin Mode</span><span class="mobile-more-item-arrow">›</span>
         </button>
+        <button class="mobile-more-item hidden" data-view="lotWeedingAdmin" id="mobileMoreLotWeedingAdmin">
+          <span>Lot Weeding Admin</span><span class="mobile-more-item-arrow">›</span>
+        </button>
         <button class="mobile-more-item hidden" type="button" id="mobileMoreSwitchZone">
           <span>Switch Zone</span><span class="mobile-more-item-arrow">›</span>
         </button>
@@ -1177,6 +1198,9 @@
     let currentUserEmail = null; // Signed-in Google account email (for NC Profile row match)
     let availableSheets = []; // Sheets returned by /api/user-sheets for zone selection
     let isCurrentUserAdmin = localStorage.getItem('godmodeAdmin') === 'true'; // UI convenience; server still enforces admin access.
+    let isCurrentUserLotWeedingAdmin = localStorage.getItem('lotWeedingAdmin') === 'true'; // UI convenience; server still enforces lot-weeding access.
+    let currentUserRoles = [];
+    let currentUserCapabilities = [];
     let welcomeAuthState = 'idle'; // idle | loading | zone_picker | not_registered | server_error
     let welcomeAuthMessage = '';
     let currentSheetId = null; // Current sheet ID for writing
@@ -1224,6 +1248,20 @@
       byApn: new Map(),
       lastFetchedAt: null
     };
+    const lotWeedingAdminState = {
+      loading: false,
+      loaded: false,
+      error: '',
+      configured: false,
+      source: '',
+      headers: [],
+      requests: [],
+      stats: { total: 0, open: 0, scheduled: 0, completed: 0, flagged: 0, missingApn: 0 },
+      lastFetchedAt: '',
+      filter: 'active',
+      query: ''
+    };
+    let lotWeedingAdminSearchTimer = null;
     
     // Sequential rebuild stages (in order)
     const REBUILD_STAGES_SEQUENTIAL = [
@@ -1626,7 +1664,11 @@
         if (res.status === 403) return { error: 'not_registered', sheets: [] };
         if (!res.ok) return { error: 'server_error', sheets: [] };
         const payload = await res.json();
-        return { sheets: Array.isArray(payload?.sheets) ? payload.sheets : [] };
+        return {
+          sheets: Array.isArray(payload?.sheets) ? payload.sheets : [],
+          roles: Array.isArray(payload?.roles) ? payload.roles : [],
+          capabilities: Array.isArray(payload?.capabilities) ? payload.capabilities : []
+        };
       } catch (error) {
         console.warn('Error fetching user sheets:', error);
         return { error: 'server_error', sheets: [] };
@@ -1675,21 +1717,44 @@
         .filter(Boolean);
     }
 
-    function setAdminAccessFromSheets(sheets) {
-      isCurrentUserAdmin = Array.isArray(sheets) && sheets.some((sheet) => sheet?.role === 'admin');
+    function normalizeAccessList(values) {
+      if (!Array.isArray(values)) return [];
+      return Array.from(new Set(values.map((value) => String(value || '').trim().toLowerCase()).filter(Boolean)));
+    }
+
+    function setAccessFromAuthResult(sheets, authResult = {}) {
+      const sheetRoles = Array.isArray(sheets)
+        ? sheets.map((sheet) => String(sheet?.role || '').trim().toLowerCase()).filter(Boolean)
+        : [];
+      currentUserRoles = normalizeAccessList([...(authResult.roles || []), ...sheetRoles]);
+      currentUserCapabilities = normalizeAccessList([...(authResult.capabilities || []), ...currentUserRoles]);
+      if (currentUserRoles.includes('admin')) {
+        currentUserCapabilities = normalizeAccessList([...currentUserCapabilities, 'lot_weeding_admin']);
+      }
+      isCurrentUserAdmin = currentUserRoles.includes('admin');
+      isCurrentUserLotWeedingAdmin = currentUserCapabilities.includes('lot_weeding_admin');
       if (isCurrentUserAdmin) {
         localStorage.setItem('godmodeAdmin', 'true');
       } else {
         localStorage.removeItem('godmodeAdmin');
       }
+      if (isCurrentUserLotWeedingAdmin) {
+        localStorage.setItem('lotWeedingAdmin', 'true');
+      } else {
+        localStorage.removeItem('lotWeedingAdmin');
+      }
       updateNavigationState();
+    }
+
+    function setAdminAccessFromSheets(sheets) {
+      setAccessFromAuthResult(sheets, {});
     }
 
     async function refreshAdminAccessForCurrentUser() {
       if (!currentUserEmail) return;
       const sheetsResult = await fetchUserSheets(currentUserEmail);
       if (!sheetsResult.error) {
-        setAdminAccessFromSheets(normalizeSheetAssignments(sheetsResult.sheets));
+        setAccessFromAuthResult(normalizeSheetAssignments(sheetsResult.sheets), sheetsResult);
       }
     }
 
@@ -1732,7 +1797,7 @@
       updateWelcomeMessage();
       const sheetsResult = await fetchUserSheets(currentUserEmail);
       const normalizedSheets = normalizeSheetAssignments(sheetsResult.sheets);
-      setAdminAccessFromSheets(normalizedSheets);
+      setAccessFromAuthResult(normalizedSheets, sheetsResult);
       if (sheetsResult.error) {
         welcomeAuthState = 'server_error';
         welcomeAuthMessage = 'We could not load your spreadsheet access right now. Please try again in a moment.';
@@ -1751,7 +1816,7 @@
     async function resolveAuthorizedSheetsForCurrentUser() {
       const sheetsResult = await fetchUserSheets(currentUserEmail);
       const normalizedSheets = normalizeSheetAssignments(sheetsResult.sheets);
-      setAdminAccessFromSheets(normalizedSheets);
+      setAccessFromAuthResult(normalizedSheets, sheetsResult);
       if (sheetsResult.error === 'not_registered') {
         showNotRegisteredMessage();
       } else if (sheetsResult.error) {
@@ -1759,6 +1824,12 @@
         welcomeAuthState = 'server_error';
         welcomeAuthMessage = 'We could not load your spreadsheet access right now. Please try again in a moment.';
         updateWelcomeMessage();
+      } else if (!normalizedSheets.length && isCurrentUserLotWeedingAdmin) {
+        availableSheets = [];
+        welcomeAuthState = 'idle';
+        welcomeAuthMessage = '';
+        updateWelcomeMessage();
+        switchView('lotWeedingAdmin');
       } else if (normalizedSheets.length === 1) {
         availableSheets = [];
         welcomeAuthState = 'idle';
@@ -1824,7 +1895,7 @@
       updateSignInUI();
       const sheetsResult = await fetchUserSheets(currentUserEmail);
       const normalizedSheets = normalizeSheetAssignments(sheetsResult.sheets);
-      setAdminAccessFromSheets(normalizedSheets);
+      setAccessFromAuthResult(normalizedSheets, sheetsResult);
 
       if (sheetsResult.error === 'not_registered') {
         showNotRegisteredMessage();
@@ -1832,6 +1903,16 @@
         welcomeAuthState = 'server_error';
         welcomeAuthMessage = 'We could not load your spreadsheet access right now. Please try again in a moment.';
         updateSignInUI();
+      } else if (!normalizedSheets.length && isCurrentUserLotWeedingAdmin) {
+        currentSheetUrl = '';
+        if (input) input.value = '';
+        welcomeAuthState = 'idle';
+        welcomeAuthMessage = '';
+        localStorage.removeItem('savedSheetUrl');
+        updateSheetLinkLabel();
+        updateNavigationState();
+        updateSignInUI();
+        switchView('lotWeedingAdmin');
       } else if (isCurrentUserAdmin && normalizedSheets.length > 1) {
         showZonePicker(normalizedSheets);
       } else if (rememberedSheetUrl) {
@@ -1970,6 +2051,9 @@
       currentSheetUrl = '';
       availableSheets = [];
       isCurrentUserAdmin = false;
+      isCurrentUserLotWeedingAdmin = false;
+      currentUserRoles = [];
+      currentUserCapabilities = [];
       godmodeState.loaded = false;
       godmodeState.loading = false;
       godmodeState.error = '';
@@ -1983,6 +2067,7 @@
       localStorage.removeItem('googleOAuthTokenExpiry');
       localStorage.removeItem('ncProfileUserEmail');
       localStorage.removeItem('godmodeAdmin');
+      localStorage.removeItem('lotWeedingAdmin');
       localStorage.removeItem('ncProfileExists');
       localStorage.removeItem('savedSheetUrl');
       localStorage.removeItem('currentView');
@@ -2881,17 +2966,47 @@
       }
     }
 
+    function canAccessLotWeedingAdminView() {
+      return Boolean(isCurrentUserAdmin || isCurrentUserLotWeedingAdmin);
+    }
+
+    function isZonelessLotWeedingOnlyUser() {
+      return Boolean(isCurrentUserLotWeedingAdmin && !isCurrentUserAdmin && !currentSheetUrl);
+    }
+
+    function canOpenViewWithoutSheet(viewName) {
+      if (viewName === 'home') return true;
+      if (viewName === 'lotWeedingAdmin') return canAccessLotWeedingAdminView();
+      if (isZonelessLotWeedingOnlyUser()) return false;
+      return viewName === 'profile' || (viewName === 'godmode' && isCurrentUserAdmin);
+    }
+
+    function canOpenView(viewName) {
+      if (currentSheetUrl || localStorage.getItem('savedSheetUrl')) {
+        if (viewName === 'godmode') return isCurrentUserAdmin;
+        if (viewName === 'lotWeedingAdmin') return canAccessLotWeedingAdminView();
+        return true;
+      }
+      return canOpenViewWithoutSheet(viewName);
+    }
+
     // Update navigation disabled state
     function updateNavigationState() {
       const leftNav = document.querySelector('.left-nav');
       const navItems = document.querySelectorAll('.nav-item[data-view]');
       const godmodeNav = document.getElementById('navGodmode');
       const mobileGodmodeNav = document.getElementById('mobileMoreGodmode');
+      const lotWeedingAdminNav = document.getElementById('navLotWeedingAdmin');
+      const mobileLotWeedingAdminNav = document.getElementById('mobileMoreLotWeedingAdmin');
       const switchZoneNav = document.getElementById('navSwitchZone');
       const mobileSwitchZoneNav = document.getElementById('mobileMoreSwitchZone');
       [godmodeNav, mobileGodmodeNav, switchZoneNav, mobileSwitchZoneNav].forEach((item) => {
         if (!item) return;
         item.classList.toggle('hidden', !isCurrentUserAdmin);
+      });
+      [lotWeedingAdminNav, mobileLotWeedingAdminNav].forEach((item) => {
+        if (!item) return;
+        item.classList.toggle('hidden', !canAccessLotWeedingAdminView());
       });
       
       if (!currentSheetUrl) {
@@ -2901,7 +3016,7 @@
         }
         navItems.forEach(item => {
           const viewName = item.getAttribute('data-view');
-          const isAllowedWithoutZone = viewName === 'home' || viewName === 'profile' || (viewName === 'godmode' && isCurrentUserAdmin);
+          const isAllowedWithoutZone = canOpenViewWithoutSheet(viewName);
           if (!isAllowedWithoutZone) {
             item.disabled = true;
             item.style.pointerEvents = 'none';
@@ -2916,8 +3031,10 @@
           leftNav.classList.remove('disabled');
         }
         navItems.forEach(item => {
-          item.disabled = false;
-          item.style.pointerEvents = 'auto';
+          const viewName = item.getAttribute('data-view');
+          const allowed = canOpenView(viewName);
+          item.disabled = !allowed;
+          item.style.pointerEvents = allowed ? 'auto' : 'none';
         });
       }
     }
@@ -3621,6 +3738,314 @@
         godmodeState.loading = false;
         renderGodmodeView();
       }
+    }
+
+    function getLotWeedingAdminFilteredRequests() {
+      const query = lotWeedingAdminState.query.trim().toLowerCase();
+      const filter = lotWeedingAdminState.filter || 'active';
+      return (lotWeedingAdminState.requests || []).filter((request) => {
+        const status = String(request.status || 'Open');
+        const matchesFilter =
+          filter === 'all' ||
+          (filter === 'active' && status !== 'Completed') ||
+          (filter === 'open' && status === 'Open') ||
+          (filter === 'scheduled' && status === 'Scheduled') ||
+          (filter === 'completed' && status === 'Completed') ||
+          (filter === 'flagged' && status === 'Flagged') ||
+          (filter === 'missing_apn' && !String(request.apn || '').trim());
+        if (!matchesFilter) return false;
+        if (!query) return true;
+        return [
+          request.requesterName,
+          request.address,
+          request.apn,
+          request.email,
+          request.phone,
+          request.zone,
+          request.captainName,
+          request.details,
+          request.flagReason,
+          request.deploymentGroup
+        ].some((value) => String(value || '').toLowerCase().includes(query));
+      });
+    }
+
+    async function loadLotWeedingAdminData(force = false) {
+      if (!accessToken || !currentUserEmail) {
+        lotWeedingAdminState.error = 'Sign in with a Lot Weeding Admin account to open this view.';
+        lotWeedingAdminState.loaded = false;
+        renderLotWeedingAdminView();
+        return;
+      }
+      if (!canAccessLotWeedingAdminView()) {
+        lotWeedingAdminState.error = 'This account is not marked as a Lot Weeding Admin in the Access Sheet.';
+        lotWeedingAdminState.loaded = false;
+        renderLotWeedingAdminView();
+        return;
+      }
+      if (lotWeedingAdminState.loading || (lotWeedingAdminState.loaded && !force)) {
+        renderLotWeedingAdminView();
+        return;
+      }
+
+      lotWeedingAdminState.loading = true;
+      lotWeedingAdminState.error = '';
+      renderLotWeedingAdminView();
+
+      try {
+        const forceParam = force ? '&force=1' : '';
+        const res = await fetch(`/api/lot-weeding-admin/requests?email=${encodeURIComponent(currentUserEmail)}${forceParam}`);
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          if (payload.error === 'not_lot_weeding_admin') {
+            isCurrentUserLotWeedingAdmin = false;
+            localStorage.removeItem('lotWeedingAdmin');
+            updateNavigationState();
+            throw new Error('This account is not marked as a Lot Weeding Admin in the Access Sheet.');
+          }
+          throw new Error(payload.message || payload.error || 'Could not load Lot Weeding Admin requests.');
+        }
+
+        lotWeedingAdminState.configured = Boolean(payload.configured);
+        lotWeedingAdminState.source = payload.source || '';
+        lotWeedingAdminState.headers = Array.isArray(payload.headers) ? payload.headers : [];
+        lotWeedingAdminState.requests = Array.isArray(payload.requests) ? payload.requests : [];
+        lotWeedingAdminState.stats = payload.stats || { total: 0, open: 0, scheduled: 0, completed: 0, flagged: 0, missingApn: 0 };
+        lotWeedingAdminState.lastFetchedAt = payload.lastFetchedAt || '';
+        lotWeedingAdminState.loaded = true;
+      } catch (error) {
+        console.error('Lot Weeding Admin load error:', error);
+        lotWeedingAdminState.error = error.message || 'Could not load Lot Weeding Admin.';
+        lotWeedingAdminState.loaded = false;
+      } finally {
+        lotWeedingAdminState.loading = false;
+        renderLotWeedingAdminView();
+      }
+    }
+
+    function renderLotWeedingAdminView() {
+      const content = document.getElementById('lotWeedingAdminContent');
+      const freshness = document.getElementById('lotWeedingAdminFreshness');
+      if (!content) return;
+
+      if (freshness) {
+        const sourceLabel = lotWeedingAdminState.source ? `Source: ${lotWeedingAdminState.source}` : 'Source not loaded';
+        const timeLabel = lotWeedingAdminState.lastFetchedAt
+          ? new Date(lotWeedingAdminState.lastFetchedAt).toLocaleString()
+          : 'Not loaded yet';
+        freshness.textContent = `${sourceLabel} | ${timeLabel}`;
+      }
+
+      if (lotWeedingAdminState.loading) {
+        content.innerHTML = '<div class="loading">Loading Lot Weeding Admin...</div>';
+        return;
+      }
+
+      if (lotWeedingAdminState.error) {
+        content.innerHTML = `
+          <div class="lot-weeding-admin-empty">
+            <h3>Could not load requests</h3>
+            <p>${escapeHtml(lotWeedingAdminState.error)}</p>
+            <button type="button" class="lot-weeding-admin-refresh" id="lotWeedingAdminRetryBtn">Try again</button>
+          </div>
+        `;
+        document.getElementById('lotWeedingAdminRetryBtn')?.addEventListener('click', () => loadLotWeedingAdminData(true));
+        return;
+      }
+
+      if (!lotWeedingAdminState.configured) {
+        content.innerHTML = `
+          <div class="lot-weeding-admin-empty">
+            <h3>Lot weeding source is not configured</h3>
+            <p>Add a lot-weeding source sheet env var, such as <code>LOT_WEEDING_SOURCE_SHEET_ID</code> for the original intake sheet or <code>LOT_WEEDING_SHEET_ID</code> for the mirror fallback.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const stats = lotWeedingAdminState.stats || {};
+      const filteredRequests = getLotWeedingAdminFilteredRequests();
+      const visibleRequests = filteredRequests.slice(0, 200);
+      const filterItems = [
+        ['active', 'Active'],
+        ['open', 'Open'],
+        ['scheduled', 'Scheduled'],
+        ['completed', 'Completed'],
+        ['flagged', 'Flagged'],
+        ['missing_apn', 'Missing APN'],
+        ['all', 'All']
+      ];
+
+      content.innerHTML = `
+        <section class="lot-weeding-admin-summary">
+          ${[
+            ['Total', stats.total || 0, 'All intake rows'],
+            ['Open', stats.open || 0, 'Needs scheduling'],
+            ['Scheduled', stats.scheduled || 0, 'Assigned to a date'],
+            ['Completed', stats.completed || 0, 'Weeding done'],
+            ['Flagged', stats.flagged || 0, 'Needs review'],
+            ['Missing APN', stats.missingApn || 0, 'Needs parcel lookup']
+          ].map(([label, value, detail]) => `
+            <div class="lot-weeding-admin-stat">
+              <span>${formatGodmodeCount(value)}</span>
+              <strong>${escapeHtml(label)}</strong>
+              <em>${escapeHtml(detail)}</em>
+            </div>
+          `).join('')}
+        </section>
+
+        <section class="lot-weeding-admin-toolbar">
+          <div class="lot-weeding-admin-filter-list" role="group" aria-label="Lot weeding request filters">
+            ${filterItems.map(([value, label]) => `
+              <button type="button" class="lot-weeding-admin-filter ${lotWeedingAdminState.filter === value ? 'active' : ''}" data-lot-weeding-filter="${value}">
+                ${escapeHtml(label)}
+              </button>
+            `).join('')}
+          </div>
+          <div class="lot-weeding-admin-search-wrap">
+            <input type="search" id="lotWeedingAdminSearch" class="lot-weeding-admin-search" placeholder="Search address, APN, requester, captain..." value="${escapeHtmlAttr(lotWeedingAdminState.query)}">
+            <button type="button" class="lot-weeding-admin-refresh" id="lotWeedingAdminRefreshBtn">Refresh</button>
+          </div>
+        </section>
+
+        <section class="lot-weeding-admin-table-card">
+          <div class="lot-weeding-admin-table-heading">
+            <h3>Request queue</h3>
+            <span>${formatGodmodeCount(filteredRequests.length)} matching requests${filteredRequests.length > visibleRequests.length ? `, showing first ${formatGodmodeCount(visibleRequests.length)}` : ''}</span>
+          </div>
+          <div class="lot-weeding-admin-table-wrap">
+            <table class="lot-weeding-admin-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Request</th>
+                  <th>Zone context</th>
+                  <th>Scheduling</th>
+                  <th>Notes</th>
+                  <th>Save</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${visibleRequests.map((request) => renderLotWeedingAdminRequestRow(request)).join('') || `
+                  <tr>
+                    <td colspan="6" class="lot-weeding-admin-no-results">No requests match this filter.</td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      `;
+
+      attachLotWeedingAdminHandlers();
+    }
+
+    function renderLotWeedingAdminRequestRow(request) {
+      const status = String(request.status || 'Open');
+      const statusOptions = ['Open', 'Scheduled', 'Completed', 'Flagged'];
+      return `
+        <tr data-lot-weeding-row="${escapeHtmlAttr(request.rowNumber)}">
+          <td>
+            <span class="lot-weeding-admin-status lot-weeding-admin-status--${escapeHtmlAttr(status.toLowerCase())}">${escapeHtml(status)}</span>
+            <select class="lot-weeding-admin-input" data-lot-weeding-field="status">
+              ${statusOptions.map((option) => `<option value="${escapeHtmlAttr(option)}" ${option === status ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
+            </select>
+          </td>
+          <td>
+            <div class="lot-weeding-admin-primary">${escapeHtml(request.address || 'Address not provided')}</div>
+            <label class="lot-weeding-admin-label">APN
+              <input class="lot-weeding-admin-input" data-lot-weeding-field="apn" value="${escapeHtmlAttr(request.apn)}" placeholder="Assign APN">
+            </label>
+            <div class="lot-weeding-admin-contact">
+              ${escapeHtml(request.requesterName || 'Unknown requester')}
+              ${request.email ? ` | ${escapeHtml(request.email)}` : ''}
+              ${request.phone ? ` | ${escapeHtml(request.phone)}` : ''}
+            </div>
+          </td>
+          <td>
+            <div class="lot-weeding-admin-primary">${escapeHtml(request.zone || 'No zone match yet')}</div>
+            <div class="lot-weeding-admin-contact">
+              ${escapeHtml(request.captainName || 'No captain listed')}
+              ${request.captainEmail ? ` | ${escapeHtml(request.captainEmail)}` : ''}
+            </div>
+          </td>
+          <td>
+            <label class="lot-weeding-admin-label">Date
+              <input class="lot-weeding-admin-input" data-lot-weeding-field="scheduledDate" value="${escapeHtmlAttr(request.scheduledDate)}" placeholder="e.g. 7/15/2026">
+            </label>
+            <label class="lot-weeding-admin-label">Group
+              <input class="lot-weeding-admin-input" data-lot-weeding-field="deploymentGroup" value="${escapeHtmlAttr(request.deploymentGroup)}" placeholder="Deployment group">
+            </label>
+          </td>
+          <td>
+            <textarea class="lot-weeding-admin-textarea" data-lot-weeding-field="details" placeholder="Request notes">${escapeHtml(request.details)}</textarea>
+            <input class="lot-weeding-admin-input" data-lot-weeding-field="flagReason" value="${escapeHtmlAttr(request.flagReason)}" placeholder="Flag/error reason">
+          </td>
+          <td>
+            <button type="button" class="lot-weeding-admin-save" data-lot-weeding-save="${escapeHtmlAttr(request.rowNumber)}">Save</button>
+            <div class="lot-weeding-admin-row-status" aria-live="polite"></div>
+          </td>
+        </tr>
+      `;
+    }
+
+    function attachLotWeedingAdminHandlers() {
+      document.querySelectorAll('[data-lot-weeding-filter]').forEach((button) => {
+        button.addEventListener('click', () => {
+          lotWeedingAdminState.filter = button.getAttribute('data-lot-weeding-filter') || 'active';
+          renderLotWeedingAdminView();
+        });
+      });
+
+      const searchInput = document.getElementById('lotWeedingAdminSearch');
+      if (searchInput) {
+        searchInput.addEventListener('input', () => {
+          lotWeedingAdminState.query = searchInput.value || '';
+          clearTimeout(lotWeedingAdminSearchTimer);
+          lotWeedingAdminSearchTimer = setTimeout(() => {
+            renderLotWeedingAdminView();
+            const refreshedInput = document.getElementById('lotWeedingAdminSearch');
+            if (refreshedInput) {
+              refreshedInput.focus();
+              refreshedInput.setSelectionRange(refreshedInput.value.length, refreshedInput.value.length);
+            }
+          }, 180);
+        });
+      }
+
+      document.getElementById('lotWeedingAdminRefreshBtn')?.addEventListener('click', () => loadLotWeedingAdminData(true));
+
+      document.querySelectorAll('[data-lot-weeding-save]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          const row = button.closest('tr[data-lot-weeding-row]');
+          const statusEl = row?.querySelector('.lot-weeding-admin-row-status');
+          const rowNumber = Number(button.getAttribute('data-lot-weeding-save'));
+          const updates = {};
+          row?.querySelectorAll('[data-lot-weeding-field]').forEach((inputEl) => {
+            const field = inputEl.getAttribute('data-lot-weeding-field');
+            if (field) updates[field] = inputEl.value || '';
+          });
+          if (!rowNumber || !Object.keys(updates).length) return;
+
+          button.disabled = true;
+          if (statusEl) statusEl.textContent = 'Saving...';
+          try {
+            const res = await fetch(`/api/lot-weeding-admin/request-row?email=${encodeURIComponent(currentUserEmail)}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ rowNumber, updates })
+            });
+            const payload = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(payload.message || payload.error || 'Save failed');
+            if (statusEl) statusEl.textContent = 'Saved';
+            await loadLotWeedingAdminData(true);
+          } catch (error) {
+            if (statusEl) statusEl.textContent = error.message || 'Save failed';
+          } finally {
+            button.disabled = false;
+          }
+        });
+      });
     }
 
     function renderGodmodeSummary(rollups) {
@@ -11110,10 +11535,8 @@
     // Navigation System - Single Page Navigation
     function switchView(viewName) {
       // Prevent switching to non-home views if no spreadsheet is linked
-      // Exception: Profile and admin Godmode views are accessible without a zone sheet
-      const hasSheet = currentSheetUrl || localStorage.getItem('savedSheetUrl');
-      const canOpenWithoutSheet = viewName === 'home' || viewName === 'profile' || (viewName === 'godmode' && isCurrentUserAdmin);
-      if (!hasSheet && !canOpenWithoutSheet) {
+      // Exception: select role-gated views are accessible without a zone sheet
+      if (!canOpenView(viewName)) {
         // Force back to home view
         viewName = 'home';
         currentView = 'home';
@@ -11306,6 +11729,8 @@
         loadProfileView();
       } else if (viewName === 'godmode') {
         loadGodmodeData();
+      } else if (viewName === 'lotWeedingAdmin') {
+        loadLotWeedingAdminData();
       }
       // Map view doesn't need special content updates - it just shows the map with floating panel
     }
@@ -11315,9 +11740,8 @@
       item.addEventListener('click', (e) => {
         // Use currentTarget to get the button, not the clicked child element (like span)
         const viewName = e.currentTarget.getAttribute('data-view');
-        // Prevent navigation if no spreadsheet is linked (except Home, Profile, and admin Godmode)
-        const canOpenWithoutSheet = viewName === 'home' || viewName === 'profile' || (viewName === 'godmode' && isCurrentUserAdmin);
-        if (!currentSheetUrl && !canOpenWithoutSheet) {
+        // Prevent navigation if the current user role cannot open the view.
+        if (!canOpenView(viewName)) {
           e.preventDefault();
           e.stopPropagation();
           return false;
@@ -11331,7 +11755,7 @@
     // Allow restoring any view if we have a saved sheet URL, or if it's home view
     // Note: savedSheetUrl is already loaded above (line 2177), so we can check it directly
     const canRestoreSavedZoneView = savedSheetUrl && !isCurrentUserAdmin;
-    if (savedView && (savedView === 'home' || savedView === 'profile' || (savedView === 'godmode' && isCurrentUserAdmin) || canRestoreSavedZoneView)) {
+    if (savedView && (canOpenViewWithoutSheet(savedView) || canRestoreSavedZoneView)) {
       currentView = savedView;
       switchView(savedView);
     } else {
@@ -21150,7 +21574,7 @@
 
       // ---- Sync mobile bottom nav active state ----
       function syncMobileNav(viewName) {
-        var moreViews = ['tools', 'resources', 'profile', 'godmode'];
+        var moreViews = ['tools', 'resources', 'profile', 'godmode', 'lotWeedingAdmin'];
         document.querySelectorAll('.mobile-nav-tab[data-view]').forEach(function(tab) {
           tab.classList.toggle('active', tab.getAttribute('data-view') === viewName);
         });
