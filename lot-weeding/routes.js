@@ -1,0 +1,571 @@
+'use strict';
+
+let cachedPayload = null; // { expiresAt, payload }
+
+const DEFAULT_RANGE = 'A1:ZZ5000';
+const DEFAULT_CACHE_TTL_MS = 30 * 1000;
+
+function strEnv(name, fallback = '') {
+  return String(process.env[name] || fallback).trim();
+}
+
+function intEnv(name, fallback) {
+  const value = Number.parseInt(String(process.env[name] || ''), 10);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+function extractSpreadsheetId(value) {
+  const clean = String(value || '').trim();
+  if (!clean) return '';
+  const match = clean.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  return match ? match[1] : clean;
+}
+
+function getLotWeedingConfig() {
+  const sourceValue = strEnv('LOT_WEEDING_SOURCE_SHEET_ID') ||
+    strEnv('LOT_WEEDING_SOURCE_SHEET_URL') ||
+    strEnv('LOT_WEEDING_INTAKE_SHEET_ID') ||
+    strEnv('LOT_WEEDING_INTAKE_SHEET_URL') ||
+    strEnv('LOT_WEEDING_SHEET_ID') ||
+    strEnv('LOT_WEEDING_SHEET_URL');
+
+  const source = strEnv('LOT_WEEDING_SOURCE_LABEL') ||
+    (strEnv('LOT_WEEDING_SOURCE_SHEET_ID') || strEnv('LOT_WEEDING_SOURCE_SHEET_URL') || strEnv('LOT_WEEDING_INTAKE_SHEET_ID') || strEnv('LOT_WEEDING_INTAKE_SHEET_URL')
+      ? 'original'
+      : 'mirror');
+
+  return {
+    sheetId: extractSpreadsheetId(sourceValue),
+    sheetName: strEnv('LOT_WEEDING_SOURCE_SHEET_NAME') ||
+      strEnv('LOT_WEEDING_INTAKE_SHEET_NAME') ||
+      strEnv('LOT_WEEDING_SHEET_NAME'),
+    range: strEnv('LOT_WEEDING_SOURCE_RANGE', DEFAULT_RANGE),
+    source,
+    cacheTtlMs: intEnv('LOT_WEEDING_CACHE_TTL_MS', DEFAULT_CACHE_TTL_MS),
+    masterSheetId: strEnv('LOT_WEEDING_CONTEXT_SHEET_ID') || strEnv('GODMODE_MASTER_SHEET_ID'),
+    masterRange: strEnv('LOT_WEEDING_CONTEXT_RANGE') || strEnv('GODMODE_MASTER_RANGE', DEFAULT_RANGE)
+  };
+}
+
+function rangeWithSheetName(config, rangeOverride = '') {
+  const range = String(rangeOverride || config.range || DEFAULT_RANGE).trim();
+  return config.sheetName ? `${config.sheetName}!${range}` : range;
+}
+
+function normalizeHeader(value, index) {
+  const text = String(value || '').trim();
+  return text || `Column ${index + 1}`;
+}
+
+function normalizeKey(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function findColumn(headers, aliases, fallbackMatcher) {
+  const aliasKeys = aliases.map(normalizeKey);
+  return headers.find((header) => aliasKeys.includes(normalizeKey(header))) ||
+    headers.find((header) => {
+      const lower = String(header || '').toLowerCase();
+      return typeof fallbackMatcher === 'function' && fallbackMatcher(lower);
+    }) ||
+    null;
+}
+
+function getLotWeedingColumns(headers) {
+  return {
+    timestamp: findColumn(headers, [
+      'timestamp',
+      'submitted at',
+      'submission timestamp',
+      'form submitted at',
+      'request timestamp',
+      'created at'
+    ], (lower) => lower.includes('timestamp') || lower.includes('submitted') || (lower.includes('created') && lower.includes('at'))),
+    requesterName: findColumn(headers, [
+      'name',
+      'full name',
+      'requester name',
+      'property owner name',
+      'owner name'
+    ], (lower) => lower.includes('name') && (lower.includes('requester') || lower.includes('owner'))),
+    email: findColumn(headers, [
+      'email',
+      'email address',
+      'requester email',
+      'property owner email',
+      'owner email'
+    ], (lower) => lower.includes('email')),
+    phone: findColumn(headers, [
+      'phone',
+      'phone number',
+      'requester phone',
+      'property owner phone',
+      'owner phone'
+    ], (lower) => lower.includes('phone') || lower.includes('mobile') || lower.includes('cell')),
+    address: findColumn(headers, [
+      'address',
+      'property address',
+      'lot address',
+      'site address',
+      'situs address'
+    ], (lower) => lower.includes('address')),
+    apn: findColumn(headers, [
+      'apn',
+      'ain',
+      'parcel',
+      'parcel number',
+      'parcel id',
+      'assessor parcel number',
+      'assessor parcel no'
+    ], (lower) => lower.includes('apn') || lower.includes('ain') || lower.includes('parcel')),
+    details: findColumn(headers, [
+      'lot_weeding_request_details_spring_2026',
+      'lot weeding request details spring 2026',
+      'lot weeding request details',
+      'request details',
+      'details',
+      'notes',
+      'comments'
+    ], (lower) => (lower.includes('lot') && lower.includes('weeding') && lower.includes('detail')) || lower.includes('note') || lower.includes('comment')),
+    requested: findColumn(headers, [
+      'lot_weeding_requested_spring_2026',
+      'lot weeding requested spring 2026',
+      'lot weeding requested',
+      'weeding requested',
+      'requested'
+    ], (lower) => lower.includes('lot') && lower.includes('weeding') && lower.includes('requested')),
+    status: findColumn(headers, [
+      'lot_weeding_status_spring_2026',
+      'lot weeding status spring 2026',
+      'lot weeding status',
+      'weeding status',
+      'request status',
+      'status'
+    ], (lower) => lower.includes('status')),
+    scheduledDate: findColumn(headers, [
+      'lot_weeding_date_scheduled_spring_2026',
+      'lot_weeding_scheduled_date_spring_2026',
+      'lot weeding date scheduled spring 2026',
+      'lot weeding scheduled date spring 2026',
+      'lot weeding date scheduled',
+      'scheduled date',
+      'date scheduled'
+    ], (lower) => lower.includes('scheduled') && lower.includes('date')),
+    deploymentGroup: findColumn(headers, [
+      'deployment group',
+      'group',
+      'schedule group',
+      'volunteer group',
+      'weeding group'
+    ], (lower) => lower.includes('group') || lower.includes('deployment')),
+    flagReason: findColumn(headers, [
+      'flag reason',
+      'error reason',
+      'issue',
+      'flag',
+      'error'
+    ], (lower) => lower.includes('flag') || lower.includes('error') || lower.includes('issue')),
+    zone: findColumn(headers, [
+      'zone',
+      'altagether zone',
+      'zone number',
+      'zone name'
+    ], (lower) => lower.includes('zone')),
+    captainName: findColumn(headers, [
+      'captain',
+      'neighborhood captain',
+      'captain name',
+      'nc name'
+    ], (lower) => lower.includes('captain') || lower === 'nc'),
+    captainEmail: findColumn(headers, [
+      'captain email',
+      'neighborhood captain email',
+      'nc email'
+    ], (lower) => lower.includes('captain') && lower.includes('email'))
+  };
+}
+
+function getContextColumns(headers) {
+  return {
+    apn: findColumn(headers, [
+      'apn',
+      'ain',
+      'parcel',
+      'parcel number',
+      'assessor parcel number',
+      'main_ain_norm',
+      'main ain'
+    ], (lower) => lower.includes('apn') || lower.includes('ain') || lower.includes('parcel')),
+    zone: findColumn(headers, [
+      'zone',
+      'altagether zone',
+      'zone number',
+      'zone name',
+      'zonename'
+    ], (lower) => lower.includes('zone')),
+    captainName: findColumn(headers, [
+      'captain',
+      'neighborhood captain',
+      'captain name',
+      'nc name',
+      'captain_display_name'
+    ], (lower) => lower.includes('captain') && !lower.includes('email')),
+    captainEmail: findColumn(headers, [
+      'captain email',
+      'neighborhood captain email',
+      'nc email',
+      'contact email',
+      'contact_email'
+    ], (lower) => lower.includes('email') && (lower.includes('captain') || lower.includes('contact') || lower.includes('nc')))
+  };
+}
+
+function getValue(record, columnName) {
+  return columnName ? String(record[columnName] || '').trim() : '';
+}
+
+function isTruthySheetValue(value) {
+  return ['true', 'yes', 'y', '1', 'x', 'requested'].includes(String(value || '').trim().toLowerCase());
+}
+
+function normalizeStatus(value, requestedValue = '') {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['scheduled', 'schedule'].includes(normalized)) return 'Scheduled';
+  if (['completed', 'complete', 'done'].includes(normalized)) return 'Completed';
+  if (['flagged', 'error', 'issue', 'problem', 'cannot service', 'cannot be serviced'].includes(normalized)) return 'Flagged';
+  if (['open', 'requested', 'request', 'pending', 'new'].includes(normalized)) {
+    return 'Open';
+  }
+  if (!normalized) {
+    return isTruthySheetValue(requestedValue) ? 'Open' : '';
+  }
+  return value ? String(value).trim() : '';
+}
+
+function normalizeSheetValues(values) {
+  const rows = Array.isArray(values) ? values : [];
+  const headers = (rows[0] || []).map(normalizeHeader);
+  const dataRows = rows.slice(1)
+    .map((row, index) => {
+      const record = {};
+      headers.forEach((header, columnIndex) => {
+        record[header] = row[columnIndex] == null ? '' : String(row[columnIndex]);
+      });
+      return {
+        rowNumber: index + 2,
+        record
+      };
+    })
+    .filter(({ record }) => Object.values(record).some((value) => String(value || '').trim()));
+
+  return { headers, rows: dataRows };
+}
+
+function normalizeLotWeedingRows(headers, rows) {
+  const columns = getLotWeedingColumns(headers || []);
+  return (rows || []).map(({ rowNumber, record }) => {
+    const requestedValue = getValue(record, columns.requested);
+    const status = normalizeStatus(getValue(record, columns.status), requestedValue);
+    return {
+      rowNumber,
+      timestamp: getValue(record, columns.timestamp),
+      requesterName: getValue(record, columns.requesterName),
+      email: getValue(record, columns.email),
+      phone: getValue(record, columns.phone),
+      address: getValue(record, columns.address),
+      apn: getValue(record, columns.apn),
+      details: getValue(record, columns.details),
+      requested: isTruthySheetValue(requestedValue) || Boolean(status),
+      status: status || 'Open',
+      scheduledDate: getValue(record, columns.scheduledDate),
+      deploymentGroup: getValue(record, columns.deploymentGroup),
+      flagReason: getValue(record, columns.flagReason),
+      zone: getValue(record, columns.zone),
+      captainName: getValue(record, columns.captainName),
+      captainEmail: getValue(record, columns.captainEmail),
+      raw: record
+    };
+  });
+}
+
+function summarizeRequests(requests) {
+  return (requests || []).reduce((stats, request) => {
+    stats.total += 1;
+    if (request.status === 'Completed') stats.completed += 1;
+    else if (request.status === 'Scheduled') stats.scheduled += 1;
+    else if (request.status === 'Flagged') stats.flagged += 1;
+    else stats.open += 1;
+    if (!request.apn) stats.missingApn += 1;
+    return stats;
+  }, { total: 0, open: 0, scheduled: 0, completed: 0, flagged: 0, missingApn: 0 });
+}
+
+function normalizeApnDigits(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
+async function loadContextByApn({ sheetsClient, config }) {
+  if (!config.masterSheetId) return new Map();
+
+  try {
+    const result = await sheetsClient.spreadsheets.values.get({
+      spreadsheetId: config.masterSheetId,
+      range: config.masterRange || DEFAULT_RANGE
+    });
+    const parsed = normalizeSheetValues(result.data && result.data.values);
+    const columns = getContextColumns(parsed.headers);
+    if (!columns.apn) return new Map();
+
+    const byApn = new Map();
+    parsed.rows.forEach(({ record }) => {
+      const apnDigits = normalizeApnDigits(getValue(record, columns.apn));
+      if (!apnDigits || byApn.has(apnDigits)) return;
+      byApn.set(apnDigits, {
+        zone: getValue(record, columns.zone),
+        captainName: getValue(record, columns.captainName),
+        captainEmail: getValue(record, columns.captainEmail)
+      });
+    });
+    return byApn;
+  } catch (err) {
+    console.warn('[lot-weeding] context enrichment unavailable:', err.message);
+    return new Map();
+  }
+}
+
+function enrichRequestsWithContext(requests, contextByApn) {
+  if (!(contextByApn instanceof Map) || contextByApn.size === 0) return requests;
+  return (requests || []).map((request) => {
+    const context = contextByApn.get(normalizeApnDigits(request.apn));
+    if (!context) return request;
+    return {
+      ...request,
+      zone: request.zone || context.zone || '',
+      captainName: request.captainName || context.captainName || '',
+      captainEmail: request.captainEmail || context.captainEmail || ''
+    };
+  });
+}
+
+async function fetchLotWeedingValues({ sheetsClient, config, rangeOverride = '' }) {
+  const result = await sheetsClient.spreadsheets.values.get({
+    spreadsheetId: config.sheetId,
+    range: rangeWithSheetName(config, rangeOverride)
+  });
+  return result.data && result.data.values ? result.data.values : [];
+}
+
+async function loadLotWeedingPayload({ sheetsClient, config, force = false }) {
+  if (!config.sheetId) {
+    return {
+      configured: false,
+      source: config.source,
+      headers: [],
+      requests: [],
+      stats: summarizeRequests([])
+    };
+  }
+
+  const now = Date.now();
+  if (!force && cachedPayload && cachedPayload.expiresAt > now) {
+    return cachedPayload.payload;
+  }
+
+  const values = await fetchLotWeedingValues({ sheetsClient, config });
+  const parsed = normalizeSheetValues(values);
+  const contextByApn = await loadContextByApn({ sheetsClient, config });
+  const requests = enrichRequestsWithContext(
+    normalizeLotWeedingRows(parsed.headers, parsed.rows),
+    contextByApn
+  );
+  const payload = {
+    configured: true,
+    source: config.source,
+    sheetName: config.sheetName,
+    range: config.range,
+    headers: parsed.headers,
+    requests,
+    stats: summarizeRequests(requests),
+    lastFetchedAt: new Date().toISOString()
+  };
+
+  if (config.cacheTtlMs > 0) {
+    cachedPayload = {
+      expiresAt: now + config.cacheTtlMs,
+      payload
+    };
+  }
+
+  return payload;
+}
+
+function clearLotWeedingCache() {
+  cachedPayload = null;
+}
+
+function getEditableColumns(headers) {
+  const columns = getLotWeedingColumns(headers || []);
+  return {
+    apn: columns.apn,
+    status: columns.status,
+    scheduledDate: columns.scheduledDate,
+    deploymentGroup: columns.deploymentGroup,
+    details: columns.details,
+    flagReason: columns.flagReason
+  };
+}
+
+async function updateLotWeedingRequest({ sheetsClient, config, rowNumber, updates }) {
+  if (!config.sheetId) {
+    const err = new Error('Lot weeding source sheet is not configured.');
+    err.code = 'LOT_WEEDING_NOT_CONFIGURED';
+    throw err;
+  }
+
+  const values = await fetchLotWeedingValues({ sheetsClient, config, rangeOverride: config.range || DEFAULT_RANGE });
+  const parsed = normalizeSheetValues(values);
+  const editableColumns = getEditableColumns(parsed.headers);
+  const headerIndexByName = new Map(parsed.headers.map((header, index) => [header, index]));
+  const data = [];
+
+  Object.entries(updates || {}).forEach(([field, value]) => {
+    const columnName = editableColumns[field];
+    if (!columnName || !headerIndexByName.has(columnName)) return;
+    const columnIndex = headerIndexByName.get(columnName);
+    const columnLetter = indexToColumnLetter(columnIndex);
+    const range = config.sheetName
+      ? `${config.sheetName}!${columnLetter}${rowNumber}`
+      : `${columnLetter}${rowNumber}`;
+    data.push({
+      range,
+      values: [[value == null ? '' : String(value)]]
+    });
+  });
+
+  if (data.length === 0) {
+    const err = new Error('No editable lot weeding columns matched the requested update.');
+    err.code = 'NO_EDITABLE_COLUMNS';
+    throw err;
+  }
+
+  await sheetsClient.spreadsheets.values.batchUpdate({
+    spreadsheetId: config.sheetId,
+    requestBody: {
+      valueInputOption: 'USER_ENTERED',
+      data
+    }
+  });
+  clearLotWeedingCache();
+  return { updatedCells: data.length };
+}
+
+function indexToColumnLetter(index) {
+  let number = index + 1;
+  let letters = '';
+  while (number > 0) {
+    const remainder = (number - 1) % 26;
+    letters = String.fromCharCode(65 + remainder) + letters;
+    number = Math.floor((number - 1) / 26);
+  }
+  return letters;
+}
+
+function registerLotWeedingRoutes(app, deps) {
+  const { getSheetsClient, hasLotWeedingAdminAccess } = deps;
+  if (typeof getSheetsClient !== 'function') {
+    throw new Error('registerLotWeedingRoutes: deps.getSheetsClient is required');
+  }
+
+  app.get('/api/lot-weeding/values', async (req, res) => {
+    const config = getLotWeedingConfig();
+    if (!config.sheetId) return res.json({ configured: false, values: [] });
+
+    try {
+      const sheetsClient = await getSheetsClient();
+      const rangeOverride = req.query.range || '';
+      const sheetName = req.query.sheetName || config.sheetName || '';
+      const values = await fetchLotWeedingValues({
+        sheetsClient,
+        config: { ...config, sheetName },
+        rangeOverride
+      });
+      return res.json({
+        configured: true,
+        source: config.source,
+        values
+      });
+    } catch (err) {
+      console.error('[lot-weeding] values read error:', err.message);
+      const status = Number.isInteger(err && err.code) ? err.code : 500;
+      return res.status(status).json({ error: 'lot_weeding_values_failed', message: err.message });
+    }
+  });
+
+  app.get('/api/lot-weeding-admin/requests', async (req, res) => {
+    const emailParam = String((req.query && req.query.email) || '').trim().toLowerCase();
+    if (!emailParam) return res.status(401).json({ error: 'no_email' });
+
+    try {
+      const allowed = Boolean(typeof hasLotWeedingAdminAccess === 'function' && await hasLotWeedingAdminAccess(emailParam));
+      if (!allowed) return res.status(401).json({ error: 'not_lot_weeding_admin' });
+
+      const config = getLotWeedingConfig();
+      const sheetsClient = await getSheetsClient();
+      const payload = await loadLotWeedingPayload({
+        sheetsClient,
+        config,
+        force: String(req.query.force || '') === '1'
+      });
+      res.set('Cache-Control', 'no-store');
+      return res.json(payload);
+    } catch (err) {
+      console.error('[lot-weeding] admin requests read error:', err.message);
+      return res.status(500).json({ error: 'lot_weeding_admin_failed', message: err.message });
+    }
+  });
+
+  app.patch('/api/lot-weeding-admin/request-row', async (req, res) => {
+    const emailParam = String((req.query && req.query.email) || '').trim().toLowerCase();
+    if (!emailParam) return res.status(401).json({ error: 'no_email' });
+
+    try {
+      const allowed = Boolean(typeof hasLotWeedingAdminAccess === 'function' && await hasLotWeedingAdminAccess(emailParam));
+      if (!allowed) return res.status(401).json({ error: 'not_lot_weeding_admin' });
+
+      const rowNumber = Number.parseInt(String(req.body && req.body.rowNumber), 10);
+      if (!Number.isInteger(rowNumber) || rowNumber < 2) {
+        return res.status(400).json({ error: 'invalid_row_number' });
+      }
+
+      const allowedFields = new Set(['apn', 'status', 'scheduledDate', 'deploymentGroup', 'details', 'flagReason']);
+      const updates = {};
+      Object.entries((req.body && req.body.updates) || {}).forEach(([field, value]) => {
+        if (allowedFields.has(field)) updates[field] = value;
+      });
+      if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'no_allowed_updates' });
+
+      const config = getLotWeedingConfig();
+      const sheetsClient = await getSheetsClient();
+      const result = await updateLotWeedingRequest({ sheetsClient, config, rowNumber, updates });
+      return res.json({ success: true, ...result });
+    } catch (err) {
+      if (err && err.code === 'LOT_WEEDING_NOT_CONFIGURED') {
+        return res.status(503).json({ error: 'lot_weeding_not_configured', message: err.message });
+      }
+      if (err && err.code === 'NO_EDITABLE_COLUMNS') {
+        return res.status(400).json({ error: 'no_editable_columns', message: err.message });
+      }
+      console.error('[lot-weeding] admin request update error:', err.message);
+      return res.status(500).json({ error: 'lot_weeding_update_failed', message: err.message });
+    }
+  });
+}
+
+module.exports = {
+  registerLotWeedingRoutes,
+  getLotWeedingConfig,
+  normalizeSheetValues,
+  normalizeLotWeedingRows,
+  getLotWeedingColumns,
+  clearLotWeedingCache
+};
