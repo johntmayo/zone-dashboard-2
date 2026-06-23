@@ -4871,7 +4871,8 @@
       const contactDateCol = findOutreachDateColumn(sheetData.headers);
       if (!contactDateCol) return false;
       
-      const rows = sheetData.addressMap.get(address);
+      const formerResidentCol = getFormerResidentColumn(sheetData.headers);
+      const rows = getActiveResidentRows(sheetData.addressMap.get(address), formerResidentCol);
       if (!rows || rows.length === 0) return false;
       
       // Check if any person at this address has a contact date
@@ -4883,7 +4884,8 @@
 
     // Check if an address needs follow-up
     function isAddressNeedsFollowup(address) {
-      const rows = sheetData.addressMap.get(address);
+      const formerResidentCol = getFormerResidentColumn(sheetData.headers);
+      const rows = getActiveResidentRows(sheetData.addressMap.get(address), formerResidentCol);
       if (!rows || rows.length === 0) return false;
       
       // Check for columns that might indicate needs follow-up
@@ -4910,7 +4912,8 @@
 
     // Check if an address is a renter
     function isAddressRenter(address) {
-      const rows = sheetData.addressMap.get(address);
+      const formerResidentCol = getFormerResidentColumn(sheetData.headers);
+      const rows = getActiveResidentRows(sheetData.addressMap.get(address), formerResidentCol);
       if (!rows || rows.length === 0) return false;
       
       // Check columns that might indicate renter status (Renter checkbox, etc.)
@@ -8813,6 +8816,18 @@
         (normalized !== '' && normalized !== 'false' && normalized !== 'no');
     }
 
+    function getFormerResidentColumn(headers) {
+      return findColumn(headers || [], ['former', 'resident'], ['note']);
+    }
+
+    function isFormerResidentRow(row, formerResidentCol) {
+      return Boolean(formerResidentCol && row && isTruthySheetCheckbox(row[formerResidentCol]));
+    }
+
+    function getActiveResidentRows(rows, formerResidentCol) {
+      return (Array.isArray(rows) ? rows : []).filter(row => !isFormerResidentRow(row, formerResidentCol));
+    }
+
     function getResidentNameColumn(headers) {
       return headers.find(h =>
         h.toLowerCase().includes('resident name') ||
@@ -9371,6 +9386,7 @@
         const lower = colName.toLowerCase();
         return lower.includes('email') && !lower.includes('nc email');
       };
+      const quickTagCols = getPersonQuickTagColumns(headers);
       
       const personLevelCols = headers.filter(h => {
         const lower = h.toLowerCase();
@@ -9381,15 +9397,14 @@
         if (hiddenFromPersonView.some(field => lower.includes(field)) || isHouseOrZipField(lower)) return false;
         // Skip outreach/contact log column - rendered in dedicated outreach logger UI
         if ((lower.includes('contact') && lower.includes('note')) || (lower.includes('outreach') && (lower.includes('note') || lower.includes('log')))) return false;
-        // Person-level: Person - X checkboxes (Renter, Needs Follow-Up, Unable to reach, etc.), Person Notes, phones, etc.
-        return lower.startsWith('person - ') ||
+        // Person-level fields are intentionally opt-in so new sheet columns do not auto-appear.
+        return quickTagCols.includes(h) ||
                lower.includes('person note') ||
                lower.includes('home phone') ||
                lower.includes('cell') ||
                isPersonEmailCol(h) ||
                lower.includes('gender') ||
-               lower.includes('age') ||
-               (!addressLevelCols.includes(h) && detailCols.includes(h));
+               lower.includes('age');
       });
       
       // Find Notes columns separately - always show them if signed in, even if empty
@@ -9397,7 +9412,7 @@
       const allNotesCols = headers.filter(h => 
         h !== addressCol &&
         h.toLowerCase() !== 'resident_id' &&
-        h.toLowerCase().includes('note') &&
+        h.toLowerCase().includes('person note') &&
         !((h.toLowerCase().includes('contact') && h.toLowerCase().includes('note')) || (h.toLowerCase().includes('outreach') && (h.toLowerCase().includes('note') || h.toLowerCase().includes('log')))) &&
         accessToken // Only if signed in
       );
@@ -9742,7 +9757,6 @@
         return (lower.includes('contact') && lower.includes('note')) ||
                (lower.includes('outreach') && (lower.includes('note') || lower.includes('log')));
       });
-      const quickTagCols = getPersonQuickTagColumns(headers);
       const activeRows = [];
       const formerResidentRows = [];
 
@@ -10163,18 +10177,6 @@
           html += '</div>';
         }
         
-        // Display other non-notes fields that aren't address-level (but exclude hidden fields)
-        detailCols.forEach(col => {
-          const lower = col.toLowerCase();
-          const isHidden = hiddenFromPersonView.some(field => lower.includes(field)) || isHouseOrZipField(lower);
-          if (!addressLevelCols.includes(col) && !personLevelCols.includes(col) && 
-              !col.toLowerCase().includes('note') && !isHidden) {
-            if (row[col] && row[col].trim()) {
-              html += `<div class="person-info"><strong>${col}:</strong> ${row[col]}</div>`;
-            }
-          }
-        });
-
         html += '</div>';
       });
 
@@ -10809,15 +10811,9 @@
           </label>
         `;
       };
-      const additionalCols = headers.filter(col => {
-        const lower = col.toLowerCase();
-        if (col.startsWith('_')) return false;
-        if (standardCols.has(col)) return false;
-        if (lower.includes('apn status')) return false;
-        if (lower.includes('situshouseno') || lower.includes('situsdirection') || lower.includes('situsstreet') || lower.includes('situsunit')) return false;
-        if (modalHiddenKeywords.some(keyword => lower.includes(keyword)) || isHouseOrZipField(lower)) return false;
-        return Boolean(row[col] && String(row[col]).trim());
-      });
+      // Keep person modal fields opt-in. New sheet columns should not appear
+      // just because they contain data.
+      const additionalCols = [];
       const renderAdditionalField = (col) => {
         const label = col.startsWith('Person - ') ? col.substring(9) : col;
         if (col.startsWith('Person - ')) return checkboxField(label, col);
@@ -15651,6 +15647,8 @@
       const headers = sheetData.headers;
       const data = sheetData.data;
       const addressMap = sheetData.addressMap || new Map();
+      const formerResidentCol = getFormerResidentColumn(headers);
+      const activeData = data.filter(row => !isFormerResidentRow(row, formerResidentCol));
 
       // Find relevant columns
       const lastContactCol = headers.find(h => 
@@ -15668,7 +15666,7 @@
       // 1. People Contacted Chart
       let peopleContacted = 0;
       let peopleNotContacted = 0;
-      data.forEach(row => {
+      activeData.forEach(row => {
         const hasContact = lastContactCol && row[lastContactCol] && String(row[lastContactCol]).trim().length > 0;
         if (hasContact) {
           peopleContacted++;
@@ -15722,7 +15720,7 @@
       const householdsContacted = new Set();
       const addressColumns = findAddressColumns(headers);
 
-      data.forEach(row => {
+      activeData.forEach(row => {
         const address = buildAddressString(row, addressColumns);
         if (address) {
           households.add(address);
@@ -15789,7 +15787,7 @@
           }
         });
       } else if (damageCol) {
-        data.forEach(row => {
+        activeData.forEach(row => {
           const damage = row[damageCol] ? String(row[damageCol]).trim() : '';
           if (damage) {
             damageCounts[damage] = (damageCounts[damage] || 0) + 1;
@@ -15798,7 +15796,7 @@
           }
         });
       } else {
-        damageUnknown = addressMap ? addressMap.size : data.length;
+        damageUnknown = addressMap ? addressMap.size : activeData.length;
       }
 
       const damageLabels = Object.keys(damageCounts);
@@ -15870,7 +15868,7 @@
       const addressPlanCounts = {};
       let addressPlanUnknown = 0;
       if (addressPlanCol) {
-        data.forEach(row => {
+        activeData.forEach(row => {
           const val = row[addressPlanCol] ? String(row[addressPlanCol]).trim() : '';
           if (val) {
             addressPlanCounts[val] = (addressPlanCounts[val] || 0) + 1;
@@ -15879,7 +15877,7 @@
           }
         });
       } else {
-        addressPlanUnknown = data.length;
+        addressPlanUnknown = activeData.length;
       }
 
       const statusLabels = Object.keys(addressPlanCounts);
@@ -15948,6 +15946,8 @@
       const headers = sheetData.headers;
       const data = sheetData.data;
       const addressMap = sheetData.addressMap;
+      const formerResidentCol = getFormerResidentColumn(headers);
+      const activeData = data.filter(row => !isFormerResidentRow(row, formerResidentCol));
       
       // Find relevant columns
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
@@ -15957,7 +15957,7 @@
       const statusCounts = {};
       let statusUnknown = 0;
       if (addressPlanCol) {
-        data.forEach(row => {
+        activeData.forEach(row => {
           const val = row[addressPlanCol] ? String(row[addressPlanCol]).trim() : '';
           if (val) {
             statusCounts[val] = (statusCounts[val] || 0) + 1;
@@ -15966,7 +15966,7 @@
           }
         });
       } else {
-        statusUnknown = data.length;
+        statusUnknown = activeData.length;
       }
       
       const statusLabels = Object.keys(statusCounts);
@@ -16584,6 +16584,8 @@
 
     // Get chart data functions
     function getAddressesContactedData(headers, data) {
+      const formerResidentCol = getFormerResidentColumn(headers);
+      const activeData = (data || []).filter(row => !isFormerResidentRow(row, formerResidentCol));
       const lastContactCol = headers.find(h => 
         h.toLowerCase() === 'last contact date' ||
         h.toLowerCase() === 'last outreach attempt date' ||
@@ -16598,7 +16600,7 @@
       const households = new Set();
       const householdsContacted = new Set();
 
-      data.forEach(row => {
+      activeData.forEach(row => {
         const address = buildAddressString(row, addressColumns);
         if (address) {
           households.add(address);
@@ -16631,7 +16633,9 @@
           }
         });
       } else if (damageCol) {
-        data.forEach(row => {
+        const formerResidentCol = getFormerResidentColumn(headers);
+        const activeData = (data || []).filter(row => !isFormerResidentRow(row, formerResidentCol));
+        activeData.forEach(row => {
           const damage = row[damageCol] ? String(row[damageCol]).trim() : '';
           if (damage) {
             damageCounts[damage] = (damageCounts[damage] || 0) + 1;
@@ -16640,7 +16644,9 @@
           }
         });
       } else {
-        damageUnknown = addressMap ? addressMap.size : (data ? data.length : 0);
+        const formerResidentCol = getFormerResidentColumn(headers);
+        const activeData = (data || []).filter(row => !isFormerResidentRow(row, formerResidentCol));
+        damageUnknown = addressMap ? addressMap.size : activeData.length;
       }
 
       const labels = Object.keys(damageCounts);
@@ -16686,9 +16692,11 @@
 
     function getStreetsDistributionData(headers, data) {
       const addressColumns = findAddressColumns(headers);
+      const formerResidentCol = getFormerResidentColumn(headers);
+      const activeData = (data || []).filter(row => !isFormerResidentRow(row, formerResidentCol));
       
       const streetCounts = {};
-      data.forEach(row => {
+      activeData.forEach(row => {
         const street = buildStreetString(row, addressColumns);
         if (street) {
           streetCounts[street] = (streetCounts[street] || 0) + 1;
@@ -17077,6 +17085,7 @@
                          }) || null;
       const damageCol = findColumn(headers, 'damage');
       const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
+      const formerResidentCol = getFormerResidentColumn(headers);
 
       let totalPeople = 0;
       let contactedCount = 0;
@@ -17093,11 +17102,12 @@
       };
 
       addressMap.forEach((residents, address) => {
-        totalPeople += residents.length;
+        const activeResidents = getActiveResidentRows(residents, formerResidentCol);
+        totalPeople += activeResidents.length;
 
         // Outreach attempted: any resident has a non-empty outreach date
         if (contactCol) {
-          const hasContact = residents.some(row => {
+          const hasContact = activeResidents.some(row => {
             const val = (row[contactCol] || '').trim();
             return val !== '' && val !== '—';
           });
@@ -19256,6 +19266,7 @@
       const followupCol = headers.find(h => 
         h.toLowerCase().includes('follow') && (h.toLowerCase().includes('up') || h.toLowerCase().includes('-up'))
       );
+      const formerResidentCol = getFormerResidentColumn(headers);
       const notesCol = headers.find(h => 
         h.toLowerCase().includes('note') && !h.toLowerCase().includes('contact')
       );
@@ -19270,7 +19281,7 @@
           }
         }
         
-        rows.forEach(row => {
+        getActiveResidentRows(rows, formerResidentCol).forEach(row => {
           let include = false;
           
           if (type === 'uncontacted') {
@@ -19371,6 +19382,7 @@
       const followupCol = headers.find(h => 
         h.toLowerCase().includes('follow') && (h.toLowerCase().includes('up') || h.toLowerCase().includes('-up'))
       );
+      const formerResidentCol = getFormerResidentColumn(headers);
       
       addressMap.forEach((rows, address) => {
         // Filter by street
@@ -19387,7 +19399,7 @@
           }
         }
         
-        rows.forEach(row => {
+        getActiveResidentRows(rows, formerResidentCol).forEach(row => {
           // Filter by damage status
           if (damageFilter.length > 0 && damageCol) {
             const damage = (row[damageCol] || '').trim();
@@ -20236,6 +20248,7 @@
       const followupCol = headers.find(h => 
         h.toLowerCase().includes('follow') && (h.toLowerCase().includes('up') || h.toLowerCase().includes('-up'))
       );
+      const formerResidentCol = getFormerResidentColumn(headers);
       
       const now = new Date();
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -20243,7 +20256,8 @@
       const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
       
       addressMap.forEach((rows, address) => {
-        stats.totalPeople += rows.length;
+        const activeRows = getActiveResidentRows(rows, formerResidentCol);
+        stats.totalPeople += activeRows.length;
         
         // Damage breakdown
         const damage = getAddressDamage(address);
@@ -20267,7 +20281,7 @@
         let isContacted = false;
         let lastContactDate = null;
         
-        rows.forEach(row => {
+        activeRows.forEach(row => {
           if (contactDateCol && row[contactDateCol]) {
             const dateStr = String(row[contactDateCol]).trim();
             if (dateStr) {
@@ -20318,7 +20332,7 @@
           stats.streetStats[street] = { addresses: 0, people: 0, contacted: 0 };
         }
         stats.streetStats[street].addresses++;
-        stats.streetStats[street].people += rows.length;
+        stats.streetStats[street].people += activeRows.length;
         if (isContacted) {
           stats.streetStats[street].contacted++;
         }
@@ -20337,7 +20351,8 @@
       });
       
       // Data completeness
-      const allRows = Array.from(addressMap.values()).flat();
+      const allRows = Array.from(addressMap.values())
+        .flatMap(rows => getActiveResidentRows(rows, formerResidentCol));
       const totalRows = allRows.length;
       
       if (nameCol) {
