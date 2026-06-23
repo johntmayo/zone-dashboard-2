@@ -120,6 +120,17 @@ findOutreachLogColumn(headers)   // returns the current outreach-log column, wha
 
 Both accept multiple naming variants and will keep working across a rolling rename. **Any new code that looks up the outreach date or outreach log column must use these helpers**, not `findColumn(headers, ['contact', 'date'])` or `headers.find(h => /contact\s*note/i.test(h))`. Those narrow patterns are an anti-pattern in this codebase now — they were audited out on April 22, 2026.
 
+### Former Resident counting semantics
+
+Rows marked `Former Resident = TRUE` are treated as inactive person rows for most resident-facing counts and outreach status calculations. They are still retained in `sheetData.data` and `sheetData.addressMap`, and the Details panel displays them separately in the "Former Residents" section.
+
+Important nuance: address-level outreach metrics are not perfectly uniform yet. Some Home stat-card logic still considers the full address set as the denominator while checking outreach only across active residents. Other chart helpers build their address population from active resident rows, which means an address with only former residents may drop out of the "Addresses with Outreach Attempt" chart entirely.
+
+This is intentional-for-now behavior after the June 2026 former-resident fix. Do not assume that "address has no active residents" means the same thing in every dashboard metric. Before changing this, decide whether all-former-resident addresses should be:
+- excluded from outreach denominators,
+- included as uncontacted,
+- or tracked as a separate inactive/vacant/former-resident address category.
+
 ---
 
 ## What Not to Touch Casually
