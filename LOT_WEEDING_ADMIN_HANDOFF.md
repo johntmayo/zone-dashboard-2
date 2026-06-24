@@ -39,6 +39,7 @@ Key pieces:
   - an unmapped/missing APN queue for records without usable coordinates
   - read-only single/multi-selection across markers, table rows, and unmapped records
   - selected-group summary with clear selection and zoom-to-selected controls
+  - compact operations queue cards for list review, with detailed single-row editing tucked behind an `Edit details` disclosure
   - no polygon selection, batch writes, or notification automation yet
 - New focused tests live in `test/lot-weeding.test.js`.
 
@@ -327,8 +328,9 @@ The map should support these workflows:
    - Preserve `Cancelled` as terminal but not completed.
 
 5. **Keep table/list as support UI**
-   - Use the table for search, exact edits, and records that cannot be mapped.
-   - Do not let the table remain the primary mental model once map selection exists.
+   - Use the queue for search, exact review, and records that cannot be mapped.
+   - Keep editing behind intentional row-level disclosure controls so the default command-center view is not a spreadsheet.
+   - Do not let the list remain the primary mental model once map selection exists.
 
 ### Suggested Layout
 

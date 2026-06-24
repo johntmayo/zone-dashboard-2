@@ -1263,7 +1263,8 @@
       selectedRowNumber: null,
       selectedRowNumbers: new Set(),
       map: null,
-      markers: []
+      markers: [],
+      lastMapView: null
     };
     let lotWeedingAdminSearchTimer = null;
     
@@ -3875,6 +3876,11 @@
 
     function destroyLotWeedingAdminMap() {
       if (lotWeedingAdminState.map && typeof lotWeedingAdminState.map.remove === 'function') {
+        const center = lotWeedingAdminState.map.getCenter?.();
+        const zoom = lotWeedingAdminState.map.getZoom?.();
+        if (center && Number.isFinite(zoom)) {
+          lotWeedingAdminState.lastMapView = { center: [center.lat, center.lng], zoom };
+        }
         lotWeedingAdminState.map.remove();
       }
       lotWeedingAdminState.map = null;
@@ -3963,7 +3969,9 @@
       lotWeedingAdminState.map = map;
       lotWeedingAdminState.markers = markers;
 
-      if (bounds.length > 0) {
+      if (lotWeedingAdminState.lastMapView) {
+        map.setView(lotWeedingAdminState.lastMapView.center, lotWeedingAdminState.lastMapView.zoom);
+      } else if (bounds.length > 0) {
         map.fitBounds(bounds, { padding: [34, 34], maxZoom: 17 });
       }
       setTimeout(() => map.invalidateSize(), 80);
@@ -4263,27 +4271,8 @@
             <h3>Request queue</h3>
             <span>${formatGodmodeCount(filteredRequests.length)} matching requests${filteredRequests.length > visibleRequests.length ? `, showing first ${formatGodmodeCount(visibleRequests.length)}` : ''}</span>
           </div>
-          <div class="lot-weeding-admin-table-wrap">
-            <table class="lot-weeding-admin-table">
-              <thead>
-                <tr>
-                  <th>Status</th>
-                  <th>Request</th>
-                  <th>Zone context</th>
-                  <th>Operations</th>
-                  <th>Schedule / Closeout</th>
-                  <th>Notes / ROE</th>
-                  <th>Save</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${visibleRequests.map((request) => renderLotWeedingAdminRequestRow(request)).join('') || `
-                  <tr>
-                    <td colspan="7" class="lot-weeding-admin-no-results">No requests match this filter.</td>
-                  </tr>
-                `}
-              </tbody>
-            </table>
+          <div class="lot-weeding-admin-queue-list">
+            ${visibleRequests.map((request) => renderLotWeedingAdminRequestRow(request)).join('') || '<p class="lot-weeding-admin-no-results">No requests match this filter.</p>'}
           </div>
         </section>
       `;
@@ -4298,75 +4287,88 @@
       const primary = Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber);
       const coords = getLotWeedingRequestCoordinates(request);
       return `
-        <tr class="${selected ? 'lot-weeding-admin-row-selected' : ''} ${primary ? 'lot-weeding-admin-row-primary' : ''}" data-lot-weeding-row="${escapeHtmlAttr(request.rowNumber)}">
-          <td>
-            <span class="lot-weeding-admin-status lot-weeding-admin-status--${escapeHtmlAttr(getLotWeedingStatusClass(status))}">${escapeHtml(status)}</span>
-            <button type="button" class="lot-weeding-admin-inspect" data-lot-weeding-select="${escapeHtmlAttr(request.rowNumber)}">Inspect</button>
-            <button type="button" class="lot-weeding-admin-inspect lot-weeding-admin-inspect--select" data-lot-weeding-toggle="${escapeHtmlAttr(request.rowNumber)}">${selected ? 'Selected' : 'Select'}</button>
-            <div class="lot-weeding-admin-contact">${coords ? 'Mapped' : escapeHtml(getLotWeedingUnmappedReason(request))}</div>
-            <select class="lot-weeding-admin-input" data-lot-weeding-field="status">
-              ${LOT_WEEDING_STATUS_OPTIONS.map((option) => `<option value="${escapeHtmlAttr(option)}" ${option === status ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
-            </select>
-          </td>
-          <td>
-            <div class="lot-weeding-admin-primary">${escapeHtml(request.address || 'Address not provided')}</div>
-            <div class="lot-weeding-admin-contact">
-              Submitted: ${escapeHtml(request.timestamp || 'No submission date')}
+        <article class="lot-weeding-admin-queue-item ${selected ? 'selected' : ''} ${primary ? 'primary' : ''}" data-lot-weeding-row="${escapeHtmlAttr(request.rowNumber)}">
+          <div class="lot-weeding-admin-queue-main">
+            <div>
+              <span class="lot-weeding-admin-status lot-weeding-admin-status--${escapeHtmlAttr(getLotWeedingStatusClass(status))}">${escapeHtml(status)}</span>
+              <h4>${escapeHtml(request.address || 'Address not provided')}</h4>
+              <p>${escapeHtml(request.requesterName || 'Unknown requester')}${request.phone ? ` | ${escapeHtml(request.phone)}` : ''}${request.email ? ` | ${escapeHtml(request.email)}` : ''}</p>
             </div>
-            <label class="lot-weeding-admin-label">APN
-              <input class="lot-weeding-admin-input" data-lot-weeding-field="apn" value="${escapeHtmlAttr(request.apn)}" placeholder="Assign APN">
-            </label>
-            <div class="lot-weeding-admin-contact">
-              ${escapeHtml(request.requesterName || 'Unknown requester')}
-              ${request.email ? ` | ${escapeHtml(request.email)}` : ''}
-              ${request.phone ? ` | ${escapeHtml(request.phone)}` : ''}
+            <div class="lot-weeding-admin-queue-actions">
+              <button type="button" class="lot-weeding-admin-inspect" data-lot-weeding-select="${escapeHtmlAttr(request.rowNumber)}">Inspect</button>
+              <button type="button" class="lot-weeding-admin-inspect lot-weeding-admin-inspect--select" data-lot-weeding-toggle="${escapeHtmlAttr(request.rowNumber)}">${selected ? 'Selected' : 'Select'}</button>
             </div>
-          </td>
-          <td>
-            <div class="lot-weeding-admin-primary">${escapeHtml(request.zone || 'No zone match yet')}</div>
-            <div class="lot-weeding-admin-contact">
-              ${escapeHtml(request.captainName || 'No captain listed')}
-              ${request.captainEmail ? ` | ${escapeHtml(request.captainEmail)}` : ''}
+          </div>
+
+          <div class="lot-weeding-admin-queue-meta">
+            <span><strong>APN</strong>${escapeHtml(request.apn || 'Missing APN')}</span>
+            <span><strong>Map</strong>${coords ? 'Mapped' : escapeHtml(getLotWeedingUnmappedReason(request))}</span>
+            <span><strong>Zone</strong>${escapeHtml(request.zone || 'No zone match')}</span>
+            <span><strong>Captain</strong>${escapeHtml(request.captainName || 'No captain listed')}</span>
+            <span><strong>Scheduled</strong>${escapeHtml(request.scheduledDate || 'Not scheduled')}</span>
+            <span><strong>Cleaned</strong>${escapeHtml(request.dateCleaned || 'Not cleaned')}</span>
+            <span><strong>ROE</strong>${escapeHtml(request.roeStatus || 'Blank')}</span>
+            <span><strong>UWS</strong>${escapeHtml(request.universalWasteContract || 'Blank')}</span>
+          </div>
+
+          ${(request.details || request.flagReason) ? `
+            <div class="lot-weeding-admin-queue-notes">
+              ${request.details ? `<span>${escapeHtml(request.details)}</span>` : ''}
+              ${request.flagReason ? `<b>${escapeHtml(request.flagReason)}</b>` : ''}
             </div>
-            <label class="lot-weeding-admin-label">UWS Contract
-              <select class="lot-weeding-admin-input" data-lot-weeding-field="universalWasteContract">
-                ${LOT_WEEDING_YES_NO_OPTIONS.map((option) => `<option value="${escapeHtmlAttr(option)}" ${option === String(request.universalWasteContract || '') ? 'selected' : ''}>${escapeHtml(option || 'Blank')}</option>`).join('')}
-              </select>
-            </label>
-            <label class="lot-weeding-admin-label">Last Contact Date
-              <input class="lot-weeding-admin-input" data-lot-weeding-field="lastContactDate" value="${escapeHtmlAttr(request.lastContactDate)}" placeholder="e.g. 7/15/2026">
-            </label>
-          </td>
-          <td>
-            <label class="lot-weeding-admin-label">Date Scheduled
-              <input class="lot-weeding-admin-input" data-lot-weeding-field="scheduledDate" value="${escapeHtmlAttr(request.scheduledDate)}" placeholder="e.g. 7/15/2026">
-            </label>
-            <label class="lot-weeding-admin-label">Homeowner Notified
-              <select class="lot-weeding-admin-input" data-lot-weeding-field="homeownerNotified">
-                ${LOT_WEEDING_YES_NO_OPTIONS.map((option) => `<option value="${escapeHtmlAttr(option)}" ${option === String(request.homeownerNotified || '') ? 'selected' : ''}>${escapeHtml(option || 'Blank')}</option>`).join('')}
-              </select>
-            </label>
-            <label class="lot-weeding-admin-label">Date Cleaned
-              <input class="lot-weeding-admin-input" data-lot-weeding-field="dateCleaned" value="${escapeHtmlAttr(request.dateCleaned)}" placeholder="e.g. 7/20/2026">
-            </label>
-            <label class="lot-weeding-admin-label">Deployment Group
-              <input class="lot-weeding-admin-input" data-lot-weeding-field="deploymentGroup" value="${escapeHtmlAttr(request.deploymentGroup)}" placeholder="Deployment group">
-            </label>
-          </td>
-          <td>
-            <textarea class="lot-weeding-admin-textarea" data-lot-weeding-field="details" placeholder="Request notes">${escapeHtml(request.details)}</textarea>
-            <label class="lot-weeding-admin-label">ROE Status
-              <select class="lot-weeding-admin-input" data-lot-weeding-field="roeStatus">
-                ${LOT_WEEDING_ROE_STATUS_OPTIONS.map((option) => `<option value="${escapeHtmlAttr(option)}" ${option === String(request.roeStatus || '') ? 'selected' : ''}>${escapeHtml(option || 'Blank')}</option>`).join('')}
-              </select>
-            </label>
-            <input class="lot-weeding-admin-input" data-lot-weeding-field="flagReason" value="${escapeHtmlAttr(request.flagReason)}" placeholder="Needs-attention reason">
-          </td>
-          <td>
-            <button type="button" class="lot-weeding-admin-save" data-lot-weeding-save="${escapeHtmlAttr(request.rowNumber)}">Save</button>
-            <div class="lot-weeding-admin-row-status" aria-live="polite"></div>
-          </td>
-        </tr>
+          ` : ''}
+
+          <details class="lot-weeding-admin-edit-panel">
+            <summary>Edit details</summary>
+            <div class="lot-weeding-admin-edit-grid">
+              <label class="lot-weeding-admin-label">Status
+                <select class="lot-weeding-admin-input" data-lot-weeding-field="status">
+                  ${LOT_WEEDING_STATUS_OPTIONS.map((option) => `<option value="${escapeHtmlAttr(option)}" ${option === status ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
+                </select>
+              </label>
+              <label class="lot-weeding-admin-label">APN
+                <input class="lot-weeding-admin-input" data-lot-weeding-field="apn" value="${escapeHtmlAttr(request.apn)}" placeholder="Assign APN">
+              </label>
+              <label class="lot-weeding-admin-label">Date Scheduled
+                <input class="lot-weeding-admin-input" data-lot-weeding-field="scheduledDate" value="${escapeHtmlAttr(request.scheduledDate)}" placeholder="e.g. 7/15/2026">
+              </label>
+              <label class="lot-weeding-admin-label">Homeowner Notified
+                <select class="lot-weeding-admin-input" data-lot-weeding-field="homeownerNotified">
+                  ${LOT_WEEDING_YES_NO_OPTIONS.map((option) => `<option value="${escapeHtmlAttr(option)}" ${option === String(request.homeownerNotified || '') ? 'selected' : ''}>${escapeHtml(option || 'Blank')}</option>`).join('')}
+                </select>
+              </label>
+              <label class="lot-weeding-admin-label">Date Cleaned
+                <input class="lot-weeding-admin-input" data-lot-weeding-field="dateCleaned" value="${escapeHtmlAttr(request.dateCleaned)}" placeholder="e.g. 7/20/2026">
+              </label>
+              <label class="lot-weeding-admin-label">Deployment Group
+                <input class="lot-weeding-admin-input" data-lot-weeding-field="deploymentGroup" value="${escapeHtmlAttr(request.deploymentGroup)}" placeholder="Deployment group">
+              </label>
+              <label class="lot-weeding-admin-label">UWS Contract
+                <select class="lot-weeding-admin-input" data-lot-weeding-field="universalWasteContract">
+                  ${LOT_WEEDING_YES_NO_OPTIONS.map((option) => `<option value="${escapeHtmlAttr(option)}" ${option === String(request.universalWasteContract || '') ? 'selected' : ''}>${escapeHtml(option || 'Blank')}</option>`).join('')}
+                </select>
+              </label>
+              <label class="lot-weeding-admin-label">Last Contact Date
+                <input class="lot-weeding-admin-input" data-lot-weeding-field="lastContactDate" value="${escapeHtmlAttr(request.lastContactDate)}" placeholder="e.g. 7/15/2026">
+              </label>
+              <label class="lot-weeding-admin-label">ROE Status
+                <select class="lot-weeding-admin-input" data-lot-weeding-field="roeStatus">
+                  ${LOT_WEEDING_ROE_STATUS_OPTIONS.map((option) => `<option value="${escapeHtmlAttr(option)}" ${option === String(request.roeStatus || '') ? 'selected' : ''}>${escapeHtml(option || 'Blank')}</option>`).join('')}
+                </select>
+              </label>
+              <label class="lot-weeding-admin-label lot-weeding-admin-label--wide">Request notes
+                <textarea class="lot-weeding-admin-textarea" data-lot-weeding-field="details" placeholder="Request notes">${escapeHtml(request.details)}</textarea>
+              </label>
+              <label class="lot-weeding-admin-label lot-weeding-admin-label--wide">Needs-attention reason
+                <input class="lot-weeding-admin-input" data-lot-weeding-field="flagReason" value="${escapeHtmlAttr(request.flagReason)}" placeholder="Needs-attention reason">
+              </label>
+            </div>
+            <div class="lot-weeding-admin-edit-actions">
+              <button type="button" class="lot-weeding-admin-save" data-lot-weeding-save="${escapeHtmlAttr(request.rowNumber)}">Save row</button>
+              <div class="lot-weeding-admin-row-status" aria-live="polite"></div>
+            </div>
+          </details>
+        </article>
       `;
     }
 
@@ -4421,7 +4423,7 @@
 
       document.querySelectorAll('[data-lot-weeding-save]').forEach((button) => {
         button.addEventListener('click', async () => {
-          const row = button.closest('tr[data-lot-weeding-row]');
+          const row = button.closest('[data-lot-weeding-row]');
           const statusEl = row?.querySelector('.lot-weeding-admin-row-status');
           const rowNumber = Number(button.getAttribute('data-lot-weeding-save'));
           const updates = {};
