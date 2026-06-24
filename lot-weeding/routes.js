@@ -73,6 +73,10 @@ function findColumn(headers, aliases, fallbackMatcher) {
     null;
 }
 
+function getHeaderWords(value) {
+  return String(value || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+}
+
 function getLotWeedingColumns(headers) {
   return {
     timestamp: findColumn(headers, [
@@ -220,7 +224,27 @@ function getLotWeedingColumns(headers) {
       'captain email',
       'neighborhood captain email',
       'nc email'
-    ], (lower) => lower.includes('captain') && lower.includes('email'))
+    ], (lower) => lower.includes('captain') && lower.includes('email')),
+    latitude: findColumn(headers, [
+      'latitude',
+      'lat',
+      'parcel latitude',
+      'centroid latitude'
+    ], (lower) => {
+      const words = getHeaderWords(lower);
+      return words.includes('latitude') || words.includes('lat');
+    }),
+    longitude: findColumn(headers, [
+      'longitude',
+      'lng',
+      'lon',
+      'long',
+      'parcel longitude',
+      'centroid longitude'
+    ], (lower) => {
+      const words = getHeaderWords(lower);
+      return words.includes('longitude') || words.includes('lng') || words.includes('lon') || words.includes('long');
+    })
   };
 }
 
@@ -255,7 +279,29 @@ function getContextColumns(headers) {
       'nc email',
       'contact email',
       'contact_email'
-    ], (lower) => lower.includes('email') && (lower.includes('captain') || lower.includes('contact') || lower.includes('nc')))
+    ], (lower) => lower.includes('email') && (lower.includes('captain') || lower.includes('contact') || lower.includes('nc'))),
+    latitude: findColumn(headers, [
+      'latitude',
+      'lat',
+      'parcel latitude',
+      'centroid latitude',
+      'y'
+    ], (lower) => {
+      const words = getHeaderWords(lower);
+      return words.includes('latitude') || words.includes('lat') || lower === 'y';
+    }),
+    longitude: findColumn(headers, [
+      'longitude',
+      'lng',
+      'lon',
+      'long',
+      'parcel longitude',
+      'centroid longitude',
+      'x'
+    ], (lower) => {
+      const words = getHeaderWords(lower);
+      return words.includes('longitude') || words.includes('lng') || words.includes('lon') || words.includes('long') || lower === 'x';
+    })
   };
 }
 
@@ -326,6 +372,7 @@ function normalizeLotWeedingRows(headers, rows) {
   return (rows || []).map(({ rowNumber, record }) => {
     const requestedValue = getValue(record, columns.requested);
     const status = normalizeStatus(getValue(record, columns.status), requestedValue);
+    const coords = parseCoordinatePair(getValue(record, columns.latitude), getValue(record, columns.longitude));
     return {
       rowNumber,
       timestamp: getValue(record, columns.timestamp),
@@ -348,6 +395,8 @@ function normalizeLotWeedingRows(headers, rows) {
       zone: getValue(record, columns.zone),
       captainName: getValue(record, columns.captainName),
       captainEmail: getValue(record, columns.captainEmail),
+      latitude: coords ? coords.latitude : null,
+      longitude: coords ? coords.longitude : null,
       raw: record
     };
   });
@@ -388,6 +437,19 @@ function normalizeApnDigits(value) {
   return String(value || '').replace(/\D/g, '');
 }
 
+function parseCoordinatePair(latitudeValue, longitudeValue) {
+  const latitudeText = String(latitudeValue || '').trim();
+  const longitudeText = String(longitudeValue || '').trim();
+  if (!latitudeText || !longitudeText) return null;
+
+  const latitude = Number.parseFloat(latitudeText);
+  const longitude = Number.parseFloat(longitudeText);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  if (Math.abs(latitude) < 0.0001 && Math.abs(longitude) < 0.0001) return null;
+  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
+  return { latitude, longitude };
+}
+
 async function loadContextByApn({ sheetsClient, config }) {
   if (!config.masterSheetId) return new Map();
 
@@ -404,10 +466,13 @@ async function loadContextByApn({ sheetsClient, config }) {
     parsed.rows.forEach(({ record }) => {
       const apnDigits = normalizeApnDigits(getValue(record, columns.apn));
       if (!apnDigits || byApn.has(apnDigits)) return;
+      const coords = parseCoordinatePair(getValue(record, columns.latitude), getValue(record, columns.longitude));
       byApn.set(apnDigits, {
         zone: getValue(record, columns.zone),
         captainName: getValue(record, columns.captainName),
-        captainEmail: getValue(record, columns.captainEmail)
+        captainEmail: getValue(record, columns.captainEmail),
+        latitude: coords ? coords.latitude : null,
+        longitude: coords ? coords.longitude : null
       });
     });
     return byApn;
@@ -426,7 +491,9 @@ function enrichRequestsWithContext(requests, contextByApn) {
       ...request,
       zone: request.zone || context.zone || '',
       captainName: request.captainName || context.captainName || '',
-      captainEmail: request.captainEmail || context.captainEmail || ''
+      captainEmail: request.captainEmail || context.captainEmail || '',
+      latitude: request.latitude ?? context.latitude ?? null,
+      longitude: request.longitude ?? context.longitude ?? null
     };
   });
 }

@@ -1259,7 +1259,10 @@
       stats: { total: 0, open: 0, scheduled: 0, completed: 0, flagged: 0, missingApn: 0 },
       lastFetchedAt: '',
       filter: 'active',
-      query: ''
+      query: '',
+      selectedRowNumber: null,
+      map: null,
+      markers: []
     };
     let lotWeedingAdminSearchTimer = null;
     
@@ -3747,6 +3750,14 @@
     const LOT_WEEDING_STATUS_OPTIONS = ['Requested', 'On-Deck', 'Scheduled', 'Cleaned', 'Needs Attention', 'Cancelled'];
     const LOT_WEEDING_ROE_STATUS_OPTIONS = ['', 'Requested', 'Returned'];
     const LOT_WEEDING_YES_NO_OPTIONS = ['', 'Yes', 'No'];
+    const LOT_WEEDING_STATUS_META = {
+      Requested: { color: '#B45309', label: 'Requested' },
+      'On-Deck': { color: '#D97706', label: 'On-Deck' },
+      Scheduled: { color: '#2563EB', label: 'Scheduled' },
+      Cleaned: { color: '#606C38', label: 'Cleaned' },
+      'Needs Attention': { color: '#B7533D', label: 'Needs Attention' },
+      Cancelled: { color: '#6B7280', label: 'Cancelled' }
+    };
 
     function isLotWeedingTerminalStatus(status) {
       return status === 'Cleaned' || status === 'Cancelled' || status === 'Completed';
@@ -3758,6 +3769,54 @@
 
     function isLotWeedingCleanedStatus(status) {
       return status === 'Cleaned' || status === 'Completed';
+    }
+
+    function getLotWeedingStatusMeta(status) {
+      return LOT_WEEDING_STATUS_META[status] || LOT_WEEDING_STATUS_META.Requested;
+    }
+
+    function getLotWeedingStatusClass(status) {
+      return String(status || 'Requested').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    }
+
+    function getLotWeedingRequestCoordinates(request) {
+      const latitude = Number.parseFloat(String(request?.latitude ?? request?.lat ?? '').trim());
+      const longitude = Number.parseFloat(String(request?.longitude ?? request?.lng ?? request?.lon ?? '').trim());
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+      if (Math.abs(latitude) < 0.0001 && Math.abs(longitude) < 0.0001) return null;
+      if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
+      return { latitude, longitude };
+    }
+
+    function isLotWeedingRequestMapped(request) {
+      return Boolean(getLotWeedingRequestCoordinates(request));
+    }
+
+    function getLotWeedingUnmappedReason(request) {
+      if (!String(request?.apn || '').trim()) return 'Missing APN';
+      return 'No usable coordinates';
+    }
+
+    function getLotWeedingAdminMappedRequests(requests) {
+      return (requests || []).filter(isLotWeedingRequestMapped);
+    }
+
+    function getLotWeedingAdminUnmappedRequests(requests) {
+      return (requests || []).filter((request) => !isLotWeedingRequestMapped(request));
+    }
+
+    function getLotWeedingAdminSelectedRequest() {
+      const rowNumber = Number(lotWeedingAdminState.selectedRowNumber);
+      if (!rowNumber) return null;
+      return (lotWeedingAdminState.requests || []).find((request) => Number(request.rowNumber) === rowNumber) || null;
+    }
+
+    function destroyLotWeedingAdminMap() {
+      if (lotWeedingAdminState.map && typeof lotWeedingAdminState.map.remove === 'function') {
+        lotWeedingAdminState.map.remove();
+      }
+      lotWeedingAdminState.map = null;
+      lotWeedingAdminState.markers = [];
     }
 
     function getLotWeedingAdminFilteredRequests() {
@@ -3795,6 +3854,97 @@
           request.dateCleaned
         ].some((value) => String(value || '').toLowerCase().includes(query));
       });
+    }
+
+    function initializeLotWeedingAdminMap(requests) {
+      const mapEl = document.getElementById('lotWeedingAdminMap');
+      if (!mapEl || typeof L === 'undefined') return;
+
+      destroyLotWeedingAdminMap();
+
+      const mappedRequests = getLotWeedingAdminMappedRequests(requests);
+      const defaultCenter = [34.19, -118.15];
+      const map = L.map(mapEl, { attributionControl: false, maxZoom: 22 }).setView(defaultCenter, 12);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap contributors, © CARTO',
+        maxZoom: 22
+      }).addTo(map);
+
+      const bounds = [];
+      const markers = mappedRequests.map((request) => {
+        const coords = getLotWeedingRequestCoordinates(request);
+        const status = String(request.status || 'Requested');
+        const meta = getLotWeedingStatusMeta(status);
+        const selected = Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber);
+        const marker = L.circleMarker([coords.latitude, coords.longitude], {
+          radius: selected ? 10 : 7,
+          color: selected ? '#1F2937' : '#FFFDF5',
+          weight: selected ? 4 : 2,
+          fillColor: meta.color,
+          fillOpacity: 0.92,
+          opacity: 1
+        }).addTo(map);
+        marker.bindTooltip(`${status}: ${request.address || request.apn || 'Lot weeding request'}`, {
+          direction: 'top',
+          offset: [0, -8],
+          opacity: 0.94
+        });
+        marker.on('click', () => {
+          lotWeedingAdminState.selectedRowNumber = request.rowNumber;
+          renderLotWeedingAdminView();
+        });
+        bounds.push([coords.latitude, coords.longitude]);
+        return marker;
+      });
+
+      lotWeedingAdminState.map = map;
+      lotWeedingAdminState.markers = markers;
+
+      if (bounds.length > 0) {
+        map.fitBounds(bounds, { padding: [34, 34], maxZoom: 17 });
+      }
+      setTimeout(() => map.invalidateSize(), 80);
+    }
+
+    function renderLotWeedingAdminSidePanel(request, filteredRequests) {
+      if (!request) {
+        return `
+          <aside class="lot-weeding-admin-side-panel">
+            <p class="lot-weeding-admin-panel-kicker">Selected request</p>
+            <h3>No request selected</h3>
+            <p class="lot-weeding-admin-panel-empty">Click a map marker or inspect a queue row to review request details here.</p>
+          </aside>
+        `;
+      }
+
+      const status = String(request.status || 'Requested');
+      const coords = getLotWeedingRequestCoordinates(request);
+      const isVisible = (filteredRequests || []).some((item) => Number(item.rowNumber) === Number(request.rowNumber));
+      return `
+        <aside class="lot-weeding-admin-side-panel">
+          <p class="lot-weeding-admin-panel-kicker">Selected request</p>
+          <div class="lot-weeding-admin-panel-title-row">
+            <h3>${escapeHtml(request.address || 'Address not provided')}</h3>
+            <span class="lot-weeding-admin-status lot-weeding-admin-status--${escapeHtmlAttr(getLotWeedingStatusClass(status))}">${escapeHtml(status)}</span>
+          </div>
+          ${!isVisible ? '<p class="lot-weeding-admin-panel-note">This request is outside the current filter, but remains selected.</p>' : ''}
+          <dl class="lot-weeding-admin-detail-list">
+            <div><dt>APN</dt><dd>${escapeHtml(request.apn || 'Missing APN')}</dd></div>
+            <div><dt>Map status</dt><dd>${coords ? `Mapped at ${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}` : escapeHtml(getLotWeedingUnmappedReason(request))}</dd></div>
+            <div><dt>Requester</dt><dd>${escapeHtml(request.requesterName || 'Unknown requester')}</dd></div>
+            <div><dt>Contact</dt><dd>${escapeHtml([request.email, request.phone].filter(Boolean).join(' | ') || 'No contact listed')}</dd></div>
+            <div><dt>Zone / Captain</dt><dd>${escapeHtml([request.zone || 'No zone match', request.captainName || 'No captain listed'].join(' | '))}</dd></div>
+            <div><dt>Schedule</dt><dd>${escapeHtml(request.scheduledDate || 'Not scheduled')}</dd></div>
+            <div><dt>ROE / UWS</dt><dd>${escapeHtml([request.roeStatus || 'ROE blank', request.universalWasteContract ? `UWS: ${request.universalWasteContract}` : 'UWS blank'].join(' | '))}</dd></div>
+          </dl>
+          ${request.details || request.flagReason ? `
+            <div class="lot-weeding-admin-panel-notes">
+              ${request.details ? `<strong>Notes</strong><p>${escapeHtml(request.details)}</p>` : ''}
+              ${request.flagReason ? `<strong>Attention reason</strong><p>${escapeHtml(request.flagReason)}</p>` : ''}
+            </div>
+          ` : ''}
+        </aside>
+      `;
     }
 
     async function loadLotWeedingAdminData(force = false) {
@@ -3839,6 +3989,11 @@
         lotWeedingAdminState.requests = Array.isArray(payload.requests) ? payload.requests : [];
         lotWeedingAdminState.stats = payload.stats || { total: 0, open: 0, scheduled: 0, completed: 0, flagged: 0, missingApn: 0 };
         lotWeedingAdminState.lastFetchedAt = payload.lastFetchedAt || '';
+        const selectedStillExists = lotWeedingAdminState.requests.some((request) => Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber));
+        if (!selectedStillExists) {
+          const firstMappedRequest = lotWeedingAdminState.requests.find(isLotWeedingRequestMapped);
+          lotWeedingAdminState.selectedRowNumber = (firstMappedRequest || lotWeedingAdminState.requests[0] || {}).rowNumber || null;
+        }
         lotWeedingAdminState.loaded = true;
       } catch (error) {
         console.error('Lot Weeding Admin load error:', error);
@@ -3862,6 +4017,8 @@
           : 'Not loaded yet';
         freshness.textContent = `${sourceLabel} | ${timeLabel}`;
       }
+
+      destroyLotWeedingAdminMap();
 
       if (lotWeedingAdminState.loading) {
         content.innerHTML = '<div class="loading">Loading Lot Weeding Admin...</div>';
@@ -3893,6 +4050,10 @@
       const stats = lotWeedingAdminState.stats || {};
       const filteredRequests = getLotWeedingAdminFilteredRequests();
       const visibleRequests = filteredRequests.slice(0, 200);
+      const mappedRequests = getLotWeedingAdminMappedRequests(filteredRequests);
+      const unmappedRequests = getLotWeedingAdminUnmappedRequests(filteredRequests);
+      const visibleUnmappedRequests = unmappedRequests.slice(0, 24);
+      const selectedRequest = getLotWeedingAdminSelectedRequest();
       const filterItems = [
         ['active', 'Active'],
         ['requested', 'Requested'],
@@ -3943,6 +4104,45 @@
           </div>
         </section>
 
+        <section class="lot-weeding-admin-map-shell">
+          <div class="lot-weeding-admin-map-card">
+            <div class="lot-weeding-admin-map-heading">
+              <div>
+                <p class="lot-weeding-admin-panel-kicker">Map workspace</p>
+                <h3>Townwide lot-weeding requests</h3>
+              </div>
+              <span>${formatGodmodeCount(mappedRequests.length)} mapped / ${formatGodmodeCount(unmappedRequests.length)} unmapped</span>
+            </div>
+            <div id="lotWeedingAdminMap" class="lot-weeding-admin-map" role="region" aria-label="Lot weeding request map"></div>
+            ${mappedRequests.length ? '' : '<div class="lot-weeding-admin-map-empty">No mapped requests match the current filters yet.</div>'}
+            <div class="lot-weeding-admin-map-legend" aria-label="Status legend">
+              ${LOT_WEEDING_STATUS_OPTIONS.map((status) => {
+                const meta = getLotWeedingStatusMeta(status);
+                return `<span><i style="background:${escapeHtmlAttr(meta.color)}"></i>${escapeHtml(meta.label)}</span>`;
+              }).join('')}
+            </div>
+          </div>
+          ${renderLotWeedingAdminSidePanel(selectedRequest, filteredRequests)}
+        </section>
+
+        <section class="lot-weeding-admin-unmapped-card">
+          <div class="lot-weeding-admin-table-heading">
+            <h3>Unmapped / missing APN queue</h3>
+            <span>${formatGodmodeCount(unmappedRequests.length)} matching records without usable coordinates</span>
+          </div>
+          <div class="lot-weeding-admin-unmapped-list">
+            ${visibleUnmappedRequests.map((request) => `
+              <button type="button" class="lot-weeding-admin-unmapped-item ${Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber) ? 'active' : ''}" data-lot-weeding-select="${escapeHtmlAttr(request.rowNumber)}">
+                <span>
+                  <strong>${escapeHtml(request.address || 'Address not provided')}</strong>
+                  <em>${escapeHtml(request.apn || 'Missing APN')} | ${escapeHtml(request.status || 'Requested')}</em>
+                </span>
+                <b>${escapeHtml(getLotWeedingUnmappedReason(request))}</b>
+              </button>
+            `).join('') || '<p class="lot-weeding-admin-no-results">Every matching request has usable map coordinates.</p>'}
+          </div>
+        </section>
+
         <section class="lot-weeding-admin-table-card">
           <div class="lot-weeding-admin-table-heading">
             <h3>Request queue</h3>
@@ -3964,7 +4164,7 @@
               <tbody>
                 ${visibleRequests.map((request) => renderLotWeedingAdminRequestRow(request)).join('') || `
                   <tr>
-                    <td colspan="6" class="lot-weeding-admin-no-results">No requests match this filter.</td>
+                    <td colspan="7" class="lot-weeding-admin-no-results">No requests match this filter.</td>
                   </tr>
                 `}
               </tbody>
@@ -3974,14 +4174,19 @@
       `;
 
       attachLotWeedingAdminHandlers();
+      setTimeout(() => initializeLotWeedingAdminMap(filteredRequests), 0);
     }
 
     function renderLotWeedingAdminRequestRow(request) {
       const status = String(request.status || 'Requested');
+      const selected = Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber);
+      const coords = getLotWeedingRequestCoordinates(request);
       return `
-        <tr data-lot-weeding-row="${escapeHtmlAttr(request.rowNumber)}">
+        <tr class="${selected ? 'lot-weeding-admin-row-selected' : ''}" data-lot-weeding-row="${escapeHtmlAttr(request.rowNumber)}">
           <td>
-            <span class="lot-weeding-admin-status lot-weeding-admin-status--${escapeHtmlAttr(status.toLowerCase().replace(/\s+/g, '-'))}">${escapeHtml(status)}</span>
+            <span class="lot-weeding-admin-status lot-weeding-admin-status--${escapeHtmlAttr(getLotWeedingStatusClass(status))}">${escapeHtml(status)}</span>
+            <button type="button" class="lot-weeding-admin-inspect" data-lot-weeding-select="${escapeHtmlAttr(request.rowNumber)}">Inspect</button>
+            <div class="lot-weeding-admin-contact">${coords ? 'Mapped' : escapeHtml(getLotWeedingUnmappedReason(request))}</div>
             <select class="lot-weeding-admin-input" data-lot-weeding-field="status">
               ${LOT_WEEDING_STATUS_OPTIONS.map((option) => `<option value="${escapeHtmlAttr(option)}" ${option === status ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
             </select>
@@ -4073,6 +4278,15 @@
       }
 
       document.getElementById('lotWeedingAdminRefreshBtn')?.addEventListener('click', () => loadLotWeedingAdminData(true));
+
+      document.querySelectorAll('[data-lot-weeding-select]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const rowNumber = Number(button.getAttribute('data-lot-weeding-select'));
+          if (!rowNumber) return;
+          lotWeedingAdminState.selectedRowNumber = rowNumber;
+          renderLotWeedingAdminView();
+        });
+      });
 
       document.querySelectorAll('[data-lot-weeding-save]').forEach((button) => {
         button.addEventListener('click', async () => {
