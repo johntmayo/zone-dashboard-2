@@ -4,6 +4,8 @@ let cachedPayload = null; // { expiresAt, payload }
 
 const DEFAULT_RANGE = 'A1:ZZ5000';
 const DEFAULT_CACHE_TTL_MS = 30 * 1000;
+const STATUS_VALUES = ['Requested', 'On-Deck', 'Scheduled', 'Cleaned', 'Needs Attention', 'Cancelled'];
+const ROE_STATUS_VALUES = ['Requested', 'Returned'];
 
 function strEnv(name, fallback = '') {
   return String(process.env[name] || fallback).trim();
@@ -74,6 +76,8 @@ function findColumn(headers, aliases, fallbackMatcher) {
 function getLotWeedingColumns(headers) {
   return {
     timestamp: findColumn(headers, [
+      'request submission date stamp',
+      'request submission datestamp',
       'timestamp',
       'submitted at',
       'submission timestamp',
@@ -82,6 +86,7 @@ function getLotWeedingColumns(headers) {
       'created at'
     ], (lower) => lower.includes('timestamp') || lower.includes('submitted') || (lower.includes('created') && lower.includes('at'))),
     requesterName: findColumn(headers, [
+      'name of homeowner',
       'name',
       'full name',
       'requester name',
@@ -89,6 +94,7 @@ function getLotWeedingColumns(headers) {
       'owner name'
     ], (lower) => lower.includes('name') && (lower.includes('requester') || lower.includes('owner'))),
     email: findColumn(headers, [
+      'email of homeowner',
       'email',
       'email address',
       'requester email',
@@ -96,6 +102,7 @@ function getLotWeedingColumns(headers) {
       'owner email'
     ], (lower) => lower.includes('email')),
     phone: findColumn(headers, [
+      'phone number of homeowner',
       'phone',
       'phone number',
       'requester phone',
@@ -103,6 +110,7 @@ function getLotWeedingColumns(headers) {
       'owner phone'
     ], (lower) => lower.includes('phone') || lower.includes('mobile') || lower.includes('cell')),
     address: findColumn(headers, [
+      'address of property',
       'address',
       'property address',
       'lot address',
@@ -127,6 +135,18 @@ function getLotWeedingColumns(headers) {
       'notes',
       'comments'
     ], (lower) => (lower.includes('lot') && lower.includes('weeding') && lower.includes('detail')) || lower.includes('note') || lower.includes('comment')),
+    universalWasteContract: findColumn(headers, [
+      'universal waste systems contract y/n',
+      'uws contract',
+      'universal waste systems contract',
+      'do you have a contract with universal waste systems that you are currently paying?'
+    ], (lower) => lower.includes('universal waste') || lower.includes('uws contract')),
+    lastContactDate: findColumn(headers, [
+      'last contact date',
+      'last contacted',
+      'emailed',
+      'contact date'
+    ], (lower) => lower.includes('last') && lower.includes('contact')),
     requested: findColumn(headers, [
       'lot_weeding_requested_spring_2026',
       'lot weeding requested spring 2026',
@@ -141,16 +161,35 @@ function getLotWeedingColumns(headers) {
       'weeding status',
       'request status',
       'status'
-    ], (lower) => lower.includes('status')),
+    ], (lower) => lower.includes('status') && !lower.includes('roe') && !lower.includes('right of entry')),
     scheduledDate: findColumn(headers, [
+      'date scheduled',
       'lot_weeding_date_scheduled_spring_2026',
       'lot_weeding_scheduled_date_spring_2026',
       'lot weeding date scheduled spring 2026',
       'lot weeding scheduled date spring 2026',
       'lot weeding date scheduled',
-      'scheduled date',
-      'date scheduled'
+      'scheduled date'
     ], (lower) => lower.includes('scheduled') && lower.includes('date')),
+    homeownerNotified: findColumn(headers, [
+      'homeowner notified of schedule',
+      'homeowner notified',
+      'owner notified',
+      'notified of schedule'
+    ], (lower) => lower.includes('notified') && (lower.includes('homeowner') || lower.includes('owner') || lower.includes('schedule'))),
+    dateCleaned: findColumn(headers, [
+      'date cleaned',
+      'cleaned date',
+      'date completed',
+      'completed date'
+    ], (lower) => lower.includes('date') && (lower.includes('cleaned') || lower.includes('completed'))),
+    roeStatus: findColumn(headers, [
+      'roe status',
+      'roe returned',
+      'roe form',
+      'right of entry status',
+      'right of entry'
+    ], (lower) => lower.includes('roe') || lower.includes('right of entry')),
     deploymentGroup: findColumn(headers, [
       'deployment group',
       'group',
@@ -229,17 +268,38 @@ function isTruthySheetValue(value) {
 }
 
 function normalizeStatus(value, requestedValue = '') {
-  const normalized = String(value || '').trim().toLowerCase();
+  const text = String(value || '').trim();
+  const normalized = text.toLowerCase();
   if (['scheduled', 'schedule'].includes(normalized)) return 'Scheduled';
-  if (['completed', 'complete', 'done'].includes(normalized)) return 'Completed';
-  if (['flagged', 'error', 'issue', 'problem', 'cannot service', 'cannot be serviced'].includes(normalized)) return 'Flagged';
-  if (['open', 'requested', 'request', 'pending', 'new'].includes(normalized)) {
-    return 'Open';
-  }
+  if (['cleaned', 'completed', 'complete', 'done'].includes(normalized)) return 'Cleaned';
+  if (['needs attention', 'needs-attention', 'flagged', 'error', 'issue', 'problem', 'cannot service', 'cannot be serviced'].includes(normalized)) return 'Needs Attention';
+  if (['cancelled', 'canceled', 'cancel'].includes(normalized)) return 'Cancelled';
+  if (['on-deck', 'on deck', 'ondeck', 'next up'].includes(normalized)) return 'On-Deck';
+  if (['open', 'requested', 'request', 'pending', 'new'].includes(normalized)) return 'Requested';
   if (!normalized) {
-    return isTruthySheetValue(requestedValue) ? 'Open' : '';
+    return isTruthySheetValue(requestedValue) ? 'Requested' : '';
   }
-  return value ? String(value).trim() : '';
+  return STATUS_VALUES.find((status) => status.toLowerCase() === normalized) || text;
+}
+
+function normalizeRoeStatus(value) {
+  const text = String(value || '').trim();
+  const normalized = text.toLowerCase();
+  if (['returned', 'return', 'true', 'yes', 'y'].includes(normalized)) return 'Returned';
+  if (['requested', 'request'].includes(normalized)) return 'Requested';
+  return ROE_STATUS_VALUES.find((status) => status.toLowerCase() === normalized) || text;
+}
+
+function normalizeYesNo(value) {
+  const text = String(value || '').trim();
+  const normalized = text.toLowerCase();
+  if (['true', 'yes', 'y', '1'].includes(normalized)) return 'Yes';
+  if (['false', 'no', 'n', '0'].includes(normalized)) return 'No';
+  return text;
+}
+
+function isTerminalStatus(status) {
+  return status === 'Cleaned' || status === 'Cancelled';
 }
 
 function normalizeSheetValues(values) {
@@ -275,9 +335,14 @@ function normalizeLotWeedingRows(headers, rows) {
       address: getValue(record, columns.address),
       apn: getValue(record, columns.apn),
       details: getValue(record, columns.details),
+      universalWasteContract: normalizeYesNo(getValue(record, columns.universalWasteContract)),
+      lastContactDate: getValue(record, columns.lastContactDate),
       requested: isTruthySheetValue(requestedValue) || Boolean(status),
-      status: status || 'Open',
+      status: status || 'Requested',
       scheduledDate: getValue(record, columns.scheduledDate),
+      homeownerNotified: normalizeYesNo(getValue(record, columns.homeownerNotified)),
+      dateCleaned: getValue(record, columns.dateCleaned),
+      roeStatus: normalizeRoeStatus(getValue(record, columns.roeStatus)),
       deploymentGroup: getValue(record, columns.deploymentGroup),
       flagReason: getValue(record, columns.flagReason),
       zone: getValue(record, columns.zone),
@@ -291,13 +356,32 @@ function normalizeLotWeedingRows(headers, rows) {
 function summarizeRequests(requests) {
   return (requests || []).reduce((stats, request) => {
     stats.total += 1;
-    if (request.status === 'Completed') stats.completed += 1;
+    if (request.status === 'Requested') stats.requested += 1;
+    else if (request.status === 'On-Deck') stats.onDeck += 1;
     else if (request.status === 'Scheduled') stats.scheduled += 1;
-    else if (request.status === 'Flagged') stats.flagged += 1;
-    else stats.open += 1;
+    else if (request.status === 'Cleaned') stats.cleaned += 1;
+    else if (request.status === 'Needs Attention') stats.needsAttention += 1;
+    else if (request.status === 'Cancelled') stats.cancelled += 1;
+    if (!isTerminalStatus(request.status)) stats.active += 1;
     if (!request.apn) stats.missingApn += 1;
+    stats.open = stats.requested + stats.onDeck + stats.needsAttention;
+    stats.completed = stats.cleaned;
+    stats.flagged = stats.needsAttention;
     return stats;
-  }, { total: 0, open: 0, scheduled: 0, completed: 0, flagged: 0, missingApn: 0 });
+  }, {
+    total: 0,
+    active: 0,
+    requested: 0,
+    onDeck: 0,
+    scheduled: 0,
+    cleaned: 0,
+    needsAttention: 0,
+    cancelled: 0,
+    missingApn: 0,
+    open: 0,
+    completed: 0,
+    flagged: 0
+  });
 }
 
 function normalizeApnDigits(value) {
@@ -409,6 +493,11 @@ function getEditableColumns(headers) {
     apn: columns.apn,
     status: columns.status,
     scheduledDate: columns.scheduledDate,
+    homeownerNotified: columns.homeownerNotified,
+    dateCleaned: columns.dateCleaned,
+    roeStatus: columns.roeStatus,
+    universalWasteContract: columns.universalWasteContract,
+    lastContactDate: columns.lastContactDate,
     deploymentGroup: columns.deploymentGroup,
     details: columns.details,
     flagReason: columns.flagReason
@@ -537,7 +626,19 @@ function registerLotWeedingRoutes(app, deps) {
         return res.status(400).json({ error: 'invalid_row_number' });
       }
 
-      const allowedFields = new Set(['apn', 'status', 'scheduledDate', 'deploymentGroup', 'details', 'flagReason']);
+      const allowedFields = new Set([
+        'apn',
+        'status',
+        'scheduledDate',
+        'homeownerNotified',
+        'dateCleaned',
+        'roeStatus',
+        'universalWasteContract',
+        'lastContactDate',
+        'deploymentGroup',
+        'details',
+        'flagReason'
+      ]);
       const updates = {};
       Object.entries((req.body && req.body.updates) || {}).forEach(([field, value]) => {
         if (allowedFields.has(field)) updates[field] = value;
@@ -567,5 +668,7 @@ module.exports = {
   normalizeSheetValues,
   normalizeLotWeedingRows,
   getLotWeedingColumns,
+  normalizeStatus,
+  normalizeRoeStatus,
   clearLotWeedingCache
 };
