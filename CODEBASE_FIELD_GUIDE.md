@@ -21,6 +21,7 @@ An internal dashboard for ~50 neighborhood captains managing post-fire recovery 
 |------|-----------|------------|
 | **`index.html`** | The entire application: ~18,380 lines of HTML + inline JS. All views, all logic, all state. | **Extreme** — any change can break anything |
 | **`server.js`** | Express backend: 906 lines. Sheets proxy, user auth lookup, feed APIs, static serving. | **High** — all data flows through here |
+| **`lot-weeding/routes.js`** | Dedicated Lot Weeding source/read/write routes, role-gated admin APIs, sheet-schema normalization. See `LOT_WEEDING_ADMIN_HANDOFF.md`. | High — writes to operational intake sheet |
 | **`public/css/styles.css`** | All CSS: ~180KB / ~7,570 lines. Contains a dedicated "Details Panel Redesign" block (~lines 6813–7430). | Medium |
 | **`public/js/utils.js`** | Shared utilities: address parsing, column finding, outreach-column resilience helpers (`findOutreachDateColumn`, `findOutreachLogColumn`), HTML helpers. ~491 lines. | Medium — used by index.html |
 | **`users.json`** | Email → sheet URL mapping. This is the user access control list. | **High** — editing this adds/removes user access |
@@ -28,6 +29,7 @@ An internal dashboard for ~50 neighborhood captains managing post-fire recovery 
 | **`vercel.json`** | Deployment config: cache headers, host-based rewrite for NC Directory. | Low |
 | **`nc-directory.html`** | Standalone NC Captain directory. Served at `directory.altagether.org`. | Medium |
 | **`flyer_tool.html`** | Self-contained flyer generator. No backend dependencies. | Low |
+| **`LOT_WEEDING_ADMIN_HANDOFF.md`** | Current Lot Weeding Admin architecture, configuration, source-sheet migration notes, and map-first next-phase plan. | Medium |
 
 ---
 

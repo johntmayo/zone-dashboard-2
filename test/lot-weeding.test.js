@@ -13,9 +13,9 @@ const {
 
 test('normalizeLotWeedingRows: maps revised intake columns to stable request fields', () => {
   const parsed = normalizeSheetValues([
-    ['Request Submission Date Stamp', 'Name of Homeowner', 'Address of Property', 'Phone Number of Homeowner', 'Email of Homeowner', 'Universal Waste Systems contract Y/N', 'Last contact date', 'Date Scheduled', 'Homeowner notified of schedule', 'Date Cleaned', 'ROE Status', 'Notes', 'APN', 'Status'],
-    ['6/1/2026 10:30 AM', 'Jane Owner', '123 Lake Ave', '6265551212', 'owner@example.com', 'yes', '6/3/2026', '', 'No', '', 'Requested', 'Gate is unlocked', '5842-001-020', 'On-Deck'],
-    ['6/2/2026 11:00 AM', 'Sam Owner', '456 Pine St', '', '', 'No', '', '7/15/2026', 'Yes', '7/20/2026', 'Returned', '', '', 'Cleaned']
+    ['Request Submission Date Stamp', 'Name of Homeowner', 'Address of Property', 'Phone Number of Homeowner', 'Email of Homeowner', 'Universal Waste Systems contract Y/N', 'Last contact date', 'Date Scheduled', 'Homeowner notified of schedule', 'Date Cleaned', 'ROE Status', 'Notes', 'APN', 'Status', 'Latitude', 'Longitude'],
+    ['6/1/2026 10:30 AM', 'Jane Owner', '123 Lake Ave', '6265551212', 'owner@example.com', 'yes', '6/3/2026', '', 'No', '', 'Requested', 'Gate is unlocked', '5842-001-020', 'On-Deck', '34.19123', '-118.15123'],
+    ['6/2/2026 11:00 AM', 'Sam Owner', '456 Pine St', '', '', 'No', '', '7/15/2026', 'Yes', '7/20/2026', 'Returned', '', '', 'Cleaned', '', '']
   ]);
 
   const rows = normalizeLotWeedingRows(parsed.headers, parsed.rows);
@@ -31,6 +31,8 @@ test('normalizeLotWeedingRows: maps revised intake columns to stable request fie
   assert.strictEqual(rows[0].homeownerNotified, 'No');
   assert.strictEqual(rows[0].roeStatus, 'Requested');
   assert.strictEqual(rows[0].details, 'Gate is unlocked');
+  assert.strictEqual(rows[0].latitude, 34.19123);
+  assert.strictEqual(rows[0].longitude, -118.15123);
   assert.strictEqual(rows[1].status, 'Cleaned');
   assert.strictEqual(rows[1].scheduledDate, '7/15/2026');
   assert.strictEqual(rows[1].dateCleaned, '7/20/2026');
