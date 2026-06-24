@@ -1697,14 +1697,32 @@
       color: var(--brand-primary-dark);
     }
 
-    .lot-weeding-status-badge--open {
+    .lot-weeding-status-badge--open,
+    .lot-weeding-status-badge--requested {
       background: rgba(180, 83, 9, 0.12);
       color: #92400E;
     }
 
-    .lot-weeding-status-badge--completed {
+    .lot-weeding-status-badge--on-deck {
+      background: rgba(245, 158, 11, 0.16);
+      color: #8A4B0B;
+    }
+
+    .lot-weeding-status-badge--completed,
+    .lot-weeding-status-badge--cleaned {
       background: rgba(96, 108, 56, 0.12);
       color: var(--accent-altagether-green, #606c38);
+    }
+
+    .lot-weeding-status-badge--needs-attention {
+      background: rgba(183, 83, 61, 0.14);
+      color: var(--accent-clay);
+    }
+
+    .lot-weeding-status-badge--cancelled,
+    .lot-weeding-status-badge--canceled {
+      background: rgba(31, 41, 55, 0.12);
+      color: var(--text-secondary);
     }
 
     .lot-weeding-status-date {
@@ -3553,6 +3571,24 @@
       border: 2px solid rgba(31, 41, 55, 0.18);
     }
 
+    .lot-weeding-admin-explainer {
+      padding: 12px 14px;
+      background: rgba(96, 108, 56, 0.1);
+      border: 1px solid rgba(96, 108, 56, 0.24);
+      color: var(--text-secondary);
+      font-family: 'Merriweather', serif;
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    .lot-weeding-admin-explainer strong {
+      color: var(--brand-primary-dark);
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.74rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
     .lot-weeding-admin-filter-list {
       display: flex;
       flex-wrap: wrap;
@@ -3760,14 +3796,32 @@
       color: #8A4B0B;
     }
 
-    .lot-weeding-admin-status--completed {
+    .lot-weeding-admin-status--requested {
+      background: rgba(180, 83, 9, 0.12);
+      color: #92400E;
+    }
+
+    .lot-weeding-admin-status--on-deck {
+      background: rgba(245, 158, 11, 0.16);
+      color: #8A4B0B;
+    }
+
+    .lot-weeding-admin-status--completed,
+    .lot-weeding-admin-status--cleaned {
       background: rgba(96, 108, 56, 0.16);
       color: var(--brand-primary-dark);
     }
 
-    .lot-weeding-admin-status--flagged {
+    .lot-weeding-admin-status--flagged,
+    .lot-weeding-admin-status--needs-attention {
       background: rgba(183, 83, 61, 0.14);
       color: var(--accent-clay);
+    }
+
+    .lot-weeding-admin-status--cancelled,
+    .lot-weeding-admin-status--canceled {
+      background: rgba(31, 41, 55, 0.12);
+      color: var(--text-secondary);
     }
 
     .lot-weeding-admin-no-results {
