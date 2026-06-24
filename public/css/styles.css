@@ -3596,6 +3596,44 @@
       align-items: stretch;
     }
 
+    .lot-weeding-admin-selection-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 12px 14px;
+      background: #1F2937;
+      color: #FFFDF5;
+      border: 2px solid #111827;
+      box-shadow: 4px 4px 0 rgba(31, 41, 55, 0.12);
+    }
+
+    .lot-weeding-admin-selection-bar strong,
+    .lot-weeding-admin-selection-bar span {
+      display: block;
+    }
+
+    .lot-weeding-admin-selection-bar strong {
+      font-size: 1rem;
+      font-weight: 900;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .lot-weeding-admin-selection-bar span {
+      margin-top: 3px;
+      color: rgba(255, 253, 245, 0.76);
+      font-family: 'Merriweather', serif;
+      font-size: 0.78rem;
+    }
+
+    .lot-weeding-admin-selection-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
     .lot-weeding-admin-map-card,
     .lot-weeding-admin-side-panel,
     .lot-weeding-admin-unmapped-card {
@@ -3647,6 +3685,19 @@
       font-size: 0.68rem;
       font-weight: 900;
       letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .lot-weeding-admin-selection-pill {
+      display: inline-flex;
+      flex: 0 0 auto;
+      padding: 5px 8px;
+      border: 1px solid rgba(31, 41, 55, 0.18);
+      background: rgba(96, 108, 56, 0.14);
+      color: var(--brand-primary-dark);
+      font-size: 0.68rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
     }
 
@@ -3768,6 +3819,47 @@
       line-height: 1.45;
     }
 
+    .lot-weeding-admin-selected-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .lot-weeding-admin-selected-list button {
+      width: 100%;
+      padding: 9px 10px;
+      border: 1px solid rgba(31, 41, 55, 0.18);
+      background: #FFFDF5;
+      color: inherit;
+      font-family: 'Chivo', sans-serif;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .lot-weeding-admin-selected-list button:hover {
+      background: rgba(96, 108, 56, 0.1);
+    }
+
+    .lot-weeding-admin-selected-list strong,
+    .lot-weeding-admin-selected-list span {
+      display: block;
+    }
+
+    .lot-weeding-admin-selected-list strong {
+      color: var(--brand-primary-dark);
+      font-size: 0.84rem;
+      line-height: 1.2;
+    }
+
+    .lot-weeding-admin-selected-list span,
+    .lot-weeding-admin-selected-list p {
+      margin: 4px 0 0;
+      color: var(--text-secondary);
+      font-family: 'Merriweather', serif;
+      font-size: 0.74rem;
+      line-height: 1.35;
+    }
+
     .lot-weeding-admin-unmapped-list {
       display: grid;
       gap: 8px;
@@ -3790,9 +3882,14 @@
     }
 
     .lot-weeding-admin-unmapped-item:hover,
-    .lot-weeding-admin-unmapped-item.active {
+    .lot-weeding-admin-unmapped-item.active,
+    .lot-weeding-admin-unmapped-item.selected {
       background: rgba(245, 158, 11, 0.1);
       border-color: rgba(31, 41, 55, 0.34);
+    }
+
+    .lot-weeding-admin-unmapped-item.selected {
+      box-shadow: inset 4px 0 0 #F59E0B;
     }
 
     .lot-weeding-admin-unmapped-item span,
@@ -3869,6 +3966,12 @@
     .lot-weeding-admin-save:disabled {
       opacity: 0.65;
       cursor: progress;
+      transform: none;
+    }
+
+    .lot-weeding-admin-refresh:disabled {
+      opacity: 0.48;
+      cursor: not-allowed;
       transform: none;
     }
 
@@ -3985,6 +4088,10 @@
       box-shadow: inset 0 1px 0 rgba(96, 108, 56, 0.14);
     }
 
+    .lot-weeding-admin-table tr.lot-weeding-admin-row-primary td:first-child {
+      box-shadow: inset 4px 0 0 #1F2937;
+    }
+
     .lot-weeding-admin-inspect {
       display: block;
       width: 100%;
@@ -4003,6 +4110,11 @@
 
     .lot-weeding-admin-inspect:hover {
       background: rgba(96, 108, 56, 0.1);
+    }
+
+    .lot-weeding-admin-inspect--select {
+      border-color: rgba(96, 108, 56, 0.5);
+      color: var(--brand-primary-dark);
     }
 
     .lot-weeding-admin-primary {
@@ -4095,9 +4207,14 @@
       }
 
       .lot-weeding-admin-hero,
-      .lot-weeding-admin-toolbar {
+      .lot-weeding-admin-toolbar,
+      .lot-weeding-admin-selection-bar {
         flex-direction: column;
         align-items: stretch;
+      }
+
+      .lot-weeding-admin-selection-actions {
+        justify-content: flex-start;
       }
 
       .lot-weeding-admin-summary {
@@ -4137,6 +4254,10 @@
       .lot-weeding-admin-unmapped-item {
         flex-direction: column;
         align-items: flex-start;
+      }
+
+      .lot-weeding-admin-selection-actions {
+        flex-direction: column;
       }
 
       .lot-weeding-admin-map {

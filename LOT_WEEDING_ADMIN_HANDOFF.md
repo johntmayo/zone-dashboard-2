@@ -37,7 +37,9 @@ Key pieces:
   - a selected-request side panel
   - shared status/search filtering across map, unmapped queue, and table
   - an unmapped/missing APN queue for records without usable coordinates
-  - read-only marker selection only; no polygon selection or batch writes yet
+  - read-only single/multi-selection across markers, table rows, and unmapped records
+  - selected-group summary with clear selection and zoom-to-selected controls
+  - no polygon selection, batch writes, or notification automation yet
 - New focused tests live in `test/lot-weeding.test.js`.
 
 ---
@@ -273,12 +275,11 @@ This is a first-pass operational dashboard plus a read-only map foundation, not 
 Not built yet:
 
 - polygon drawing / lasso selection
-- map-based batch selection
 - geography-based scheduling workflow
 - date/group assignment from selected map clusters
 - clear split between request intake, scheduling, and completion work
 - deployment/group object model beyond a text column
-- automated owner notifications
+- automated owner notifications, intentionally deferred because contact consent, timing, message review, retries, and auditability are separate workflow decisions
 - volunteer notification workflows
 - audit log
 - row conflict detection
@@ -390,9 +391,9 @@ Recommended order:
    - Add map legend and count summary.
 
 3. **Selection model**
-   - Support click-to-select multiple requests.
-   - Add clear selected list/count.
-   - Add "clear selection" and "zoom to selected".
+   - Support click-to-select multiple requests. Implemented as read-only marker/table/unmapped queue selection.
+   - Add clear selected list/count. Implemented.
+   - Add "clear selection" and "zoom to selected". Implemented for mapped selected records.
 
 4. **Polygon/lasso selection**
    - Add draw polygon tool.
@@ -409,8 +410,8 @@ Recommended order:
    - Batch set `Needs Attention` with notes/reason.
 
 7. **Notification prep**
-   - Do not automate notifications until scheduling semantics are stable.
-   - First add a review state or generated contact list for scheduled lots.
+   - Do not automate homeowner notifications until scheduling semantics, consent, message wording, and audit expectations are stable.
+   - If this is ever added, first build a reviewable contact list/export or draft-message workflow rather than automatic sends.
 
 ### Design Principles
 
@@ -418,6 +419,7 @@ Recommended order:
 - Keep APN as the join key.
 - Treat raw address as human-entered display/help text, not authoritative location data.
 - Avoid hidden writes. Every batch operation should preview what will change.
+- Keep notification automation out of the scheduling path for now; scheduling should update operational state only unless a human explicitly reviews communications.
 - Preserve compatibility with captain-facing lot-weeding views during the production cutover.
 - Keep the backend API narrow; do not expose generic sheet writes to this workflow.
 
@@ -435,8 +437,9 @@ Recommended next steps:
 6. Confirm existing captain-facing lot-weeding surfaces still behave when the source switches from mirror-style fields to revised fields.
 7. Use the revised status vocabulary: `Requested`, `On-Deck`, `Scheduled`, `Cleaned`, `Needs Attention`, `Cancelled`.
 8. Validate the read-only map foundation with staging request data that includes APN-matched coordinates.
-9. Add polygon/lasso selection and scheduling workflows only after the read-only map and unmapped-record handling are stable.
-10. Add notifications only after scheduled-date/status semantics are settled.
+9. Validate the read-only multi-select model with real staging users before adding polygon/lasso selection.
+10. Add polygon/lasso selection next, then scheduling writes with preview/confirmation.
+11. Treat notifications as a later optional workflow, not part of the near-term scheduling build.
 
 ---
 

@@ -1261,6 +1261,7 @@
       filter: 'active',
       query: '',
       selectedRowNumber: null,
+      selectedRowNumbers: new Set(),
       map: null,
       markers: []
     };
@@ -3811,6 +3812,67 @@
       return (lotWeedingAdminState.requests || []).find((request) => Number(request.rowNumber) === rowNumber) || null;
     }
 
+    function isLotWeedingAdminRequestSelected(request) {
+      return lotWeedingAdminState.selectedRowNumbers instanceof Set &&
+        lotWeedingAdminState.selectedRowNumbers.has(Number(request?.rowNumber));
+    }
+
+    function getLotWeedingAdminSelectedRequests() {
+      const selectedRows = lotWeedingAdminState.selectedRowNumbers instanceof Set
+        ? lotWeedingAdminState.selectedRowNumbers
+        : new Set();
+      return (lotWeedingAdminState.requests || []).filter((request) => selectedRows.has(Number(request.rowNumber)));
+    }
+
+    function setLotWeedingAdminPrimarySelection(rowNumber) {
+      const normalizedRowNumber = Number(rowNumber);
+      if (!normalizedRowNumber) return;
+      lotWeedingAdminState.selectedRowNumber = normalizedRowNumber;
+    }
+
+    function toggleLotWeedingAdminRequestSelection(rowNumber) {
+      const normalizedRowNumber = Number(rowNumber);
+      if (!normalizedRowNumber) return;
+      if (!(lotWeedingAdminState.selectedRowNumbers instanceof Set)) {
+        lotWeedingAdminState.selectedRowNumbers = new Set();
+      }
+      if (lotWeedingAdminState.selectedRowNumbers.has(normalizedRowNumber)) {
+        lotWeedingAdminState.selectedRowNumbers.delete(normalizedRowNumber);
+      } else {
+        lotWeedingAdminState.selectedRowNumbers.add(normalizedRowNumber);
+      }
+      lotWeedingAdminState.selectedRowNumber = normalizedRowNumber;
+    }
+
+    function clearLotWeedingAdminSelection() {
+      lotWeedingAdminState.selectedRowNumbers = new Set();
+    }
+
+    function zoomLotWeedingAdminMapToSelection() {
+      const map = lotWeedingAdminState.map;
+      if (!map || !Array.isArray(lotWeedingAdminState.markers)) return;
+      const selectedRows = lotWeedingAdminState.selectedRowNumbers instanceof Set
+        ? lotWeedingAdminState.selectedRowNumbers
+        : new Set();
+      const selectedPoints = lotWeedingAdminState.markers
+        .filter((entry) => selectedRows.has(Number(entry.rowNumber)) && entry.marker?.getLatLng)
+        .map((entry) => entry.marker.getLatLng());
+      if (!selectedPoints.length) return;
+      map.fitBounds(selectedPoints.map((point) => [point.lat, point.lng]), { padding: [44, 44], maxZoom: 18 });
+    }
+
+    function formatLotWeedingSelectionBreakdown(requests) {
+      const counts = (requests || []).reduce((acc, request) => {
+        const status = String(request.status || 'Requested');
+        acc.set(status, (acc.get(status) || 0) + 1);
+        return acc;
+      }, new Map());
+      return LOT_WEEDING_STATUS_OPTIONS
+        .filter((status) => counts.has(status))
+        .map((status) => `${status}: ${formatGodmodeCount(counts.get(status))}`)
+        .join(' | ');
+    }
+
     function destroyLotWeedingAdminMap() {
       if (lotWeedingAdminState.map && typeof lotWeedingAdminState.map.remove === 'function') {
         lotWeedingAdminState.map.remove();
@@ -3875,11 +3937,12 @@
         const coords = getLotWeedingRequestCoordinates(request);
         const status = String(request.status || 'Requested');
         const meta = getLotWeedingStatusMeta(status);
-        const selected = Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber);
+        const selected = isLotWeedingAdminRequestSelected(request);
+        const primary = Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber);
         const marker = L.circleMarker([coords.latitude, coords.longitude], {
           radius: selected ? 10 : 7,
-          color: selected ? '#1F2937' : '#FFFDF5',
-          weight: selected ? 4 : 2,
+          color: primary ? '#1F2937' : (selected ? '#FBBF24' : '#FFFDF5'),
+          weight: primary ? 4 : (selected ? 3 : 2),
           fillColor: meta.color,
           fillOpacity: 0.92,
           opacity: 1
@@ -3890,11 +3953,11 @@
           opacity: 0.94
         });
         marker.on('click', () => {
-          lotWeedingAdminState.selectedRowNumber = request.rowNumber;
+          toggleLotWeedingAdminRequestSelection(request.rowNumber);
           renderLotWeedingAdminView();
         });
         bounds.push([coords.latitude, coords.longitude]);
-        return marker;
+        return { rowNumber: request.rowNumber, marker };
       });
 
       lotWeedingAdminState.map = map;
@@ -3907,12 +3970,45 @@
     }
 
     function renderLotWeedingAdminSidePanel(request, filteredRequests) {
+      const selectedRequests = getLotWeedingAdminSelectedRequests();
+      if (selectedRequests.length > 1) {
+        const mappedSelected = selectedRequests.filter(isLotWeedingRequestMapped);
+        const unmappedSelected = selectedRequests.length - mappedSelected.length;
+        const visibleSelected = selectedRequests.filter((selectedRequest) =>
+          (filteredRequests || []).some((item) => Number(item.rowNumber) === Number(selectedRequest.rowNumber))
+        );
+        return `
+          <aside class="lot-weeding-admin-side-panel">
+            <p class="lot-weeding-admin-panel-kicker">Selected group</p>
+            <div class="lot-weeding-admin-panel-title-row">
+              <h3>${formatGodmodeCount(selectedRequests.length)} requests selected</h3>
+              <span class="lot-weeding-admin-selection-pill">${formatGodmodeCount(mappedSelected.length)} mapped</span>
+            </div>
+            ${visibleSelected.length !== selectedRequests.length ? '<p class="lot-weeding-admin-panel-note">Some selected requests are outside the current filter, but remain in the selection.</p>' : ''}
+            <dl class="lot-weeding-admin-detail-list">
+              <div><dt>Status mix</dt><dd>${escapeHtml(formatLotWeedingSelectionBreakdown(selectedRequests) || 'No statuses found')}</dd></div>
+              <div><dt>Mapping</dt><dd>${formatGodmodeCount(mappedSelected.length)} mapped | ${formatGodmodeCount(unmappedSelected)} unmapped</dd></div>
+              <div><dt>Zones</dt><dd>${escapeHtml(Array.from(new Set(selectedRequests.map((item) => item.zone || 'No zone match'))).slice(0, 6).join(' | '))}</dd></div>
+            </dl>
+            <div class="lot-weeding-admin-selected-list">
+              ${selectedRequests.slice(0, 12).map((selectedRequest) => `
+                <button type="button" data-lot-weeding-select="${escapeHtmlAttr(selectedRequest.rowNumber)}">
+                  <strong>${escapeHtml(selectedRequest.address || 'Address not provided')}</strong>
+                  <span>${escapeHtml(selectedRequest.status || 'Requested')} | ${escapeHtml(selectedRequest.apn || 'Missing APN')}</span>
+                </button>
+              `).join('')}
+              ${selectedRequests.length > 12 ? `<p>${formatGodmodeCount(selectedRequests.length - 12)} more selected requests not shown.</p>` : ''}
+            </div>
+          </aside>
+        `;
+      }
+
       if (!request) {
         return `
           <aside class="lot-weeding-admin-side-panel">
             <p class="lot-weeding-admin-panel-kicker">Selected request</p>
             <h3>No request selected</h3>
-            <p class="lot-weeding-admin-panel-empty">Click a map marker or inspect a queue row to review request details here.</p>
+            <p class="lot-weeding-admin-panel-empty">Click a map marker or use Select in the queue to build a read-only request group.</p>
           </aside>
         `;
       }
@@ -3989,6 +4085,12 @@
         lotWeedingAdminState.requests = Array.isArray(payload.requests) ? payload.requests : [];
         lotWeedingAdminState.stats = payload.stats || { total: 0, open: 0, scheduled: 0, completed: 0, flagged: 0, missingApn: 0 };
         lotWeedingAdminState.lastFetchedAt = payload.lastFetchedAt || '';
+        const availableRowNumbers = new Set(lotWeedingAdminState.requests.map((request) => Number(request.rowNumber)));
+        lotWeedingAdminState.selectedRowNumbers = new Set(
+          Array.from(lotWeedingAdminState.selectedRowNumbers instanceof Set ? lotWeedingAdminState.selectedRowNumbers : [])
+            .filter((rowNumber) => availableRowNumbers.has(Number(rowNumber)))
+            .map(Number)
+        );
         const selectedStillExists = lotWeedingAdminState.requests.some((request) => Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber));
         if (!selectedStillExists) {
           const firstMappedRequest = lotWeedingAdminState.requests.find(isLotWeedingRequestMapped);
@@ -4054,6 +4156,8 @@
       const unmappedRequests = getLotWeedingAdminUnmappedRequests(filteredRequests);
       const visibleUnmappedRequests = unmappedRequests.slice(0, 24);
       const selectedRequest = getLotWeedingAdminSelectedRequest();
+      const selectedRequests = getLotWeedingAdminSelectedRequests();
+      const selectedMappedCount = selectedRequests.filter(isLotWeedingRequestMapped).length;
       const filterItems = [
         ['active', 'Active'],
         ['requested', 'Requested'],
@@ -4104,6 +4208,17 @@
           </div>
         </section>
 
+        <section class="lot-weeding-admin-selection-bar">
+          <div>
+            <strong>${formatGodmodeCount(selectedRequests.length)} selected</strong>
+            <span>${selectedRequests.length ? `${formatGodmodeCount(selectedMappedCount)} mapped | ${formatGodmodeCount(selectedRequests.length - selectedMappedCount)} unmapped` : 'Select markers or queue rows to prepare a read-only group.'}</span>
+          </div>
+          <div class="lot-weeding-admin-selection-actions">
+            <button type="button" class="lot-weeding-admin-refresh" id="lotWeedingAdminZoomSelectedBtn" ${selectedMappedCount ? '' : 'disabled'}>Zoom to Selected</button>
+            <button type="button" class="lot-weeding-admin-refresh" id="lotWeedingAdminClearSelectionBtn" ${selectedRequests.length ? '' : 'disabled'}>Clear Selection</button>
+          </div>
+        </section>
+
         <section class="lot-weeding-admin-map-shell">
           <div class="lot-weeding-admin-map-card">
             <div class="lot-weeding-admin-map-heading">
@@ -4132,12 +4247,12 @@
           </div>
           <div class="lot-weeding-admin-unmapped-list">
             ${visibleUnmappedRequests.map((request) => `
-              <button type="button" class="lot-weeding-admin-unmapped-item ${Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber) ? 'active' : ''}" data-lot-weeding-select="${escapeHtmlAttr(request.rowNumber)}">
+              <button type="button" class="lot-weeding-admin-unmapped-item ${isLotWeedingAdminRequestSelected(request) ? 'selected' : ''} ${Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber) ? 'active' : ''}" data-lot-weeding-toggle="${escapeHtmlAttr(request.rowNumber)}">
                 <span>
                   <strong>${escapeHtml(request.address || 'Address not provided')}</strong>
                   <em>${escapeHtml(request.apn || 'Missing APN')} | ${escapeHtml(request.status || 'Requested')}</em>
                 </span>
-                <b>${escapeHtml(getLotWeedingUnmappedReason(request))}</b>
+                <b>${isLotWeedingAdminRequestSelected(request) ? 'Selected' : escapeHtml(getLotWeedingUnmappedReason(request))}</b>
               </button>
             `).join('') || '<p class="lot-weeding-admin-no-results">Every matching request has usable map coordinates.</p>'}
           </div>
@@ -4179,13 +4294,15 @@
 
     function renderLotWeedingAdminRequestRow(request) {
       const status = String(request.status || 'Requested');
-      const selected = Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber);
+      const selected = isLotWeedingAdminRequestSelected(request);
+      const primary = Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber);
       const coords = getLotWeedingRequestCoordinates(request);
       return `
-        <tr class="${selected ? 'lot-weeding-admin-row-selected' : ''}" data-lot-weeding-row="${escapeHtmlAttr(request.rowNumber)}">
+        <tr class="${selected ? 'lot-weeding-admin-row-selected' : ''} ${primary ? 'lot-weeding-admin-row-primary' : ''}" data-lot-weeding-row="${escapeHtmlAttr(request.rowNumber)}">
           <td>
             <span class="lot-weeding-admin-status lot-weeding-admin-status--${escapeHtmlAttr(getLotWeedingStatusClass(status))}">${escapeHtml(status)}</span>
             <button type="button" class="lot-weeding-admin-inspect" data-lot-weeding-select="${escapeHtmlAttr(request.rowNumber)}">Inspect</button>
+            <button type="button" class="lot-weeding-admin-inspect lot-weeding-admin-inspect--select" data-lot-weeding-toggle="${escapeHtmlAttr(request.rowNumber)}">${selected ? 'Selected' : 'Select'}</button>
             <div class="lot-weeding-admin-contact">${coords ? 'Mapped' : escapeHtml(getLotWeedingUnmappedReason(request))}</div>
             <select class="lot-weeding-admin-input" data-lot-weeding-field="status">
               ${LOT_WEEDING_STATUS_OPTIONS.map((option) => `<option value="${escapeHtmlAttr(option)}" ${option === status ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
@@ -4278,12 +4395,26 @@
       }
 
       document.getElementById('lotWeedingAdminRefreshBtn')?.addEventListener('click', () => loadLotWeedingAdminData(true));
+      document.getElementById('lotWeedingAdminClearSelectionBtn')?.addEventListener('click', () => {
+        clearLotWeedingAdminSelection();
+        renderLotWeedingAdminView();
+      });
+      document.getElementById('lotWeedingAdminZoomSelectedBtn')?.addEventListener('click', zoomLotWeedingAdminMapToSelection);
 
       document.querySelectorAll('[data-lot-weeding-select]').forEach((button) => {
         button.addEventListener('click', () => {
           const rowNumber = Number(button.getAttribute('data-lot-weeding-select'));
           if (!rowNumber) return;
-          lotWeedingAdminState.selectedRowNumber = rowNumber;
+          setLotWeedingAdminPrimarySelection(rowNumber);
+          renderLotWeedingAdminView();
+        });
+      });
+
+      document.querySelectorAll('[data-lot-weeding-toggle]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const rowNumber = Number(button.getAttribute('data-lot-weeding-toggle'));
+          if (!rowNumber) return;
+          toggleLotWeedingAdminRequestSelection(rowNumber);
           renderLotWeedingAdminView();
         });
       });
