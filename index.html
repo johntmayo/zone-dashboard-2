@@ -4021,39 +4021,28 @@
 
       const mappedRequests = getLotWeedingAdminMappedRequests(requests);
       const defaultCenter = [34.19, -118.15];
-      const map = L.map(mapEl, { attributionControl: false, maxZoom: 22 }).setView(defaultCenter, 12);
+      // Create the map already at the saved view so re-creation never flashes through
+      // the default zoomed-out view first.
+      const initialCenter = lotWeedingAdminState.lastMapView ? lotWeedingAdminState.lastMapView.center : defaultCenter;
+      const initialZoom = lotWeedingAdminState.lastMapView ? lotWeedingAdminState.lastMapView.zoom : 12;
+      const map = L.map(mapEl, { attributionControl: false, maxZoom: 22 }).setView(initialCenter, initialZoom);
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         attribution: '© OpenStreetMap contributors, © CARTO',
         maxZoom: 22
       }).addTo(map);
 
-      const dayFilter = lotWeedingAdminState.dayFilter;
       const bounds = [];
       const markers = mappedRequests.map((request) => {
         const coords = getLotWeedingRequestCoordinates(request);
         const status = String(request.status || 'Requested');
-        const meta = getLotWeedingStatusMeta(status);
-        const selected = isLotWeedingAdminRequestSelected(request);
-        const primary = Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber);
-        const matchesDay = !dayFilter || toLotWeedingDateKey(request.scheduledDate) === dayFilter;
-        const dimmed = Boolean(dayFilter) && !matchesDay;
-        const marker = L.circleMarker([coords.latitude, coords.longitude], {
-          radius: (matchesDay && dayFilter) ? 11 : (selected ? 10 : 7),
-          color: primary ? '#1F2937' : (matchesDay && dayFilter ? '#1F2937' : (selected ? '#FBBF24' : '#FFFDF5')),
-          weight: primary ? 4 : ((matchesDay && dayFilter) ? 4 : (selected ? 3 : 2)),
-          fillColor: meta.color,
-          fillOpacity: dimmed ? 0.28 : 0.92,
-          opacity: dimmed ? 0.4 : 1
-        }).addTo(map);
+        const marker = L.circleMarker([coords.latitude, coords.longitude]).addTo(map);
+        applyLotWeedingAdminMarkerStyle(marker, request);
         marker.bindTooltip(`${status}: ${request.address || request.apn || 'Lot weeding request'}`, {
           direction: 'top',
           offset: [0, -8],
           opacity: 0.94
         });
-        marker.on('click', () => {
-          toggleLotWeedingAdminRequestSelection(request.rowNumber);
-          renderLotWeedingAdminView();
-        });
+        marker.on('click', () => focusLotWeedingAdminLot(request.rowNumber));
         bounds.push([coords.latitude, coords.longitude]);
         return { rowNumber: request.rowNumber, marker };
       });
@@ -4061,12 +4050,127 @@
       lotWeedingAdminState.map = map;
       lotWeedingAdminState.markers = markers;
 
-      if (lotWeedingAdminState.lastMapView) {
-        map.setView(lotWeedingAdminState.lastMapView.center, lotWeedingAdminState.lastMapView.zoom);
-      } else if (bounds.length > 0) {
+      if (!lotWeedingAdminState.lastMapView && bounds.length > 0) {
         map.fitBounds(bounds, { padding: [34, 34], maxZoom: 17 });
       }
       setTimeout(() => map.invalidateSize(), 80);
+    }
+
+    function applyLotWeedingAdminMarkerStyle(marker, request) {
+      if (!marker || !request) return;
+      const status = String(request.status || 'Requested');
+      const meta = getLotWeedingStatusMeta(status);
+      const selected = isLotWeedingAdminRequestSelected(request);
+      const primary = Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber);
+      const dayFilter = lotWeedingAdminState.dayFilter;
+      const matchesDay = !dayFilter || toLotWeedingDateKey(request.scheduledDate) === dayFilter;
+      const dimmed = Boolean(dayFilter) && !matchesDay;
+      const dayHit = Boolean(dayFilter) && matchesDay;
+      marker.setStyle({
+        color: primary ? '#1F2937' : (dayHit ? '#1F2937' : (selected ? '#FBBF24' : '#FFFDF5')),
+        weight: primary ? 4 : (dayHit ? 4 : (selected ? 3 : 2)),
+        fillColor: meta.color,
+        fillOpacity: dimmed ? 0.28 : 0.92,
+        opacity: dimmed ? 0.4 : 1
+      });
+      if (typeof marker.setRadius === 'function') {
+        marker.setRadius(dayHit ? 11 : (selected ? 10 : 7));
+      }
+    }
+
+    function refreshLotWeedingAdminMarkerStyles() {
+      if (!Array.isArray(lotWeedingAdminState.markers)) return;
+      lotWeedingAdminState.markers.forEach(({ rowNumber, marker }) => {
+        const request = (lotWeedingAdminState.requests || []).find((item) => Number(item.rowNumber) === Number(rowNumber));
+        if (request) applyLotWeedingAdminMarkerStyle(marker, request);
+      });
+    }
+
+    // Update everything that depends on the current selection WITHOUT tearing down and
+    // rebuilding the Leaflet map (which caused the zoom-out/zoom-in jank).
+    function refreshLotWeedingAdminMapSelection() {
+      if (lotWeedingAdminState.activeTab !== 'map') {
+        renderLotWeedingAdminView();
+        return;
+      }
+
+      refreshLotWeedingAdminMarkerStyles();
+
+      const filteredRequests = getLotWeedingAdminFilteredRequests();
+      const selectedRequest = getLotWeedingAdminSelectedRequest();
+      const selectedRequests = getLotWeedingAdminSelectedRequests();
+      const selectedMappedCount = selectedRequests.filter(isLotWeedingRequestMapped).length;
+
+      // Side panel (the single editor or the group summary)
+      const panel = document.querySelector('.lot-weeding-admin-side-panel');
+      if (panel) {
+        const wrap = document.createElement('div');
+        wrap.innerHTML = renderLotWeedingAdminSidePanel(selectedRequest, filteredRequests);
+        const newPanel = wrap.firstElementChild;
+        if (newPanel) {
+          panel.replaceWith(newPanel);
+          attachLotWeedingAdminSidePanelHandlers(newPanel);
+        }
+      }
+
+      // Selection summary bar
+      const selBar = document.querySelector('.lot-weeding-admin-selection-bar');
+      if (selBar) {
+        selBar.innerHTML = `
+          <div>
+            <strong>${formatGodmodeCount(selectedRequests.length)} selected</strong>
+            <span>${selectedRequests.length ? `${formatGodmodeCount(selectedMappedCount)} mapped | ${formatGodmodeCount(selectedRequests.length - selectedMappedCount)} unmapped` : 'Select markers or queue rows to prepare a read-only group.'}</span>
+          </div>
+          <div class="lot-weeding-admin-selection-actions">
+            <button type="button" class="lot-weeding-admin-refresh" id="lotWeedingAdminZoomSelectedBtn" ${selectedMappedCount ? '' : 'disabled'}>Zoom to Selected</button>
+            <button type="button" class="lot-weeding-admin-refresh" id="lotWeedingAdminClearSelectionBtn" ${selectedRequests.length ? '' : 'disabled'}>Clear Selection</button>
+          </div>
+        `;
+        attachLotWeedingAdminSelectionBarHandlers();
+      }
+
+      // Active-context bar (selection chip count)
+      const ctxBar = document.querySelector('.lot-weeding-admin-context-bar');
+      if (ctxBar) {
+        const wrap = document.createElement('div');
+        wrap.innerHTML = renderLotWeedingAdminContextBar();
+        const newCtx = wrap.firstElementChild;
+        if (newCtx) {
+          ctxBar.replaceWith(newCtx);
+          attachLotWeedingAdminContextHandlers();
+        }
+      }
+
+      // Queue + unmapped row highlight states (without rebuilding the lists)
+      document.querySelectorAll('.lot-weeding-admin-queue-item[data-lot-weeding-row]').forEach((el) => {
+        const rowNumber = Number(el.getAttribute('data-lot-weeding-row'));
+        const isSelected = isLotWeedingAdminRequestSelected({ rowNumber });
+        el.classList.toggle('selected', isSelected);
+        el.classList.toggle('primary', rowNumber === Number(lotWeedingAdminState.selectedRowNumber));
+        const toggleBtn = el.querySelector('[data-lot-weeding-toggle]');
+        if (toggleBtn) toggleBtn.textContent = isSelected ? 'Selected' : 'Select';
+      });
+      document.querySelectorAll('.lot-weeding-admin-unmapped-item[data-lot-weeding-toggle]').forEach((el) => {
+        const rowNumber = Number(el.getAttribute('data-lot-weeding-toggle'));
+        const isSelected = isLotWeedingAdminRequestSelected({ rowNumber });
+        el.classList.toggle('selected', isSelected);
+        el.classList.toggle('active', rowNumber === Number(lotWeedingAdminState.selectedRowNumber));
+      });
+    }
+
+    // Clicking a map marker (or "Inspect") focuses exactly one lot in the single editor,
+    // replacing any prior selection rather than accumulating a group.
+    function focusLotWeedingAdminLot(rowNumber) {
+      const normalized = Number(rowNumber);
+      if (!normalized) return;
+      lotWeedingAdminState.selectedRowNumbers = new Set([normalized]);
+      lotWeedingAdminState.selectedRowNumber = normalized;
+      if (lotWeedingAdminState.activeTab === 'map' && lotWeedingAdminState.map) {
+        refreshLotWeedingAdminMapSelection();
+      } else {
+        lotWeedingAdminState.activeTab = 'map';
+        renderLotWeedingAdminView();
+      }
     }
 
     function renderLotWeedingAdminSidePanel(request, filteredRequests) {
@@ -4730,15 +4834,12 @@
       `;
     }
 
-    function selectLotWeedingAdminLot(rowNumber, { switchToMap = true } = {}) {
-      const normalized = Number(rowNumber);
-      if (!normalized) return;
-      // Inspect focuses exactly one lot so the side panel shows the single editor
-      // (rather than the read-only multi-select group summary).
-      lotWeedingAdminState.selectedRowNumbers = new Set([normalized]);
-      setLotWeedingAdminPrimarySelection(normalized);
-      if (switchToMap) lotWeedingAdminState.activeTab = 'map';
-      renderLotWeedingAdminView();
+    function applyLotWeedingAdminSelectionChange() {
+      if (lotWeedingAdminState.activeTab === 'map' && lotWeedingAdminState.map) {
+        refreshLotWeedingAdminMapSelection();
+      } else {
+        renderLotWeedingAdminView();
+      }
     }
 
     async function saveLotWeedingAdminRow(rowNumber, updates, { statusEl, buttonEl } = {}) {
@@ -4761,6 +4862,104 @@
       }
     }
 
+    function attachLotWeedingAdminContextHandlers(root = document) {
+      root.querySelectorAll('[data-lot-weeding-context-clear]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const type = button.getAttribute('data-lot-weeding-context-clear');
+          let inPlace = false;
+          if (type === 'status') lotWeedingAdminState.filter = 'active';
+          else if (type === 'search') lotWeedingAdminState.query = '';
+          else if (type === 'selection') { clearLotWeedingAdminSelection(); inPlace = true; }
+          else if (type === 'day') { lotWeedingAdminState.dayFilter = null; inPlace = true; }
+          else if (type === 'all-context') {
+            lotWeedingAdminState.filter = 'active';
+            lotWeedingAdminState.query = '';
+            clearLotWeedingAdminSelection();
+            lotWeedingAdminState.dayFilter = null;
+          }
+          // Clearing only the selection or day highlight can update in place on the Map tab;
+          // status/search/all change the visible request set, so do a full render.
+          if (inPlace) applyLotWeedingAdminSelectionChange();
+          else renderLotWeedingAdminView();
+        });
+      });
+    }
+
+    function attachLotWeedingAdminSelectionBarHandlers(root = document) {
+      root.querySelector('#lotWeedingAdminClearSelectionBtn')?.addEventListener('click', () => {
+        clearLotWeedingAdminSelection();
+        applyLotWeedingAdminSelectionChange();
+      });
+      root.querySelector('#lotWeedingAdminZoomSelectedBtn')?.addEventListener('click', zoomLotWeedingAdminMapToSelection);
+    }
+
+    function attachLotWeedingAdminSidePanelHandlers(root = document) {
+      // Group-summary view: jump to one of the selected lots (keeps it a group)
+      root.querySelectorAll('[data-lot-weeding-select]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const rowNumber = Number(button.getAttribute('data-lot-weeding-select'));
+          if (!rowNumber) return;
+          setLotWeedingAdminPrimarySelection(rowNumber);
+          applyLotWeedingAdminSelectionChange();
+        });
+      });
+
+      // Assigning a Date Scheduled auto-sets status to Scheduled
+      root.querySelectorAll('.lot-weeding-admin-editor-form [data-lot-weeding-field="scheduledDate"]').forEach((dateInput) => {
+        dateInput.addEventListener('change', () => {
+          const form = dateInput.closest('.lot-weeding-admin-editor-form');
+          const statusSelect = form?.querySelector('[data-lot-weeding-field="status"]');
+          if (dateInput.value && statusSelect && (statusSelect.value === 'Requested' || statusSelect.value === 'On-Deck')) {
+            statusSelect.value = 'Scheduled';
+          }
+        });
+      });
+
+      // Status quick-actions (status-only single-row write)
+      root.querySelectorAll('[data-lot-weeding-quick-status]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const rowNumber = Number(button.getAttribute('data-lot-weeding-quick-row'));
+          const status = button.getAttribute('data-lot-weeding-quick-status');
+          if (!rowNumber || !status) return;
+          const statusEl = document.querySelector(`[data-lot-weeding-editor-row="${rowNumber}"] .lot-weeding-admin-row-status`);
+          saveLotWeedingAdminRow(rowNumber, { status }, { statusEl, buttonEl: button });
+        });
+      });
+
+      // Full save
+      root.querySelectorAll('[data-lot-weeding-save]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const form = button.closest('.lot-weeding-admin-editor-form') || button.closest('[data-lot-weeding-row]');
+          const statusEl = form?.querySelector('.lot-weeding-admin-row-status');
+          const rowNumber = Number(button.getAttribute('data-lot-weeding-save'));
+          const updates = {};
+          form?.querySelectorAll('[data-lot-weeding-field]').forEach((inputEl) => {
+            const field = inputEl.getAttribute('data-lot-weeding-field');
+            if (!field) return;
+            const isDateField = inputEl.getAttribute('data-lot-weeding-date') === '1';
+            if (isDateField) {
+              const original = inputEl.getAttribute('data-lot-weeding-date-original') || '';
+              // If the picker is empty but the sheet held an unparseable value (e.g. "TBD"),
+              // preserve it rather than silently wiping non-date text.
+              if (!inputEl.value && original && !toLotWeedingDateKey(original)) {
+                updates[field] = original;
+              } else {
+                updates[field] = formatLotWeedingDateForSheet(inputEl.value);
+              }
+            } else {
+              updates[field] = inputEl.value || '';
+            }
+          });
+          // Locked decision: assigning a Date Scheduled auto-sets status to Scheduled.
+          if (updates.scheduledDate && (updates.status === 'Requested' || updates.status === 'On-Deck')) {
+            updates.status = 'Scheduled';
+          }
+          if (!rowNumber || !Object.keys(updates).length) return;
+          saveLotWeedingAdminRow(rowNumber, updates, { statusEl, buttonEl: button });
+        });
+      });
+    }
+
     function attachLotWeedingAdminHandlers() {
       document.querySelectorAll('[data-lot-weeding-filter]').forEach((button) => {
         button.addEventListener('click', () => {
@@ -4776,22 +4975,7 @@
         });
       });
 
-      document.querySelectorAll('[data-lot-weeding-context-clear]').forEach((button) => {
-        button.addEventListener('click', () => {
-          const type = button.getAttribute('data-lot-weeding-context-clear');
-          if (type === 'status') lotWeedingAdminState.filter = 'active';
-          else if (type === 'search') lotWeedingAdminState.query = '';
-          else if (type === 'selection') clearLotWeedingAdminSelection();
-          else if (type === 'day') lotWeedingAdminState.dayFilter = null;
-          else if (type === 'all-context') {
-            lotWeedingAdminState.filter = 'active';
-            lotWeedingAdminState.query = '';
-            clearLotWeedingAdminSelection();
-            lotWeedingAdminState.dayFilter = null;
-          }
-          renderLotWeedingAdminView();
-        });
-      });
+      attachLotWeedingAdminContextHandlers();
 
       const searchInput = document.getElementById('lotWeedingAdminSearch');
       if (searchInput) {
@@ -4810,33 +4994,22 @@
       }
 
       document.getElementById('lotWeedingAdminRefreshBtn')?.addEventListener('click', () => loadLotWeedingAdminData(true));
-      document.getElementById('lotWeedingAdminClearSelectionBtn')?.addEventListener('click', () => {
-        clearLotWeedingAdminSelection();
-        renderLotWeedingAdminView();
-      });
-      document.getElementById('lotWeedingAdminZoomSelectedBtn')?.addEventListener('click', zoomLotWeedingAdminMapToSelection);
+      attachLotWeedingAdminSelectionBarHandlers();
 
-      document.querySelectorAll('[data-lot-weeding-select]').forEach((button) => {
-        button.addEventListener('click', () => {
-          const rowNumber = Number(button.getAttribute('data-lot-weeding-select'));
-          if (!rowNumber) return;
-          setLotWeedingAdminPrimarySelection(rowNumber);
-          renderLotWeedingAdminView();
-        });
-      });
-
+      // Inspect / Open & edit: focus exactly one lot in the single editor
       document.querySelectorAll('[data-lot-weeding-inspect]').forEach((button) => {
         button.addEventListener('click', () => {
-          selectLotWeedingAdminLot(button.getAttribute('data-lot-weeding-inspect'));
+          focusLotWeedingAdminLot(button.getAttribute('data-lot-weeding-inspect'));
         });
       });
 
+      // Queue + unmapped "Select": toggle membership in the read-only group
       document.querySelectorAll('[data-lot-weeding-toggle]').forEach((button) => {
         button.addEventListener('click', () => {
           const rowNumber = Number(button.getAttribute('data-lot-weeding-toggle'));
           if (!rowNumber) return;
           toggleLotWeedingAdminRequestSelection(rowNumber);
-          renderLotWeedingAdminView();
+          applyLotWeedingAdminSelectionChange();
         });
       });
 
@@ -4890,60 +5063,7 @@
         });
       }
 
-      // Side-panel editor: assigning a Date Scheduled auto-sets status to Scheduled
-      document.querySelectorAll('.lot-weeding-admin-editor-form [data-lot-weeding-field="scheduledDate"]').forEach((dateInput) => {
-        dateInput.addEventListener('change', () => {
-          const form = dateInput.closest('.lot-weeding-admin-editor-form');
-          const statusSelect = form?.querySelector('[data-lot-weeding-field="status"]');
-          if (dateInput.value && statusSelect && (statusSelect.value === 'Requested' || statusSelect.value === 'On-Deck')) {
-            statusSelect.value = 'Scheduled';
-          }
-        });
-      });
-
-      // Side-panel editor: status quick-actions (status-only single-row write)
-      document.querySelectorAll('[data-lot-weeding-quick-status]').forEach((button) => {
-        button.addEventListener('click', () => {
-          const rowNumber = Number(button.getAttribute('data-lot-weeding-quick-row'));
-          const status = button.getAttribute('data-lot-weeding-quick-status');
-          if (!rowNumber || !status) return;
-          const statusEl = document.querySelector(`[data-lot-weeding-editor-row="${rowNumber}"] .lot-weeding-admin-row-status`);
-          saveLotWeedingAdminRow(rowNumber, { status }, { statusEl, buttonEl: button });
-        });
-      });
-
-      // Side-panel editor: full save
-      document.querySelectorAll('[data-lot-weeding-save]').forEach((button) => {
-        button.addEventListener('click', () => {
-          const form = button.closest('.lot-weeding-admin-editor-form') || button.closest('[data-lot-weeding-row]');
-          const statusEl = form?.querySelector('.lot-weeding-admin-row-status');
-          const rowNumber = Number(button.getAttribute('data-lot-weeding-save'));
-          const updates = {};
-          form?.querySelectorAll('[data-lot-weeding-field]').forEach((inputEl) => {
-            const field = inputEl.getAttribute('data-lot-weeding-field');
-            if (!field) return;
-            const isDateField = inputEl.getAttribute('data-lot-weeding-date') === '1';
-            if (isDateField) {
-              const original = inputEl.getAttribute('data-lot-weeding-date-original') || '';
-              // If the picker is empty but the sheet held an unparseable value (e.g. "TBD"),
-              // preserve it rather than silently wiping non-date text.
-              if (!inputEl.value && original && !toLotWeedingDateKey(original)) {
-                updates[field] = original;
-              } else {
-                updates[field] = formatLotWeedingDateForSheet(inputEl.value);
-              }
-            } else {
-              updates[field] = inputEl.value || '';
-            }
-          });
-          // Locked decision: assigning a Date Scheduled auto-sets status to Scheduled.
-          if (updates.scheduledDate && (updates.status === 'Requested' || updates.status === 'On-Deck')) {
-            updates.status = 'Scheduled';
-          }
-          if (!rowNumber || !Object.keys(updates).length) return;
-          saveLotWeedingAdminRow(rowNumber, updates, { statusEl, buttonEl: button });
-        });
-      });
+      attachLotWeedingAdminSidePanelHandlers();
     }
 
     function renderGodmodeSummary(rollups) {
