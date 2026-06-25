@@ -1268,6 +1268,7 @@
       batchScheduleMessage: '',
       batchScheduleResults: [],
       batchScheduleInProgress: false,
+      queueSort: { field: 'address', direction: 'asc' },
       selectedRowNumber: null,
       selectedRowNumbers: new Set(),
       map: null,
@@ -4466,17 +4467,17 @@
         return;
       }
 
-      const stats = lotWeedingAdminState.stats || {};
       const mapFilteredRequests = getLotWeedingAdminFilteredRequests();
       const allRequests = lotWeedingAdminState.requests || [];
-      const activeTab = ['map', 'calendar', 'followups'].includes(lotWeedingAdminState.activeTab)
+      const activeTab = ['map', 'calendar', 'followups', 'stats'].includes(lotWeedingAdminState.activeTab)
         ? lotWeedingAdminState.activeTab
         : 'map';
       lotWeedingAdminState.activeTab = activeTab;
       const tabItems = [
         ['map', 'Map'],
         ['calendar', 'Calendar'],
-        ['followups', 'Follow-ups']
+        ['followups', 'Follow-ups'],
+        ['stats', 'Stats']
       ];
 
       let tabPanelHtml = '';
@@ -4484,6 +4485,8 @@
         tabPanelHtml = renderLotWeedingAdminCalendarTab(allRequests);
       } else if (activeTab === 'followups') {
         tabPanelHtml = renderLotWeedingAdminFollowupsTab();
+      } else if (activeTab === 'stats') {
+        tabPanelHtml = renderLotWeedingAdminStatsTab();
       } else {
         tabPanelHtml = renderLotWeedingAdminMapTab(mapFilteredRequests);
       }
@@ -4500,24 +4503,6 @@
         <div class="lot-weeding-admin-tab-panel">
           ${tabPanelHtml}
         </div>
-
-        <section class="lot-weeding-admin-summary" aria-label="Lot weeding workload summary">
-          ${[
-            ['Active', stats.active || 0, 'Needs work'],
-            ['On-Deck', stats.onDeck || 0, 'Schedule next'],
-            ['Scheduled', stats.scheduled || 0, 'On calendar'],
-            ['Needs Attention', stats.needsAttention || stats.flagged || 0, 'Blockers'],
-            ['Missing APN', stats.missingApn || 0, 'Fix parcel'],
-            ['Cleaned', stats.cleaned || stats.completed || 0, 'Done'],
-            ['Total', stats.total || 0, 'Rows']
-          ].map(([label, value, detail]) => `
-            <div class="lot-weeding-admin-stat">
-              <span>${formatGodmodeCount(value)}</span>
-              <strong>${escapeHtml(label)}</strong>
-              <em>${escapeHtml(detail)}</em>
-            </div>
-          `).join('')}
-        </section>
       `;
 
       attachLotWeedingAdminHandlers();
@@ -4560,11 +4545,72 @@
       `;
     }
 
+    function renderLotWeedingAdminStatsTab() {
+      const stats = lotWeedingAdminState.stats || {};
+      const statItems = [
+        ['Active Requests', stats.active || 0, 'In the pipeline'],
+        ['On-Deck', stats.onDeck || 0, 'Schedule next'],
+        ['Scheduled', stats.scheduled || 0, 'On calendar'],
+        ['Needs Attention', stats.needsAttention || stats.flagged || 0, 'Blockers'],
+        ['Missing APN', stats.missingApn || 0, 'Fix parcel'],
+        ['Cleaned', stats.cleaned || stats.completed || 0, 'Done'],
+        ['Total', stats.total || 0, 'Requests']
+      ];
+      return `
+        <section class="lot-weeding-admin-stats-tab">
+          <div class="lot-weeding-admin-stats-intro">
+            <p class="lot-weeding-admin-panel-kicker">Townwide snapshot</p>
+            <h3>Lot-weeding workload</h3>
+            <p>Use this tab for the big-picture count check. The Map, Calendar, and Follow-ups tabs stay focused on action.</p>
+          </div>
+          <div class="lot-weeding-admin-summary" aria-label="Lot weeding workload summary">
+            ${statItems.map(([label, value, detail]) => `
+              <div class="lot-weeding-admin-stat">
+                <span>${formatGodmodeCount(value)}</span>
+                <strong>${escapeHtml(label)}</strong>
+                <em>${escapeHtml(detail)}</em>
+              </div>
+            `).join('')}
+          </div>
+        </section>
+      `;
+    }
+
+    function getLotWeedingQueueSortValue(request, field) {
+      if (!request) return '';
+      if (field === 'status') return request.status || 'Requested';
+      if (field === 'scheduledDate') return toLotWeedingDateKey(request.scheduledDate) || '';
+      if (field === 'apn') return request.apn || '';
+      if (field === 'zone') return request.zone || '';
+      if (field === 'roeStatus') return request.roeStatus || '';
+      if (field === 'mapped') return getLotWeedingRequestCoordinates(request) ? 'mapped' : 'unmapped';
+      return request.address || '';
+    }
+
+    function sortLotWeedingQueueRequests(requests) {
+      const sort = lotWeedingAdminState.queueSort || { field: 'address', direction: 'asc' };
+      const direction = sort.direction === 'desc' ? -1 : 1;
+      return [...(requests || [])].sort((a, b) => {
+        const aValue = String(getLotWeedingQueueSortValue(a, sort.field) || '').toLowerCase();
+        const bValue = String(getLotWeedingQueueSortValue(b, sort.field) || '').toLowerCase();
+        const compare = aValue.localeCompare(bValue, undefined, { numeric: true, sensitivity: 'base' });
+        if (compare !== 0) return compare * direction;
+        return Number(a.rowNumber || 0) - Number(b.rowNumber || 0);
+      });
+    }
+
+    function renderLotWeedingQueueSortButton(field, label) {
+      const sort = lotWeedingAdminState.queueSort || { field: 'address', direction: 'asc' };
+      const active = sort.field === field;
+      const arrow = active ? (sort.direction === 'desc' ? ' ↓' : ' ↑') : '';
+      return `<button type="button" data-lot-weeding-sort="${escapeHtmlAttr(field)}" aria-sort="${active ? (sort.direction === 'desc' ? 'descending' : 'ascending') : 'none'}">${escapeHtml(label)}${arrow}</button>`;
+    }
+
     function renderLotWeedingAdminMapTab(filteredRequests) {
-      const visibleRequests = filteredRequests.slice(0, 200);
+      const sortedRequests = sortLotWeedingQueueRequests(filteredRequests);
+      const visibleRequests = sortedRequests.slice(0, 200);
       const mappedRequests = getLotWeedingAdminMappedRequests(filteredRequests);
       const unmappedRequests = getLotWeedingAdminUnmappedRequests(filteredRequests);
-      const visibleUnmappedRequests = unmappedRequests.slice(0, 24);
       const selectedRequest = getLotWeedingAdminSelectedRequest();
       const selectedRequests = getLotWeedingAdminSelectedRequests();
       const selectedMappedCount = selectedRequests.filter(isLotWeedingRequestMapped).length;
@@ -4583,9 +4629,10 @@
         <section class="lot-weeding-admin-selection-bar">
           <div>
             <strong>${formatGodmodeCount(selectedRequests.length)} selected</strong>
-            <span>${selectedRequests.length ? `${formatGodmodeCount(selectedMappedCount)} mapped | ${formatGodmodeCount(selectedRequests.length - selectedMappedCount)} unmapped. Schedule selected lots from the editor in the next workflow pass.` : 'Pick lots on the map or queue, then schedule them from the selected-lot editor.'}</span>
+            <span>${selectedRequests.length ? `${formatGodmodeCount(selectedMappedCount)} mapped | ${formatGodmodeCount(selectedRequests.length - selectedMappedCount)} unmapped. Schedule selected lots from the group panel.` : 'Select two or more lots, then schedule them as a work day.'}</span>
           </div>
           <div class="lot-weeding-admin-selection-actions">
+            <button type="button" class="lot-weeding-admin-refresh lot-weeding-admin-refresh--primary" id="lotWeedingAdminScheduleSelectedBtn" ${selectedRequests.length ? '' : 'disabled'}>Schedule Selected</button>
             <button type="button" class="lot-weeding-admin-refresh" id="lotWeedingAdminZoomSelectedBtn" ${selectedMappedCount ? '' : 'disabled'}>Zoom to Selected</button>
             <button type="button" class="lot-weeding-admin-refresh" id="lotWeedingAdminClearSelectionBtn" ${selectedRequests.length ? '' : 'disabled'}>Clear Selection</button>
           </div>
@@ -4626,33 +4673,38 @@
           ${renderLotWeedingAdminSidePanel(selectedRequest, filteredRequests)}
         </section>
 
-        <section class="lot-weeding-admin-unmapped-card">
-          <div class="lot-weeding-admin-table-heading">
-            <h3>Unmapped / missing APN queue</h3>
-            <span>${formatGodmodeCount(unmappedRequests.length)} matching records without usable coordinates</span>
-          </div>
-          <div class="lot-weeding-admin-unmapped-list">
-            ${visibleUnmappedRequests.map((request) => `
-              <button type="button" class="lot-weeding-admin-unmapped-item ${isLotWeedingAdminRequestSelected(request) ? 'selected' : ''} ${Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber) ? 'active' : ''}" data-lot-weeding-toggle="${escapeHtmlAttr(request.rowNumber)}">
-                <span>
-                  <strong>${escapeHtml(request.address || 'Address not provided')}</strong>
-                  <em>${escapeHtml(request.apn || 'Missing APN')} | ${escapeHtml(request.status || 'Requested')}</em>
-                </span>
-                <b>${isLotWeedingAdminRequestSelected(request) ? 'Selected' : escapeHtml(getLotWeedingUnmappedReason(request))}</b>
-              </button>
-            `).join('') || '<p class="lot-weeding-admin-no-results">Every matching request has usable map coordinates.</p>'}
-          </div>
-        </section>
-
         <section class="lot-weeding-admin-table-card">
           <div class="lot-weeding-admin-table-heading">
             <h3>Request queue</h3>
             <span>${formatGodmodeCount(filteredRequests.length)} matching requests${filteredRequests.length > visibleRequests.length ? `, showing first ${formatGodmodeCount(visibleRequests.length)}` : ''}</span>
           </div>
-          <div class="lot-weeding-admin-queue-list">
-            ${visibleRequests.map((request) => renderLotWeedingAdminRequestRow(request)).join('') || '<p class="lot-weeding-admin-no-results">No requests match this filter.</p>'}
-          </div>
+          ${renderLotWeedingAdminRequestTable(visibleRequests)}
         </section>
+      `;
+    }
+
+    function renderLotWeedingAdminRequestTable(requests) {
+      if (!requests.length) return '<p class="lot-weeding-admin-no-results">No requests match this filter.</p>';
+      return `
+        <div class="lot-weeding-admin-queue-table-wrap">
+          <table class="lot-weeding-admin-queue-table">
+            <thead>
+              <tr>
+                <th>${renderLotWeedingQueueSortButton('address', 'Address')}</th>
+                <th>${renderLotWeedingQueueSortButton('status', 'Status')}</th>
+                <th>${renderLotWeedingQueueSortButton('scheduledDate', 'Scheduled')}</th>
+                <th>${renderLotWeedingQueueSortButton('apn', 'APN')}</th>
+                <th>${renderLotWeedingQueueSortButton('zone', 'Zone')}</th>
+                <th>${renderLotWeedingQueueSortButton('roeStatus', 'ROE')}</th>
+                <th>${renderLotWeedingQueueSortButton('mapped', 'Map')}</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${requests.map((request) => renderLotWeedingAdminRequestRow(request)).join('')}
+            </tbody>
+          </table>
+        </div>
       `;
     }
 
@@ -4662,36 +4714,25 @@
       const primary = Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber);
       const coords = getLotWeedingRequestCoordinates(request);
       return `
-        <article class="lot-weeding-admin-queue-item ${selected ? 'selected' : ''} ${primary ? 'primary' : ''}" data-lot-weeding-row="${escapeHtmlAttr(request.rowNumber)}">
-          <div class="lot-weeding-admin-queue-main">
-            <div>
-              <span class="lot-weeding-admin-status lot-weeding-admin-status--${escapeHtmlAttr(getLotWeedingStatusClass(status))}">${escapeHtml(status)}</span>
-              <h4>${escapeHtml(request.address || 'Address not provided')}</h4>
-              <p>${escapeHtml(request.requesterName || 'Unknown requester')}${request.phone ? ` | ${escapeHtml(request.phone)}` : ''}${request.email ? ` | ${escapeHtml(request.email)}` : ''}</p>
-            </div>
+        <tr class="lot-weeding-admin-queue-item ${selected ? 'selected' : ''} ${primary ? 'primary' : ''}" data-lot-weeding-row="${escapeHtmlAttr(request.rowNumber)}">
+          <td class="lot-weeding-admin-queue-address">
+            <strong>${escapeHtml(request.address || 'Address not provided')}</strong>
+            <span>${escapeHtml(request.requesterName || 'Unknown requester')}${request.phone ? ` | ${escapeHtml(request.phone)}` : ''}${request.email ? ` | ${escapeHtml(request.email)}` : ''}</span>
+            ${request.details ? `<em>${escapeHtml(request.details)}</em>` : ''}
+          </td>
+          <td><span class="lot-weeding-admin-status lot-weeding-admin-status--${escapeHtmlAttr(getLotWeedingStatusClass(status))}">${escapeHtml(status)}</span></td>
+          <td>${escapeHtml(request.scheduledDate || 'Not scheduled')}</td>
+          <td>${escapeHtml(request.apn || 'Missing APN')}</td>
+          <td>${escapeHtml(request.zone || 'No zone')}</td>
+          <td>${escapeHtml(request.roeStatus || '')}</td>
+          <td>${coords ? 'Mapped' : escapeHtml(getLotWeedingUnmappedReason(request))}</td>
+          <td>
             <div class="lot-weeding-admin-queue-actions">
               <button type="button" class="lot-weeding-admin-inspect" data-lot-weeding-inspect="${escapeHtmlAttr(request.rowNumber)}">Inspect &amp; edit</button>
               <button type="button" class="lot-weeding-admin-inspect lot-weeding-admin-inspect--select" data-lot-weeding-toggle="${escapeHtmlAttr(request.rowNumber)}">${selected ? 'Selected' : 'Select'}</button>
             </div>
-          </div>
-
-          <div class="lot-weeding-admin-queue-meta">
-            <span><strong>APN</strong>${escapeHtml(request.apn || 'Missing APN')}</span>
-            <span><strong>Map</strong>${coords ? 'Mapped' : escapeHtml(getLotWeedingUnmappedReason(request))}</span>
-            <span><strong>Zone</strong>${escapeHtml(request.zone || 'No zone match')}</span>
-            <span><strong>Captain</strong>${escapeHtml(request.captainName || 'No captain listed')}</span>
-            <span><strong>Scheduled</strong>${escapeHtml(request.scheduledDate || 'Not scheduled')}</span>
-            <span><strong>Cleaned</strong>${escapeHtml(request.dateCleaned || 'Not cleaned')}</span>
-            <span><strong>ROE</strong>${escapeHtml(request.roeStatus || '')}</span>
-            <span><strong>UWS</strong>${escapeHtml(request.universalWasteContract || '')}</span>
-          </div>
-
-          ${request.details ? `
-            <div class="lot-weeding-admin-queue-notes">
-              <span>${escapeHtml(request.details)}</span>
-            </div>
-          ` : ''}
-        </article>
+          </td>
+        </tr>
       `;
     }
 
@@ -4866,14 +4907,27 @@
 
       return `
         <section class="lot-weeding-admin-followups">
-          <div class="lot-weeding-admin-followup-card">
-            <div class="lot-weeding-admin-table-heading">
-              <h3>Missing APN</h3>
-              <span>${formatGodmodeCount(missingApn.length)} lot${missingApn.length === 1 ? '' : 's'} without parcel lookup</span>
+          <div class="lot-weeding-admin-followup-stack">
+            <div class="lot-weeding-admin-followup-card">
+              <div class="lot-weeding-admin-table-heading">
+                <h3>Missing APN</h3>
+                <span>${formatGodmodeCount(missingApn.length)} lot${missingApn.length === 1 ? '' : 's'} without parcel lookup</span>
+              </div>
+              <p class="lot-weeding-admin-followup-note">These records cannot be reliably mapped or scheduled by location until the APN is filled in.</p>
+              <div class="lot-weeding-admin-followup-list">
+                ${renderQueue(missingApn, 'Every matching lot has an APN.', () => 'APN missing')}
+              </div>
             </div>
-            <p class="lot-weeding-admin-followup-note">These records cannot be reliably mapped or scheduled by location until the APN is filled in.</p>
-            <div class="lot-weeding-admin-followup-list">
-              ${renderQueue(missingApn, 'Every matching lot has an APN.', () => 'APN missing')}
+
+            <div class="lot-weeding-admin-followup-card">
+              <div class="lot-weeding-admin-table-heading">
+                <h3>Scheduled but not notified</h3>
+                <span>${formatGodmodeCount(notNotified.length)} scheduled lot${notNotified.length === 1 ? '' : 's'} with homeowner not yet notified</span>
+              </div>
+              <p class="lot-weeding-admin-followup-note">Lots with a Scheduled status where "Homeowner notified of schedule" is not "Yes". Contact the homeowner, then open the lot to mark them notified.</p>
+              <div class="lot-weeding-admin-followup-list">
+                ${renderQueue(notNotified, 'Every scheduled lot has its homeowner marked notified.', (request) => request.scheduledDate ? `Scheduled ${request.scheduledDate}` : 'No date')}
+              </div>
             </div>
           </div>
 
@@ -4885,17 +4939,6 @@
             <p class="lot-weeding-admin-followup-note">Active lots whose ROE Status is not yet "Returned". Open a lot to update its ROE status or contact details in the single editor.</p>
             <div class="lot-weeding-admin-followup-list">
               ${renderQueue(roeOutstanding, 'Every active lot has a returned ROE.', (request) => request.roeStatus ? `ROE: ${request.roeStatus}` : 'ROE not set')}
-            </div>
-          </div>
-
-          <div class="lot-weeding-admin-followup-card">
-            <div class="lot-weeding-admin-table-heading">
-              <h3>Scheduled but not notified</h3>
-              <span>${formatGodmodeCount(notNotified.length)} scheduled lot${notNotified.length === 1 ? '' : 's'} with homeowner not yet notified</span>
-            </div>
-            <p class="lot-weeding-admin-followup-note">Lots with a Scheduled status where "Homeowner notified of schedule" is not "Yes". Contact the homeowner, then open the lot to mark them notified.</p>
-            <div class="lot-weeding-admin-followup-list">
-              ${renderQueue(notNotified, 'Every scheduled lot has its homeowner marked notified.', (request) => request.scheduledDate ? `Scheduled ${request.scheduledDate}` : 'No date')}
             </div>
           </div>
         </section>
@@ -5128,6 +5171,18 @@
 
       document.getElementById('lotWeedingAdminRefreshBtn')?.addEventListener('click', () => loadLotWeedingAdminData(true));
       attachLotWeedingAdminSelectionBarHandlers();
+
+      document.querySelectorAll('[data-lot-weeding-sort]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const field = button.getAttribute('data-lot-weeding-sort') || 'address';
+          const current = lotWeedingAdminState.queueSort || { field: 'address', direction: 'asc' };
+          lotWeedingAdminState.queueSort = {
+            field,
+            direction: current.field === field && current.direction === 'asc' ? 'desc' : 'asc'
+          };
+          renderLotWeedingAdminView();
+        });
+      });
 
       // Inspect / Open & edit: focus exactly one lot in the single editor
       document.querySelectorAll('[data-lot-weeding-inspect]').forEach((button) => {

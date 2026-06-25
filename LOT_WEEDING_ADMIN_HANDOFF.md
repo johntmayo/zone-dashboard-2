@@ -2,9 +2,9 @@
 
 **Status:** first architecture pass implemented and staging tests passed. Next phase is a map-first UX/functionality redesign of the Lot Weeding Admin tab.
 
-**Latest pass:** batch scheduling writes shipped. The selected-group side panel now has a "Schedule work day" flow with a required date picker, preview of every selected lot's `Date Scheduled` / `Status` change, a confirm button, sequential single-row PATCH writes, and per-lot success/failure reporting. Successful scheduling writes `Date Scheduled` and `Status = Scheduled` only; `Homeowner notified` is never changed automatically. Polygon/lasso selection is still intentionally not built.
+**Latest pass:** command-center UX cleanup after screenshots. Follow-ups now stacks **Missing APN** above **Scheduled but not notified** in the left column, with **ROE outstanding** alongside it. The redundant Map-tab unmapped queue was removed because Missing APN lives in Follow-ups. The map empty message no longer covers Leaflet zoom controls. Stats moved out of the bottom of every tab into a fourth **Stats** tab with larger cards and revised labels. The Map request queue is now a compact sortable table. Batch scheduling remains shipped via the selected-group "Schedule work day" panel and the prominent "Schedule Selected" button.
 
-**Confirmed direction (June 25, 2026):** the view is now a tabbed operations console — **Map / Calendar / Follow-ups** — sharing one filter + selection state, with per-row inline editing retired in favor of a single side-panel editor. The tab split, active-context bar, read-only Calendar, single editor, read-only Follow-up queues, command-center UI cleanup, and batch scheduling writes are implemented; remaining work is Follow-up write actions, NC zone overlay, polygon/lasso selection, and later batch completion/attention workflows. See "Confirmed Console Design" and "What We Built" below. A ready-to-use next-agent prompt is at the very bottom of this file.
+**Confirmed direction (June 25, 2026):** the view is now a tabbed operations console — **Map / Calendar / Follow-ups / Stats** — sharing selection/day context, with per-row inline editing retired in favor of a single side-panel editor. The tab split, active-context bar, read-only Calendar, single editor, read-only Follow-up queues, command-center UI cleanup, sortable request table, Stats tab, and batch scheduling writes are implemented; remaining work is Follow-up write actions, NC zone overlay, polygon/lasso selection, and later batch completion/attention workflows. See "Confirmed Console Design" and "What We Built" below. A ready-to-use next-agent prompt is at the very bottom of this file.
 
 This document captures what was built, how to configure it, and what still needs to happen before the Lot Weeding Admin workflow is production-ready.
 
@@ -28,7 +28,7 @@ Key pieces:
   - `GET /api/lot-weeding/values`
 - New normalization layer maps messy spreadsheet headers into stable request fields.
 - New first-pass admin UI includes:
-  - summary stat cards
+  - Stats tab cards
   - status filters
   - text search
   - request queue table
@@ -37,17 +37,18 @@ Key pieces:
   - a large Leaflet map as the dominant Lot Weeding Admin workspace
   - marker colors by canonical status
   - a selected-request side panel
-  - shared status/search filtering across map, unmapped queue, and table
-  - an unmapped/missing APN queue for records without usable coordinates
-  - read-only single/multi-selection across markers, table rows, and unmapped records
+  - Map-only status/search filtering across map and table
+  - Missing APN follow-up queue for records without parcel lookup
+  - read-only single/multi-selection across markers and table rows
   - selected-group summary with clear selection and zoom-to-selected controls
-  - compact operations queue cards for list review
+  - compact sortable request table for list review
 - Tabbed operations console (shipped June 25, 2026):
-  - `#lotWeedingAdminView` is now a three-tab console — **Map / Calendar / Follow-ups** — over one shared `lotWeedingAdminState`. Switching tabs preserves the status filter, search text, selection set, and calendar day filter.
-  - A persistent **active-context bar** above the tabs shows the active status filter, search text, selection count, and calendar day filter as chips; each chip is individually clearable, plus a "Clear all" when more than one is active.
-  - **Map tab:** the existing map workspace, selection bar, unmapped queue, and compact request queue. When a calendar day filter is active, that day's lots are emphasized on the map and the rest are dimmed.
+  - `#lotWeedingAdminView` is now a four-tab console — **Map / Calendar / Follow-ups / Stats** — over one shared `lotWeedingAdminState`. Switching tabs preserves the selection set and calendar day filter. Map status/search controls are intentionally Map-only.
+  - A persistent **active-context bar** shows selection count and calendar day filter, plus status/search chips only on Map where those controls apply.
+  - **Map tab:** the existing map workspace, selection bar, compact sortable request table, and selected-lot/group side panel. When a calendar day filter is active, that day's lots are emphasized on the map and the rest are dimmed.
   - **Calendar tab (read-only):** a month calendar keyed on `Date Scheduled` with per-day lot counts, prev/next/today navigation, day selection, a per-day list of scheduled lots, and a **Copy day list** action with an **Include contact info** checkbox (unchecked = address-only; checked = address + homeowner name + phone/email). Day export is clipboard-only. Selecting a day sets the shared `dayFilter`, which drives the Map highlight and the context bar.
   - **Follow-ups tab (read-only):** three queues — **Missing APN**, **ROE outstanding** (active lots whose `roeStatus` ≠ `Returned`), and **Scheduled but not notified** (`Scheduled` AND `homeownerNotified` ≠ `Yes`) — each with inline contact info and an **Open & edit** button that focuses the lot in the Map-tab side editor. One-click mark-contacted/notified writes are deferred to the next pass.
+  - **Stats tab:** large workload cards for Active Requests / In the pipeline, On-Deck / Schedule next, Scheduled / On calendar, Needs Attention / Blockers, Missing APN / Fix parcel, Cleaned / Done, and Total / Requests.
   - **Single side-panel editor:** per-row inline editing was retired. Editing happens in one place — the selected-lot side panel on the Map tab, one lot at a time. It has status quick-actions (**Mark Scheduled / Mark Cleaned / Needs Attention**, status-only single-row writes), the full editable field set, and real `<input type="date">` date pickers. Assigning a `Date Scheduled` auto-sets status to `Scheduled` (unless already past that). `Homeowner notified` is never set automatically.
   - **Batch scheduling writes:** when multiple lots are selected, the group side panel shows a "Schedule work day" action with a date picker, preview, and confirm button. It writes each selected row via the existing single-row PATCH endpoint, setting `Date Scheduled` and `Status = Scheduled`, then reports per-lot successes/failures. No notification field is changed.
   - no polygon selection or notification automation yet
@@ -502,7 +503,7 @@ Recommended next steps:
 6. Confirm existing captain-facing lot-weeding surfaces still behave when the source switches from mirror-style fields to revised fields.
 7. Use the revised status vocabulary: `Requested`, `On-Deck`, `Scheduled`, `Cleaned`, `Needs Attention`, `Cancelled`.
 8. Validate the read-only map foundation with staging request data that includes APN-matched coordinates.
-9. Build the tabbed console (Map / Calendar / Follow-ups) with the shared active-context bar first.
+9. Build the tabbed console (Map / Calendar / Follow-ups / Stats) with the shared active-context bar first.
 10. Then build Follow-up write actions, then the NC zone overlay.
 11. Treat notifications as a later optional workflow, not part of the near-term scheduling build.
 
@@ -558,12 +559,12 @@ IDE lints on `index.html` and `public/css/styles.css` reported no errors after t
 
 ## Handoff Prompt For Next Agent
 
-Paste the block below to start the next agent. It assumes the tabbed console (Map / Calendar / Follow-ups), the active-context bar, the read-only Calendar with day export, the single side-panel editor with status quick-actions and date pickers, read-only Follow-up queues, command-center UI cleanup, and batch scheduling writes are already implemented.
+Paste the block below to start the next agent. It assumes the tabbed console (Map / Calendar / Follow-ups / Stats), the active-context bar, the read-only Calendar with day export, the single side-panel editor with status quick-actions and date pickers, read-only Follow-up queues, command-center UI cleanup, sortable request table, Stats tab, and batch scheduling writes are already implemented.
 
 ```text
 Continue the Lot Weeding Admin work. Start by reading LOT_WEEDING_ADMIN_HANDOFF.md (especially "What We Built" → tabbed console, "Confirmed Console Design (June 25, 2026)", and "Implementation notes for this pass") and CODEBASE_FIELD_GUIDE.md.
 
-Context: #lotWeedingAdminView is now a three-tab Lot Weeding Command Center (Map / Calendar / Follow-ups) over one shared lotWeedingAdminState. The Map tab has its own status filters/search; Calendar and Follow-ups are not silently filtered by Map controls. There is a persistent active-context bar (selection count and calendar day filter; Map status/search chips only show on Map). The Calendar tab is read-only (month grid keyed on Date Scheduled, day selection drives a shared dayFilter that highlights the Map, plus "Copy day list" with an "Include contact info" checkbox, clipboard-only). Per-row inline editing was retired; the selected-lot side panel on the Map tab is the single editor (one lot at a time) with status quick-actions (Mark Scheduled / Mark Cleaned / Needs Attention), the full field set, and real date pickers. Assigning a Date Scheduled auto-sets Status = Scheduled. Follow-ups has three read-only queues (Missing APN; ROE outstanding; Scheduled-but-not-notified) with inline contact info and "Open & edit" buttons. Multi-selected groups have a "Schedule work day" panel with date picker, preview, confirm button, sequential PATCH writes, and per-lot success/failure reporting. Single-lot writes and batch scheduling use PATCH /api/lot-weeding-admin/request-row. Canonical statuses: Requested, On-Deck, Scheduled, Cleaned, Needs Attention, Cancelled.
+Context: #lotWeedingAdminView is now a four-tab Lot Weeding Command Center (Map / Calendar / Follow-ups / Stats) over one shared lotWeedingAdminState. The Map tab has its own status filters/search; Calendar, Follow-ups, and Stats are not silently filtered by Map controls. There is a persistent active-context bar (selection count and calendar day filter; Map status/search chips only show on Map). The Calendar tab is read-only (month grid keyed on Date Scheduled, day selection drives a shared dayFilter that highlights the Map, plus "Copy day list" with an "Include contact info" checkbox, clipboard-only). Per-row inline editing was retired; the selected-lot side panel on the Map tab is the single editor (one lot at a time) with status quick-actions (Mark Scheduled / Mark Cleaned / Needs Attention), the full field set, and real date pickers. Assigning a Date Scheduled auto-sets Status = Scheduled. Follow-ups has three read-only queues (Missing APN; ROE outstanding; Scheduled-but-not-notified) with Missing APN stacked above Scheduled-but-not-notified and ROE alongside them. The Map request queue is a compact sortable table. Stats live only in the Stats tab. Multi-selected groups have a "Schedule work day" panel with date picker, preview, confirm button, sequential PATCH writes, and per-lot success/failure reporting. Single-lot writes and batch scheduling use PATCH /api/lot-weeding-admin/request-row. Canonical statuses: Requested, On-Deck, Scheduled, Cleaned, Needs Attention, Cancelled.
 
 Goal for this pass (in order):
 1. Follow-up write actions: add one-click "Mark notified" (sets Homeowner notified = Yes) and "Mark ROE returned" (sets ROE Status = Returned) directly on the Follow-ups rows, using the existing single-row PATCH. Optimistic UI + clear error handling.
