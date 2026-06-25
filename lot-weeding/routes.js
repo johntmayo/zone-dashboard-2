@@ -194,20 +194,6 @@ function getLotWeedingColumns(headers) {
       'right of entry status',
       'right of entry'
     ], (lower) => lower.includes('roe') || lower.includes('right of entry')),
-    deploymentGroup: findColumn(headers, [
-      'deployment group',
-      'group',
-      'schedule group',
-      'volunteer group',
-      'weeding group'
-    ], (lower) => lower.includes('group') || lower.includes('deployment')),
-    flagReason: findColumn(headers, [
-      'flag reason',
-      'error reason',
-      'issue',
-      'flag',
-      'error'
-    ], (lower) => lower.includes('flag') || lower.includes('error') || lower.includes('issue')),
     zone: findColumn(headers, [
       'zone',
       'altagether zone',
@@ -390,8 +376,6 @@ function normalizeLotWeedingRows(headers, rows) {
       homeownerNotified: normalizeYesNo(getValue(record, columns.homeownerNotified)),
       dateCleaned: getValue(record, columns.dateCleaned),
       roeStatus: normalizeRoeStatus(getValue(record, columns.roeStatus)),
-      deploymentGroup: getValue(record, columns.deploymentGroup),
-      flagReason: getValue(record, columns.flagReason),
       zone: getValue(record, columns.zone),
       captainName: getValue(record, columns.captainName),
       captainEmail: getValue(record, columns.captainEmail),
@@ -565,9 +549,7 @@ function getEditableColumns(headers) {
     roeStatus: columns.roeStatus,
     universalWasteContract: columns.universalWasteContract,
     lastContactDate: columns.lastContactDate,
-    deploymentGroup: columns.deploymentGroup,
-    details: columns.details,
-    flagReason: columns.flagReason
+    details: columns.details
   };
 }
 
@@ -702,9 +684,7 @@ function registerLotWeedingRoutes(app, deps) {
         'roeStatus',
         'universalWasteContract',
         'lastContactDate',
-        'deploymentGroup',
-        'details',
-        'flagReason'
+        'details'
       ]);
       const updates = {};
       Object.entries((req.body && req.body.updates) || {}).forEach(([field, value]) => {
