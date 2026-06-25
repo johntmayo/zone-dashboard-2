@@ -4017,6 +4017,16 @@
       transform: none;
     }
 
+    .lot-weeding-admin-refresh--primary {
+      background: var(--accent-clay);
+      border-color: #7C2D12;
+      color: #FFFDF5;
+    }
+
+    .lot-weeding-admin-refresh--primary:hover {
+      background: #B45309;
+    }
+
     .lot-weeding-admin-search-wrap {
       display: flex;
       gap: 8px;
@@ -4633,6 +4643,142 @@
       font-family: 'Merriweather', serif;
       font-size: 0.76rem;
       line-height: 1.4;
+    }
+
+    .lot-weeding-admin-batch-scheduler {
+      margin: 16px 0;
+      padding: 14px;
+      background:
+        linear-gradient(135deg, rgba(245, 158, 11, 0.14), rgba(96, 108, 56, 0.08)),
+        #FFFDF5;
+      border: 2px solid rgba(124, 45, 18, 0.34);
+      box-shadow: 3px 3px 0 rgba(31, 41, 55, 0.1);
+    }
+
+    .lot-weeding-admin-batch-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .lot-weeding-admin-batch-head h4 {
+      margin: 0;
+      color: var(--brand-primary-dark);
+      font-size: 1.05rem;
+      line-height: 1.1;
+    }
+
+    .lot-weeding-admin-batch-head > span {
+      align-self: flex-start;
+      padding: 4px 7px;
+      background: rgba(31, 41, 55, 0.08);
+      color: var(--text-secondary);
+      font-size: 0.62rem;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .lot-weeding-admin-batch-preview {
+      margin-top: 12px;
+      padding: 10px;
+      background: rgba(253, 251, 247, 0.86);
+      border: 1px solid rgba(31, 41, 55, 0.14);
+    }
+
+    .lot-weeding-admin-batch-preview strong {
+      display: block;
+      color: var(--brand-primary-dark);
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .lot-weeding-admin-batch-preview p {
+      margin: 6px 0 0;
+      color: var(--text-secondary);
+      font-family: 'Merriweather', serif;
+      font-size: 0.76rem;
+      line-height: 1.4;
+    }
+
+    .lot-weeding-admin-batch-preview-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 10px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .lot-weeding-admin-batch-preview-list div {
+      padding: 7px 8px;
+      background: #FDFBF7;
+      border: 1px solid rgba(31, 41, 55, 0.12);
+    }
+
+    .lot-weeding-admin-batch-preview-list span,
+    .lot-weeding-admin-batch-preview-list em {
+      display: block;
+    }
+
+    .lot-weeding-admin-batch-preview-list span {
+      color: var(--text-primary);
+      font-size: 0.78rem;
+      font-weight: 900;
+      line-height: 1.25;
+    }
+
+    .lot-weeding-admin-batch-preview-list em {
+      margin-top: 2px;
+      color: var(--text-secondary);
+      font-size: 0.7rem;
+      font-style: normal;
+      line-height: 1.25;
+    }
+
+    .lot-weeding-admin-save--batch {
+      margin-top: 12px;
+      background: var(--accent-clay);
+      border-color: #7C2D12;
+    }
+
+    .lot-weeding-admin-row-status--batch {
+      margin-top: 8px;
+      min-height: 18px;
+      color: var(--brand-primary-dark);
+      font-size: 0.76rem;
+      font-weight: 900;
+    }
+
+    .lot-weeding-admin-batch-results {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .lot-weeding-admin-batch-results div {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 7px 8px;
+      border: 1px solid rgba(31, 41, 55, 0.14);
+      background: #FDFBF7;
+      font-size: 0.72rem;
+    }
+
+    .lot-weeding-admin-batch-results .ok span {
+      color: #166534;
+      font-weight: 900;
+    }
+
+    .lot-weeding-admin-batch-results .error span {
+      color: #B91C1C;
+      font-weight: 900;
     }
 
     .lot-weeding-admin-calendar-shell {
