@@ -553,6 +553,21 @@ function getEditableColumns(headers) {
   };
 }
 
+async function getEditableColumnsForUpdate({ sheetsClient, config }) {
+  const cachedHeaders = cachedPayload &&
+    cachedPayload.expiresAt > Date.now() &&
+    Array.isArray(cachedPayload.payload && cachedPayload.payload.headers)
+    ? cachedPayload.payload.headers
+    : null;
+  const headers = cachedHeaders || normalizeSheetValues(
+    await fetchLotWeedingValues({ sheetsClient, config, rangeOverride: 'A1:ZZ1' })
+  ).headers;
+  return {
+    editableColumns: getEditableColumns(headers),
+    headerIndexByName: new Map(headers.map((header, index) => [header, index]))
+  };
+}
+
 async function updateLotWeedingRequest({ sheetsClient, config, rowNumber, updates }) {
   if (!config.sheetId) {
     const err = new Error('Lot weeding source sheet is not configured.');
@@ -560,10 +575,7 @@ async function updateLotWeedingRequest({ sheetsClient, config, rowNumber, update
     throw err;
   }
 
-  const values = await fetchLotWeedingValues({ sheetsClient, config, rangeOverride: config.range || DEFAULT_RANGE });
-  const parsed = normalizeSheetValues(values);
-  const editableColumns = getEditableColumns(parsed.headers);
-  const headerIndexByName = new Map(parsed.headers.map((header, index) => [header, index]));
+  const { editableColumns, headerIndexByName } = await getEditableColumnsForUpdate({ sheetsClient, config });
   const data = [];
 
   Object.entries(updates || {}).forEach(([field, value]) => {
