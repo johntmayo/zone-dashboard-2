@@ -5012,15 +5012,26 @@
         matchesQuery(request)
       );
 
-      const renderQueue = (requests, emptyText, extraField) => requests.length
+      const renderQueue = (requests, emptyText, extraField, action) => requests.length
         ? requests.map((request) => `
             <div class="lot-weeding-admin-followup-item">
               <div class="lot-weeding-admin-followup-main">
                 <strong>${escapeHtml(request.address || 'Address not provided')}</strong>
                 <span>${escapeHtml(request.requesterName || 'Unknown requester')} · ${escapeHtml(request.status || 'Requested')}${extraField ? ` · ${escapeHtml(extraField(request))}` : ''}</span>
                 <em>${escapeHtml(renderLotWeedingAdminContactLine(request))}</em>
+                <small class="lot-weeding-admin-followup-status" aria-live="polite"></small>
               </div>
-              <button type="button" class="lot-weeding-admin-inspect" data-lot-weeding-inspect="${escapeHtmlAttr(request.rowNumber)}">Open &amp; edit</button>
+              <div class="lot-weeding-admin-followup-actions">
+                ${action ? `
+                  <button type="button"
+                    class="lot-weeding-admin-inspect lot-weeding-admin-followup-action"
+                    data-lot-weeding-followup-action="${escapeHtmlAttr(action.type)}"
+                    data-lot-weeding-followup-row="${escapeHtmlAttr(request.rowNumber)}">
+                    ${escapeHtml(action.label)}
+                  </button>
+                ` : ''}
+                <button type="button" class="lot-weeding-admin-inspect" data-lot-weeding-inspect="${escapeHtmlAttr(request.rowNumber)}">Open &amp; edit</button>
+              </div>
             </div>
           `).join('')
         : `<p class="lot-weeding-admin-panel-empty">${escapeHtml(emptyText)}</p>`;
@@ -5044,9 +5055,14 @@
                 <h3>Scheduled but not notified</h3>
                 <span>${formatGodmodeCount(notNotified.length)} scheduled lot${notNotified.length === 1 ? '' : 's'} with homeowner not yet notified</span>
               </div>
-              <p class="lot-weeding-admin-followup-note">Lots with a Scheduled status where "Homeowner notified of schedule" is not "Yes". Contact the homeowner, then open the lot to mark them notified.</p>
+              <p class="lot-weeding-admin-followup-note">Lots with a Scheduled status where "Homeowner notified of schedule" is not "Yes". After contacting the homeowner, mark the record notified here.</p>
               <div class="lot-weeding-admin-followup-list">
-                ${renderQueue(notNotified, 'Every scheduled lot has its homeowner marked notified.', (request) => request.scheduledDate ? `Scheduled ${request.scheduledDate}` : 'No date')}
+                ${renderQueue(
+                  notNotified,
+                  'Every scheduled lot has its homeowner marked notified.',
+                  (request) => request.scheduledDate ? `Scheduled ${request.scheduledDate}` : 'No date',
+                  { type: 'mark-notified', label: 'Mark notified' }
+                )}
               </div>
             </div>
           </div>
@@ -5056,9 +5072,14 @@
               <h3>ROE outstanding</h3>
               <span>${formatGodmodeCount(roeOutstanding.length)} active lot${roeOutstanding.length === 1 ? '' : 's'} without a returned ROE</span>
             </div>
-            <p class="lot-weeding-admin-followup-note">Active lots whose ROE Status is not yet "Returned". Open a lot to update its ROE status or contact details in the single editor.</p>
+            <p class="lot-weeding-admin-followup-note">Active lots whose ROE Status is not yet "Returned". When the ROE comes back, mark it returned here.</p>
             <div class="lot-weeding-admin-followup-list">
-              ${renderQueue(roeOutstanding, 'Every active lot has a returned ROE.', (request) => request.roeStatus ? `ROE: ${request.roeStatus}` : 'ROE not set')}
+              ${renderQueue(
+                roeOutstanding,
+                'Every active lot has a returned ROE.',
+                (request) => request.roeStatus ? `ROE: ${request.roeStatus}` : 'ROE not set',
+                { type: 'mark-roe-returned', label: 'Mark ROE returned' }
+              )}
             </div>
           </div>
         </section>
@@ -5290,6 +5311,23 @@
       });
     }
 
+    function attachLotWeedingAdminFollowupHandlers(root = document) {
+      root.querySelectorAll('[data-lot-weeding-followup-action]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const rowNumber = Number(button.getAttribute('data-lot-weeding-followup-row'));
+          const action = button.getAttribute('data-lot-weeding-followup-action');
+          const item = button.closest('.lot-weeding-admin-followup-item');
+          const statusEl = item?.querySelector('.lot-weeding-admin-followup-status');
+          if (!rowNumber || !action) return;
+          if (action === 'mark-notified') {
+            saveLotWeedingAdminRow(rowNumber, { homeownerNotified: 'Yes' }, { statusEl, buttonEl: button });
+          } else if (action === 'mark-roe-returned') {
+            saveLotWeedingAdminRow(rowNumber, { roeStatus: 'Returned' }, { statusEl, buttonEl: button });
+          }
+        });
+      });
+    }
+
     function attachLotWeedingAdminHandlers() {
       document.querySelectorAll('[data-lot-weeding-filter]').forEach((button) => {
         button.addEventListener('click', () => {
@@ -5326,6 +5364,7 @@
       document.getElementById('lotWeedingAdminRefreshBtn')?.addEventListener('click', () => loadLotWeedingAdminData(true));
       attachLotWeedingAdminSelectionBarHandlers();
       attachLotWeedingAdminQueueHandlers();
+      attachLotWeedingAdminFollowupHandlers();
 
       // Calendar: month navigation
       document.querySelectorAll('[data-lot-weeding-calendar-nav]').forEach((button) => {
