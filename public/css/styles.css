@@ -4062,38 +4062,49 @@
       min-width: 330px;
     }
 
-    .lot-weeding-admin-zone-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      flex: 0 0 auto;
-      min-height: 34px;
-      padding: 7px 9px;
-      border: 1px solid rgba(96, 108, 56, 0.34);
-      background: rgba(255, 253, 245, 0.78);
+    .lot-weeding-map-control {
+      display: grid;
+      gap: 3px;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+    }
+
+    .lot-weeding-map-control-btn {
+      min-width: 52px;
+      min-height: 26px;
+      border: 1px solid rgba(31, 41, 55, 0.35);
+      background: rgba(255, 253, 245, 0.94);
       color: var(--brand-primary-dark);
       font-family: 'Chivo', sans-serif;
-      font-size: 0.7rem;
+      font-size: 0.64rem;
       font-weight: 900;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.05em;
       text-transform: uppercase;
-      white-space: nowrap;
       cursor: pointer;
+      box-shadow: 0 1px 3px rgba(31, 41, 55, 0.12);
     }
 
-    .lot-weeding-admin-zone-toggle input {
-      width: 14px;
-      height: 14px;
-      accent-color: var(--brand-primary-dark);
+    .lot-weeding-map-control-btn:hover,
+    .lot-weeding-map-control-btn.active {
+      background: var(--brand-primary-dark);
+      color: #FFFDF5;
     }
 
-    .lot-weeding-admin-zone-status {
-      flex: 0 1 auto;
-      max-width: 170px;
+    .lot-weeding-map-control-status {
+      max-width: 132px;
+      padding: 4px 5px;
+      background: rgba(255, 253, 245, 0.9);
+      border: 1px solid rgba(31, 41, 55, 0.16);
       color: var(--text-secondary);
       font-family: 'Merriweather', serif;
-      font-size: 0.72rem;
+      font-size: 0.66rem;
       line-height: 1.25;
+      pointer-events: none;
+    }
+
+    .lot-weeding-map--drawing {
+      cursor: crosshair;
     }
 
     .lot-weeding-admin-search,
@@ -4568,12 +4579,6 @@
       .lot-weeding-admin-search-wrap {
         flex-direction: column;
         align-items: stretch;
-      }
-
-      .lot-weeding-admin-zone-toggle,
-      .lot-weeding-admin-zone-status {
-        max-width: none;
-        width: 100%;
       }
     }
 

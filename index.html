@@ -1278,6 +1278,14 @@
       zoneOverlayLoading: false,
       zoneOverlayStatus: '',
       zoneOverlayFeatures: null,
+      zoneOverlayControl: null,
+      drawingControl: null,
+      drawLayer: null,
+      drawEnabled: false,
+      drawLatLngs: [],
+      drawHoverLatLng: null,
+      drawSelectionLayer: null,
+      drawStatus: '',
       lastMapView: null,
       lastSaveAt: null
     };
@@ -4042,6 +4050,10 @@
       lotWeedingAdminState.map = null;
       lotWeedingAdminState.markers = [];
       lotWeedingAdminState.zoneOverlayLayer = null;
+      lotWeedingAdminState.zoneOverlayControl = null;
+      lotWeedingAdminState.drawingControl = null;
+      lotWeedingAdminState.drawLayer = null;
+      lotWeedingAdminState.drawSelectionLayer = null;
     }
 
     function getLotWeedingAdminFilteredRequests() {
@@ -4134,7 +4146,10 @@
         offset: [0, -8],
         opacity: 0.94
       });
-      marker.on('click', () => focusLotWeedingAdminLot(request.rowNumber));
+      marker.on('click', () => {
+        if (lotWeedingAdminState.drawEnabled) return;
+        focusLotWeedingAdminLot(request.rowNumber);
+      });
       return { rowNumber: request.rowNumber, marker };
     }
 
@@ -4179,9 +4194,69 @@
       return 'NC zone';
     }
 
+    function getLotWeedingFirstZoneProperty(props, keys) {
+      for (const key of keys || []) {
+        const value = props?.[key];
+        if (value != null && String(value).trim()) return String(value).trim();
+      }
+      return '';
+    }
+
+    function splitLotWeedingZoneValues(raw) {
+      return String(raw || '').split(';').map((value) => value.trim()).filter(Boolean);
+    }
+
+    function getLotWeedingZoneFirstName(rawName) {
+      const clean = String(rawName || '').trim().replace(/\s+/g, ' ');
+      if (!clean) return '';
+      const token = clean.split(' ')[0] || '';
+      return token.replace(/[^A-Za-z'-]/g, '').trim();
+    }
+
+    function buildLotWeedingZoneTooltipLabel(props) {
+      const zoneName = getLotWeedingZoneOverlayName(props).toUpperCase();
+      const namesRaw = getLotWeedingFirstZoneProperty(props, MAPBOX_ADDITIONAL_LAYER_CONFIG.contactNamePropertyKeys);
+      const firstNames = splitLotWeedingZoneValues(namesRaw).map(getLotWeedingZoneFirstName).filter(Boolean);
+      return `${escapeHtml(zoneName)}<br>${escapeHtml(firstNames.length ? firstNames.join(', ') : 'Captain names pending')}`;
+    }
+
+    function buildLotWeedingZoneCaptainCards(props) {
+      const names = splitLotWeedingZoneValues(getLotWeedingFirstZoneProperty(props, MAPBOX_ADDITIONAL_LAYER_CONFIG.contactNamePropertyKeys));
+      const emails = splitLotWeedingZoneValues(getLotWeedingFirstZoneProperty(props, MAPBOX_ADDITIONAL_LAYER_CONFIG.contactEmailPropertyKeys));
+      const phones = splitLotWeedingZoneValues(getLotWeedingFirstZoneProperty(props, MAPBOX_ADDITIONAL_LAYER_CONFIG.contactPhonePropertyKeys));
+      const maxLen = Math.max(names.length, emails.length, phones.length);
+      if (!maxLen) return '<div style="margin-top:10px; color:#4a4a4a;">Captain details pending.</div>';
+      const cards = [];
+      for (let i = 0; i < maxLen; i += 1) {
+        const name = names[i] || '';
+        const email = emails[i] || '';
+        const phone = phones[i] || '';
+        cards.push(`
+          <div style="margin-top:10px; padding:10px 12px; border:1px solid #d7dfd2; border-radius:8px; background:#f9fbf8;">
+            <div style="font-weight:700; color:#214025; margin-bottom:6px;">Captain ${i + 1}</div>
+            ${name ? `<div style="margin:2px 0;"><strong>Name:</strong> ${escapeHtml(name)}</div>` : ''}
+            ${phone ? `<div style="margin:2px 0;"><strong>Phone:</strong> ${escapeHtml(phone)}</div>` : ''}
+            ${email ? `<div style="margin:2px 0;"><strong>Email:</strong> ${escapeHtml(email)}</div>` : ''}
+          </div>
+        `);
+      }
+      return cards.join('');
+    }
+
+    function buildLotWeedingZonePopupHtml(props) {
+      const zoneName = getLotWeedingZoneOverlayName(props).toUpperCase();
+      return `
+        <div style="min-width:220px; line-height:1.35;">
+          <div style="font-size:15px; font-weight:700; letter-spacing:0.5px; color:#214025;">${escapeHtml(zoneName)}</div>
+          ${buildLotWeedingZoneCaptainCards(props)}
+        </div>
+      `;
+    }
+
     function updateLotWeedingZoneOverlayStatus() {
-      const statusEl = document.getElementById('lotWeedingAdminZoneOverlayStatus');
+      const statusEl = document.getElementById('lotWeedingMapStatus');
       if (statusEl) statusEl.textContent = lotWeedingAdminState.zoneOverlayStatus || '';
+      updateLotWeedingMapControls();
     }
 
     function clearLotWeedingAdminZoneOverlay() {
@@ -4221,32 +4296,24 @@
         if (lotWeedingAdminState.zoneOverlayLayer && map.hasLayer(lotWeedingAdminState.zoneOverlayLayer)) {
           map.removeLayer(lotWeedingAdminState.zoneOverlayLayer);
         }
+        const baseStyle = MAPBOX_ADDITIONAL_LAYER_CONFIG.style || {};
+        const hoverStyle = MAPBOX_ADDITIONAL_LAYER_CONFIG.hoverStyle || {};
         const layer = L.geoJSON(featureCollection, {
-          style: {
-            color: '#1F2937',
-            weight: 1.5,
-            opacity: 0.52,
-            fillColor: '#A9CFA0',
-            fillOpacity: 0.055,
-            dashArray: '4 4'
-          },
+          style: baseStyle,
           onEachFeature: (feature, zoneLayer) => {
-            const zoneName = getLotWeedingZoneOverlayName(feature?.properties || {});
-            zoneLayer.bindTooltip(zoneName, {
-              sticky: true,
-              direction: 'top',
-              opacity: 0.88
-            });
+            const props = feature?.properties || {};
+            const label = buildLotWeedingZoneTooltipLabel(props);
+            if (label && MAPBOX_ADDITIONAL_LAYER_CONFIG.tooltip?.enabled) {
+              zoneLayer.bindTooltip(label, MAPBOX_ADDITIONAL_LAYER_CONFIG.tooltip);
+            }
+            const popupHtml = buildLotWeedingZonePopupHtml(props);
+            if (popupHtml.trim()) zoneLayer.bindPopup(popupHtml);
             zoneLayer.on({
               mouseover: () => {
-                zoneLayer.setStyle({
-                  weight: 2.5,
-                  opacity: 0.78,
-                  fillOpacity: 0.11
-                });
+                zoneLayer.setStyle({ ...baseStyle, ...hoverStyle });
               },
               mouseout: () => {
-                layer.resetStyle(zoneLayer);
+                zoneLayer.setStyle(baseStyle);
               }
             });
           }
@@ -4263,8 +4330,7 @@
           map.removeLayer(lotWeedingAdminState.zoneOverlayLayer);
         }
         lotWeedingAdminState.zoneOverlayLayer = null;
-        const toggle = document.getElementById('lotWeedingAdminZoneOverlayToggle');
-        if (toggle) toggle.checked = false;
+        updateLotWeedingMapControls();
       } finally {
         lotWeedingAdminState.zoneOverlayLoading = false;
         updateLotWeedingZoneOverlayStatus();
@@ -4277,6 +4343,170 @@
       } else {
         clearLotWeedingAdminZoneOverlay();
       }
+    }
+
+    function updateLotWeedingMapControls() {
+      const zoneBtn = document.getElementById('lotWeedingMapZonesBtn');
+      if (zoneBtn) {
+        zoneBtn.classList.toggle('active', Boolean(lotWeedingAdminState.zoneOverlayVisible));
+        zoneBtn.setAttribute('aria-pressed', lotWeedingAdminState.zoneOverlayVisible ? 'true' : 'false');
+      }
+      const drawBtn = document.getElementById('lotWeedingMapDrawBtn');
+      if (drawBtn) {
+        drawBtn.classList.toggle('active', Boolean(lotWeedingAdminState.drawEnabled));
+        drawBtn.setAttribute('aria-pressed', lotWeedingAdminState.drawEnabled ? 'true' : 'false');
+        drawBtn.textContent = lotWeedingAdminState.drawEnabled ? 'Drawing' : 'Draw';
+      }
+      const statusEl = document.getElementById('lotWeedingMapStatus');
+      if (statusEl) {
+        statusEl.textContent = lotWeedingAdminState.drawStatus || lotWeedingAdminState.zoneOverlayStatus || '';
+      }
+    }
+
+    function installLotWeedingMapControls(map) {
+      if (!map || typeof L === 'undefined') return;
+      const Control = L.Control.extend({
+        options: { position: 'topleft' },
+        onAdd() {
+          const wrap = L.DomUtil.create('div', 'leaflet-bar lot-weeding-map-control');
+          wrap.innerHTML = `
+            <button type="button" id="lotWeedingMapZonesBtn" class="lot-weeding-map-control-btn" aria-pressed="false" title="Show NC zones">Zones</button>
+            <button type="button" id="lotWeedingMapDrawBtn" class="lot-weeding-map-control-btn" aria-pressed="false" title="Draw area to select lots">Draw</button>
+            <button type="button" id="lotWeedingMapCloseDrawBtn" class="lot-weeding-map-control-btn" title="Close shape and select lots">Select</button>
+            <button type="button" id="lotWeedingMapClearDrawBtn" class="lot-weeding-map-control-btn" title="Clear drawn area">Clear</button>
+            <div class="lot-weeding-map-control-status" id="lotWeedingMapStatus" aria-live="polite"></div>
+          `;
+          L.DomEvent.disableClickPropagation(wrap);
+          L.DomEvent.disableScrollPropagation(wrap);
+          return wrap;
+        }
+      });
+      lotWeedingAdminState.zoneOverlayControl = new Control();
+      lotWeedingAdminState.zoneOverlayControl.addTo(map);
+      document.getElementById('lotWeedingMapZonesBtn')?.addEventListener('click', () => {
+        lotWeedingAdminState.zoneOverlayVisible = !lotWeedingAdminState.zoneOverlayVisible;
+        lotWeedingAdminState.zoneOverlayStatus = lotWeedingAdminState.zoneOverlayVisible ? 'Loading zones...' : '';
+        updateLotWeedingMapControls();
+        syncLotWeedingAdminZoneOverlay();
+      });
+      document.getElementById('lotWeedingMapDrawBtn')?.addEventListener('click', () => {
+        const nextEnabled = !lotWeedingAdminState.drawEnabled;
+        if (!nextEnabled) lotWeedingAdminState.drawStatus = '';
+        setLotWeedingAdminDrawEnabled(nextEnabled);
+      });
+      document.getElementById('lotWeedingMapCloseDrawBtn')?.addEventListener('click', closeLotWeedingAdminDrawSelection);
+      document.getElementById('lotWeedingMapClearDrawBtn')?.addEventListener('click', clearLotWeedingAdminDrawSelection);
+      updateLotWeedingMapControls();
+    }
+
+    function ensureLotWeedingAdminDrawLayer() {
+      const map = lotWeedingAdminState.map;
+      if (!map || typeof L === 'undefined') return null;
+      if (!lotWeedingAdminState.drawLayer) {
+        lotWeedingAdminState.drawLayer = L.layerGroup().addTo(map);
+      }
+      return lotWeedingAdminState.drawLayer;
+    }
+
+    function renderLotWeedingAdminDrawLayer() {
+      const layer = ensureLotWeedingAdminDrawLayer();
+      if (!layer || typeof L === 'undefined') return;
+      layer.clearLayers();
+      const latlngs = lotWeedingAdminState.drawLatLngs || [];
+      latlngs.forEach((latLng) => {
+        L.circleMarker(latLng, { radius: 7, fillColor: '#2563EB', color: '#1D4ED8', weight: 2, fillOpacity: 0.9 }).addTo(layer);
+      });
+      if (latlngs.length >= 2) {
+        L.polyline(latlngs, { color: '#2563EB', weight: 3, opacity: 0.95 }).addTo(layer);
+        L.polyline([latlngs[latlngs.length - 1], latlngs[0]], { color: '#2563EB', weight: 2, opacity: 0.65, dashArray: '4,7' }).addTo(layer);
+      }
+      if (latlngs.length >= 1 && lotWeedingAdminState.drawHoverLatLng) {
+        L.polyline([latlngs[latlngs.length - 1], lotWeedingAdminState.drawHoverLatLng], { color: '#3B82F6', weight: 3, opacity: 0.9, dashArray: '6,6' }).addTo(layer);
+      }
+      lotWeedingAdminState.drawStatus = latlngs.length
+        ? (latlngs.length < 3 ? 'Add at least 3 points.' : 'Click Select to choose lots inside.')
+        : (lotWeedingAdminState.drawEnabled ? 'Click map to draw an area.' : lotWeedingAdminState.drawStatus);
+      updateLotWeedingMapControls();
+    }
+
+    function setLotWeedingAdminDrawEnabled(enabled) {
+      const map = lotWeedingAdminState.map;
+      if (!map) return;
+      lotWeedingAdminState.drawEnabled = Boolean(enabled);
+      if (lotWeedingAdminState.drawEnabled) {
+        lotWeedingAdminState.drawStatus = 'Click map to draw an area.';
+      }
+      if (lotWeedingAdminState.drawEnabled) {
+        map.getContainer()?.classList.add('lot-weeding-map--drawing');
+      } else {
+        map.getContainer()?.classList.remove('lot-weeding-map--drawing');
+        lotWeedingAdminState.drawHoverLatLng = null;
+      }
+      renderLotWeedingAdminDrawLayer();
+      updateLotWeedingMapControls();
+    }
+
+    function clearLotWeedingAdminDrawSelection() {
+      lotWeedingAdminState.drawLatLngs = [];
+      lotWeedingAdminState.drawHoverLatLng = null;
+      lotWeedingAdminState.drawStatus = '';
+      if (lotWeedingAdminState.drawLayer) lotWeedingAdminState.drawLayer.clearLayers();
+      if (lotWeedingAdminState.drawSelectionLayer) lotWeedingAdminState.drawSelectionLayer.clearLayers();
+      setLotWeedingAdminDrawEnabled(false);
+    }
+
+    function closeLotWeedingAdminDrawSelection() {
+      const map = lotWeedingAdminState.map;
+      const ring = (lotWeedingAdminState.drawLatLngs || []).slice();
+      if (!map || ring.length < 3) {
+        lotWeedingAdminState.drawStatus = 'Add at least 3 points before selecting.';
+        updateLotWeedingMapControls();
+        return;
+      }
+      ring.push(ring[0]);
+      const selected = getLotWeedingAdminFilteredRequests()
+        .filter((request) => {
+          const coords = getLotWeedingRequestCoordinates(request);
+          return coords && pointInPolygon(coords.latitude, coords.longitude, ring);
+        });
+      lotWeedingAdminState.selectedRowNumbers = new Set(selected.map((request) => Number(request.rowNumber)));
+      lotWeedingAdminState.selectedRowNumber = selected[0]?.rowNumber || lotWeedingAdminState.selectedRowNumber;
+      if (!lotWeedingAdminState.drawSelectionLayer) {
+        lotWeedingAdminState.drawSelectionLayer = L.layerGroup().addTo(map);
+      }
+      lotWeedingAdminState.drawSelectionLayer.clearLayers();
+      L.polygon(ring, { color: '#2563EB', weight: 2, fillColor: '#2563EB', fillOpacity: 0.16 }).addTo(lotWeedingAdminState.drawSelectionLayer);
+      lotWeedingAdminState.drawLatLngs = [];
+      lotWeedingAdminState.drawHoverLatLng = null;
+      lotWeedingAdminState.drawStatus = `Selected ${formatGodmodeCount(selected.length)} mapped lot${selected.length === 1 ? '' : 's'}.`;
+      setLotWeedingAdminDrawEnabled(false);
+      refreshLotWeedingAdminMapSelection();
+    }
+
+    function attachLotWeedingAdminDrawHandlers(map) {
+      if (!map) return;
+      map.on('click', (event) => {
+        if (!lotWeedingAdminState.drawEnabled) return;
+        event.originalEvent?.preventDefault?.();
+        event.originalEvent?.stopPropagation?.();
+        const latlngs = lotWeedingAdminState.drawLatLngs;
+        if (latlngs.length >= 3 && L.latLng(event.latlng).distanceTo(L.latLng(latlngs[0])) < 28) {
+          closeLotWeedingAdminDrawSelection();
+          return;
+        }
+        latlngs.push(event.latlng);
+        renderLotWeedingAdminDrawLayer();
+      });
+      map.on('mousemove', (event) => {
+        if (!lotWeedingAdminState.drawEnabled || !lotWeedingAdminState.drawLatLngs.length) return;
+        lotWeedingAdminState.drawHoverLatLng = event.latlng;
+        renderLotWeedingAdminDrawLayer();
+      });
+      map.on('mouseout', () => {
+        if (!lotWeedingAdminState.drawHoverLatLng) return;
+        lotWeedingAdminState.drawHoverLatLng = null;
+        renderLotWeedingAdminDrawLayer();
+      });
     }
 
     function initializeLotWeedingAdminMap(requests) {
@@ -4296,6 +4526,8 @@
         attribution: '© OpenStreetMap contributors, © CARTO',
         maxZoom: 22
       }).addTo(map);
+      installLotWeedingMapControls(map);
+      attachLotWeedingAdminDrawHandlers(map);
 
       const bounds = [];
       const markers = mappedRequests.map((request) => {
@@ -4312,6 +4544,7 @@
       }
       setTimeout(() => map.invalidateSize(), 80);
       syncLotWeedingAdminZoneOverlay();
+      renderLotWeedingAdminDrawLayer();
     }
 
     function applyLotWeedingAdminMarkerStyle(marker, request) {
@@ -4883,11 +5116,6 @@
             </div>
             <div class="lot-weeding-admin-search-wrap">
               <input type="search" id="lotWeedingAdminSearch" class="lot-weeding-admin-search" placeholder="Find address, APN, requester, captain..." value="${escapeHtmlAttr(lotWeedingAdminState.query)}">
-              <label class="lot-weeding-admin-zone-toggle">
-                <input type="checkbox" id="lotWeedingAdminZoneOverlayToggle" ${lotWeedingAdminState.zoneOverlayVisible ? 'checked' : ''}>
-                NC zones
-              </label>
-              <span class="lot-weeding-admin-zone-status" id="lotWeedingAdminZoneOverlayStatus" aria-live="polite">${escapeHtml(lotWeedingAdminState.zoneOverlayStatus || '')}</span>
               <button type="button" class="lot-weeding-admin-refresh" id="lotWeedingAdminRefreshBtn">Refresh</button>
             </div>
           </div>
@@ -5483,12 +5711,6 @@
       }
 
       document.getElementById('lotWeedingAdminRefreshBtn')?.addEventListener('click', () => loadLotWeedingAdminData(true));
-      document.getElementById('lotWeedingAdminZoneOverlayToggle')?.addEventListener('change', (event) => {
-        lotWeedingAdminState.zoneOverlayVisible = Boolean(event.target.checked);
-        lotWeedingAdminState.zoneOverlayStatus = lotWeedingAdminState.zoneOverlayVisible ? 'Loading zones...' : '';
-        updateLotWeedingZoneOverlayStatus();
-        syncLotWeedingAdminZoneOverlay();
-      });
       attachLotWeedingAdminSelectionBarHandlers();
       attachLotWeedingAdminQueueHandlers();
       attachLotWeedingAdminFollowupHandlers();
