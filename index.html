@@ -1273,6 +1273,11 @@
       selectedRowNumbers: new Set(),
       map: null,
       markers: [],
+      zoneOverlayVisible: false,
+      zoneOverlayLayer: null,
+      zoneOverlayLoading: false,
+      zoneOverlayStatus: '',
+      zoneOverlayFeatures: null,
       lastMapView: null,
       lastSaveAt: null
     };
@@ -4036,6 +4041,7 @@
       }
       lotWeedingAdminState.map = null;
       lotWeedingAdminState.markers = [];
+      lotWeedingAdminState.zoneOverlayLayer = null;
     }
 
     function getLotWeedingAdminFilteredRequests() {
@@ -4164,6 +4170,115 @@
       refreshLotWeedingAdminMarkerStyles();
     }
 
+    function getLotWeedingZoneOverlayName(props = {}) {
+      const keys = MAPBOX_ADDITIONAL_LAYER_CONFIG.zonePropertyKeys || ['ZoneName', 'Zone name', 'zoneName', 'zone'];
+      for (const key of keys) {
+        const value = props[key];
+        if (value != null && String(value).trim()) return String(value).trim();
+      }
+      return 'NC zone';
+    }
+
+    function updateLotWeedingZoneOverlayStatus() {
+      const statusEl = document.getElementById('lotWeedingAdminZoneOverlayStatus');
+      if (statusEl) statusEl.textContent = lotWeedingAdminState.zoneOverlayStatus || '';
+    }
+
+    function clearLotWeedingAdminZoneOverlay() {
+      const layer = lotWeedingAdminState.zoneOverlayLayer;
+      const map = lotWeedingAdminState.map;
+      if (layer && map && typeof map.removeLayer === 'function' && map.hasLayer(layer)) {
+        map.removeLayer(layer);
+      }
+      lotWeedingAdminState.zoneOverlayLayer = null;
+      lotWeedingAdminState.zoneOverlayLoading = false;
+      lotWeedingAdminState.zoneOverlayStatus = '';
+      updateLotWeedingZoneOverlayStatus();
+    }
+
+    async function loadLotWeedingAdminZoneOverlay() {
+      const map = lotWeedingAdminState.map;
+      if (!map || typeof L === 'undefined') return;
+      if (!lotWeedingAdminState.zoneOverlayVisible) {
+        clearLotWeedingAdminZoneOverlay();
+        return;
+      }
+      if (lotWeedingAdminState.zoneOverlayLoading) return;
+      lotWeedingAdminState.zoneOverlayLoading = true;
+      lotWeedingAdminState.zoneOverlayStatus = 'Loading zones...';
+      updateLotWeedingZoneOverlayStatus();
+      try {
+        await initializeMapboxAccessToken();
+        if (!isMapboxEnabled()) {
+          throw new Error('Zone overlay unavailable: Mapbox token is not configured.');
+        }
+        const featureCollection = lotWeedingAdminState.zoneOverlayFeatures ||
+          await fetchMapboxDatasetFeatures(MAPBOX_CONFIG.username, MAPBOX_CONFIG.datasetId, MAPBOX_CONFIG.accessToken);
+        lotWeedingAdminState.zoneOverlayFeatures = featureCollection;
+        if (!featureCollection || !Array.isArray(featureCollection.features) || !featureCollection.features.length) {
+          throw new Error('Zone overlay unavailable: no zone features found.');
+        }
+        if (lotWeedingAdminState.zoneOverlayLayer && map.hasLayer(lotWeedingAdminState.zoneOverlayLayer)) {
+          map.removeLayer(lotWeedingAdminState.zoneOverlayLayer);
+        }
+        const layer = L.geoJSON(featureCollection, {
+          style: {
+            color: '#1F2937',
+            weight: 1.5,
+            opacity: 0.52,
+            fillColor: '#A9CFA0',
+            fillOpacity: 0.055,
+            dashArray: '4 4'
+          },
+          onEachFeature: (feature, zoneLayer) => {
+            const zoneName = getLotWeedingZoneOverlayName(feature?.properties || {});
+            zoneLayer.bindTooltip(zoneName, {
+              sticky: true,
+              direction: 'top',
+              opacity: 0.88
+            });
+            zoneLayer.on({
+              mouseover: () => {
+                zoneLayer.setStyle({
+                  weight: 2.5,
+                  opacity: 0.78,
+                  fillOpacity: 0.11
+                });
+              },
+              mouseout: () => {
+                layer.resetStyle(zoneLayer);
+              }
+            });
+          }
+        }).addTo(map);
+        if (typeof layer.bringToBack === 'function') layer.bringToBack();
+        lotWeedingAdminState.markers.forEach((entry) => entry.marker?.bringToFront?.());
+        lotWeedingAdminState.zoneOverlayLayer = layer;
+        lotWeedingAdminState.zoneOverlayStatus = `${formatGodmodeCount(featureCollection.features.length)} zones shown`;
+      } catch (error) {
+        console.warn('[lot-weeding] NC zone overlay failed:', error);
+        lotWeedingAdminState.zoneOverlayVisible = false;
+        lotWeedingAdminState.zoneOverlayStatus = error.message || 'Zone overlay unavailable.';
+        if (lotWeedingAdminState.zoneOverlayLayer && map.hasLayer(lotWeedingAdminState.zoneOverlayLayer)) {
+          map.removeLayer(lotWeedingAdminState.zoneOverlayLayer);
+        }
+        lotWeedingAdminState.zoneOverlayLayer = null;
+        const toggle = document.getElementById('lotWeedingAdminZoneOverlayToggle');
+        if (toggle) toggle.checked = false;
+      } finally {
+        lotWeedingAdminState.zoneOverlayLoading = false;
+        updateLotWeedingZoneOverlayStatus();
+      }
+    }
+
+    function syncLotWeedingAdminZoneOverlay() {
+      if (lotWeedingAdminState.zoneOverlayVisible) {
+        loadLotWeedingAdminZoneOverlay();
+      } else {
+        clearLotWeedingAdminZoneOverlay();
+      }
+    }
+
     function initializeLotWeedingAdminMap(requests) {
       const mapEl = document.getElementById('lotWeedingAdminMap');
       if (!mapEl || typeof L === 'undefined') return;
@@ -4196,6 +4311,7 @@
         map.fitBounds(bounds, { padding: [34, 34], maxZoom: 17 });
       }
       setTimeout(() => map.invalidateSize(), 80);
+      syncLotWeedingAdminZoneOverlay();
     }
 
     function applyLotWeedingAdminMarkerStyle(marker, request) {
@@ -4767,6 +4883,11 @@
             </div>
             <div class="lot-weeding-admin-search-wrap">
               <input type="search" id="lotWeedingAdminSearch" class="lot-weeding-admin-search" placeholder="Find address, APN, requester, captain..." value="${escapeHtmlAttr(lotWeedingAdminState.query)}">
+              <label class="lot-weeding-admin-zone-toggle">
+                <input type="checkbox" id="lotWeedingAdminZoneOverlayToggle" ${lotWeedingAdminState.zoneOverlayVisible ? 'checked' : ''}>
+                NC zones
+              </label>
+              <span class="lot-weeding-admin-zone-status" id="lotWeedingAdminZoneOverlayStatus" aria-live="polite">${escapeHtml(lotWeedingAdminState.zoneOverlayStatus || '')}</span>
               <button type="button" class="lot-weeding-admin-refresh" id="lotWeedingAdminRefreshBtn">Refresh</button>
             </div>
           </div>
@@ -5362,6 +5483,12 @@
       }
 
       document.getElementById('lotWeedingAdminRefreshBtn')?.addEventListener('click', () => loadLotWeedingAdminData(true));
+      document.getElementById('lotWeedingAdminZoneOverlayToggle')?.addEventListener('change', (event) => {
+        lotWeedingAdminState.zoneOverlayVisible = Boolean(event.target.checked);
+        lotWeedingAdminState.zoneOverlayStatus = lotWeedingAdminState.zoneOverlayVisible ? 'Loading zones...' : '';
+        updateLotWeedingZoneOverlayStatus();
+        syncLotWeedingAdminZoneOverlay();
+      });
       attachLotWeedingAdminSelectionBarHandlers();
       attachLotWeedingAdminQueueHandlers();
       attachLotWeedingAdminFollowupHandlers();
