@@ -2,9 +2,11 @@
 
 **Status:** first architecture pass implemented and staging tests passed. Next phase is a map-first UX/functionality redesign of the Lot Weeding Admin tab.
 
-**Latest pass:** map-native NC zone overlay and drawn-area selection shipped. The Map tab now has small Leaflet controls near the zoom buttons: **Zones** toggles the townwide Mapbox NC zone layer on/off, using the same styling, hover behavior, tooltip labels, and click popups as the regular Map overlay; **Draw** lets admins click polygon points on the map and **Select** all mapped lots inside the drawn area, feeding the existing selected-group side panel and batch scheduler. The zone overlay remains informational only, not a filter or grouping dimension. The Follow-ups tab supports one-click **Mark notified** (`Homeowner notified = Yes`) on Scheduled-but-not-notified rows and **Mark ROE returned** (`ROE Status = Returned`) on ROE outstanding rows, using the existing narrow PATCH path and local post-save refresh. Single-lot saves now PATCH the sheet, merge the changed fields into `lotWeedingAdminState.requests`, recompute stats locally, and refresh the current map/table/side-panel in place instead of forcing a full sheet reload after every save. Batch scheduling also applies successful row updates locally after each PATCH and no longer forces a final full reload.
+**Latest pass:** batch completion and batch attention workflows shipped for selected groups. When multiple lots are selected, the group side panel now includes **Mark selected Cleaned** (preview, Date Cleaned picker, confirm → writes `Status = Cleaned` and `Date Cleaned`) and **Mark selected Needs Attention** (preview, optional note appended to each lot's Request notes, confirm → writes `Status = Needs Attention`). Both reuse the existing single-row PATCH path with per-lot partial-failure reporting and local post-save refresh, mirroring batch scheduling. Homeowner notified is never changed by these batch actions.
 
-**Confirmed direction (June 25, 2026):** the view is now a tabbed operations console — **Map / Calendar / Follow-ups / Stats** — sharing selection/day context, with per-row inline editing retired in favor of a single side-panel editor. The tab split, compact contextual controls, read-only Calendar, single editor, Follow-up queues with direct write actions, command-center UI cleanup, sortable request table, Stats tab, batch scheduling writes, local post-save refresh, NC zone overlay, and drawn-area map selection are implemented; remaining work is later batch completion/attention workflows. See "Confirmed Console Design" and "What We Built" below. A ready-to-use next-agent prompt is at the very bottom of this file.
+**Previous pass:** map-native NC zone overlay and drawn-area selection shipped. The Map tab now has small Leaflet controls near the zoom buttons: **Zones** toggles the townwide Mapbox NC zone layer on/off, using the same styling, hover behavior, tooltip labels, and click popups as the regular Map overlay; **Draw** lets admins click polygon points on the map and **Select** all mapped lots inside the drawn area, feeding the existing selected-group side panel and batch scheduler. The zone overlay remains informational only, not a filter or grouping dimension. The Follow-ups tab supports one-click **Mark notified** (`Homeowner notified = Yes`) on Scheduled-but-not-notified rows and **Mark ROE returned** (`ROE Status = Returned`) on ROE outstanding rows, using the existing narrow PATCH path and local post-save refresh. Single-lot saves now PATCH the sheet, merge the changed fields into `lotWeedingAdminState.requests`, recompute stats locally, and refresh the current map/table/side-panel in place instead of forcing a full sheet reload after every save. Batch scheduling also applies successful row updates locally after each PATCH and no longer forces a final full reload.
+
+**Confirmed direction (June 25, 2026):** the view is now a tabbed operations console — **Map / Calendar / Follow-ups / Stats** — sharing selection/day context, with per-row inline editing retired in favor of a single side-panel editor. The tab split, compact contextual controls, read-only Calendar, single editor, Follow-up queues with direct write actions, command-center UI cleanup, sortable request table, Stats tab, batch scheduling writes, batch completion/attention writes, local post-save refresh, NC zone overlay, and drawn-area map selection are implemented. See "Confirmed Console Design" and "What We Built" below. A ready-to-use next-agent prompt is at the very bottom of this file.
 
 This document captures what was built, how to configure it, and what still needs to happen before the Lot Weeding Admin workflow is production-ready.
 
@@ -51,7 +53,8 @@ Key pieces:
   - **Stats tab:** large workload cards for Active Requests / In the pipeline, On-Deck / Schedule next, Scheduled / On calendar, Needs Attention / Blockers, Missing APN / Fix parcel, Cleaned / Done, and Total / Requests.
   - **Single side-panel editor:** per-row inline editing was retired. Editing happens in one place — the selected-lot side panel on the Map tab, one lot at a time. It has status quick-actions (**Mark Scheduled / Mark Cleaned / Needs Attention**, status-only single-row writes), the full editable field set, and real `<input type="date">` date pickers. Assigning a `Date Scheduled` auto-sets status to `Scheduled` (unless already past that). `Homeowner notified` is never set automatically.
   - **Batch scheduling writes:** when multiple lots are selected, the group side panel shows a "Schedule work day" action with a date picker, preview, and confirm button. It writes each selected row via the existing single-row PATCH endpoint, setting `Date Scheduled` and `Status = Scheduled`, then reports per-lot successes/failures. No notification field is changed.
-  - no polygon selection or notification automation yet
+  - **Batch completion writes:** when multiple lots are selected, the group side panel shows "Mark selected Cleaned" with a Date Cleaned picker, preview, and confirm. It writes `Status = Cleaned` and `Date Cleaned` per row via the same PATCH endpoint, with partial-failure reporting and local post-save refresh. Homeowner notified is not changed.
+  - **Batch attention writes:** when multiple lots are selected, the group side panel shows "Mark selected Needs Attention" with preview, optional note (appended to each lot's existing Request notes via the `details` field), and confirm. It writes `Status = Needs Attention` per row; notes are only sent when the optional note field is filled. No new columns; no notification automation.
 - New focused tests live in `test/lot-weeding.test.js`.
 
 ---
@@ -345,8 +348,9 @@ These decisions are settled with the product owner. Build to these unless told o
 2. **Calendar tab, read-only** (calendar of scheduled lots, day selection, day export with contact-info checkbox, calendar↔map day filter via the context bar). Lower risk, immediately useful. — DONE (June 25, 2026).
 3. **Follow-up queues** ("ROE outstanding" and "Scheduled but not notified") with inline contact info and one-click mark-contacted/notified. — PARTIAL: read-only queues with inline contact + Open & edit shipped; one-click mark-contacted/notified writes still to do.
 4. **Batch scheduling writes** (assign date → auto `Scheduled`, with preview/confirmation and partial-failure reporting). — DONE (June 25, 2026).
-5. **NC zone overlay** on the Map tab.
-6. **Polygon/lasso selection** can slot in around step 4 to feed group scheduling, still client-side first.
+5. **NC zone overlay** on the Map tab. — DONE.
+6. **Polygon/lasso selection** — client-side first; feeds group scheduling. — DONE (drawn polygon + Select).
+7. **Batch completion/attention workflows** — batch set `Cleaned` + `Date Cleaned`; batch set `Needs Attention` with optional Notes append. — DONE (June 26, 2026).
 
 Single-lot writes (the side-panel editor and status quick-actions) and batch scheduling both use the existing `PATCH /api/lot-weeding-admin/request-row` endpoint. Batch scheduling intentionally iterates single-row writes so partial failures can be reported clearly without exposing a broader generic sheet-write API.
 
@@ -468,12 +472,12 @@ Steps 1–3 are DONE. The remaining order is superseded by "Build order (confirm
    - For selected requests, write `Date Scheduled` and auto `Status = Scheduled`.
    - Preview before write; report partial failures clearly.
 
-8. **NC zone overlay** — informational only on the Map tab.
+8. **NC zone overlay** — informational only on the Map tab. — DONE.
 
-9. **Polygon/lasso selection** — client-side first; feeds group scheduling.
+9. **Polygon/lasso selection** — client-side first; feeds group scheduling. — DONE.
 
-10. **Completion/attention workflows**
-   - Batch set `Cleaned` + `Date Cleaned`; batch set `Needs Attention` with notes/reason.
+10. **Completion/attention workflows** — DONE (June 26, 2026).
+   - Batch set `Cleaned` + `Date Cleaned`; batch set `Needs Attention` with optional Notes append.
 
 11. **Notification prep**
    - Do not automate homeowner notifications until scheduling semantics, consent, message wording, and audit expectations are stable.
@@ -546,6 +550,25 @@ node -e "const fs=require('fs'); const vm=require('vm'); const html=fs.readFileS
 
 IDE lints on `index.html` and `public/css/styles.css` reported no errors after this pass. Note: on PowerShell, run each `node` command on its own line (use `;`), not chained with `&&`.
 
+The following checks passed after the batch completion/attention pass (June 26, 2026):
+
+```powershell
+node --check "server.js"
+node --check "lot-weeding/routes.js"
+node --test "test/lot-weeding.test.js"
+node --test "test/godmode.test.js"
+node -e "const fs=require('fs'); const vm=require('vm'); const html=fs.readFileSync('index.html','utf8'); const scripts=[...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map((m)=>m[1]); scripts.forEach((script,index)=>new vm.Script(script,{filename:'index.html#inline-script-'+index})); console.log('checked '+scripts.length+' inline scripts');"
+```
+
+### Implementation notes for batch completion/attention (June 26, 2026)
+
+- New shared state on `lotWeedingAdminState`: `batchCleanDate`, `batchCleanMessage`, `batchCleanResults`, `batchCleanInProgress`; `batchAttentionNote`, `batchAttentionMessage`, `batchAttentionResults`, `batchAttentionInProgress`.
+- Group side panel (multi-select) now renders three batch action blocks in order: Schedule work day, Mark selected Cleaned, Mark selected Needs Attention.
+- Batch clean requires a Date Cleaned picker value before confirm; writes `status: Cleaned` and `dateCleaned` only.
+- Batch attention writes `status: Needs Attention`; optional note is appended (newline-separated) to each lot's existing `details` / Request notes when provided. Empty note → status-only write.
+- All batch writes iterate `PATCH /api/lot-weeding-admin/request-row`, merge successful updates locally, and report per-lot ok/error rows — same pattern as batch scheduling. No batch endpoint added yet.
+- Clearing selection resets batch message/result state for schedule, clean, and attention flows.
+
 ### Implementation notes for this pass
 
 - New shared state on `lotWeedingAdminState`: `activeTab` (`map` | `calendar` | `followups`), `dayFilter` (`YYYY-MM-DD` or null), `calendarMonth` (`{year, month}`), `includeContactInfo` (bool).
@@ -559,35 +582,39 @@ IDE lints on `index.html` and `public/css/styles.css` reported no errors after t
 
 ## Handoff Prompt For Next Agent
 
-Paste the block below to start the next agent. It assumes the tabbed console (Map / Calendar / Follow-ups / Stats), the active-context bar, the read-only Calendar with day export, the single side-panel editor with status quick-actions and date pickers, read-only Follow-up queues, command-center UI cleanup, sortable request table, Stats tab, and batch scheduling writes are already implemented.
+Paste the block below to start the next agent. It assumes the tabbed console, local post-save refresh, direct Follow-up write actions, map-native NC zone overlay, drawn-area map selection, and batch schedule/clean/attention workflows are already implemented.
 
 ```text
-Continue the Lot Weeding Admin work. Start by reading LOT_WEEDING_ADMIN_HANDOFF.md (especially "What We Built" → tabbed console, "Confirmed Console Design (June 25, 2026)", and "Implementation notes for this pass") and CODEBASE_FIELD_GUIDE.md.
+Continue the Lot Weeding Admin work. Start by reading LOT_WEEDING_ADMIN_HANDOFF.md (especially "What We Built" → tabbed console, "Confirmed Console Design (June 25, 2026)", and "Implementation notes" sections) and CODEBASE_FIELD_GUIDE.md.
 
-Context: #lotWeedingAdminView is now a four-tab Lot Weeding Command Center (Map / Calendar / Follow-ups / Stats) over one shared lotWeedingAdminState. The Map tab has its own status filters/search; Calendar, Follow-ups, and Stats are not silently filtered by Map controls. There is a persistent active-context bar (selection count and calendar day filter; Map status/search chips only show on Map). The Calendar tab is read-only (month grid keyed on Date Scheduled, day selection drives a shared dayFilter that highlights the Map, plus "Copy day list" with an "Include contact info" checkbox, clipboard-only). Per-row inline editing was retired; the selected-lot side panel on the Map tab is the single editor (one lot at a time) with status quick-actions (Mark Scheduled / Mark Cleaned / Needs Attention), the full field set, and real date pickers. Assigning a Date Scheduled auto-sets Status = Scheduled. Follow-ups has three read-only queues (Missing APN; ROE outstanding; Scheduled-but-not-notified) with Missing APN stacked above Scheduled-but-not-notified and ROE alongside them. The Map request queue is a compact sortable table. Stats live only in the Stats tab. Multi-selected groups have a "Schedule work day" panel with date picker, preview, confirm button, sequential PATCH writes, and per-lot success/failure reporting. Single-lot writes and batch scheduling use PATCH /api/lot-weeding-admin/request-row. Canonical statuses: Requested, On-Deck, Scheduled, Cleaned, Needs Attention, Cancelled.
+Context: #lotWeedingAdminView is now a four-tab Lot Weeding Command Center (Map / Calendar / Follow-ups / Stats) over one shared lotWeedingAdminState. The Map tab has status filters/search, compact command controls, a request map, sortable request queue, and a single side-panel editor. Calendar is read-only (month grid keyed on Date Scheduled, day selection drives shared dayFilter and Map highlighting, plus clipboard "Copy day list" with optional contact info). Follow-ups has three queues (Missing APN, Scheduled but not notified, ROE outstanding); Scheduled-but-not-notified rows have one-click "Mark notified" (Homeowner notified = Yes), and ROE outstanding rows have one-click "Mark ROE returned" (ROE Status = Returned). Per-row inline editing was retired; the selected-lot side panel on the Map tab is the single editor. Assigning Date Scheduled auto-sets Status = Scheduled, while Homeowner notified remains separate. Saves now PATCH the sheet, merge changed fields into lotWeedingAdminState.requests, recompute stats locally, and refresh the current map/table/side-panel in place instead of forcing a full reload.
+
+Map-specific context: the NC zone overlay is map-native now. Small Leaflet controls near the zoom buttons include Zones, Draw, Select, and Clear. Zones uses the same Mapbox townwide zone dataset, styling, hover style, tooltip labels, and click popups as the regular Map overlay; it is informational only, not a filter or grouping dimension. Draw lets admins click polygon points on the map; Select selects all mapped lots inside the drawn polygon and feeds the existing selected-group side panel and batch actions (schedule, mark cleaned, needs attention). No backend writes are triggered by drawing.
+
+Batch group actions (multi-select side panel): Schedule work day (Date Scheduled + Status = Scheduled), Mark selected Cleaned (Status = Cleaned + Date Cleaned), Mark selected Needs Attention (Status = Needs Attention, optional note appended to Request notes). All use sequential PATCH with preview/confirm and partial-failure reporting.
 
 Goal for this pass (in order):
-1. Follow-up write actions: add one-click "Mark notified" (sets Homeowner notified = Yes) and "Mark ROE returned" (sets ROE Status = Returned) directly on the Follow-ups rows, using the existing single-row PATCH. Optimistic UI + clear error handling.
-2. NC zone overlay on the Map tab (informational only, off by default), then polygon/lasso selection feeding the existing batch scheduling flow.
+1. Production/staging validation with a copied intake sheet and role-only test account.
+2. QA/polish from real operator testing — map controls, batch flows, follow-up queues.
+3. Stronger test coverage around write flows (especially batch partial-failure and date/note edge cases).
+4. Optional: narrow batch PATCH endpoint if sequential writes become slow at larger group sizes.
 
 Do:
-- Reuse saveLotWeedingAdminRow / patchLotWeedingAdminRow for single follow-up writes.
-- Do not re-add `Deployment Group` or a separate needs-attention reason/`flagReason` unless the product owner explicitly adds those columns to the source sheet. The generic Notes field is the intended place for blocker context right now.
-- Keep everything driven by shared lotWeedingAdminState and reflected in the active-context bar.
-- Keep the existing role/access/source-sheet architecture, the normalized /api/lot-weeding-admin/requests payload, canonical statuses, captain-facing lot-weeding compatibility, and mirror-schema fallbacks intact.
+- Keep the existing role/access/source-sheet architecture, normalized payload, canonical statuses, captain-facing compatibility, and mirror-schema fallbacks intact.
+- Do not invent new sheet columns (Notes/details is the blocker-context field).
 - Update LOT_WEEDING_ADMIN_HANDOFF.md with any decisions/changes.
-- Run focused syntax/tests/lints afterward (node --check on server.js and lot-weeding/routes.js; node --test test/lot-weeding.test.js; node --test test/godmode.test.js; the inline-script syntax check used previously; ReadLints on touched files). On PowerShell, run each node command on its own line, not chained with &&.
+- Run focused syntax/tests/lints afterward.
 
 Do not:
-- Do NOT implement any homeowner/volunteer notification automation. Marking "notified" only records operational state; it must never send a message.
+- Do NOT implement any homeowner/volunteer notification automation.
 - Do NOT change the Access Sheet model or switch production source env vars.
 - Do NOT remove old mirror-schema compatibility.
 
 Design intent to honor:
 - Assigning a Date Scheduled must auto-set Status = Scheduled; "Homeowner notified of schedule" is always set separately, never automatically.
 - Avoid hidden writes — every batch operation must preview what will change before committing.
-- NC zones, when added later, are an informational overlay only (reuse the existing Mapbox/KML zone-boundary source), off by default, not a filter.
-- Map stays the dominant spatial workspace; do not regress to a spreadsheet-first layout.
+- NC zones are an informational overlay only, off by default, not a filter.
+- Map stays the dominant spatial workspace.
 
-After this pass, the following are queued (in order): polygon/lasso selection feeding group scheduling, then batch completion/attention workflows. Notifications remain explicitly out of scope.
+Notifications remain explicitly out of scope.
 ```
