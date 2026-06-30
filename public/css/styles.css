@@ -3786,7 +3786,7 @@
 
     .lot-weeding-admin-map-empty {
       position: absolute;
-      top: 98px;
+      top: 18px;
       left: 58px;
       right: 18px;
       z-index: 420;
@@ -3871,6 +3871,55 @@
       color: var(--text-primary);
       font-size: 0.88rem;
       line-height: 1.35;
+    }
+
+    .lot-weeding-admin-detail-list--readonly {
+      margin-top: 18px;
+      padding-top: 4px;
+      border-top: 3px solid rgba(31, 41, 55, 0.88);
+    }
+
+    .lot-weeding-admin-detail-list--readonly div:first-child {
+      border-top: 0;
+    }
+
+    .lot-weeding-admin-contact-dd {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 6px;
+    }
+
+    .lot-weeding-admin-contact-email-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .lot-weeding-admin-contact-email-wrap a,
+    .lot-weeding-admin-contact-phone {
+      color: var(--brand-primary-dark);
+      text-decoration: none;
+    }
+
+    .lot-weeding-admin-contact-email-wrap a:hover,
+    .lot-weeding-admin-contact-phone:hover {
+      text-decoration: underline;
+    }
+
+    .lot-weeding-admin-copy-email {
+      opacity: 0.65;
+      padding: 2px;
+    }
+
+    .lot-weeding-admin-copy-email:hover {
+      opacity: 1;
+    }
+
+    .lot-weeding-admin-label--notes {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 3px solid rgba(31, 41, 55, 0.88);
     }
 
     .lot-weeding-admin-panel-notes {
