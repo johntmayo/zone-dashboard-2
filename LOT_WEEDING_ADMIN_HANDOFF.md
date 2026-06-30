@@ -2,7 +2,7 @@
 
 **Status:** Lot Weeding Command Center is feature-complete for the confirmed console design (June 2026). Staging validation completed on a copied intake sheet with revised columns and service-account Editor access. Recent work is **operator-driven UX polish** (filters bar, single-lot editor layout, contact formatting). Production cutover and write-flow tests remain when ready.
 
-**Latest pass (UX polish, ongoing):** status color palette updated on map markers and Details/queue badges (Requested `#fdba77`, Schedule Next `#6c698d`, Scheduled `#81bdc3`, Cleaned `#afc892`, Needs Attention `#bc455a`, Cancelled `#d6d6d6` — badge text uses status color on muted tint background). **On-Deck** renamed to **Schedule Next** (legacy sheet values still normalize). Hover tooltips on **Homeowner Notified** and **UWS Contract** editor labels. Prior: map filters-only bar, single-lot editor layout, tri-state **(unknown)**, contact formatting, no status quick-actions.
+**Latest pass (UX polish, ongoing):** map filter chips replaced with a **Show** dropdown + contextual helper text (Active default). Status colors revised: Requested `#fc9936`, Schedule Next `#8872b1`, Scheduled `#3cb2bd`, Cleaned `#a3cc73`, Needs Attention `#cb6a7c`, Cancelled `#d6d6d6`. Prior: Schedule Next rename, badge styling, Homeowner Notified / UWS Contract tooltips, single-lot editor layout.
 
 **Previous passes:** batch completion/attention, NC zone overlay, draw-to-select, Follow-up writes, batch scheduling, tabbed console, local post-save refresh.
 
@@ -80,7 +80,7 @@ Key pieces:
 `#lotWeedingAdminView` is a four-tab console — **Map / Calendar / Follow-ups / Stats** — over one shared `lotWeedingAdminState`. Switching tabs preserves selection and calendar day filter.
 
 - **Active context bar** — selection count, calendar day filter, and (on Map) status/search chips; each clearable.
-- **Map tab** — **Filters** bar (status chips + search + Refresh; intro: “Choose which lots are displayed on the map and in the Request Queue below”), Leaflet map (no heading bar above map), status legend, sortable request queue, single-lot or multi-select side panel. Calendar day filter dims non-matching lots on the map.
+- **Map tab** — **Show** dropdown (Active default + per-status views + All), helper text explaining the current view, search + Refresh, Leaflet map (no heading bar above map), status legend, sortable request queue, single-lot or multi-select side panel. Calendar day filter dims non-matching lots on the map.
 - **Map controls** — **Zones** (NC overlay, informational only), **Draw** (click polygon points), **Select** (close shape and select mapped lots inside), **Clear** (clear drawn area).
 - **Calendar tab (read-only)** — month grid on `Date Scheduled`, day selection → shared `dayFilter`, **Copy day list** with optional contact info (clipboard only).
 - **Follow-ups tab** — **Missing APN**, **Scheduled but not notified**, **ROE outstanding** queues with inline contact info, **Open & edit**, and one-click **Mark notified** (`Homeowner notified = Yes`) / **Mark ROE returned** (`ROE Status = Returned`).
@@ -91,7 +91,7 @@ Key pieces:
   - **Contact:** email with copy button; phone formatted `(xxx) xxx-xxxx` when 10 US digits.
   - **Last Contact Date** removed from UI and PATCH (no longer on intake sheet).
   - Assigning `Date Scheduled` auto-sets `Status = Scheduled`. `Homeowner notified` is manual only — never auto-set by scheduling or batch actions.
-- **Map filters bar** — not a selection/scheduling toolbar. Group batch actions live in the side panel when multiple lots are selected; selection count still visible in the **active context bar** above tabs.
+- **Map view filter** — **Show** dropdown (not status chips); helper text below explains Active vs each status view. Not a selection/scheduling toolbar. Group batch actions live in the side panel when multiple lots are selected; selection count still visible in the **active context bar** above tabs.
 - **Batch group actions** (multi-select side panel) — all use sequential `PATCH /api/lot-weeding-admin/request-row` with preview, confirm, and per-lot partial-failure reporting:
   - Schedule work day → `Date Scheduled` + `Status = Scheduled`
   - Mark selected Cleaned → `Status = Cleaned` + `Date Cleaned`
@@ -208,11 +208,11 @@ Editable PATCH fields: `apn`, `status`, `scheduledDate`, `homeownerNotified`, `d
 
 ## Status Vocabulary
 
-- `Requested` — submitted, not prioritized (`#fdba77` light-caramel on map/badges)
-- `Schedule Next` — look at next (`#6c698d` dusty-grape); legacy `On-Deck` normalizes to this
-- `Scheduled` — assigned to a date (`#81bdc3` sky-blue-light)
-- `Cleaned` — weeding completed (`#afc892` muted-olive)
-- `Needs Attention` — blocker / manual review (`#bc455a` dusty-mauve)
+- `Requested` — submitted, not prioritized (`#fc9936` deep-saffron on map/badges)
+- `Schedule Next` — look at next (`#8872b1` lavender-purple); legacy `On-Deck` normalizes to this
+- `Scheduled` — assigned to a date (`#3cb2bd` pacific-blue)
+- `Cleaned` — weeding completed (`#a3cc73` willow-green)
+- `Needs Attention` — blocker / manual review (`#cb6a7c` blush-rose)
 - `Cancelled` — no longer active (`#d6d6d6` dust-grey)
 
 Map markers use fill color per status. Admin badges use status color for text and a muted tint for background.
@@ -358,7 +358,7 @@ Continue the Lot Weeding Admin work. Read LOT_WEEDING_ADMIN_HANDOFF.md (Purpose,
 Context: Lot Weeding Command Center — Map / Calendar / Follow-ups / Stats over shared lotWeedingAdminState. Staging validation done (copied intake sheet, revised columns, service-account Editor). Core features shipped: batch schedule/clean/attention, Follow-up Mark notified / Mark ROE returned, NC zone overlay, draw-to-select, local post-save refresh.
 
 Recent UX (do not regress):
-- Map tab: Filters bar only (no map heading bar, no Pick Date/Zoom/Clear in filters). Status colors: Requested #fdba77, Schedule Next #6c698d, Scheduled #81bdc3, Cleaned #afc892, Needs Attention #bc455a, Cancelled #d6d6d6.
+- Map tab: **Show** dropdown + helper text (not filter chips). Status colors: Requested #fc9936, Schedule Next #8872b1, Scheduled #3cb2bd, Cleaned #a3cc73, Needs Attention #cb6a7c, Cancelled #d6d6d6.
 - Single-lot editor: editable fields top (Status, ROE Status, Date Scheduled, Date Cleaned, Homeowner Notified, UWS Contract, APN), read-only requester/contact/zone below, Notes at bottom, email copy + formatted phone. Homeowner Notified / UWS Contract labels have hover tooltips.
 - Status **Schedule Next** (not On-Deck); legacy On-Deck sheet values normalize on read.
 - No status quick-actions; no Last Contact Date in UI/PATCH; tri-state fields use (unknown) default.
