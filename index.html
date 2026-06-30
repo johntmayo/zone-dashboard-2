@@ -3893,8 +3893,7 @@
       }
       if (phone) {
         const formatted = formatLotWeedingPhone(phone);
-        const tel = phone.replace(/\D/g, '');
-        parts.push(`<a class="lot-weeding-admin-contact-phone" href="tel:${escapeHtmlAttr(tel)}">${escapeHtml(formatted)}</a>`);
+        parts.push(`<span class="lot-weeding-admin-contact-phone">${escapeHtml(formatted)}</span>`);
       }
       return parts.join('<span class="lot-weeding-admin-contact-sep"> · </span>');
     }
@@ -4108,8 +4107,8 @@
     const LOT_WEEDING_BATCH_ACTIONS = [
       ['schedule', 'Schedule for a date'],
       ['scheduleNext', 'Mark Schedule Next'],
-      ['cleaned', 'Mark cleaned'],
-      ['attention', 'Flag for attention']
+      ['cleaned', 'Mark Cleaned'],
+      ['attention', 'Mark Needs Attention']
     ];
 
     function getLotWeedingActiveBatchAction() {
@@ -4178,7 +4177,7 @@
           ? `${countLabel} lots will be set to Cleaned with Date Cleaned ${escapeHtml(cleanSheetDate)}. Homeowner notified will not change.`
           : `Pick a date to mark ${countLabel} lots cleaned.`;
         previewLine = (request) => `${escapeHtml(resolveLotWeedingAdminStatus(request.status))} → Cleaned · ${escapeHtml(request.dateCleaned || 'No date')} → ${cleanDate ? escapeHtml(cleanSheetDate) : 'Choose date'}`;
-        buttonLabel = `Mark ${countLabel} cleaned`;
+        buttonLabel = `Mark ${countLabel} Cleaned`;
         busyLabel = 'Marking…';
         resultVerb = 'Cleaned';
         currentResults = Array.isArray(lotWeedingAdminState.batchCleanResults) ? lotWeedingAdminState.batchCleanResults : [];
@@ -4194,8 +4193,8 @@
           ? `${countLabel} lots will be set to Needs Attention and your note added to each lot's notes. Homeowner notified will not change.`
           : `${countLabel} lots will be set to Needs Attention. Homeowner notified will not change.`;
         previewLine = (request) => `${escapeHtml(resolveLotWeedingAdminStatus(request.status))} → Needs Attention${noteValue.trim() ? ' · note added' : ''}`;
-        buttonLabel = `Flag ${countLabel} for attention`;
-        busyLabel = 'Flagging…';
+        buttonLabel = `Mark ${countLabel} Needs Attention`;
+        busyLabel = 'Marking…';
         resultVerb = 'Needs Attention';
         currentResults = Array.isArray(lotWeedingAdminState.batchAttentionResults) ? lotWeedingAdminState.batchAttentionResults : [];
         currentMessage = lotWeedingAdminState.batchAttentionMessage || '';
@@ -4880,15 +4879,21 @@
         }
       }
 
-      // Active-context bar (selection chip count)
+      // Context bar (date/selection chips). When the last chip is cleared the bar
+      // renders empty, so explicitly remove the existing element instead of leaving it.
       const ctxBar = document.querySelector('.lot-weeding-admin-context-bar');
       if (ctxBar) {
-        const wrap = document.createElement('div');
-        wrap.innerHTML = renderLotWeedingAdminContextBar();
-        const newCtx = wrap.firstElementChild;
-        if (newCtx) {
-          ctxBar.replaceWith(newCtx);
-          attachLotWeedingAdminContextHandlers();
+        const html = renderLotWeedingAdminContextBar();
+        if (!html.trim()) {
+          ctxBar.remove();
+        } else {
+          const wrap = document.createElement('div');
+          wrap.innerHTML = html;
+          const newCtx = wrap.firstElementChild;
+          if (newCtx) {
+            ctxBar.replaceWith(newCtx);
+            attachLotWeedingAdminContextHandlers();
+          }
         }
       }
 
@@ -4943,6 +4948,7 @@
               <button type="button" class="lot-weeding-admin-group-clear" data-lot-weeding-group-clear>Clear</button>
             </div>
             <p class="lot-weeding-admin-group-summary">${escapeHtml(statusMix)} · ${escapeHtml(mappingLabel)}</p>
+            <p class="lot-weeding-admin-select-tip"><strong>Shift+click</strong> pins to add or remove lots. Click a single pin to edit just that lot.</p>
             ${visibleSelected.length !== selectedRequests.length ? '<p class="lot-weeding-admin-panel-note">Some selected lots are outside the current filter, but remain selected.</p>' : ''}
             <details class="lot-weeding-admin-group-list-disc">
               <summary>View selected lots</summary>
@@ -4966,7 +4972,7 @@
           <aside class="lot-weeding-admin-side-panel">
             <p class="lot-weeding-admin-panel-kicker">Selected lot</p>
             <h3>No lot selected</h3>
-            <p class="lot-weeding-admin-panel-empty">Click a pin to edit one lot. Draw an area, or Shift+click pins, to select several lots and act on them together.</p>
+            <p class="lot-weeding-admin-panel-empty"><strong>Click a pin</strong> to edit one lot. <strong>Shift+click pins</strong>, or use <strong>Draw area</strong> on the map, to select several lots and act on them at once.</p>
           </aside>
         `;
       }
@@ -4986,6 +4992,7 @@
             <span class="lot-weeding-admin-status lot-weeding-admin-status--${escapeHtmlAttr(getLotWeedingStatusClass(status))}">${escapeHtml(status)}</span>
           </div>
           ${!isVisible ? '<p class="lot-weeding-admin-panel-note">This lot is outside the current filter, but remains selected.</p>' : ''}
+          <p class="lot-weeding-admin-select-tip"><strong>Shift+click</strong> more pins — or use <strong>Draw area</strong> on the map — to select several lots and act on them at once.</p>
 
           <form class="lot-weeding-admin-editor-form" data-lot-weeding-form-row="${rowAttr}">
             <div class="lot-weeding-admin-edit-grid">
@@ -5194,13 +5201,18 @@
       const selectedCount = getLotWeedingAdminSelectedRequests().length;
       if (selectedCount && lotWeedingAdminState.activeTab !== 'map') chips.push({ type: 'selection', label: `${formatGodmodeCount(selectedCount)} selected` });
       if (lotWeedingAdminState.dayFilter) {
-        chips.push({ type: 'day', label: `Day: ${formatLotWeedingDayLabel(lotWeedingAdminState.dayFilter)}` });
+        chips.push({ type: 'day', label: `Date: ${formatLotWeedingDayLabel(lotWeedingAdminState.dayFilter)}` });
       }
       if (!chips.length) return '';
 
+      const onlyType = chips.length === 1 ? chips[0].type : null;
+      const labelText = onlyType === 'day' ? 'Date selected'
+        : onlyType === 'selection' ? 'Selection'
+        : 'Active filters';
+
       return `
         <section class="lot-weeding-admin-context-bar" aria-label="Active filters and selection">
-          <span class="lot-weeding-admin-context-label">Active context</span>
+          <span class="lot-weeding-admin-context-label">${escapeHtml(labelText)}</span>
           ${chips.map((chip) => `
               <span class="lot-weeding-admin-context-chip lot-weeding-admin-context-chip--${chip.type}">
                 ${escapeHtml(chip.label)}
@@ -5392,6 +5404,16 @@
       return parts.join(' · ') || 'No contact info on file';
     }
 
+    function renderLotWeedingAdminFollowupContactHtml(request) {
+      const email = String(request.email || '').trim();
+      const phone = String(request.phone || '').trim();
+      const parts = [];
+      if (phone) parts.push(`<span class="lot-weeding-admin-contact-phone">${escapeHtml(formatLotWeedingPhone(phone))}</span>`);
+      if (email) parts.push(`<span class="lot-weeding-admin-contact-email-wrap"><a href="mailto:${escapeHtmlAttr(email)}">${escapeHtml(email)}</a>${renderLotWeedingAdminCopyEmailButton(email)}</span>`);
+      if (!parts.length) return 'No contact info on file';
+      return parts.join('<span class="lot-weeding-admin-contact-sep"> · </span>');
+    }
+
     function renderLotWeedingAdminCalendarTab(filteredRequests) {
       const scheduledByDay = getLotWeedingScheduledByDay(filteredRequests);
       const dayKeys = Array.from(scheduledByDay.keys()).sort();
@@ -5549,7 +5571,7 @@
               <div class="lot-weeding-admin-followup-main">
                 <strong>${escapeHtml(request.address || 'Address not provided')}</strong>
                 <span>${escapeHtml(request.requesterName || 'Unknown requester')} · ${escapeHtml(request.status || 'Requested')}${extraField ? ` · ${escapeHtml(extraField(request))}` : ''}</span>
-                <em>${escapeHtml(renderLotWeedingAdminContactLine(request))}</em>
+                <em class="lot-weeding-admin-followup-contact">${renderLotWeedingAdminFollowupContactHtml(request)}</em>
                 <small class="lot-weeding-admin-followup-status" aria-live="polite"></small>
               </div>
               <div class="lot-weeding-admin-followup-actions">
@@ -5979,6 +6001,7 @@
     }
 
     function attachLotWeedingAdminFollowupHandlers(root = document) {
+      attachLotWeedingAdminCopyEmailHandlers(root);
       root.querySelectorAll('[data-lot-weeding-followup-action]').forEach((button) => {
         button.addEventListener('click', () => {
           const rowNumber = Number(button.getAttribute('data-lot-weeding-followup-row'));
