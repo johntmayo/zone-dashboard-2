@@ -2,7 +2,7 @@
 
 **Status:** Lot Weeding Command Center is feature-complete for the confirmed console design (June 2026). Staging validation completed on a copied intake sheet with revised columns and service-account Editor access. Recent work is **operator-driven UX polish** (filters bar, single-lot editor layout, contact formatting). Production cutover and write-flow tests remain when ready.
 
-**Latest pass (UX polish, ongoing):** map filter chips replaced with a **Show** dropdown + contextual helper text (Active default). Status colors revised: Requested `#fc9936`, Schedule Next `#8872b1`, Scheduled `#3cb2bd`, Cleaned `#a3cc73`, Needs Attention `#cb6a7c`, Cancelled `#d6d6d6`. Prior: Schedule Next rename, badge styling, Homeowner Notified / UWS Contract tooltips, single-lot editor layout.
+**Latest pass (UX polish, ongoing):** grouping/batch overhaul — multi-select side panel rebuilt as one **Action picker → single form → summary → collapsible preview → one Apply button** (added **Mark Schedule Next** batch; fixed "Cleaning date"→"Date Scheduled"; removed "Writes … only" pills and duplicate lot lists). Unified selection language to **"N lots selected"** everywhere. Map controls simplified to **Zones + Draw area / Finish + Cancel** (removed standalone Select, removed persistent map selection-count, fixed-width cluster). **Shift+click** pins to add/remove from selection; queue button is now **Add to selection / Remove**. Prior: Show dropdown + helper text for the view filter; revised status colors (Requested `#fc9936`, Schedule Next `#8872b1`, Scheduled `#3cb2bd`, Cleaned `#a3cc73`, Needs Attention `#cb6a7c`, Cancelled `#d6d6d6`); Schedule Next rename; tooltips; single-lot editor layout.
 
 **Previous passes:** batch completion/attention, NC zone overlay, draw-to-select, Follow-up writes, batch scheduling, tabbed console, local post-save refresh.
 
@@ -43,16 +43,13 @@ The spreadsheet remains the source of truth. The command center is the **operato
 - **Labels match behavior** — “Select” on the map means “close drawn polygon and select lots inside,” not generic multi-select; naming and affordances must match.
 - **Polish is first-class work** — copy, layout density, disabled/hidden states, and operator testing feedback should be treated as priorities alongside new features.
 
-**Known UX pain points (operator feedback, June 2026):**
-
-- Map **Select** is the second step of Draw → polygon → Select; labeling and empty status slot are confusing if you expect a standalone multi-select control.
-- Multi-select side panel stacks three batch blocks — functional but dense.
-
 **Resolved (June 2026):**
 - Single-lot status quick-actions removed.
-- Map filters bar simplified — label “Filters — Choose which lots are displayed…”, status chips, search, Refresh only (no Pick Date / Zoom / Clear / selection summary in that bar).
+- Map view filter is a **Show** dropdown + helper text (replaced the status chips/filter bar).
 - Map heading bar removed (“Map workspace / Townwide lot-weeding requests / mapped counts”).
 - Single-lot editor layout: editable fields top, read-only requester/contact/zone bottom, Notes last; Map status lat/lon line removed from editor.
+- Map **Select** button removed; drawing now uses **Draw area → Finish/Cancel** with inline hints. Build a selection via draw, **Shift+click** pins, or queue **Add to selection / Remove**.
+- Multi-select side panel collapsed from three stacked batch cards into one **Action picker → form → summary → preview → Apply** flow; selection language unified to **"N lots selected"** (no duplicate count in the map box).
 
 Improvements in these areas are **expected next work**, not optional cosmetic fixes.
 
@@ -81,7 +78,8 @@ Key pieces:
 
 - **Active context bar** — selection count, calendar day filter, and (on Map) status/search chips; each clearable.
 - **Map tab** — **Show** dropdown (Active default + per-status views + All), helper text explaining the current view, search + Refresh, Leaflet map (no heading bar above map), status legend, sortable request queue, single-lot or multi-select side panel. Calendar day filter dims non-matching lots on the map.
-- **Map controls** — **Zones** (NC overlay, informational only), **Draw** (click polygon points), **Select** (close shape and select mapped lots inside), **Clear** (clear drawn area).
+- **Map controls** — **Zones** (NC overlay, informational only) and **Draw area** (click corners). While drawing the control swaps to **Finish** (close shape, select lots inside) + **Cancel**; a transient hint line appears only during drawing. No standalone "Select" button, no persistent selection count in the map box (the side panel owns selection state/language). Control cluster is fixed-width so it never reflows as buttons/labels change.
+- **Building a selection** — draw an area (primary, bulk), **Shift+click** pins to add/remove individually, or use the queue **Add to selection / Remove** buttons. A plain pin click opens the single-lot editor (replaces selection).
 - **Calendar tab (read-only)** — month grid on `Date Scheduled`, day selection → shared `dayFilter`, **Copy day list** with optional contact info (clipboard only).
 - **Follow-ups tab** — **Missing APN**, **Scheduled but not notified**, **ROE outstanding** queues with inline contact info, **Open & edit**, and one-click **Mark notified** (`Homeowner notified = Yes`) / **Mark ROE returned** (`ROE Status = Returned`).
 - **Stats tab** — workload cards (Active, Schedule Next, Scheduled, Needs Attention, Missing APN, Cleaned, Total).
@@ -91,11 +89,13 @@ Key pieces:
   - **Contact:** email with copy button; phone formatted `(xxx) xxx-xxxx` when 10 US digits.
   - **Last Contact Date** removed from UI and PATCH (no longer on intake sheet).
   - Assigning `Date Scheduled` auto-sets `Status = Scheduled`. `Homeowner notified` is manual only — never auto-set by scheduling or batch actions.
-- **Map view filter** — **Show** dropdown (not status chips); helper text below explains Active vs each status view. Not a selection/scheduling toolbar. Group batch actions live in the side panel when multiple lots are selected; selection count still visible in the **active context bar** above tabs.
-- **Batch group actions** (multi-select side panel) — all use sequential `PATCH /api/lot-weeding-admin/request-row` with preview, confirm, and per-lot partial-failure reporting:
-  - Schedule work day → `Date Scheduled` + `Status = Scheduled`
-  - Mark selected Cleaned → `Status = Cleaned` + `Date Cleaned`
-  - Mark selected Needs Attention → `Status = Needs Attention`; optional note appended to Request notes (`details`)
+- **Map view filter** — **Show** dropdown (not status chips); helper text below explains Active vs each status view. Not a selection/scheduling toolbar.
+- **Multi-select side panel** — single panel for 2+ selected lots: header **"N lots selected"** + **Clear**, status-mix/mapped summary, collapsible **View selected lots** list, then one **Action** picker → one form → plain-language summary → collapsible per-lot preview → one **Apply** button + per-lot results. Replaced the old three stacked batch cards (no more "Writes … only" pills, no duplicate lot lists).
+- **Batch group actions** (action picker) — all use sequential `PATCH /api/lot-weeding-admin/request-row` with summary, collapsible preview, single confirm, and per-lot partial-failure reporting:
+  - Schedule for a date → `Date Scheduled` + `Status = Scheduled`
+  - Mark Schedule Next → `Status = Schedule Next` only
+  - Mark cleaned → `Status = Cleaned` + `Date Cleaned`
+  - Flag for attention → `Status = Needs Attention`; optional note appended to Request notes (`details`)
 
 Saves PATCH the sheet, merge into `lotWeedingAdminState.requests`, recompute stats locally, and refresh map/table/side panel in place (no full reload after every save).
 
@@ -278,8 +278,6 @@ Single-lot and batch writes use `PATCH /api/lot-weeding-admin/request-row` (batc
 
 The command center is operational but **UX polish is still needed** based on operator testing. Known rough edges:
 
-- Map **Select** is the second step of Draw → polygon → Select; labeling and empty status slot are confusing if you expect a standalone multi-select control.
-- Multi-select side panel stacks three batch blocks — workable but dense.
 - No dedicated map warning layer for edge cases (e.g. Scheduled without date).
 - No address geocode fallback for unmapped lots (coordinates from APN/context join only).
 - No batch PATCH endpoint (sequential writes only).
@@ -293,7 +291,7 @@ Not planned: persistent named Groups / deployment-group object model; generic sh
 
 ## Next Work
 
-1. **UX polish** from real operator use — map Draw/Select/Clear flow, batch panel density, copy/help text.
+1. **UX polish** from real operator use — copy/help text, edge-case warnings, mobile workflow.
 2. **Production cutover** when ready — point production env at the validated source sheet (staging copy or approved production intake); do not switch env vars casually.
 3. **Write-flow tests** — PATCH field mapping, batch partial-failure, date round-trip, note append.
 4. **Optional:** narrow batch PATCH endpoint if large group sizes become slow.
@@ -332,15 +330,11 @@ Intake stores free-text dates. `parseLotWeedingDate` / `toLotWeedingDateKey` nor
 
 ### Map interaction
 
-- **Marker click** → `focusLotWeedingAdminLot` (single lot, replaces selection).
-- **Multi-select** → queue/unmapped **Select** buttons or Draw → polygon → **Select**.
+- **Plain marker click** → `focusLotWeedingAdminLot` (single lot, replaces selection).
+- **Shift+click marker** → `toggleLotWeedingAdminRequestSelection` (add/remove from multi-selection).
+- **Multi-select** → Draw area → **Finish**, Shift+click pins, or queue **Add to selection / Remove**.
 - **Selection changes** on Map tab update in place via `refreshLotWeedingAdminMapSelection` (no full map rebuild on click).
-
-### UX polish pass (ongoing)
-
-- Map **Draw → Select** workflow still needs clearer inline instructions; Select button empty status slot is confusing.
-- Multi-select side panel stacks three batch blocks — dense.
-- Group selection/scheduling UX may move into side panel (product owner direction); filters bar must stay filters-only.
+- **Batch action panel** → `renderLotWeedingBatchActions` reads `lotWeedingAdminState.batchAction`; `applyLotWeedingSelectedBatchAction` dispatches to the schedule/scheduleNext/clean/attention writers.
 
 ### Batch completion / attention (June 26, 2026)
 
@@ -359,6 +353,10 @@ Context: Lot Weeding Command Center — Map / Calendar / Follow-ups / Stats over
 
 Recent UX (do not regress):
 - Map tab: **Show** dropdown + helper text (not filter chips). Status colors: Requested #fc9936, Schedule Next #8872b1, Scheduled #3cb2bd, Cleaned #a3cc73, Needs Attention #cb6a7c, Cancelled #d6d6d6.
+- Multi-select side panel = one Action picker (Schedule for a date / Mark Schedule Next / Mark cleaned / Flag for attention) → single form → summary → collapsible preview → one Apply button + per-lot results. Header "N lots selected" + Clear. Do not bring back the three stacked batch cards or "Writes … only" pills.
+- Selection language is "N lots selected" everywhere; map box shows NO persistent selection count.
+- Map controls: Zones + Draw area; while drawing → Finish + Cancel. No standalone Select button. Fixed-width control cluster.
+- Build selection via: draw area, Shift+click pins, or queue Add to selection / Remove. Plain pin click opens single-lot editor.
 - Single-lot editor: editable fields top (Status, ROE Status, Date Scheduled, Date Cleaned, Homeowner Notified, UWS Contract, APN), read-only requester/contact/zone below, Notes at bottom, email copy + formatted phone. Homeowner Notified / UWS Contract labels have hover tooltips.
 - Status **Schedule Next** (not On-Deck); legacy On-Deck sheet values normalize on read.
 - No status quick-actions; no Last Contact Date in UI/PATCH; tri-state fields use (unknown) default.
