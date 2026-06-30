@@ -3941,24 +3941,34 @@
       gap: 4px;
     }
 
-    .lot-weeding-admin-contact-email-wrap a,
-    .lot-weeding-admin-contact-phone {
+    .lot-weeding-admin-contact-email-wrap a {
       color: var(--brand-primary-dark);
       text-decoration: none;
     }
 
-    .lot-weeding-admin-contact-email-wrap a:hover,
-    .lot-weeding-admin-contact-phone:hover {
+    .lot-weeding-admin-contact-email-wrap a:hover {
       text-decoration: underline;
     }
 
+    .lot-weeding-admin-contact-phone {
+      color: var(--text-primary);
+    }
+
     .lot-weeding-admin-copy-email {
-      opacity: 0.65;
-      padding: 2px;
+      opacity: 0.45;
+      padding: 1px;
+      color: var(--text-secondary);
+      transition: opacity 0.15s ease, color 0.15s ease;
+    }
+
+    .lot-weeding-admin-copy-email svg {
+      width: 12px;
+      height: 12px;
     }
 
     .lot-weeding-admin-copy-email:hover {
-      opacity: 1;
+      opacity: 0.85;
+      color: var(--text-primary);
     }
 
     .lot-weeding-admin-label--notes {
@@ -4234,6 +4244,12 @@
 
     .lot-weeding-map--drawing {
       cursor: crosshair;
+    }
+
+    .lot-weeding-admin-map .leaflet-interactive:focus,
+    .lot-weeding-admin-map .leaflet-marker-icon:focus,
+    .lot-weeding-admin-map path.leaflet-interactive:focus-visible {
+      outline: none;
     }
 
     .lot-weeding-admin-search,
@@ -4896,6 +4912,22 @@
       font-family: 'Merriweather', serif;
       font-size: 0.76rem;
       line-height: 1.4;
+    }
+
+    .lot-weeding-admin-select-tip {
+      margin: 4px 0 12px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(31, 41, 55, 0.05);
+      color: var(--text-secondary);
+      font-family: 'Merriweather', serif;
+      font-size: 0.74rem;
+      line-height: 1.45;
+    }
+
+    .lot-weeding-admin-select-tip strong {
+      color: var(--text-primary);
+      font-weight: 700;
     }
 
     .lot-weeding-admin-textarea--compact {
