@@ -4,7 +4,7 @@ let cachedPayload = null; // { expiresAt, payload }
 
 const DEFAULT_RANGE = 'A1:ZZ5000';
 const DEFAULT_CACHE_TTL_MS = 30 * 1000;
-const STATUS_VALUES = ['Requested', 'On-Deck', 'Scheduled', 'Cleaned', 'Needs Attention', 'Cancelled'];
+const STATUS_VALUES = ['Requested', 'Schedule Next', 'Scheduled', 'Cleaned', 'Needs Attention', 'Cancelled'];
 const ROE_STATUS_VALUES = ['Requested', 'Returned'];
 
 function strEnv(name, fallback = '') {
@@ -306,7 +306,7 @@ function normalizeStatus(value, requestedValue = '') {
   if (['cleaned', 'completed', 'complete', 'done'].includes(normalized)) return 'Cleaned';
   if (['needs attention', 'needs-attention', 'flagged', 'error', 'issue', 'problem', 'cannot service', 'cannot be serviced'].includes(normalized)) return 'Needs Attention';
   if (['cancelled', 'canceled', 'cancel'].includes(normalized)) return 'Cancelled';
-  if (['on-deck', 'on deck', 'ondeck', 'next up'].includes(normalized)) return 'On-Deck';
+  if (['on-deck', 'on deck', 'ondeck', 'next up', 'schedule next'].includes(normalized)) return 'Schedule Next';
   if (['open', 'requested', 'request', 'pending', 'new'].includes(normalized)) return 'Requested';
   if (!normalized) {
     return isTruthySheetValue(requestedValue) ? 'Requested' : '';
@@ -390,7 +390,7 @@ function summarizeRequests(requests) {
   return (requests || []).reduce((stats, request) => {
     stats.total += 1;
     if (request.status === 'Requested') stats.requested += 1;
-    else if (request.status === 'On-Deck') stats.onDeck += 1;
+    else if (request.status === 'Schedule Next' || request.status === 'On-Deck') stats.onDeck += 1;
     else if (request.status === 'Scheduled') stats.scheduled += 1;
     else if (request.status === 'Cleaned') stats.cleaned += 1;
     else if (request.status === 'Needs Attention') stats.needsAttention += 1;
