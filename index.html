@@ -3794,14 +3794,30 @@
       }).join('');
     }
     const LOT_WEEDING_STATUS_META = {
-      Requested: { color: '#fdba77', label: 'Requested' },
-      'Schedule Next': { color: '#6c698d', label: 'Schedule Next' },
-      'On-Deck': { color: '#6c698d', label: 'Schedule Next' },
-      Scheduled: { color: '#81bdc3', label: 'Scheduled' },
-      Cleaned: { color: '#afc892', label: 'Cleaned' },
-      'Needs Attention': { color: '#bc455a', label: 'Needs Attention' },
+      Requested: { color: '#fc9936', label: 'Requested' },
+      'Schedule Next': { color: '#8872b1', label: 'Schedule Next' },
+      'On-Deck': { color: '#8872b1', label: 'Schedule Next' },
+      Scheduled: { color: '#3cb2bd', label: 'Scheduled' },
+      Cleaned: { color: '#a3cc73', label: 'Cleaned' },
+      'Needs Attention': { color: '#cb6a7c', label: 'Needs Attention' },
       Cancelled: { color: '#d6d6d6', label: 'Cancelled' }
     };
+
+    const LOT_WEEDING_ADMIN_VIEW_FILTERS = [
+      ['active', 'Active', 'Lots still in the pipeline — not Cleaned or Cancelled.'],
+      ['requested', 'Requested', 'Submitted requests, not yet prioritized.'],
+      ['on_deck', 'Schedule Next', 'Ready to assign to a volunteer work day.'],
+      ['scheduled', 'Scheduled', 'Assigned to a cleaning date.'],
+      ['needs_attention', 'Needs Attention', 'Blockers or items needing manual review.'],
+      ['cleaned', 'Cleaned', 'Weeding completed.'],
+      ['cancelled', 'Cancelled', 'No longer active.'],
+      ['all', 'All', 'Every request regardless of status.']
+    ];
+
+    function getLotWeedingAdminViewFilterHint(filterValue) {
+      const match = LOT_WEEDING_ADMIN_VIEW_FILTERS.find(([value]) => value === filterValue);
+      return match ? match[2] : LOT_WEEDING_ADMIN_VIEW_FILTERS[0][2];
+    }
 
     function resolveLotWeedingAdminStatus(status) {
       const normalized = String(status || 'Requested');
@@ -5267,35 +5283,27 @@
       const selectedRequest = getLotWeedingAdminSelectedRequest();
       const selectedRequests = getLotWeedingAdminSelectedRequests();
       const selectedMappedCount = selectedRequests.filter(isLotWeedingRequestMapped).length;
-      const filterItems = [
-        ['active', 'Active'],
-        ['requested', 'Requested'],
-        ['on_deck', 'Schedule Next'],
-        ['scheduled', 'Scheduled'],
-        ['needs_attention', 'Needs Attention'],
-        ['cleaned', 'Cleaned'],
-        ['cancelled', 'Cancelled'],
-        ['all', 'All']
-      ];
+      const currentFilter = lotWeedingAdminState.filter || 'active';
 
       return `
         <section class="lot-weeding-admin-map-controls">
           <div class="lot-weeding-admin-filters-panel">
-            <p class="lot-weeding-admin-filters-intro">
-              <strong>Filters</strong> — Choose which lots are displayed on the map and in the Request Queue below.
-            </p>
             <div class="lot-weeding-admin-toolbar lot-weeding-admin-toolbar--map">
-            <div class="lot-weeding-admin-filter-list" role="group" aria-label="Map status filters">
-              ${filterItems.map(([value, label]) => `
-                <button type="button" class="lot-weeding-admin-filter ${lotWeedingAdminState.filter === value ? 'active' : ''}" data-lot-weeding-filter="${value}">
-                  ${escapeHtml(label)}
-                </button>
-              `).join('')}
-            </div>
-            <div class="lot-weeding-admin-search-wrap">
-              <input type="search" id="lotWeedingAdminSearch" class="lot-weeding-admin-search" placeholder="Find address, APN, requester, captain..." value="${escapeHtmlAttr(lotWeedingAdminState.query)}">
-              <button type="button" class="lot-weeding-admin-refresh" id="lotWeedingAdminRefreshBtn">Refresh</button>
-            </div>
+              <div class="lot-weeding-admin-show-row">
+                <div class="lot-weeding-admin-show-filter">
+                  <label class="lot-weeding-admin-show-label" for="lotWeedingAdminShowFilter">Show</label>
+                  <select id="lotWeedingAdminShowFilter" class="lot-weeding-admin-input lot-weeding-admin-show-select" data-lot-weeding-filter aria-describedby="lotWeedingAdminShowHint">
+                    ${LOT_WEEDING_ADMIN_VIEW_FILTERS.map(([value, label]) => `
+                      <option value="${escapeHtmlAttr(value)}" ${currentFilter === value ? 'selected' : ''}>${escapeHtml(label)}</option>
+                    `).join('')}
+                  </select>
+                </div>
+                <div class="lot-weeding-admin-search-wrap">
+                  <input type="search" id="lotWeedingAdminSearch" class="lot-weeding-admin-search" placeholder="Find address, APN, requester, captain..." value="${escapeHtmlAttr(lotWeedingAdminState.query)}">
+                  <button type="button" class="lot-weeding-admin-refresh" id="lotWeedingAdminRefreshBtn">Refresh</button>
+                </div>
+              </div>
+              <p class="lot-weeding-admin-show-hint" id="lotWeedingAdminShowHint">${escapeHtml(getLotWeedingAdminViewFilterHint(currentFilter))}</p>
             </div>
           </div>
         </section>
@@ -5943,12 +5951,13 @@
     }
 
     function attachLotWeedingAdminHandlers() {
-      document.querySelectorAll('[data-lot-weeding-filter]').forEach((button) => {
-        button.addEventListener('click', () => {
-          lotWeedingAdminState.filter = button.getAttribute('data-lot-weeding-filter') || 'active';
+      const showFilter = document.getElementById('lotWeedingAdminShowFilter');
+      if (showFilter) {
+        showFilter.addEventListener('change', () => {
+          lotWeedingAdminState.filter = showFilter.value || 'active';
           renderLotWeedingAdminView();
         });
-      });
+      }
 
       document.querySelectorAll('[data-lot-weeding-tab]').forEach((button) => {
         button.addEventListener('click', () => {
