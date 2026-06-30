@@ -3783,6 +3783,16 @@
     const LOT_WEEDING_STATUS_OPTIONS = ['Requested', 'On-Deck', 'Scheduled', 'Cleaned', 'Needs Attention', 'Cancelled'];
     const LOT_WEEDING_ROE_STATUS_OPTIONS = ['', 'Requested', 'Returned'];
     const LOT_WEEDING_YES_NO_OPTIONS = ['', 'Yes', 'No'];
+    const LOT_WEEDING_UNKNOWN_OPTION_LABEL = '(unknown)';
+
+    function renderLotWeedingAdminSelectOptions(options, currentValue) {
+      const normalizedCurrent = String(currentValue || '');
+      return options.map((option) => {
+        const value = String(option);
+        const label = value === '' ? LOT_WEEDING_UNKNOWN_OPTION_LABEL : value;
+        return `<option value="${escapeHtmlAttr(value)}" ${value === normalizedCurrent ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+      }).join('');
+    }
     const LOT_WEEDING_STATUS_META = {
       Requested: { color: '#B45309', label: 'Requested' },
       'On-Deck': { color: '#D97706', label: 'On-Deck' },
@@ -4706,20 +4716,6 @@
       });
     }
 
-    function renderLotWeedingAdminSelectionBarContent(selectedRequests, selectedMappedCount) {
-      return `
-        <div>
-          <strong>${formatGodmodeCount(selectedRequests.length)} selected</strong>
-          <span>${selectedRequests.length ? `${formatGodmodeCount(selectedMappedCount)} mapped | ${formatGodmodeCount(selectedRequests.length - selectedMappedCount)} unmapped. Use the group panel to schedule, mark cleaned, or flag needs attention.` : 'Click a marker to inspect one lot. Use Select in the queue to build a group.'}</span>
-        </div>
-        <div class="lot-weeding-admin-selection-actions">
-          <button type="button" class="lot-weeding-admin-refresh lot-weeding-admin-refresh--primary" id="lotWeedingAdminScheduleSelectedBtn" ${selectedRequests.length ? '' : 'disabled'}>Pick Date</button>
-          <button type="button" class="lot-weeding-admin-refresh" id="lotWeedingAdminZoomSelectedBtn" ${selectedMappedCount ? '' : 'disabled'}>Zoom</button>
-          <button type="button" class="lot-weeding-admin-refresh" id="lotWeedingAdminClearSelectionBtn" ${selectedRequests.length ? '' : 'disabled'}>Clear</button>
-        </div>
-      `;
-    }
-
     function replaceLotWeedingAdminTable(filteredRequests) {
       const tableCard = document.querySelector('.lot-weeding-admin-table-card');
       if (!tableCard) return;
@@ -4796,13 +4792,6 @@
           panel.replaceWith(newPanel);
           attachLotWeedingAdminSidePanelHandlers(newPanel);
         }
-      }
-
-      // Selection summary bar
-      const selBar = document.querySelector('.lot-weeding-admin-selection-bar');
-      if (selBar) {
-        selBar.innerHTML = renderLotWeedingAdminSelectionBarContent(selectedRequests, selectedMappedCount);
-        attachLotWeedingAdminSelectionBarHandlers();
       }
 
       // Active-context bar (selection chip count)
@@ -4904,11 +4893,6 @@
       const coords = getLotWeedingRequestCoordinates(request);
       const isVisible = (filteredRequests || []).some((item) => Number(item.rowNumber) === Number(request.rowNumber));
       const rowAttr = escapeHtmlAttr(request.rowNumber);
-      const quickActions = [
-        ['Scheduled', 'Mark Scheduled'],
-        ['Cleaned', 'Mark Cleaned'],
-        ['Needs Attention', 'Needs Attention']
-      ];
       return `
         <aside class="lot-weeding-admin-side-panel lot-weeding-admin-editor" data-lot-weeding-editor-row="${rowAttr}">
           <p class="lot-weeding-admin-panel-kicker">Selected lot · single editor</p>
@@ -4917,12 +4901,6 @@
             <span class="lot-weeding-admin-status lot-weeding-admin-status--${escapeHtmlAttr(getLotWeedingStatusClass(status))}">${escapeHtml(status)}</span>
           </div>
           ${!isVisible ? '<p class="lot-weeding-admin-panel-note">This lot is outside the current filter, but remains selected.</p>' : ''}
-
-          <div class="lot-weeding-admin-quick-actions" role="group" aria-label="Status quick actions">
-            ${quickActions.map(([value, label]) => `
-              <button type="button" class="lot-weeding-admin-quick-action ${status === value ? 'active' : ''}" data-lot-weeding-quick-status="${escapeHtmlAttr(value)}" data-lot-weeding-quick-row="${rowAttr}">${escapeHtml(label)}</button>
-            `).join('')}
-          </div>
 
           <dl class="lot-weeding-admin-detail-list">
             <div><dt>Requester</dt><dd>${escapeHtml(request.requesterName || 'Unknown requester')}</dd></div>
@@ -4946,7 +4924,7 @@
               </label>
               <label class="lot-weeding-admin-label">Homeowner Notified
                 <select class="lot-weeding-admin-input" data-lot-weeding-field="homeownerNotified">
-                  ${LOT_WEEDING_YES_NO_OPTIONS.map((option) => `<option value="${escapeHtmlAttr(option)}" ${option === String(request.homeownerNotified || '') ? 'selected' : ''}>${option ? escapeHtml(option) : ''}</option>`).join('')}
+                  ${renderLotWeedingAdminSelectOptions(LOT_WEEDING_YES_NO_OPTIONS, request.homeownerNotified)}
                 </select>
               </label>
               <label class="lot-weeding-admin-label">Date Cleaned
@@ -4954,15 +4932,12 @@
               </label>
               <label class="lot-weeding-admin-label">UWS Contract
                 <select class="lot-weeding-admin-input" data-lot-weeding-field="universalWasteContract">
-                  ${LOT_WEEDING_YES_NO_OPTIONS.map((option) => `<option value="${escapeHtmlAttr(option)}" ${option === String(request.universalWasteContract || '') ? 'selected' : ''}>${option ? escapeHtml(option) : ''}</option>`).join('')}
+                  ${renderLotWeedingAdminSelectOptions(LOT_WEEDING_YES_NO_OPTIONS, request.universalWasteContract)}
                 </select>
-              </label>
-              <label class="lot-weeding-admin-label">Last Contact Date
-                <input type="date" class="lot-weeding-admin-input" data-lot-weeding-field="lastContactDate" data-lot-weeding-date="1" data-lot-weeding-date-original="${escapeHtmlAttr(request.lastContactDate)}" value="${escapeHtmlAttr(toLotWeedingDateInputValue(request.lastContactDate))}">
               </label>
               <label class="lot-weeding-admin-label">ROE Status
                 <select class="lot-weeding-admin-input" data-lot-weeding-field="roeStatus">
-                  ${LOT_WEEDING_ROE_STATUS_OPTIONS.map((option) => `<option value="${escapeHtmlAttr(option)}" ${option === String(request.roeStatus || '') ? 'selected' : ''}>${option ? escapeHtml(option) : ''}</option>`).join('')}
+                  ${renderLotWeedingAdminSelectOptions(LOT_WEEDING_ROE_STATUS_OPTIONS, request.roeStatus)}
                 </select>
               </label>
               <label class="lot-weeding-admin-label lot-weeding-admin-label--wide">Request notes
@@ -5234,10 +5209,11 @@
 
       return `
         <section class="lot-weeding-admin-map-controls">
-          <div class="lot-weeding-admin-selection-bar">
-            ${renderLotWeedingAdminSelectionBarContent(selectedRequests, selectedMappedCount)}
-          </div>
-          <div class="lot-weeding-admin-toolbar lot-weeding-admin-toolbar--map">
+          <div class="lot-weeding-admin-filters-panel">
+            <p class="lot-weeding-admin-filters-intro">
+              <strong>Filters</strong> — Choose which lots are displayed on the map and in the Request Queue below.
+            </p>
+            <div class="lot-weeding-admin-toolbar lot-weeding-admin-toolbar--map">
             <div class="lot-weeding-admin-filter-list" role="group" aria-label="Map status filters">
               ${filterItems.map(([value, label]) => `
                 <button type="button" class="lot-weeding-admin-filter ${lotWeedingAdminState.filter === value ? 'active' : ''}" data-lot-weeding-filter="${value}">
@@ -5248,6 +5224,7 @@
             <div class="lot-weeding-admin-search-wrap">
               <input type="search" id="lotWeedingAdminSearch" class="lot-weeding-admin-search" placeholder="Find address, APN, requester, captain..." value="${escapeHtmlAttr(lotWeedingAdminState.query)}">
               <button type="button" class="lot-weeding-admin-refresh" id="lotWeedingAdminRefreshBtn">Refresh</button>
+            </div>
             </div>
           </div>
         </section>
@@ -5764,21 +5741,6 @@
       });
     }
 
-    function attachLotWeedingAdminSelectionBarHandlers(root = document) {
-      root.querySelector('#lotWeedingAdminClearSelectionBtn')?.addEventListener('click', () => {
-        clearLotWeedingAdminSelection();
-        applyLotWeedingAdminSelectionChange();
-      });
-      root.querySelector('#lotWeedingAdminZoomSelectedBtn')?.addEventListener('click', zoomLotWeedingAdminMapToSelection);
-      root.querySelector('#lotWeedingAdminScheduleSelectedBtn')?.addEventListener('click', () => {
-        const batchDate = document.getElementById('lotWeedingBatchScheduleDate');
-        const singleDate = document.querySelector('.lot-weeding-admin-editor-form [data-lot-weeding-field="scheduledDate"]');
-        const target = batchDate || singleDate;
-        target?.focus();
-        target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      });
-    }
-
     function attachLotWeedingAdminSidePanelHandlers(root = document) {
       // Group-summary view: jump to one of the selected lots (keeps it a group)
       root.querySelectorAll('[data-lot-weeding-select]').forEach((button) => {
@@ -5828,17 +5790,6 @@
           if (dateInput.value && statusSelect && (statusSelect.value === 'Requested' || statusSelect.value === 'On-Deck')) {
             statusSelect.value = 'Scheduled';
           }
-        });
-      });
-
-      // Status quick-actions (status-only single-row write)
-      root.querySelectorAll('[data-lot-weeding-quick-status]').forEach((button) => {
-        button.addEventListener('click', () => {
-          const rowNumber = Number(button.getAttribute('data-lot-weeding-quick-row'));
-          const status = button.getAttribute('data-lot-weeding-quick-status');
-          if (!rowNumber || !status) return;
-          const statusEl = document.querySelector(`[data-lot-weeding-editor-row="${rowNumber}"] .lot-weeding-admin-row-status`);
-          saveLotWeedingAdminRow(rowNumber, { status }, { statusEl, buttonEl: button });
         });
       });
 
@@ -5956,7 +5907,6 @@
       }
 
       document.getElementById('lotWeedingAdminRefreshBtn')?.addEventListener('click', () => loadLotWeedingAdminData(true));
-      attachLotWeedingAdminSelectionBarHandlers();
       attachLotWeedingAdminQueueHandlers();
       attachLotWeedingAdminFollowupHandlers();
 

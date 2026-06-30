@@ -3614,15 +3614,35 @@
     }
 
     .lot-weeding-admin-map-controls {
-      display: grid;
-      grid-template-columns: minmax(250px, 0.55fr) minmax(0, 1fr);
-      gap: 12px;
-      align-items: center;
+      display: block;
       padding: 10px 12px;
       background:
         linear-gradient(90deg, rgba(96, 108, 56, 0.08), rgba(245, 158, 11, 0.06)),
         #FDFBF7;
       border: 2px solid rgba(96, 108, 56, 0.22);
+    }
+
+    .lot-weeding-admin-filters-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .lot-weeding-admin-filters-intro {
+      margin: 0;
+      color: var(--text-secondary);
+      font-family: 'Merriweather', serif;
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    .lot-weeding-admin-filters-intro strong {
+      color: var(--brand-primary-dark);
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.74rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     .lot-weeding-admin-explainer {
@@ -4478,8 +4498,7 @@
         padding: 0;
       }
 
-      .lot-weeding-admin-hero,
-      .lot-weeding-admin-selection-bar {
+      .lot-weeding-admin-hero {
         flex-direction: column;
         align-items: stretch;
       }

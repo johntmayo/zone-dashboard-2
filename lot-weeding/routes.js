@@ -695,7 +695,6 @@ function registerLotWeedingRoutes(app, deps) {
         'dateCleaned',
         'roeStatus',
         'universalWasteContract',
-        'lastContactDate',
         'details'
       ]);
       const updates = {};
