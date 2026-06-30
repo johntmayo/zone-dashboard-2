@@ -41,9 +41,10 @@ The spreadsheet remains the source of truth. The command center is the **operato
 
 **Known UX pain points (operator feedback, June 2026):**
 
-- Map **Select** feels like it does nothing unless you already know the Draw → polygon → Select workflow; the status area below the buttons looks like an empty broken slot.
-- Single-lot **Mark Scheduled / Mark Cleaned / Needs Attention** buttons at the top of the lot card overlap the Status dropdown and Save flow; Mark Cleaned there does not set Date Cleaned (unlike batch Mark cleaned), which is inconsistent and misleading.
+- Map **Select** is the second step of Draw → polygon → Select; labeling and empty status slot are confusing if you expect a standalone multi-select control.
 - Multi-select side panel stacks three batch blocks — functional but dense.
+
+**Resolved (June 2026):** single-lot status quick-actions removed; map toolbar simplified to filters-only (Pick Date / Zoom / Clear and selection summary text removed from filter bar).
 
 Improvements in these areas are **expected next work**, not optional cosmetic fixes.
 
@@ -76,7 +77,8 @@ Key pieces:
 - **Calendar tab (read-only)** — month grid on `Date Scheduled`, day selection → shared `dayFilter`, **Copy day list** with optional contact info (clipboard only).
 - **Follow-ups tab** — **Missing APN**, **Scheduled but not notified**, **ROE outstanding** queues with inline contact info, **Open & edit**, and one-click **Mark notified** (`Homeowner notified = Yes`) / **Mark ROE returned** (`ROE Status = Returned`).
 - **Stats tab** — workload cards (Active, On-Deck, Scheduled, Needs Attention, Missing APN, Cleaned, Total).
-- **Single side-panel editor** — one lot at a time on the Map tab; full field set with date pickers; **Save lot**. Assigning `Date Scheduled` auto-sets `Status = Scheduled`. `Homeowner notified of schedule` is edited manually only — never auto-set by scheduling or batch actions.
+- **Single side-panel editor** — one lot at a time on the Map tab; full field set with date pickers; **Save lot**. No status quick-action buttons (use Status dropdown + Save). Tri-state fields (UWS Contract, Homeowner Notified, ROE Status) show **(unknown)** when blank. Last Contact Date removed from UI (no longer on intake sheet). Assigning `Date Scheduled` auto-sets `Status = Scheduled`. `Homeowner notified of schedule` is edited manually only — never auto-set by scheduling or batch actions.
+- **Map filters bar** — status filter chips with intro label; search and Refresh retained. Selection summary and Pick Date / Zoom / Clear removed from this bar (group actions live in the side panel when multiple lots are selected).
 - **Batch group actions** (multi-select side panel) — all use sequential `PATCH /api/lot-weeding-admin/request-row` with preview, confirm, and per-lot partial-failure reporting:
   - Schedule work day → `Date Scheduled` + `Status = Scheduled`
   - Mark selected Cleaned → `Status = Cleaned` + `Date Cleaned`
@@ -176,7 +178,7 @@ Target revised fields:
 - `Phone Number of Homeowner`
 - `Email of Homeowner`
 - `Universal Waste Systems contract Y/N`
-- `Last contact date`
+- `Last contact date` (legacy reads only; not editable in admin UI)
 - `Date Scheduled`
 - `Homeowner notified of schedule`
 - `Date Cleaned`
@@ -187,7 +189,7 @@ Target revised fields:
 
 Mirror-era aliases remain supported (`Timestamp`, `lot_weeding_*_spring_2026`, etc.).
 
-Editable PATCH fields: `apn`, `status`, `scheduledDate`, `homeownerNotified`, `dateCleaned`, `roeStatus`, `universalWasteContract`, `lastContactDate`, `details`.
+Editable PATCH fields: `apn`, `status`, `scheduledDate`, `homeownerNotified`, `dateCleaned`, `roeStatus`, `universalWasteContract`, `details`.
 
 ---
 
@@ -262,7 +264,6 @@ Single-lot and batch writes use `PATCH /api/lot-weeding-admin/request-row` (batc
 The command center is operational but **UX polish is still needed** based on operator testing. Known rough edges:
 
 - Map **Select** is the second step of Draw → polygon → Select; labeling and empty status slot are confusing if you expect a standalone multi-select control.
-- Single-lot **status quick-actions** (Mark Scheduled / Mark Cleaned / Needs Attention) overlap the form below and only write status (not dates) — redundant with the Status dropdown + Save lot.
 - Multi-select side panel stacks three batch blocks — workable but dense.
 - No dedicated map warning layer for edge cases (e.g. Scheduled without date).
 - No address geocode fallback for unmapped lots (coordinates from APN/context join only).
@@ -277,7 +278,7 @@ Not planned: persistent named Groups / deployment-group object model; generic sh
 
 ## Next Work
 
-1. **UX polish** from real operator use — map Draw/Select/Clear flow, lot card quick-actions vs form, batch panel density, copy/help text.
+1. **UX polish** from real operator use — map Draw/Select/Clear flow, batch panel density, copy/help text.
 2. **Production cutover** when ready — point production env at the validated source sheet (staging copy or approved production intake); do not switch env vars casually.
 3. **Write-flow tests** — PATCH field mapping, batch partial-failure, date round-trip, note append.
 4. **Optional:** narrow batch PATCH endpoint if large group sizes become slow.
