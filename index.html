@@ -3257,7 +3257,7 @@
       if (!normalized) return '';
       if (normalized.includes('cleaned') || normalized.includes('complete') || normalized === 'done') return 'Cleaned';
       if (normalized.includes('scheduled') || normalized.includes('booked') || normalized.includes('planned')) return 'Scheduled';
-      if (normalized.includes('on-deck') || normalized.includes('on deck')) return 'On-Deck';
+      if (normalized.includes('on-deck') || normalized.includes('on deck') || normalized.includes('schedule next')) return 'Schedule Next';
       if (normalized.includes('attention') || normalized.includes('flag') || normalized.includes('issue')) return 'Needs Attention';
       if (normalized.includes('cancel')) return 'Cancelled';
       if (normalized.includes('request') || normalized === 'open' || normalized === 'pending') return 'Requested';
@@ -3780,7 +3780,7 @@
       }
     }
 
-    const LOT_WEEDING_STATUS_OPTIONS = ['Requested', 'On-Deck', 'Scheduled', 'Cleaned', 'Needs Attention', 'Cancelled'];
+    const LOT_WEEDING_STATUS_OPTIONS = ['Requested', 'Schedule Next', 'Scheduled', 'Cleaned', 'Needs Attention', 'Cancelled'];
     const LOT_WEEDING_ROE_STATUS_OPTIONS = ['', 'Requested', 'Returned'];
     const LOT_WEEDING_YES_NO_OPTIONS = ['', 'Yes', 'No'];
     const LOT_WEEDING_UNKNOWN_OPTION_LABEL = '(unknown)';
@@ -3794,13 +3794,23 @@
       }).join('');
     }
     const LOT_WEEDING_STATUS_META = {
-      Requested: { color: '#B45309', label: 'Requested' },
-      'On-Deck': { color: '#D97706', label: 'On-Deck' },
-      Scheduled: { color: '#2563EB', label: 'Scheduled' },
-      Cleaned: { color: '#606C38', label: 'Cleaned' },
-      'Needs Attention': { color: '#B7533D', label: 'Needs Attention' },
-      Cancelled: { color: '#6B7280', label: 'Cancelled' }
+      Requested: { color: '#fdba77', label: 'Requested' },
+      'Schedule Next': { color: '#6c698d', label: 'Schedule Next' },
+      'On-Deck': { color: '#6c698d', label: 'Schedule Next' },
+      Scheduled: { color: '#81bdc3', label: 'Scheduled' },
+      Cleaned: { color: '#afc892', label: 'Cleaned' },
+      'Needs Attention': { color: '#bc455a', label: 'Needs Attention' },
+      Cancelled: { color: '#d6d6d6', label: 'Cancelled' }
     };
+
+    function resolveLotWeedingAdminStatus(status) {
+      const normalized = String(status || 'Requested');
+      return normalized === 'On-Deck' ? 'Schedule Next' : normalized;
+    }
+
+    function isLotWeedingScheduleNextStatus(status) {
+      return status === 'Schedule Next' || status === 'On-Deck';
+    }
 
     function isLotWeedingTerminalStatus(status) {
       return status === 'Cleaned' || status === 'Cancelled' || status === 'Completed';
@@ -3815,11 +3825,12 @@
     }
 
     function getLotWeedingStatusMeta(status) {
-      return LOT_WEEDING_STATUS_META[status] || LOT_WEEDING_STATUS_META.Requested;
+      const resolved = resolveLotWeedingAdminStatus(status);
+      return LOT_WEEDING_STATUS_META[resolved] || LOT_WEEDING_STATUS_META[status] || LOT_WEEDING_STATUS_META.Requested;
     }
 
     function getLotWeedingStatusClass(status) {
-      return String(status || 'Requested').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      return resolveLotWeedingAdminStatus(status).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     }
 
     function getLotWeedingRequestCoordinates(request) {
@@ -4270,7 +4281,7 @@
           filter === 'all' ||
           (filter === 'active' && !isLotWeedingTerminalStatus(status)) ||
           (filter === 'requested' && status === 'Requested') ||
-          (filter === 'on_deck' && status === 'On-Deck') ||
+          (filter === 'on_deck' && isLotWeedingScheduleNextStatus(status)) ||
           (filter === 'scheduled' && status === 'Scheduled') ||
           (filter === 'cleaned' && isLotWeedingCleanedStatus(status)) ||
           (filter === 'needs_attention' && isLotWeedingNeedsAttentionStatus(status)) ||
@@ -4301,7 +4312,7 @@
         const status = String(request.status || 'Requested');
         stats.total += 1;
         if (status === 'Requested') stats.requested += 1;
-        else if (status === 'On-Deck') stats.onDeck += 1;
+        else if (isLotWeedingScheduleNextStatus(status)) stats.onDeck += 1;
         else if (status === 'Scheduled') stats.scheduled += 1;
         else if (status === 'Cleaned') stats.cleaned += 1;
         else if (status === 'Needs Attention') stats.needsAttention += 1;
@@ -4950,7 +4961,7 @@
     }
 
     function renderLotWeedingAdminEditor(request, filteredRequests) {
-      const status = String(request.status || 'Requested');
+      const status = resolveLotWeedingAdminStatus(request.status);
       const isVisible = (filteredRequests || []).some((item) => Number(item.rowNumber) === Number(request.rowNumber));
       const rowAttr = escapeHtmlAttr(request.rowNumber);
       return `
@@ -4980,12 +4991,12 @@
               <label class="lot-weeding-admin-label">Date Cleaned
                 <input type="date" class="lot-weeding-admin-input" data-lot-weeding-field="dateCleaned" data-lot-weeding-date="1" data-lot-weeding-date-original="${escapeHtmlAttr(request.dateCleaned)}" value="${escapeHtmlAttr(toLotWeedingDateInputValue(request.dateCleaned))}">
               </label>
-              <label class="lot-weeding-admin-label">Homeowner Notified
+              <label class="lot-weeding-admin-label" title="Has the homeowner been notified of their scheduled cleaning date?">Homeowner Notified
                 <select class="lot-weeding-admin-input" data-lot-weeding-field="homeownerNotified">
                   ${renderLotWeedingAdminSelectOptions(LOT_WEEDING_YES_NO_OPTIONS, request.homeownerNotified)}
                 </select>
               </label>
-              <label class="lot-weeding-admin-label">UWS Contract
+              <label class="lot-weeding-admin-label" title="Does the homeowner have a contract with Universal Waste Systems for yard waste pickup?">UWS Contract
                 <select class="lot-weeding-admin-input" data-lot-weeding-field="universalWasteContract">
                   ${renderLotWeedingAdminSelectOptions(LOT_WEEDING_YES_NO_OPTIONS, request.universalWasteContract)}
                 </select>
@@ -5191,7 +5202,7 @@
       const stats = lotWeedingAdminState.stats || {};
       const statItems = [
         ['Active Requests', stats.active || 0, 'In the pipeline'],
-        ['On-Deck', stats.onDeck || 0, 'Schedule next'],
+        ['Schedule Next', stats.onDeck || 0, 'Ready to assign'],
         ['Scheduled', stats.scheduled || 0, 'On calendar'],
         ['Needs Attention', stats.needsAttention || stats.flagged || 0, 'Blockers'],
         ['Missing APN', stats.missingApn || 0, 'Fix parcel'],
@@ -5259,7 +5270,7 @@
       const filterItems = [
         ['active', 'Active'],
         ['requested', 'Requested'],
-        ['on_deck', 'On-Deck'],
+        ['on_deck', 'Schedule Next'],
         ['scheduled', 'Scheduled'],
         ['needs_attention', 'Needs Attention'],
         ['cleaned', 'Cleaned'],
@@ -5339,7 +5350,7 @@
     }
 
     function renderLotWeedingAdminRequestRow(request) {
-      const status = String(request.status || 'Requested');
+      const status = resolveLotWeedingAdminStatus(request.status);
       const selected = isLotWeedingAdminRequestSelected(request);
       const primary = Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber);
       const coords = getLotWeedingRequestCoordinates(request);
@@ -5845,7 +5856,7 @@
         dateInput.addEventListener('change', () => {
           const form = dateInput.closest('.lot-weeding-admin-editor-form');
           const statusSelect = form?.querySelector('[data-lot-weeding-field="status"]');
-          if (dateInput.value && statusSelect && (statusSelect.value === 'Requested' || statusSelect.value === 'On-Deck')) {
+          if (dateInput.value && statusSelect && (statusSelect.value === 'Requested' || isLotWeedingScheduleNextStatus(statusSelect.value))) {
             statusSelect.value = 'Scheduled';
           }
         });
@@ -5876,7 +5887,7 @@
             }
           });
           // Locked decision: assigning a Date Scheduled auto-sets status to Scheduled.
-          if (updates.scheduledDate && (updates.status === 'Requested' || updates.status === 'On-Deck')) {
+          if (updates.scheduledDate && (updates.status === 'Requested' || isLotWeedingScheduleNextStatus(updates.status))) {
             updates.status = 'Scheduled';
           }
           if (!rowNumber || !Object.keys(updates).length) return;
@@ -7475,7 +7486,7 @@
     function normalizeLotWeedingStatus(value) {
       const normalized = String(value || '').trim().toLowerCase();
       if (normalized === 'requested' || normalized === 'request' || normalized === 'open' || normalized === 'pending') return 'Requested';
-      if (normalized === 'on-deck' || normalized === 'on deck' || normalized === 'ondeck') return 'On-Deck';
+      if (normalized === 'on-deck' || normalized === 'on deck' || normalized === 'ondeck' || normalized === 'schedule next') return 'Schedule Next';
       if (normalized === 'scheduled') return 'Scheduled';
       if (normalized === 'cleaned' || normalized === 'completed' || normalized === 'complete' || normalized === 'done') return 'Cleaned';
       if (normalized === 'needs attention' || normalized === 'flagged' || normalized === 'error' || normalized === 'issue') return 'Needs Attention';
@@ -7513,7 +7524,7 @@
       if (isLotWeedingCleanedStatus(status) || status === 'Cancelled') return 5;
       if (status === 'Scheduled') return 4;
       if (isLotWeedingNeedsAttentionStatus(status)) return 3;
-      if (status === 'On-Deck') return 2;
+      if (status === 'Schedule Next' || status === 'On-Deck') return 2;
       if (status === 'Requested') return 1;
       return 0;
     }

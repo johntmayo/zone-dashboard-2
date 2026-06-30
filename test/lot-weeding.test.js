@@ -14,7 +14,7 @@ const {
 test('normalizeLotWeedingRows: maps revised intake columns to stable request fields', () => {
   const parsed = normalizeSheetValues([
     ['Request Submission Date Stamp', 'Name of Homeowner', 'Address of Property', 'Phone Number of Homeowner', 'Email of Homeowner', 'Universal Waste Systems contract Y/N', 'Last contact date', 'Date Scheduled', 'Homeowner notified of schedule', 'Date Cleaned', 'ROE Status', 'Notes', 'APN', 'Status', 'Latitude', 'Longitude'],
-    ['6/1/2026 10:30 AM', 'Jane Owner', '123 Lake Ave', '6265551212', 'owner@example.com', 'yes', '6/3/2026', '', 'No', '', 'Requested', 'Gate is unlocked', '5842-001-020', 'On-Deck', '34.19123', '-118.15123'],
+    ['6/1/2026 10:30 AM', 'Jane Owner', '123 Lake Ave', '6265551212', 'owner@example.com', 'yes', '6/3/2026', '', 'No', '', 'Requested', 'Gate is unlocked', '5842-001-020', 'Schedule Next', '34.19123', '-118.15123'],
     ['6/2/2026 11:00 AM', 'Sam Owner', '456 Pine St', '', '', 'No', '', '7/15/2026', 'Yes', '7/20/2026', 'Returned', '', '', 'Cleaned', '', '']
   ]);
 
@@ -25,7 +25,7 @@ test('normalizeLotWeedingRows: maps revised intake columns to stable request fie
   assert.strictEqual(rows[0].requesterName, 'Jane Owner');
   assert.strictEqual(rows[0].address, '123 Lake Ave');
   assert.strictEqual(rows[0].apn, '5842-001-020');
-  assert.strictEqual(rows[0].status, 'On-Deck');
+  assert.strictEqual(rows[0].status, 'Schedule Next');
   assert.strictEqual(rows[0].email, 'owner@example.com');
   assert.strictEqual(rows[0].universalWasteContract, 'Yes');
   assert.strictEqual(rows[0].homeownerNotified, 'No');
@@ -54,7 +54,8 @@ test('normalizeLotWeedingRows: remains compatible with old mirror-style columns'
 
 test('normalizeStatus: maps old and revised status values to canonical operations values', () => {
   assert.strictEqual(normalizeStatus('Requested'), 'Requested');
-  assert.strictEqual(normalizeStatus('On deck'), 'On-Deck');
+  assert.strictEqual(normalizeStatus('On deck'), 'Schedule Next');
+  assert.strictEqual(normalizeStatus('On-Deck'), 'Schedule Next');
   assert.strictEqual(normalizeStatus('Scheduled'), 'Scheduled');
   assert.strictEqual(normalizeStatus('Completed'), 'Cleaned');
   assert.strictEqual(normalizeStatus('Needs Attention'), 'Needs Attention');
