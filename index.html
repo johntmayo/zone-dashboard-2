@@ -91,6 +91,7 @@
     <!-- Left Navigation Bar -->
     <nav class="left-nav">
       <div class="nav-header">
+        <img id="navHeaderPartnerLogo" class="nav-header-partner-logo hidden" alt="Partner organization logo">
         <div class="nav-header-zone" id="navHeaderZone">Zone XX</div>
         <div class="nav-header-org">Altagether</div>
       </div>
@@ -489,7 +490,7 @@
           <div>
             <p class="godmode-kicker">Townwide operations</p>
             <h2>Lot Weeding Command Center</h2>
-            <p class="godmode-subtitle">Map the work, schedule crews, and chase down blockers.</p>
+            <p class="godmode-subtitle">See requests, schedule cleanings, and resolve issues.</p>
           </div>
           <div class="godmode-freshness" id="lotWeedingAdminFreshness">Not loaded yet</div>
         </section>
@@ -3014,6 +3015,48 @@
       return Boolean(isCurrentUserLotWeedingAdmin && !isCurrentUserAdmin && !currentSheetUrl);
     }
 
+    // Drop a partner org's logo at this path to brand the nav for lot-weeding-only
+    // users. If the file is missing, we gracefully fall back to the normal text title.
+    const LOT_WEEDING_PARTNER_LOGO_SRC = 'public/images/partner-logo.png';
+
+    // For users whose only access is the Lot Weeding Command Center (no zone sheet),
+    // strip the nav down to just that one destination + Sign out, and swap the
+    // "Zone XX / Altagether" title for a partner logo when one is available.
+    function applyLotWeedingOnlyNavChrome() {
+      const leftNav = document.querySelector('.left-nav');
+      if (!leftNav) return;
+      const lotWeedingOnly = isZonelessLotWeedingOnlyUser();
+      leftNav.classList.toggle('left-nav--lot-weeding-only', lotWeedingOnly);
+
+      const zoneEl = document.getElementById('navHeaderZone');
+      const orgEl = leftNav.querySelector('.nav-header-org');
+      const logo = document.getElementById('navHeaderPartnerLogo');
+
+      const showTitleText = () => {
+        if (logo) logo.classList.add('hidden');
+        if (zoneEl) zoneEl.classList.remove('hidden');
+        if (orgEl) orgEl.classList.remove('hidden');
+      };
+      const showPartnerLogo = () => {
+        if (logo) logo.classList.remove('hidden');
+        if (zoneEl) zoneEl.classList.add('hidden');
+        if (orgEl) orgEl.classList.add('hidden');
+      };
+
+      if (!lotWeedingOnly || !logo) {
+        showTitleText();
+        return;
+      }
+
+      if (logo.getAttribute('src') !== LOT_WEEDING_PARTNER_LOGO_SRC) {
+        logo.onload = showPartnerLogo;
+        logo.onerror = showTitleText;
+        logo.src = LOT_WEEDING_PARTNER_LOGO_SRC;
+      } else if (logo.complete && logo.naturalWidth > 0) {
+        showPartnerLogo();
+      }
+    }
+
     function canOpenViewWithoutSheet(viewName) {
       if (viewName === 'home') return true;
       if (viewName === 'lotWeedingAdmin') return canAccessLotWeedingAdminView();
@@ -3077,6 +3120,8 @@
           item.style.pointerEvents = allowed ? 'auto' : 'none';
         });
       }
+
+      applyLotWeedingOnlyNavChrome();
     }
 
     const GODMODE_FIELD_ALIASES = {
@@ -3810,9 +3855,9 @@
     const LOT_WEEDING_ADMIN_VIEW_FILTERS = [
       ['active', 'Active', 'Lots still in the pipeline — not Cleaned or Cancelled.'],
       ['requested', 'Requested', 'Submitted requests, not yet prioritized.'],
-      ['on_deck', 'Schedule Next', 'Ready to assign to a volunteer work day.'],
-      ['scheduled', 'Scheduled', 'Assigned to a cleaning date.'],
-      ['needs_attention', 'Needs Attention', 'Blockers or items needing manual review.'],
+      ['on_deck', 'Schedule Next', 'Lots that should be prioritized for scheduling.'],
+      ['scheduled', 'Scheduled', 'Lots that have been scheduled for cleaning.'],
+      ['needs_attention', 'Needs Attention', 'Requests that need manual review, such as those missing ROE forms.'],
       ['cleaned', 'Cleaned', 'Weeding completed.'],
       ['cancelled', 'Cancelled', 'No longer active.'],
       ['all', 'All', 'Every request regardless of status.']
@@ -4537,11 +4582,24 @@
           map.removeLayer(lotWeedingAdminState.zoneOverlayLayer);
         }
         const baseStyle = MAPBOX_ADDITIONAL_LAYER_CONFIG.style || {};
-        // Zones are a purely visual layer that sits UNDER the pins: no clicks,
-        // no hover, no tooltips/popups, so they never interfere with the lasso tool.
+        // Zones are a non-interactive visual layer beneath the pins: the polygons never
+        // capture clicks/hover (so the lasso works), and each zone shows a permanent,
+        // click-through label (zone name + captains) that sits lightly over the pins.
         const layer = L.geoJSON(featureCollection, {
           interactive: false,
-          style: { ...baseStyle, interactive: false }
+          style: { ...baseStyle, interactive: false },
+          onEachFeature: (feature, zoneLayer) => {
+            const label = buildLotWeedingZoneTooltipLabel(feature?.properties || {});
+            if (label && typeof zoneLayer.bindTooltip === 'function') {
+              zoneLayer.bindTooltip(label, {
+                permanent: true,
+                direction: 'center',
+                className: 'lot-weeding-zone-label',
+                interactive: false,
+                opacity: 1
+              });
+            }
+          }
         }).addTo(map);
         if (typeof layer.bringToBack === 'function') layer.bringToBack();
         lotWeedingAdminState.markers.forEach((entry) => entry.marker?.bringToFront?.());
@@ -4919,12 +4977,6 @@
         el.classList.toggle('selected', isSelected);
         el.classList.toggle('active', rowNumber === Number(lotWeedingAdminState.selectedRowNumber));
       });
-
-      // The map now flexes to match the side panel's height, so re-measure after the
-      // panel swap (which can change that height) to avoid grey tiles / blank gaps.
-      if (lotWeedingAdminState.map) {
-        requestAnimationFrame(() => lotWeedingAdminState.map?.invalidateSize({ animate: false }));
-      }
     }
 
     // Clicking a map marker (or "Inspect") focuses exactly one lot in the single editor,
@@ -4985,7 +5037,12 @@
           <aside class="lot-weeding-admin-side-panel">
             <p class="lot-weeding-admin-panel-kicker">Selected lot</p>
             <h3>No lot selected</h3>
-            <p class="lot-weeding-admin-panel-empty"><strong>Click a pin</strong> to edit one lot. <strong>Shift+click pins</strong>, or use <strong>Draw area</strong> on the map, to select several lots and act on them at once.</p>
+            <p class="lot-weeding-admin-panel-empty">Select a lot to view and edit its details here.</p>
+            <ul class="lot-weeding-admin-panel-empty-list">
+              <li><strong>Click a pin</strong> on the map (or a row in the queue below) to open one lot.</li>
+              <li><strong>Shift+click pins</strong>, or use <strong>Draw area</strong> on the map, to select several lots and act on them together.</li>
+              <li>New here? Open the <strong>Help</strong> tab for a quick tour.</li>
+            </ul>
           </aside>
         `;
       }
@@ -5108,10 +5165,11 @@
             .filter((rowNumber) => availableRowNumbers.has(Number(rowNumber)))
             .map(Number)
         );
+        // Don't auto-select a lot on load — start with the side panel showing
+        // instructions. Only keep a prior selection if that lot still exists.
         const selectedStillExists = lotWeedingAdminState.requests.some((request) => Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber));
         if (!selectedStillExists) {
-          const firstMappedRequest = lotWeedingAdminState.requests.find(isLotWeedingRequestMapped);
-          lotWeedingAdminState.selectedRowNumber = (firstMappedRequest || lotWeedingAdminState.requests[0] || {}).rowNumber || null;
+          lotWeedingAdminState.selectedRowNumber = null;
         }
         lotWeedingAdminState.loaded = true;
       } catch (error) {
@@ -5168,7 +5226,7 @@
 
       const mapFilteredRequests = getLotWeedingAdminFilteredRequests();
       const allRequests = lotWeedingAdminState.requests || [];
-      const activeTab = ['map', 'calendar', 'followups', 'stats'].includes(lotWeedingAdminState.activeTab)
+      const activeTab = ['map', 'calendar', 'followups', 'stats', 'help'].includes(lotWeedingAdminState.activeTab)
         ? lotWeedingAdminState.activeTab
         : 'map';
       lotWeedingAdminState.activeTab = activeTab;
@@ -5176,7 +5234,8 @@
         ['map', 'Map'],
         ['calendar', 'Calendar'],
         ['followups', 'Follow-ups'],
-        ['stats', 'Stats']
+        ['stats', 'Stats'],
+        ['help', 'Help']
       ];
 
       let tabPanelHtml = '';
@@ -5186,6 +5245,8 @@
         tabPanelHtml = renderLotWeedingAdminFollowupsTab();
       } else if (activeTab === 'stats') {
         tabPanelHtml = renderLotWeedingAdminStatsTab();
+      } else if (activeTab === 'help') {
+        tabPanelHtml = renderLotWeedingAdminHelpTab();
       } else {
         tabPanelHtml = renderLotWeedingAdminMapTab(mapFilteredRequests);
       }
@@ -5264,6 +5325,65 @@
                 <em>${escapeHtml(detail)}</em>
               </div>
             `).join('')}
+          </div>
+        </section>
+      `;
+    }
+
+    const LOT_WEEDING_SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1hkjqP0U1PHkfjT3KEgBfTRq-Kwor63IFOJUzQceOVN0/edit?gid=1247542193#gid=1247542193';
+
+    function renderLotWeedingAdminHelpTab() {
+      return `
+        <section class="lot-weeding-admin-help-tab">
+          <div class="lot-weeding-admin-help-intro">
+            <p class="lot-weeding-admin-panel-kicker">Getting started</p>
+            <h3>How to Use This Tool</h3>
+            <p>This command center is where lot-weeding requests are reviewed, scheduled, and tracked from intake all the way through cleaning.</p>
+          </div>
+
+          <div class="lot-weeding-admin-help-grid">
+            <article class="lot-weeding-admin-help-card">
+              <h4>Navigate the map</h4>
+              <ul>
+                <li>Each pin is one lot, colored by its status — see the legend beneath the map.</li>
+                <li>Hover a pin for its address and status; <strong>click</strong> a pin to open that lot in the side panel.</li>
+                <li>Drag to pan and scroll to zoom. Use <strong>Altagether Zones</strong> to toggle the zone overlay on or off.</li>
+                <li>Use the <strong>Show</strong> dropdown to filter which lots appear, or the search box to find an address, APN, requester, or captain.</li>
+              </ul>
+            </article>
+
+            <article class="lot-weeding-admin-help-card">
+              <h4>Edit a single lot</h4>
+              <ul>
+                <li>Click a pin (or a row in the queue) to open it in the side panel.</li>
+                <li>Change the <strong>Status</strong>, dates, and other fields right in the panel, then press <strong>Save lot</strong>.</li>
+                <li>Assigning a <strong>Date Scheduled</strong> automatically moves the lot to <strong>Scheduled</strong>.</li>
+                <li>Captain emails and the requester's contact info have a small copy button for quick outreach.</li>
+              </ul>
+            </article>
+
+            <article class="lot-weeding-admin-help-card">
+              <h4>Work several lots at once</h4>
+              <ul>
+                <li>Hold <strong>Shift</strong> and click multiple pins to add or remove them from a selection.</li>
+                <li>Or click <strong>Draw area</strong>, drop corners around a cluster of lots, and press <strong>Finish</strong> to select everything inside (the lasso).</li>
+                <li>With a group selected, pick an action — <em>Schedule for a date</em>, <em>Mark Schedule Next</em>, <em>Mark Cleaned</em>, or <em>Mark Needs Attention</em> — and apply it to all of them at once.</li>
+                <li>Click a single pin again at any time to drop back to editing just that lot.</li>
+              </ul>
+            </article>
+
+            <article class="lot-weeding-admin-help-card">
+              <h4>The other tabs</h4>
+              <ul>
+                <li><strong>Calendar</strong> — see scheduled cleanings by day and copy a day's list for volunteers.</li>
+                <li><strong>Follow-ups</strong> — work the queues for missing APNs, homeowners not yet notified, and outstanding ROE forms.</li>
+                <li><strong>Stats</strong> — a townwide snapshot of the current workload.</li>
+              </ul>
+            </article>
+          </div>
+
+          <div class="lot-weeding-admin-help-source">
+            <p>This tool reads from and writes to the lot weeding requests spreadsheet owned by Altadena Talks. <a href="${escapeHtmlAttr(LOT_WEEDING_SPREADSHEET_URL)}" target="_blank" rel="noopener noreferrer">View Spreadsheet</a>.</p>
           </div>
         </section>
       `;
