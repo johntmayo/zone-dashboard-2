@@ -1200,6 +1200,11 @@
     let availableSheets = []; // Sheets returned by /api/user-sheets for zone selection
     let isCurrentUserAdmin = localStorage.getItem('godmodeAdmin') === 'true'; // UI convenience; server still enforces admin access.
     let isCurrentUserLotWeedingAdmin = localStorage.getItem('lotWeedingAdmin') === 'true'; // UI convenience; server still enforces lot-weeding access.
+
+    // Declared up here (not next to the nav helpers below) because updateNavigationState()
+    // runs during initial synchronous load, before those later declarations are reached.
+    // Drop a partner org's logo at this path to brand the nav for lot-weeding-only users.
+    const LOT_WEEDING_PARTNER_LOGO_SRC = 'public/images/partner-logo.png';
     let currentUserRoles = [];
     let currentUserCapabilities = [];
     let welcomeAuthState = 'idle'; // idle | loading | zone_picker | not_registered | server_error
@@ -3015,10 +3020,6 @@
       return Boolean(isCurrentUserLotWeedingAdmin && !isCurrentUserAdmin && !currentSheetUrl);
     }
 
-    // Drop a partner org's logo at this path to brand the nav for lot-weeding-only
-    // users. If the file is missing, we gracefully fall back to the normal text title.
-    const LOT_WEEDING_PARTNER_LOGO_SRC = 'public/images/partner-logo.png';
-
     // For users whose only access is the Lot Weeding Command Center (no zone sheet),
     // strip the nav down to just that one destination + Sign out, and swap the
     // "Zone XX / Altagether" title for a partner logo when one is available.
@@ -3121,7 +3122,12 @@
         });
       }
 
-      applyLotWeedingOnlyNavChrome();
+      // Cosmetic nav branding must never be able to break sign-in / navigation.
+      try {
+        applyLotWeedingOnlyNavChrome();
+      } catch (error) {
+        console.warn('[lot-weeding] nav chrome update skipped:', error);
+      }
     }
 
     const GODMODE_FIELD_ALIASES = {
