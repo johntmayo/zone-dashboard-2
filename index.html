@@ -3835,6 +3835,72 @@
       return Boolean(getLotWeedingRequestCoordinates(request));
     }
 
+    function formatLotWeedingPhone(phone) {
+      const digits = String(phone || '').replace(/\D/g, '');
+      if (digits.length === 10) {
+        return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+      }
+      if (digits.length === 11 && digits.startsWith('1')) {
+        return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+      }
+      return String(phone || '').trim();
+    }
+
+    function renderLotWeedingAdminCopyEmailButton(email) {
+      const trimmed = String(email || '').trim();
+      if (!trimmed) return '';
+      return `<button type="button" class="copy-email-btn lot-weeding-admin-copy-email" data-email="${escapeHtmlAttr(trimmed)}" title="Copy email" aria-label="Copy email"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>`;
+    }
+
+    function renderLotWeedingAdminContactHtml(request) {
+      const email = String(request.email || '').trim();
+      const phone = String(request.phone || '').trim();
+      if (!email && !phone) return 'No contact listed';
+      const parts = [];
+      if (email) {
+        parts.push(`<span class="lot-weeding-admin-contact-email-wrap"><a href="mailto:${escapeHtmlAttr(email)}">${escapeHtml(email)}</a>${renderLotWeedingAdminCopyEmailButton(email)}</span>`);
+      }
+      if (phone) {
+        const formatted = formatLotWeedingPhone(phone);
+        const tel = phone.replace(/\D/g, '');
+        parts.push(`<a class="lot-weeding-admin-contact-phone" href="tel:${escapeHtmlAttr(tel)}">${escapeHtml(formatted)}</a>`);
+      }
+      return parts.join('<span class="lot-weeding-admin-contact-sep"> · </span>');
+    }
+
+    function attachLotWeedingAdminCopyEmailHandlers(root = document) {
+      root.querySelectorAll('.lot-weeding-admin-copy-email').forEach((button) => {
+        button.addEventListener('click', async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const email = button.getAttribute('data-email');
+          if (!email) return;
+          try {
+            await navigator.clipboard.writeText(email);
+            button.style.opacity = '1';
+            button.style.color = '#166534';
+            setTimeout(() => {
+              button.style.opacity = '';
+              button.style.color = '';
+            }, 600);
+          } catch (error) {
+            const textArea = document.createElement('textarea');
+            textArea.value = email;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+              document.execCommand('copy');
+            } catch (fallbackError) {
+              console.error('Failed to copy email:', fallbackError);
+            }
+            document.body.removeChild(textArea);
+          }
+        });
+      });
+    }
+
     function getLotWeedingUnmappedReason(request) {
       if (!String(request?.apn || '').trim()) return 'Missing APN';
       return 'No usable coordinates';
@@ -4733,11 +4799,6 @@
 
     function updateLotWeedingAdminMapCounts(filteredRequests) {
       const mappedRequests = getLotWeedingAdminMappedRequests(filteredRequests);
-      const unmappedRequests = getLotWeedingAdminUnmappedRequests(filteredRequests);
-      const headingCount = document.querySelector('.lot-weeding-admin-map-heading span');
-      if (headingCount) {
-        headingCount.textContent = `${formatGodmodeCount(mappedRequests.length)} mapped / ${formatGodmodeCount(unmappedRequests.length)} unmapped`;
-      }
       const mapCard = document.querySelector('.lot-weeding-admin-map-card');
       const existingEmpty = mapCard?.querySelector('.lot-weeding-admin-map-empty');
       if (mappedRequests.length && existingEmpty) {
@@ -4890,7 +4951,6 @@
 
     function renderLotWeedingAdminEditor(request, filteredRequests) {
       const status = String(request.status || 'Requested');
-      const coords = getLotWeedingRequestCoordinates(request);
       const isVisible = (filteredRequests || []).some((item) => Number(item.rowNumber) === Number(request.rowNumber));
       const rowAttr = escapeHtmlAttr(request.rowNumber);
       return `
@@ -4902,13 +4962,6 @@
           </div>
           ${!isVisible ? '<p class="lot-weeding-admin-panel-note">This lot is outside the current filter, but remains selected.</p>' : ''}
 
-          <dl class="lot-weeding-admin-detail-list">
-            <div><dt>Requester</dt><dd>${escapeHtml(request.requesterName || 'Unknown requester')}</dd></div>
-            <div><dt>Contact</dt><dd>${escapeHtml([request.email, request.phone].filter(Boolean).join(' · ') || 'No contact listed')}</dd></div>
-            <div><dt>Zone / Captain</dt><dd>${escapeHtml([request.zone || 'No zone match', request.captainName || 'No captain listed'].join(' · '))}</dd></div>
-            <div><dt>Map status</dt><dd>${coords ? `Mapped at ${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}` : escapeHtml(getLotWeedingUnmappedReason(request))}</dd></div>
-          </dl>
-
           <form class="lot-weeding-admin-editor-form" data-lot-weeding-form-row="${rowAttr}">
             <div class="lot-weeding-admin-edit-grid">
               <label class="lot-weeding-admin-label">Status
@@ -4916,35 +4969,42 @@
                   ${LOT_WEEDING_STATUS_OPTIONS.map((option) => `<option value="${escapeHtmlAttr(option)}" ${option === status ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
                 </select>
               </label>
-              <label class="lot-weeding-admin-label">APN
-                <input class="lot-weeding-admin-input" data-lot-weeding-field="apn" value="${escapeHtmlAttr(request.apn)}" placeholder="Assign APN">
+              <label class="lot-weeding-admin-label">ROE Status
+                <select class="lot-weeding-admin-input" data-lot-weeding-field="roeStatus">
+                  ${renderLotWeedingAdminSelectOptions(LOT_WEEDING_ROE_STATUS_OPTIONS, request.roeStatus)}
+                </select>
               </label>
               <label class="lot-weeding-admin-label">Date Scheduled
                 <input type="date" class="lot-weeding-admin-input" data-lot-weeding-field="scheduledDate" data-lot-weeding-date="1" data-lot-weeding-date-original="${escapeHtmlAttr(request.scheduledDate)}" value="${escapeHtmlAttr(toLotWeedingDateInputValue(request.scheduledDate))}">
+              </label>
+              <label class="lot-weeding-admin-label">Date Cleaned
+                <input type="date" class="lot-weeding-admin-input" data-lot-weeding-field="dateCleaned" data-lot-weeding-date="1" data-lot-weeding-date-original="${escapeHtmlAttr(request.dateCleaned)}" value="${escapeHtmlAttr(toLotWeedingDateInputValue(request.dateCleaned))}">
               </label>
               <label class="lot-weeding-admin-label">Homeowner Notified
                 <select class="lot-weeding-admin-input" data-lot-weeding-field="homeownerNotified">
                   ${renderLotWeedingAdminSelectOptions(LOT_WEEDING_YES_NO_OPTIONS, request.homeownerNotified)}
                 </select>
               </label>
-              <label class="lot-weeding-admin-label">Date Cleaned
-                <input type="date" class="lot-weeding-admin-input" data-lot-weeding-field="dateCleaned" data-lot-weeding-date="1" data-lot-weeding-date-original="${escapeHtmlAttr(request.dateCleaned)}" value="${escapeHtmlAttr(toLotWeedingDateInputValue(request.dateCleaned))}">
-              </label>
               <label class="lot-weeding-admin-label">UWS Contract
                 <select class="lot-weeding-admin-input" data-lot-weeding-field="universalWasteContract">
                   ${renderLotWeedingAdminSelectOptions(LOT_WEEDING_YES_NO_OPTIONS, request.universalWasteContract)}
                 </select>
               </label>
-              <label class="lot-weeding-admin-label">ROE Status
-                <select class="lot-weeding-admin-input" data-lot-weeding-field="roeStatus">
-                  ${renderLotWeedingAdminSelectOptions(LOT_WEEDING_ROE_STATUS_OPTIONS, request.roeStatus)}
-                </select>
-              </label>
-              <label class="lot-weeding-admin-label lot-weeding-admin-label--wide">Request notes
-                <textarea class="lot-weeding-admin-textarea" data-lot-weeding-field="details" placeholder="Request notes">${escapeHtml(request.details)}</textarea>
+              <label class="lot-weeding-admin-label">APN
+                <input class="lot-weeding-admin-input" data-lot-weeding-field="apn" value="${escapeHtmlAttr(request.apn)}" placeholder="Assign APN">
               </label>
             </div>
             <p class="lot-weeding-admin-editor-hint">Assigning a Date Scheduled automatically sets status to Scheduled. Homeowner notified is always set separately.</p>
+
+            <dl class="lot-weeding-admin-detail-list lot-weeding-admin-detail-list--readonly">
+              <div><dt>Requester</dt><dd>${escapeHtml(request.requesterName || 'Unknown requester')}</dd></div>
+              <div><dt>Contact</dt><dd class="lot-weeding-admin-contact-dd">${renderLotWeedingAdminContactHtml(request)}</dd></div>
+              <div><dt>Zone / Captain</dt><dd>${escapeHtml([request.zone || 'No zone match', request.captainName || 'No captain listed'].join(' · '))}</dd></div>
+            </dl>
+
+            <label class="lot-weeding-admin-label lot-weeding-admin-label--wide lot-weeding-admin-label--notes">Notes
+              <textarea class="lot-weeding-admin-textarea" data-lot-weeding-field="details" placeholder="Notes">${escapeHtml(request.details)}</textarea>
+            </label>
             <div class="lot-weeding-admin-edit-actions">
               <button type="button" class="lot-weeding-admin-save" data-lot-weeding-save="${rowAttr}">Save lot</button>
               <div class="lot-weeding-admin-row-status" aria-live="polite"></div>
@@ -5231,13 +5291,6 @@
 
         <section class="lot-weeding-admin-map-shell">
           <div class="lot-weeding-admin-map-card">
-            <div class="lot-weeding-admin-map-heading">
-              <div>
-                <p class="lot-weeding-admin-panel-kicker">Map workspace</p>
-                <h3>Townwide lot-weeding requests</h3>
-              </div>
-              <span>${formatGodmodeCount(mappedRequests.length)} mapped / ${formatGodmodeCount(unmappedRequests.length)} unmapped</span>
-            </div>
             <div id="lotWeedingAdminMap" class="lot-weeding-admin-map" role="region" aria-label="Lot weeding request map"></div>
             ${mappedRequests.length ? '' : '<div class="lot-weeding-admin-map-empty">No mapped requests match the current filters yet.</div>'}
             <div class="lot-weeding-admin-map-legend" aria-label="Status legend">
@@ -5314,8 +5367,12 @@
     }
 
     function renderLotWeedingAdminContactLine(request) {
-      const contact = [request.phone, request.email].filter(Boolean).join(' · ');
-      return contact || 'No contact info on file';
+      const email = String(request.email || '').trim();
+      const phone = String(request.phone || '').trim();
+      const parts = [];
+      if (phone) parts.push(formatLotWeedingPhone(phone));
+      if (email) parts.push(email);
+      return parts.join(' · ') || 'No contact info on file';
     }
 
     function renderLotWeedingAdminCalendarTab(filteredRequests) {
@@ -5742,6 +5799,7 @@
     }
 
     function attachLotWeedingAdminSidePanelHandlers(root = document) {
+      attachLotWeedingAdminCopyEmailHandlers(root);
       // Group-summary view: jump to one of the selected lots (keeps it a group)
       root.querySelectorAll('[data-lot-weeding-select]').forEach((button) => {
         button.addEventListener('click', () => {
