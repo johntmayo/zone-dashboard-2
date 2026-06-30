@@ -3898,6 +3898,28 @@
       return parts.join('<span class="lot-weeding-admin-contact-sep"> · </span>');
     }
 
+    function renderLotWeedingAdminCaptainsHtml(request) {
+      // Multiple captains for a lot are stored as semicolon-separated lists, with the
+      // name and email fields aligned by position (captain 1 = index 0, etc.).
+      const names = String(request.captainName || '').split(';').map((value) => value.trim());
+      const emails = String(request.captainEmail || '').split(';').map((value) => value.trim());
+      const count = Math.max(names.filter(Boolean).length, emails.filter(Boolean).length);
+      if (!count) return 'No captain listed';
+      const rows = [];
+      for (let i = 0; i < count; i++) {
+        const name = names[i] || '';
+        const email = emails[i] || '';
+        const parts = [];
+        if (name) parts.push(`<span class="lot-weeding-admin-captain-name">${escapeHtml(name)}</span>`);
+        if (email) {
+          parts.push(`<span class="lot-weeding-admin-contact-email-wrap"><a href="mailto:${escapeHtmlAttr(email)}">${escapeHtml(email)}</a>${renderLotWeedingAdminCopyEmailButton(email)}</span>`);
+        }
+        if (!parts.length) continue;
+        rows.push(`<div class="lot-weeding-admin-captain-row">${parts.join('<span class="lot-weeding-admin-contact-sep"> · </span>')}</div>`);
+      }
+      return rows.length ? rows.join('') : 'No captain listed';
+    }
+
     function attachLotWeedingAdminCopyEmailHandlers(root = document) {
       root.querySelectorAll('.lot-weeding-admin-copy-email').forEach((button) => {
         button.addEventListener('click', async (event) => {
@@ -4515,26 +4537,11 @@
           map.removeLayer(lotWeedingAdminState.zoneOverlayLayer);
         }
         const baseStyle = MAPBOX_ADDITIONAL_LAYER_CONFIG.style || {};
-        const hoverStyle = MAPBOX_ADDITIONAL_LAYER_CONFIG.hoverStyle || {};
+        // Zones are a purely visual layer that sits UNDER the pins: no clicks,
+        // no hover, no tooltips/popups, so they never interfere with the lasso tool.
         const layer = L.geoJSON(featureCollection, {
-          style: baseStyle,
-          onEachFeature: (feature, zoneLayer) => {
-            const props = feature?.properties || {};
-            const label = buildLotWeedingZoneTooltipLabel(props);
-            if (label && MAPBOX_ADDITIONAL_LAYER_CONFIG.tooltip?.enabled) {
-              zoneLayer.bindTooltip(label, MAPBOX_ADDITIONAL_LAYER_CONFIG.tooltip);
-            }
-            const popupHtml = buildLotWeedingZonePopupHtml(props);
-            if (popupHtml.trim()) zoneLayer.bindPopup(popupHtml);
-            zoneLayer.on({
-              mouseover: () => {
-                zoneLayer.setStyle({ ...baseStyle, ...hoverStyle });
-              },
-              mouseout: () => {
-                zoneLayer.setStyle(baseStyle);
-              }
-            });
-          }
+          interactive: false,
+          style: { ...baseStyle, interactive: false }
         }).addTo(map);
         if (typeof layer.bringToBack === 'function') layer.bringToBack();
         lotWeedingAdminState.markers.forEach((entry) => entry.marker?.bringToFront?.());
@@ -4599,7 +4606,7 @@
         onAdd() {
           const wrap = L.DomUtil.create('div', 'leaflet-bar lot-weeding-map-control');
           wrap.innerHTML = `
-            <button type="button" id="lotWeedingMapZonesBtn" class="lot-weeding-map-control-btn" aria-pressed="false" title="Show NC zones">Zones</button>
+            <button type="button" id="lotWeedingMapZonesBtn" class="lot-weeding-map-control-btn" aria-pressed="false" title="Show Altagether zones">Altagether Zones</button>
             <button type="button" id="lotWeedingMapDrawBtn" class="lot-weeding-map-control-btn" aria-pressed="false" title="Draw an area to select the lots inside">Draw area</button>
             <button type="button" id="lotWeedingMapCloseDrawBtn" class="lot-weeding-map-control-btn lot-weeding-map-control-btn--primary" title="Select the lots inside the drawn area" hidden>Finish</button>
             <button type="button" id="lotWeedingMapClearDrawBtn" class="lot-weeding-map-control-btn" title="Cancel drawing" hidden>Cancel</button>
@@ -4912,6 +4919,12 @@
         el.classList.toggle('selected', isSelected);
         el.classList.toggle('active', rowNumber === Number(lotWeedingAdminState.selectedRowNumber));
       });
+
+      // The map now flexes to match the side panel's height, so re-measure after the
+      // panel swap (which can change that height) to avoid grey tiles / blank gaps.
+      if (lotWeedingAdminState.map) {
+        requestAnimationFrame(() => lotWeedingAdminState.map?.invalidateSize({ animate: false }));
+      }
     }
 
     // Clicking a map marker (or "Inspect") focuses exactly one lot in the single editor,
@@ -5031,7 +5044,8 @@
             <dl class="lot-weeding-admin-detail-list lot-weeding-admin-detail-list--readonly">
               <div><dt>Requester</dt><dd>${escapeHtml(request.requesterName || 'Unknown requester')}</dd></div>
               <div><dt>Contact</dt><dd class="lot-weeding-admin-contact-dd">${renderLotWeedingAdminContactHtml(request)}</dd></div>
-              <div><dt>Zone / Captain</dt><dd>${escapeHtml([request.zone || 'No zone match', request.captainName || 'No captain listed'].join(' · '))}</dd></div>
+              <div><dt>Zone</dt><dd>${escapeHtml(request.zone || 'No zone match')}</dd></div>
+              <div><dt>Captain</dt><dd class="lot-weeding-admin-contact-dd">${renderLotWeedingAdminCaptainsHtml(request)}</dd></div>
             </dl>
 
             <label class="lot-weeding-admin-label lot-weeding-admin-label--wide lot-weeding-admin-label--notes">Notes
