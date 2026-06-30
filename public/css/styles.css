@@ -3766,6 +3766,8 @@
       position: relative;
       min-height: 700px;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
 
     .lot-weeding-admin-map-heading,
@@ -3822,7 +3824,8 @@
     }
 
     .lot-weeding-admin-map {
-      height: 620px;
+      flex: 1 1 auto;
+      min-height: 620px;
       background:
         linear-gradient(135deg, rgba(96, 108, 56, 0.1), rgba(245, 158, 11, 0.1)),
         #E9E6D7;
@@ -3933,6 +3936,22 @@
       flex-wrap: wrap;
       align-items: center;
       gap: 4px 6px;
+    }
+
+    .lot-weeding-admin-captain-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 6px;
+      width: 100%;
+    }
+
+    .lot-weeding-admin-captain-row + .lot-weeding-admin-captain-row {
+      margin-top: 6px;
+    }
+
+    .lot-weeding-admin-captain-name {
+      font-weight: 700;
     }
 
     .lot-weeding-admin-contact-email-wrap {
