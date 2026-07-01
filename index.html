@@ -5209,14 +5209,23 @@
       }
 
       if (lotWeedingAdminState.error) {
+        // If the session has expired (no token), a plain reload can't recover — offer a
+        // real sign-in instead so the user is never dead-ended in this view.
+        const needsSignIn = !accessToken || !currentUserEmail;
         content.innerHTML = `
           <div class="lot-weeding-admin-empty">
-            <h3>Could not load requests</h3>
+            <h3>${needsSignIn ? 'Please sign in to continue' : 'Could not load requests'}</h3>
             <p>${escapeHtml(lotWeedingAdminState.error)}</p>
-            <button type="button" class="lot-weeding-admin-refresh" id="lotWeedingAdminRetryBtn">Try again</button>
+            <button type="button" class="lot-weeding-admin-refresh" id="lotWeedingAdminRetryBtn">${needsSignIn ? 'Sign in with Google' : 'Try again'}</button>
           </div>
         `;
-        document.getElementById('lotWeedingAdminRetryBtn')?.addEventListener('click', () => loadLotWeedingAdminData(true));
+        document.getElementById('lotWeedingAdminRetryBtn')?.addEventListener('click', () => {
+          if (!accessToken || !currentUserEmail) {
+            signIn();
+          } else {
+            loadLotWeedingAdminData(true);
+          }
+        });
         return;
       }
 
