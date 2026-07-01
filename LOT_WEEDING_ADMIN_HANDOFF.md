@@ -2,9 +2,22 @@
 
 **Status:** Lot Weeding Command Center is feature-complete for the confirmed console design (June 2026). Staging validation completed on a copied intake sheet with revised columns and service-account Editor access. Recent work is **operator-driven UX polish** (filters bar, single-lot editor layout, contact formatting). Production cutover and write-flow tests remain when ready.
 
-**Latest pass (UX polish, ongoing):** grouping/batch overhaul — multi-select side panel rebuilt as one **Action picker → single form → summary → collapsible preview → one Apply button** (added **Mark Schedule Next** batch; fixed "Cleaning date"→"Date Scheduled"; removed "Writes … only" pills and duplicate lot lists). Unified selection language to **"N lots selected"** everywhere. Map controls simplified to **Zones + Draw area / Finish + Cancel** (removed standalone Select, removed persistent map selection-count, fixed-width cluster). **Shift+click** pins to add/remove from selection; queue button is now **Add to selection / Remove**. Prior: Show dropdown + helper text for the view filter; revised status colors (Requested `#fc9936`, Schedule Next `#8872b1`, Scheduled `#3cb2bd`, Cleaned `#a3cc73`, Needs Attention `#cb6a7c`, Cancelled `#d6d6d6`); Schedule Next rename; tooltips; single-lot editor layout.
+**Latest pass (UX polish + hardening, July 2026):**
+- **Fifth tab: Help** — "How to Use This Tool" instructions (navigate map, edit a lot, group via Shift+click/Draw-area lasso, other tabs) + a "View Spreadsheet" link (`LOT_WEEDING_SPREADSHEET_URL`). ⚠️ The linked URL is the Altadena-Talks *original*; the tool actually reads a copy with revised headers. Confirm/repoint that link before relying on it.
+- **Details card** — split into separate **Zone** and **Captain** rows. Captain row shows each captain's name + email (with small copy button); multiple captains are **semicolon-separated and aligned by index** across `captainName`/`captainEmail`. Phone numbers are now plain text (not tap-to-call). Email copy button is smaller/subtler. Follow-ups emails got the same copy button.
+- **Context bar** — label is now contextual (**Date selected** / **Selection** / **Active filters**); day chip reads **Date:** not Day:. Fixed a bug where the bar/date lingered after clearing the last chip.
+- **No auto-select on load** — the side panel opens on a "No lot selected" instructions state instead of auto-picking the top row.
+- **Map height is fixed (700px)** again, with the side panel scrolling internally. (Reverted a variable-height experiment that caused scroll jank when selecting pins.)
+- **Altagether Zones** overlay (renamed from "Zones") is **non-interactive**, sits under the pins, and shows **permanent, click-through labels** (zone name + captain names), lightly transparent so pins stay visible. Marker click focus outline removed.
+- **Action dropdown labels standardized:** Schedule for a date / Mark Schedule Next / **Mark Cleaned** / **Mark Needs Attention**.
+- **Pin/status palette + style now match the main app** — statuses recolored to the main map's `colorPalette` (Requested light-caramel `#fdba77`, Schedule Next soft-blush `#f9d6d3`, Scheduled sky-blue-light `#81bdc3`, Cleaned dry-sage `#afc892`, Needs Attention dusty-mauve `#bc455a`, Cancelled ash-grey `#e5e5e5`), and map markers converted from Leaflet `circleMarker` to the main app's SVG `divIcon` (offset charcoal shadow + charcoal stroke, grow-on-emphasis; amber ring for multi-selected). Badges echo the hues with darker legible text.
+- **Captain phone** now shown in the details card (from the master sheet's `NC Phone` column, wired through `lot-weeding/routes.js`). **ⓘ** affordance added to the tooltipped Homeowner Notified / UWS Contract labels. Details card gained a heavy divider between Contact and Altagether Zone; "Zone"→"Altagether Zone", "Captain"→"Neighborhood Captain". Header kicker "Townwide operations"→"Neighbors helping neighbors". Partner logo path corrected to `public/images/atf-logo.png`.
+- **Lot-weeding-only nav white-labeling** — for zoneless `lot_weeding_admin` users the left nav is stripped to just **Lot Weeding Command Center** + Sign out (no blur, other tabs/links hidden), and the partner logo (`public/images/atf-logo.png`, via `LOT_WEEDING_PARTNER_LOGO_SRC`) replaces the "Zone XX / Altagether" header. Falls back to the text title if the PNG is missing/fails to load.
+- **Bug fixes:** (1) fixed a **TDZ crash on load** — `LOT_WEEDING_PARTNER_LOGO_SRC` was used by `updateNavigationState()` during initial synchronous execution before its `const` was initialized, which halted init and trapped users on "Checking your zone access" unless they cleared cache; the const now lives near the top and the nav-chrome call is wrapped in try/catch. (2) **Expired-session recovery** — the Command Center error state now shows **"Sign in with Google"** (calls `signIn()`) when there's no token, instead of a dead "Try again".
 
-**Previous passes:** batch completion/attention, NC zone overlay, draw-to-select, Follow-up writes, batch scheduling, tabbed console, local post-save refresh.
+**Previous pass:** grouping/batch overhaul — multi-select side panel rebuilt as one **Action picker → single form → summary → collapsible preview → one Apply button** (added **Mark Schedule Next** batch; "Date Scheduled"; removed "Writes … only" pills and duplicate lot lists). Unified selection language to **"N lots selected"**. Map controls simplified to Draw area / Finish + Cancel. **Shift+click** pins to add/remove; queue button **Add to selection / Remove**. Show dropdown + helper text; revised status colors; Schedule Next rename; tooltips; single-lot editor layout.
+
+**Earlier passes:** batch completion/attention, NC zone overlay, draw-to-select, Follow-up writes, batch scheduling, tabbed console, local post-save refresh.
 
 This document captures what was built, how it is configured, what was validated in staging, and what still needs attention before calling the workflow production-ready.
 
@@ -43,13 +56,18 @@ The spreadsheet remains the source of truth. The command center is the **operato
 - **Labels match behavior** — “Select” on the map means “close drawn polygon and select lots inside,” not generic multi-select; naming and affordances must match.
 - **Polish is first-class work** — copy, layout density, disabled/hidden states, and operator testing feedback should be treated as priorities alongside new features.
 
-**Resolved (June 2026):**
+**Resolved (June–July 2026):**
 - Single-lot status quick-actions removed.
 - Map view filter is a **Show** dropdown + helper text (replaced the status chips/filter bar).
 - Map heading bar removed (“Map workspace / Townwide lot-weeding requests / mapped counts”).
-- Single-lot editor layout: editable fields top, read-only requester/contact/zone bottom, Notes last; Map status lat/lon line removed from editor.
+- Single-lot editor layout: editable fields top, read-only requester/contact/zone/captain bottom, Notes last; Map status lat/lon line removed from editor.
 - Map **Select** button removed; drawing now uses **Draw area → Finish/Cancel** with inline hints. Build a selection via draw, **Shift+click** pins, or queue **Add to selection / Remove**.
 - Multi-select side panel collapsed from three stacked batch cards into one **Action picker → form → summary → preview → Apply** flow; selection language unified to **"N lots selected"** (no duplicate count in the map box).
+- **Help tab** added with getting-started instructions and the source-spreadsheet link.
+- Side panel no longer auto-selects the top lot; opens on instructions instead.
+- Map height fixed (no more variable-height scroll jank); side panel scrolls internally.
+- Altagether Zones overlay is non-interactive with click-through name+captain labels (doesn't block the lasso or cover pins).
+- Lot-weeding-only users get a stripped, white-labelable nav; expired sessions recover via an in-view "Sign in with Google" button.
 
 Improvements in these areas are **expected next work**, not optional cosmetic fixes.
 
@@ -74,19 +92,23 @@ Key pieces:
 
 ### Tabbed operations console
 
-`#lotWeedingAdminView` is a four-tab console — **Map / Calendar / Follow-ups / Stats** — over one shared `lotWeedingAdminState`. Switching tabs preserves selection and calendar day filter.
+`#lotWeedingAdminView` is a five-tab console — **Map / Calendar / Follow-ups / Stats / Help** — over one shared `lotWeedingAdminState`. Switching tabs preserves selection and calendar day filter.
 
-- **Active context bar** — selection count, calendar day filter, and (on Map) status/search chips; each clearable.
+- **Context bar** — selection count and calendar day filter chips (each clearable). Label is contextual: **Date selected** / **Selection** / **Active filters**. Reliably removed when the last chip is cleared.
 - **Map tab** — **Show** dropdown (Active default + per-status views + All), helper text explaining the current view, search + Refresh, Leaflet map (no heading bar above map), status legend, sortable request queue, single-lot or multi-select side panel. Calendar day filter dims non-matching lots on the map.
-- **Map controls** — **Zones** (NC overlay, informational only) and **Draw area** (click corners). While drawing the control swaps to **Finish** (close shape, select lots inside) + **Cancel**; a transient hint line appears only during drawing. No standalone "Select" button, no persistent selection count in the map box (the side panel owns selection state/language). Control cluster is fixed-width so it never reflows as buttons/labels change.
-- **Building a selection** — draw an area (primary, bulk), **Shift+click** pins to add/remove individually, or use the queue **Add to selection / Remove** buttons. A plain pin click opens the single-lot editor (replaces selection).
+- **Map controls** — **Altagether Zones** (overlay, informational only) and **Draw area** (click corners). While drawing the control swaps to **Finish** (close shape, select lots inside) + **Cancel**; a transient hint line appears only during drawing. No standalone "Select" button, no persistent selection count in the map box (the side panel owns selection state/language). Control cluster is fixed-width so it never reflows as buttons/labels change.
+- **Altagether Zones overlay** — non-interactive (never captures clicks/hover, so the lasso works and it can't block pins), rendered under the pins, with **click-through labels** showing zone name + captain first names (`buildLotWeedingZoneTooltipLabel`), styled lightly transparent (`.lot-weeding-zone-label`). Off by default. **Labels are zoom-gated** — hidden until zoom ≥ `LOT_WEEDING_ZONE_LABEL_MIN_ZOOM` (reuses the main Map tab's `MAPBOX_ADDITIONAL_LAYER_CONFIG.labelMinZoom`, currently 16) via `updateLotWeedingZoneLabelVisibility()` on `zoomend`, which toggles `.lw-show-zone-labels` on the map container (same tooltip-hidden-by-CSS pattern as the main map's `show-nearby-zone-labels`). Keeps names from stacking up when zoomed out.
+- **Building a selection** — draw an area (primary, bulk), **Shift+click** pins to add/remove individually, or use the queue **Add to selection / Remove** buttons. A plain pin click opens the single-lot editor (replaces selection). On load nothing is auto-selected — the panel shows a "No lot selected" instructions state.
 - **Calendar tab (read-only)** — month grid on `Date Scheduled`, day selection → shared `dayFilter`, **Copy day list** with optional contact info (clipboard only).
-- **Follow-ups tab** — **Missing APN**, **Scheduled but not notified**, **ROE outstanding** queues with inline contact info, **Open & edit**, and one-click **Mark notified** (`Homeowner notified = Yes`) / **Mark ROE returned** (`ROE Status = Returned`).
+- **Follow-ups tab** — **Missing APN**, **Scheduled but not notified**, **ROE outstanding** queues with inline contact info (email has a copy button), **Open & edit**, and one-click **Mark notified** (`Homeowner notified = Yes`) / **Mark ROE returned** (`ROE Status = Returned`).
 - **Stats tab** — workload cards (Active, Schedule Next, Scheduled, Needs Attention, Missing APN, Cleaned, Total).
-- **Single side-panel editor** — one lot at a time on the Map tab; **Save lot**. Layout (top → bottom): editable grid → hint → read-only Requester / Contact / Zone·Captain → **Notes** → Save.
+- **Help tab** — "How to Use This Tool": navigate the map, edit a single lot, work several lots at once (Shift+click / Draw-area lasso), and what the other tabs do; plus the source-spreadsheet link (`LOT_WEEDING_SPREADSHEET_URL`). ⚠️ That link currently points at the Altadena-Talks original, not the revised-header copy the tool actually reads — verify before relying on it.
+- **Single side-panel editor** — one lot at a time on the Map tab; **Save lot**. Layout (top → bottom): editable grid → hint → read-only Requester / Contact → heavy divider → **Altagether Zone** / **Neighborhood Captain** → **Notes** → Save. Panel is a fixed height and scrolls internally (map stays a fixed 700px; no layout reflow when selecting).
   - **Editable field order** (2 columns): Status | ROE Status; Date Scheduled | Date Cleaned; Homeowner Notified | UWS Contract; APN.
   - Tri-state fields (UWS Contract, Homeowner Notified, ROE Status) show **(unknown)** when blank (writes empty string). **Homeowner Notified** and **UWS Contract** labels have hover tooltips explaining each field.
-  - **Contact:** email with copy button; phone formatted `(xxx) xxx-xxxx` when 10 US digits.
+  - **Contact:** requester email with a small/subtle copy button; **phone is plain text** (not tap-to-call).
+  - **Neighborhood Captain:** separate row (below a heavy divider); each captain's name + email (with copy button) + phone (plain text, formatted). Multiple captains are **semicolon-separated in `captainName`/`captainEmail`/`captainPhone`, aligned by index** (`renderLotWeedingAdminCaptainsHtml`). Captain phone is mapped in `lot-weeding/routes.js` (request + context columns via `nc phone`/`captain phone`/`captain_phone`/`contact phone` aliases; name matcher excludes email/phone columns).
+  - Tooltipped labels (**Homeowner Notified**, **UWS Contract**) show a subtle **ⓘ** affordance (`.lot-weeding-admin-tip-icon`) next to the text; the tooltip itself is still the native `title` attribute.
   - **Last Contact Date** removed from UI and PATCH (no longer on intake sheet).
   - Assigning `Date Scheduled` auto-sets `Status = Scheduled`. `Homeowner notified` is manual only — never auto-set by scheduling or batch actions.
 - **Map view filter** — **Show** dropdown (not status chips); helper text below explains Active vs each status view. Not a selection/scheduling toolbar.
@@ -94,8 +116,8 @@ Key pieces:
 - **Batch group actions** (action picker) — all use sequential `PATCH /api/lot-weeding-admin/request-row` with summary, collapsible preview, single confirm, and per-lot partial-failure reporting:
   - Schedule for a date → `Date Scheduled` + `Status = Scheduled`
   - Mark Schedule Next → `Status = Schedule Next` only
-  - Mark cleaned → `Status = Cleaned` + `Date Cleaned`
-  - Flag for attention → `Status = Needs Attention`; optional note appended to Request notes (`details`)
+  - Mark Cleaned → `Status = Cleaned` + `Date Cleaned`
+  - Mark Needs Attention → `Status = Needs Attention`; optional note appended to Request notes (`details`)
 
 Saves PATCH the sheet, merge into `lotWeedingAdminState.requests`, recompute stats locally, and refresh map/table/side panel in place (no full reload after every save).
 
@@ -208,14 +230,16 @@ Editable PATCH fields: `apn`, `status`, `scheduledDate`, `homeownerNotified`, `d
 
 ## Status Vocabulary
 
-- `Requested` — submitted, not prioritized (`#fc9936` deep-saffron on map/badges)
-- `Schedule Next` — look at next (`#8872b1` lavender-purple); legacy `On-Deck` normalizes to this
-- `Scheduled` — assigned to a date (`#3cb2bd` pacific-blue)
-- `Cleaned` — weeding completed (`#a3cc73` willow-green)
-- `Needs Attention` — blocker / manual review (`#cb6a7c` blush-rose)
-- `Cancelled` — no longer active (`#d6d6d6` dust-grey)
+Pin/status colors reuse the **main app's palette** (`colorPalette` in the non-lot-weeding map):
 
-Map markers use fill color per status. Admin badges use status color for text and a muted tint for background.
+- `Requested` — submitted, not prioritized (`#fdba77` light-caramel)
+- `Schedule Next` — look at next (`#f9d6d3` soft-blush); legacy `On-Deck` normalizes to this
+- `Scheduled` — assigned to a date (`#81bdc3` sky-blue-light)
+- `Cleaned` — weeding completed (`#afc892` dry-sage)
+- `Needs Attention` — blocker / manual review (`#bc455a` dusty-mauve)
+- `Cancelled` — no longer active (`#e5e5e5` ash-grey)
+
+Map markers use the main app's SVG pin style (`buildLotWeedingAdminMarkerIcon`): status-colored circle + hard offset charcoal shadow + charcoal stroke, growing when emphasized (focused/day-hit/selected); multi-selected pins get an amber (`#FBBF24`) ring. Dimmed (day filter non-match) via marker opacity. Admin badges echo the same hues (background tint + border) but use a **darker text of each hue** so small pill text stays legible (`.lot-weeding-admin-status--*` in styles.css).
 
 Legacy: `Completed` → `Cleaned`, `Flagged` → `Needs Attention`, `Open` → `Requested`.
 
@@ -243,6 +267,7 @@ Coordinates come from the **intake sheet** (`Latitude`/`Lat`, `Longitude`/`Lng`/
 - `public/css/styles.css`
 - `lot-weeding/routes.js`
 - `test/lot-weeding.test.js`
+- `public/images/atf-logo.png` (partner logo for lot-weeding-only nav; app degrades gracefully if absent)
 
 ---
 
@@ -262,7 +287,7 @@ Settled with the product owner. All items below are **implemented** unless noted
 
 ### Locked design rules
 
-- **Tabbed console:** Map / Calendar / Follow-ups / Stats (+ Stats as fourth tab); shared state across tabs.
+- **Tabbed console:** Map / Calendar / Follow-ups / Stats / Help (five tabs); shared state across tabs.
 - **Single editor** on Map tab; no per-row inline editing in the queue; no status quick-action buttons.
 - **Assigning `Date Scheduled` auto-sets `Scheduled`**; **`Homeowner notified of schedule` is always manual** (side panel, Follow-ups Mark notified, or spreadsheet — never set by schedule/clean/attention batch writes).
 - **Date pickers** for all date fields in the UI.
@@ -318,11 +343,18 @@ Read lints on touched files (`index.html`, `public/css/styles.css`, `lot-weeding
 
 ### Shared state (`lotWeedingAdminState`)
 
-- Tabs: `activeTab` (`map` | `calendar` | `followups` | `stats`)
+- Tabs: `activeTab` (`map` | `calendar` | `followups` | `stats` | `help`)
 - Filters: `filter`, `query`, `dayFilter`, `calendarMonth`, `includeContactInfo`
-- Selection: `selectedRowNumbers`, `selectedRowNumber`
-- Batch: `batchSchedule*`, `batchClean*`, `batchAttention*`
+- Selection: `selectedRowNumbers`, `selectedRowNumber` (no auto-select on load — cleared if the prior lot no longer exists)
+- Batch: `batchSchedule*`, `batchClean*`, `batchAttention*`, `batchScheduleNext*`, `batchAction`
 - Map: `map`, `markers`, zone overlay, draw polygon (`drawEnabled`, `drawLatLngs`, etc.)
+
+### Nav chrome & auth recovery for lot-weeding-only users
+
+- `isZonelessLotWeedingOnlyUser()` = `lot_weeding_admin` capability, not `admin`, no `currentSheetUrl` (driven partly by the cached `lotWeedingAdmin` localStorage flag).
+- `applyLotWeedingOnlyNavChrome()` (called at the end of `updateNavigationState`, wrapped in try/catch) toggles `left-nav--lot-weeding-only` (CSS hides all nav items except `#navLotWeedingAdmin` + `#signOutBtn`, and removes the disabled blur) and swaps the header for the partner logo when it loads.
+- `LOT_WEEDING_PARTNER_LOGO_SRC` (`public/images/atf-logo.png`) is declared **near the top of the script** on purpose — `updateNavigationState()` runs during initial synchronous load, so any `const` it transitively reads must be initialized first (this caused a TDZ crash when declared late).
+- **Expired-session recovery:** when `loadLotWeedingAdminData` has no `accessToken`/`currentUserEmail`, the error card shows **"Sign in with Google"** → `signIn()`; on success `completeSignInAfterToken()` re-routes a zoneless lot-weeding user back via `switchView('lotWeedingAdmin')`.
 
 ### Dates
 
@@ -349,15 +381,19 @@ Intake stores free-text dates. `parseLotWeedingDate` / `toLotWeedingDateKey` nor
 ```text
 Continue the Lot Weeding Admin work. Read LOT_WEEDING_ADMIN_HANDOFF.md (Purpose, UX Expectations, What We Built) and CODEBASE_FIELD_GUIDE.md.
 
-Context: Lot Weeding Command Center — Map / Calendar / Follow-ups / Stats over shared lotWeedingAdminState. Staging validation done (copied intake sheet, revised columns, service-account Editor). Core features shipped: batch schedule/clean/attention, Follow-up Mark notified / Mark ROE returned, NC zone overlay, draw-to-select, local post-save refresh.
+Context: Lot Weeding Command Center — Map / Calendar / Follow-ups / Stats / Help over shared lotWeedingAdminState. Staging validation done (copied intake sheet, revised columns, service-account Editor). Core features shipped: batch schedule/clean/attention, Follow-up Mark notified / Mark ROE returned, NC zone overlay, draw-to-select, local post-save refresh.
 
 Recent UX (do not regress):
-- Map tab: **Show** dropdown + helper text (not filter chips). Status colors: Requested #fc9936, Schedule Next #8872b1, Scheduled #3cb2bd, Cleaned #a3cc73, Needs Attention #cb6a7c, Cancelled #d6d6d6.
-- Multi-select side panel = one Action picker (Schedule for a date / Mark Schedule Next / Mark cleaned / Flag for attention) → single form → summary → collapsible preview → one Apply button + per-lot results. Header "N lots selected" + Clear. Do not bring back the three stacked batch cards or "Writes … only" pills.
+- Five tabs incl. **Help** ("How to Use This Tool" + spreadsheet link `LOT_WEEDING_SPREADSHEET_URL`). Note: that link points at the Altadena-Talks original, NOT the revised-header copy the tool actually reads — verify before relying on it.
+- Map tab: **Show** dropdown + helper text (not filter chips). Status colors reuse the main app palette: Requested #fdba77, Schedule Next #f9d6d3, Scheduled #81bdc3, Cleaned #afc892, Needs Attention #bc455a, Cancelled #e5e5e5. Pins use the main app's SVG style (offset charcoal shadow + charcoal stroke, grow-on-emphasis); badges echo the hues with darker legible text.
+- Multi-select side panel = one Action picker (Schedule for a date / Mark Schedule Next / Mark Cleaned / Mark Needs Attention) → single form → summary → collapsible preview → one Apply button + per-lot results. Header "N lots selected" + Clear. Do not bring back the three stacked batch cards or "Writes … only" pills.
 - Selection language is "N lots selected" everywhere; map box shows NO persistent selection count.
-- Map controls: Zones + Draw area; while drawing → Finish + Cancel. No standalone Select button. Fixed-width control cluster.
-- Build selection via: draw area, Shift+click pins, or queue Add to selection / Remove. Plain pin click opens single-lot editor.
-- Single-lot editor: editable fields top (Status, ROE Status, Date Scheduled, Date Cleaned, Homeowner Notified, UWS Contract, APN), read-only requester/contact/zone below, Notes at bottom, email copy + formatted phone. Homeowner Notified / UWS Contract labels have hover tooltips.
+- Map controls: **Altagether Zones** + Draw area; while drawing → Finish + Cancel. No standalone Select button. Fixed-width control cluster. Zones overlay is NON-interactive (under pins, click-through name+captain labels) — don't make it clickable/hoverable (breaks the lasso).
+- Build selection via: draw area, Shift+click pins, or queue Add to selection / Remove. Plain pin click opens single-lot editor. Nothing auto-selects on load (panel shows instructions).
+- Map is fixed 700px height; side panel scrolls internally. Do NOT reintroduce variable map height (caused scroll jank).
+- Single-lot editor: editable fields top (Status, ROE Status, Date Scheduled, Date Cleaned, Homeowner Notified, UWS Contract, APN), read-only Requester/Contact then a heavy divider then Altagether Zone/Neighborhood Captain below, Notes at bottom. Requester email has a subtle copy button; phone is PLAIN TEXT (not tap-to-call). Captain row = name+email+phone per captain (semicolon-separated, index-aligned; phone mapped through routes.js). Homeowner Notified / UWS Contract labels have hover tooltips + a subtle ⓘ icon.
+- Context bar label is contextual (Date selected / Selection / Active filters) and disappears when the last chip is cleared.
+- Lot-weeding-only users: stripped left nav (only Lot Weeding Command Center + Sign out, no blur) + partner logo `public/images/atf-logo.png` (`LOT_WEEDING_PARTNER_LOGO_SRC`). Keep `applyLotWeedingOnlyNavChrome` in try/catch and any const it reads declared before `updateNavigationState` runs (TDZ crash risk). Expired session → error card offers "Sign in with Google" (signIn()).
 - Status **Schedule Next** (not On-Deck); legacy On-Deck sheet values normalize on read.
 - No status quick-actions; no Last Contact Date in UI/PATCH; tri-state fields use (unknown) default.
 - Homeowner notified always manual.
