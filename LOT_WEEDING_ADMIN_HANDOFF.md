@@ -12,7 +12,8 @@
 - **Action dropdown labels standardized:** Schedule for a date / Mark Schedule Next / **Mark Cleaned** / **Mark Needs Attention**.
 - **Pin/status palette + style now match the main app** — statuses recolored to the main map's `colorPalette` (Requested light-caramel `#fdba77`, Schedule Next soft-blush `#f9d6d3`, Scheduled sky-blue-light `#81bdc3`, Cleaned dry-sage `#afc892`, Needs Attention dusty-mauve `#bc455a`, Cancelled ash-grey `#e5e5e5`), and map markers converted from Leaflet `circleMarker` to the main app's SVG `divIcon` (offset charcoal shadow + charcoal stroke, grow-on-emphasis; amber ring for multi-selected). Badges echo the hues with darker legible text.
 - **Captain phone** now shown in the details card (from the master sheet's `NC Phone` column, wired through `lot-weeding/routes.js`). **ⓘ** affordance added to the tooltipped Homeowner Notified / UWS Contract labels. Details card gained a heavy divider between Contact and Altagether Zone; "Zone"→"Altagether Zone", "Captain"→"Neighborhood Captain". Header kicker "Townwide operations"→"Neighbors helping neighbors". Partner logo path corrected to `public/images/atf-logo.png`.
-- **Lot-weeding-only nav white-labeling** — for zoneless `lot_weeding_admin` users the left nav is stripped to just **Lot Weeding Command Center** + Sign out (no blur, other tabs/links hidden), and the partner logo (`public/images/atf-logo.png`, via `LOT_WEEDING_PARTNER_LOGO_SRC`) replaces the "Zone XX / Altagether" header. Falls back to the text title if the PNG is missing/fails to load.
+- **Lot-weeding-only nav white-labeling** — for zoneless `lot_weeding_admin` users the left nav is stripped to just **Lot Weeding Command Center** + Sign out (no blur, other tabs/links hidden), and the partner logo (`public/images/atf-logo.png`, via `LOT_WEEDING_PARTNER_LOGO_SRC`) replaces the "Zone XX / Altagether" header. Falls back to the text title if the PNG is missing/fails to load. Logo sized via `.nav-header-partner-logo` (`max-height: 144px`, centered with `margin: 0 auto`; the ATF asset is a 700×1000 portrait so height is the binding constraint).
+- **Sign out restyled (all nav variants, not just lot-weeding)** — no longer a full-width nav-tab; now a compact **centered pill** in the bottom cluster **below the Altagether logo, above Send feedback** (`#signOutBtn.nav-item` overrides in styles.css: auto width, centered, small text, pill border, no left accent bar, no hover slide). HTML order in `.nav-section-bottom` is logo → Sign out → feedback.
 - **Bug fixes:** (1) fixed a **TDZ crash on load** — `LOT_WEEDING_PARTNER_LOGO_SRC` was used by `updateNavigationState()` during initial synchronous execution before its `const` was initialized, which halted init and trapped users on "Checking your zone access" unless they cleared cache; the const now lives near the top and the nav-chrome call is wrapped in try/catch. (2) **Expired-session recovery** — the Command Center error state now shows **"Sign in with Google"** (calls `signIn()`) when there's no token, instead of a dead "Try again".
 
 **Previous pass:** grouping/batch overhaul — multi-select side panel rebuilt as one **Action picker → single form → summary → collapsible preview → one Apply button** (added **Mark Schedule Next** batch; "Date Scheduled"; removed "Writes … only" pills and duplicate lot lists). Unified selection language to **"N lots selected"**. Map controls simplified to Draw area / Finish + Cancel. **Shift+click** pins to add/remove; queue button **Add to selection / Remove**. Show dropdown + helper text; revised status colors; Schedule Next rename; tooltips; single-lot editor layout.
@@ -323,6 +324,44 @@ Not planned: persistent named Groups / deployment-group object model; generic sh
 
 ---
 
+## Possible Future Work: View-Only Role (`lot_weeding_viewer`)
+
+> ⚠️ **Status: NOT COMMITTED — may or may not ever be built.** A single stakeholder asked for a read-only way to share the command center more broadly. As of July 2026 the product owner is undecided; the value and the number of potential view-only users are being assessed (stakeholder meeting pending). Do **not** implement this proactively — only build it if the product owner explicitly greenlights it. Documented here so the plan isn't lost.
+
+**Goal:** a `lot_weeding_viewer` role that can open the command center and see everything (map, pins, Details card, Calendar, Follow-ups, Stats, Help) but **cannot write anything**.
+
+**Why it's low-risk:** reads and writes are already gated by *separate* server checks. The `GET /api/lot-weeding-admin/requests` and `PATCH /api/lot-weeding-admin/request-row` endpoints each independently call `hasLotWeedingAdminAccess(email)` (`lot-weeding/routes.js` ~676 and ~699). A viewer only needs the **read** gate loosened while the **write** gate stays admin-only — so even if a write control is missed in the UI, the server rejects the PATCH with `401` (fails safe, never a bad write).
+
+**Intended UX (deliberately minimal — same app, controls disabled in place; do NOT build a separate screen):**
+- Viewer sees the identical interface, nothing hidden or restructured.
+- Editable fields (Status, ROE Status, dates, APN, Notes, tri-states) render **`disabled`** (native greyed-out read-only look — near-zero new CSS).
+- The three write buttons simply **do not render** for viewers: single-lot **Save lot** (`index.html` ~5169), batch **Apply** (`#lotWeedingBatchApplyBtn`, ~4306), and Follow-ups **Mark notified / Mark ROE returned** (~5817).
+- Add a small **"View only"** banner/kicker so the disabled state reads as intentional.
+
+**Implementation sketch:**
+
+_Backend (`server.js`, `lot-weeding/routes.js`) — small, low-risk:_
+1. Add `LOT_WEEDING_VIEWER_ROLE = 'lot_weeding_viewer'`.
+2. Add `hasLotWeedingViewAccess(email)` → true for `admin`, `lot_weeding_admin`, OR `lot_weeding_viewer`. (Mirror `hasLotWeedingAdminAccess`, `server.js` ~144; pass it into `registerLotWeedingRoutes` deps alongside the existing one.)
+3. Gate **GET** `/api/lot-weeding-admin/requests` with `hasLotWeedingViewAccess`; leave **PATCH** `/api/lot-weeding-admin/request-row` on `hasLotWeedingAdminAccess`. **This swap is the actual security boundary.**
+4. `collectAccessCapabilities` (`server.js` ~122): optionally have `lot_weeding_admin`/`admin` imply the viewer capability too (so admins still read). The `role:lot_weeding_viewer` sentinel already works for zoneless login via the generic `getRoleGrantFromSheetUrl`.
+
+_Frontend (`index.html`) — moderate, but contained (3 write surfaces):_
+1. Derive `isCurrentUserLotWeedingViewer` from `currentUserCapabilities` (populated ~1776).
+2. Let `canAccessLotWeedingAdminView()` (~3015) include viewers so the tab shows and data loads (viewers are also zoneless → reuse the stripped `applyLotWeedingOnlyNavChrome` nav treatment).
+3. When viewer: add `disabled` to editable fields in the single-lot editor + batch form; skip rendering the Save / Apply / Mark-notified / Mark-ROE buttons; show the "View only" banner.
+4. Fail-safe already covered server-side, so a missed control is harmless.
+
+_Access Sheet:_ new row pattern — `sheet_url = role:lot_weeding_viewer`, `role = lot_weeding_viewer`, `active = TRUE` (same shape as the `lot_weeding_admin` row documented under **Access Sheet Setup**).
+
+_Docs/tests:_ update Access Sheet Setup + Status/role notes; add a route test asserting a viewer email is allowed on GET but rejected (401) on PATCH.
+
+**Effort:** backend ~1 hr; frontend ~half day of careful-but-simple work. No new layout/design.
+
+**Alternative if only 1–2 users:** skip the role entirely — give a normal `lot_weeding_admin` login and rely on trust (accept the no-audit-log risk). The viewer role earns its keep mainly when sharing *broadly*. Note the role governs only this tool, not direct Google Sheet access.
+
+---
+
 ## Verification Commands
 
 Run after touching lot-weeding code (PowerShell — one command per line):
@@ -393,7 +432,8 @@ Recent UX (do not regress):
 - Map is fixed 700px height; side panel scrolls internally. Do NOT reintroduce variable map height (caused scroll jank).
 - Single-lot editor: editable fields top (Status, ROE Status, Date Scheduled, Date Cleaned, Homeowner Notified, UWS Contract, APN), read-only Requester/Contact then a heavy divider then Altagether Zone/Neighborhood Captain below, Notes at bottom. Requester email has a subtle copy button; phone is PLAIN TEXT (not tap-to-call). Captain row = name+email+phone per captain (semicolon-separated, index-aligned; phone mapped through routes.js). Homeowner Notified / UWS Contract labels have hover tooltips + a subtle ⓘ icon.
 - Context bar label is contextual (Date selected / Selection / Active filters) and disappears when the last chip is cleared.
-- Lot-weeding-only users: stripped left nav (only Lot Weeding Command Center + Sign out, no blur) + partner logo `public/images/atf-logo.png` (`LOT_WEEDING_PARTNER_LOGO_SRC`). Keep `applyLotWeedingOnlyNavChrome` in try/catch and any const it reads declared before `updateNavigationState` runs (TDZ crash risk). Expired session → error card offers "Sign in with Google" (signIn()).
+- Lot-weeding-only users: stripped left nav (only Lot Weeding Command Center + Sign out, no blur) + partner logo `public/images/atf-logo.png` (`LOT_WEEDING_PARTNER_LOGO_SRC`, `.nav-header-partner-logo` max-height 144px, centered). Keep `applyLotWeedingOnlyNavChrome` in try/catch and any const it reads declared before `updateNavigationState` runs (TDZ crash risk). Expired session → error card offers "Sign in with Google" (signIn()).
+- Sign out button is a compact centered pill (all nav variants) below the logo, above Send feedback (`#signOutBtn.nav-item` in styles.css) — don't revert it to a full-width nav tab.
 - Status **Schedule Next** (not On-Deck); legacy On-Deck sheet values normalize on read.
 - No status quick-actions; no Last Contact Date in UI/PATCH; tri-state fields use (unknown) default.
 - Homeowner notified always manual.
