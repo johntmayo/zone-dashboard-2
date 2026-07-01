@@ -5392,8 +5392,387 @@
               </div>
             `).join('')}
           </div>
+          <div class="lot-weeding-admin-report-cta">
+            <div class="lot-weeding-admin-report-cta-copy">
+              <h4>Program report</h4>
+              <p>Generate a polished, PDF-ready overview of the whole program — today's snapshot plus deeper breakdowns — to share with funders and partners.</p>
+            </div>
+            <div class="lot-weeding-admin-report-cta-action">
+              <button type="button" class="lot-weeding-admin-report-btn" id="lotWeedingAdminGenerateReportBtn">Generate Report</button>
+              <span class="lot-weeding-admin-report-status" id="lotWeedingAdminReportStatus" aria-live="polite"></span>
+            </div>
+          </div>
         </section>
       `;
+    }
+
+    // ---------------------------------------------------------------------------
+    // Lot Weeding program report (PDF)
+    // ---------------------------------------------------------------------------
+    // Builds a self-contained, funder-facing PDF of the whole program from the
+    // current lotWeedingAdminState.requests. Uses inline styles so the rendered
+    // report is independent of the app stylesheet (html2canvas renders reliably),
+    // and reuses the shared status vocabulary/colors for consistency.
+
+    const LOT_WEEDING_REPORT_STATUS_ORDER = ['Requested', 'Schedule Next', 'Scheduled', 'Cleaned', 'Needs Attention', 'Cancelled'];
+
+    function computeLotWeedingReportData() {
+      const requests = lotWeedingAdminState.requests || [];
+      const total = requests.length;
+
+      const byStatus = {};
+      LOT_WEEDING_REPORT_STATUS_ORDER.forEach((status) => { byStatus[status] = 0; });
+
+      let active = 0;
+      let cleaned = 0;
+      let scheduled = 0;
+      let needsAttention = 0;
+      let cancelled = 0;
+      let mapped = 0;
+      let missingApn = 0;
+      let roeReturned = 0;
+      let notified = 0;
+      let uwsContract = 0;
+
+      const zoneCounts = new Map();
+      const captainSet = new Set();
+
+      requests.forEach((request) => {
+        const status = resolveLotWeedingAdminStatus(request.status);
+        byStatus[status] = (byStatus[status] || 0) + 1;
+
+        if (!isLotWeedingTerminalStatus(request.status)) active += 1;
+        if (isLotWeedingCleanedStatus(request.status)) cleaned += 1;
+        if (status === 'Scheduled') scheduled += 1;
+        if (isLotWeedingNeedsAttentionStatus(request.status)) needsAttention += 1;
+        if (status === 'Cancelled') cancelled += 1;
+        if (isLotWeedingRequestMapped(request)) mapped += 1;
+        if (!String(request.apn || '').trim()) missingApn += 1;
+        if (String(request.roeStatus || '').trim() === 'Returned') roeReturned += 1;
+        if (request.homeownerNotified === 'Yes') notified += 1;
+        if (String(request.universalWasteContract || '').trim().toLowerCase() === 'yes') uwsContract += 1;
+
+        const zone = String(request.zone || '').trim();
+        if (zone) zoneCounts.set(zone, (zoneCounts.get(zone) || 0) + 1);
+
+        String(request.captainName || '')
+          .split(';')
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .forEach((name) => captainSet.add(name));
+      });
+
+      const roeOutstanding = requests.filter((request) =>
+        !isLotWeedingTerminalStatus(request.status) &&
+        String(request.roeStatus || '').trim() !== 'Returned'
+      ).length;
+
+      const scheduledNotNotified = requests.filter((request) =>
+        request.status === 'Scheduled' &&
+        request.homeownerNotified !== 'Yes'
+      ).length;
+
+      // Upcoming scheduled cleanings (today onward), grouped by day.
+      const todayKey = toLotWeedingDateKey(new Date());
+      const scheduledByDay = getLotWeedingScheduledByDay(requests);
+      const upcoming = [...scheduledByDay.entries()]
+        .filter(([key]) => key && (!todayKey || key >= todayKey))
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .slice(0, 8)
+        .map(([key, dayRequests]) => ({ key, count: dayRequests.length }));
+
+      const zones = [...zoneCounts.entries()].sort((a, b) => b[1] - a[1]);
+
+      const nonCancelled = Math.max(total - cancelled, 0);
+      const completionRate = nonCancelled > 0 ? Math.round((cleaned / nonCancelled) * 100) : 0;
+      const mappedRate = total > 0 ? Math.round((mapped / total) * 100) : 0;
+
+      return {
+        total,
+        byStatus,
+        active,
+        cleaned,
+        scheduled,
+        needsAttention,
+        cancelled,
+        mapped,
+        mappedRate,
+        missingApn,
+        roeReturned,
+        roeOutstanding,
+        notified,
+        scheduledNotNotified,
+        uwsContract,
+        nonCancelled,
+        completionRate,
+        zones,
+        zoneCount: zoneCounts.size,
+        captainCount: captainSet.size,
+        upcoming
+      };
+    }
+
+    // Load the ATF partner logo as a data URL so it embeds cleanly in the PDF
+    // (html2canvas can miss late-loading <img> sources). Resolves null on failure.
+    function loadLotWeedingReportLogoDataUrl() {
+      return new Promise((resolve) => {
+        try {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.naturalWidth || img.width;
+              canvas.height = img.naturalHeight || img.height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+              resolve(canvas.toDataURL('image/png'));
+            } catch (error) {
+              resolve(null);
+            }
+          };
+          img.onerror = () => resolve(null);
+          img.src = LOT_WEEDING_PARTNER_LOGO_SRC;
+        } catch (error) {
+          resolve(null);
+        }
+      });
+    }
+
+    function buildLotWeedingReportHtml(data, logoDataUrl) {
+      const now = new Date();
+      const dateLabel = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      const timeLabel = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+      const INK = '#2b3320';
+      const MUTED = '#5f6b4d';
+      const ACCENT = '#606c38';
+      const BORDER = '#d9ddc7';
+      const SOFT_BG = '#f4f6ec';
+
+      const pct = (value, denom) => (denom > 0 ? Math.round((value / denom) * 100) : 0);
+
+      const heroLogo = logoDataUrl
+        ? `<div style="flex:0 0 auto;background:#ffffff;border-radius:14px;padding:14px 16px;box-shadow:0 8px 20px rgba(0,0,0,0.18);">
+             <img src="${logoDataUrl}" alt="Altadena Town Foundation logo" style="display:block;height:120px;width:auto;" />
+           </div>`
+        : '';
+
+      const heroHtml = `
+        <div style="position:relative;overflow:hidden;border-radius:16px;background:linear-gradient(135deg,#33402a 0%,#4d5a30 45%,#6c7a3c 100%);color:#ffffff;padding:36px 40px;display:flex;align-items:center;gap:28px;">
+          ${heroLogo}
+          <div style="flex:1 1 auto;">
+            <div style="text-transform:uppercase;letter-spacing:0.16em;font-size:12px;font-weight:700;color:#e7ecd4;margin-bottom:10px;">Altadena Town Foundation &middot; Lot Weeding Program</div>
+            <div style="font-size:34px;line-height:1.12;font-weight:800;margin-bottom:10px;">Program Impact Report</div>
+            <div style="font-size:14px;color:#eef2e2;max-width:520px;line-height:1.5;">A townwide, volunteer-powered effort helping Altadena homeowners clear post-fire lots — one parcel at a time.</div>
+            <div style="margin-top:16px;font-size:13px;color:#dfe6cd;">Generated ${escapeHtml(dateLabel)} at ${escapeHtml(timeLabel)}</div>
+          </div>
+        </div>`;
+
+      const missionHtml = `
+        <div style="margin-top:26px;padding:20px 24px;background:${SOFT_BG};border:1px solid ${BORDER};border-radius:12px;color:${INK};font-size:13.5px;line-height:1.6;">
+          <strong style="color:${ACCENT};">About this program.</strong>
+          Following the wildfires, overgrown and fire-fuel-laden lots pose a real safety and recovery risk across Altadena.
+          The Lot Weeding Command Center coordinates a fully volunteer effort — neighbors helping neighbors — to triage
+          homeowner requests, schedule cleaning days, and track every lot from intake through completion. The numbers below
+          reflect the current state of that work.
+        </div>`;
+
+      const heroStat = (value, label, sub) => `
+        <div style="flex:1 1 0;min-width:0;background:#ffffff;border:1px solid ${BORDER};border-top:4px solid ${ACCENT};border-radius:12px;padding:18px 16px;text-align:center;">
+          <div style="font-size:38px;font-weight:800;color:${ACCENT};line-height:1;">${escapeHtml(String(value))}</div>
+          <div style="margin-top:8px;font-size:12.5px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.05em;">${escapeHtml(label)}</div>
+          ${sub ? `<div style="margin-top:4px;font-size:11.5px;color:${MUTED};">${escapeHtml(sub)}</div>` : ''}
+        </div>`;
+
+      const glanceHtml = `
+        <div style="margin-top:28px;display:flex;gap:16px;page-break-inside:avoid;">
+          ${heroStat(formatGodmodeCount(data.total), 'Total Requests', 'All lots on record')}
+          ${heroStat(formatGodmodeCount(data.cleaned), 'Lots Cleaned', 'Weeding completed')}
+          ${heroStat(formatGodmodeCount(data.active), 'Active Pipeline', 'Still in progress')}
+          ${heroStat(data.completionRate + '%', 'Completion Rate', 'Cleaned of non-cancelled')}
+        </div>`;
+
+      const sectionTitle = (title, note) => `
+        <div style="margin:34px 0 14px;page-break-after:avoid;">
+          <div style="font-size:18px;font-weight:800;color:${INK};border-left:5px solid ${ACCENT};padding-left:12px;">${escapeHtml(title)}</div>
+          ${note ? `<div style="margin:6px 0 0 17px;font-size:12px;color:${MUTED};">${escapeHtml(note)}</div>` : ''}
+        </div>`;
+
+      const statusRows = LOT_WEEDING_REPORT_STATUS_ORDER.map((status) => {
+        const count = data.byStatus[status] || 0;
+        const meta = getLotWeedingStatusMeta(status);
+        const share = pct(count, data.total);
+        return `
+          <tr>
+            <td style="padding:10px 12px;border-bottom:1px solid ${BORDER};">
+              <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${meta.color};border:1px solid rgba(0,0,0,0.18);vertical-align:middle;margin-right:8px;"></span>
+              <span style="vertical-align:middle;font-weight:600;color:${INK};">${escapeHtml(meta.label)}</span>
+            </td>
+            <td style="padding:10px 12px;border-bottom:1px solid ${BORDER};text-align:right;font-weight:700;color:${INK};">${formatGodmodeCount(count)}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid ${BORDER};width:220px;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div style="flex:1;height:9px;border-radius:5px;background:${SOFT_BG};overflow:hidden;">
+                  <div style="height:100%;width:${share}%;background:${meta.color};"></div>
+                </div>
+                <span style="font-size:11.5px;color:${MUTED};width:34px;text-align:right;">${share}%</span>
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
+
+      const statusTableHtml = `
+        <table style="width:100%;border-collapse:collapse;border:1px solid ${BORDER};border-radius:10px;overflow:hidden;font-size:13px;">
+          <thead>
+            <tr style="background:${SOFT_BG};">
+              <th style="text-align:left;padding:10px 12px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:${MUTED};">Status</th>
+              <th style="text-align:right;padding:10px 12px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:${MUTED};">Lots</th>
+              <th style="text-align:left;padding:10px 12px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:${MUTED};">Share of total</th>
+            </tr>
+          </thead>
+          <tbody>${statusRows}</tbody>
+        </table>`;
+
+      const healthCard = (value, label, note, tone) => {
+        const toneColor = tone === 'warn' ? '#bc455a' : tone === 'good' ? '#4d7c2f' : ACCENT;
+        return `
+          <div style="flex:1 1 0;min-width:0;background:#ffffff;border:1px solid ${BORDER};border-radius:12px;padding:16px 18px;">
+            <div style="font-size:26px;font-weight:800;color:${toneColor};line-height:1;">${escapeHtml(String(value))}</div>
+            <div style="margin-top:8px;font-size:12.5px;font-weight:700;color:${INK};">${escapeHtml(label)}</div>
+            <div style="margin-top:3px;font-size:11.5px;color:${MUTED};line-height:1.4;">${escapeHtml(note)}</div>
+          </div>`;
+      };
+
+      const healthHtml = `
+        <div style="display:flex;gap:14px;flex-wrap:wrap;page-break-inside:avoid;">
+          ${healthCard(formatGodmodeCount(data.roeOutstanding), 'ROE outstanding', 'Active lots without a returned Right-of-Entry form', data.roeOutstanding ? 'warn' : 'good')}
+          ${healthCard(formatGodmodeCount(data.scheduledNotNotified), 'Scheduled, not notified', 'Homeowner not yet told of their cleaning date', data.scheduledNotNotified ? 'warn' : 'good')}
+          ${healthCard(formatGodmodeCount(data.missingApn), 'Missing APN', 'Cannot be mapped/scheduled by parcel yet', data.missingApn ? 'warn' : 'good')}
+          ${healthCard(data.mappedRate + '%', 'Mapped coverage', formatGodmodeCount(data.mapped) + ' of ' + formatGodmodeCount(data.total) + ' lots have coordinates', 'neutral')}
+        </div>`;
+
+      const notifyRate = pct(data.notified, data.scheduled + data.cleaned);
+      const roeRate = pct(data.roeReturned, data.total);
+      const progressHtml = `
+        <div style="display:flex;gap:14px;flex-wrap:wrap;page-break-inside:avoid;">
+          ${healthCard(formatGodmodeCount(data.scheduled), 'Currently scheduled', 'Lots assigned to a cleaning date', 'neutral')}
+          ${healthCard(formatGodmodeCount(data.needsAttention), 'Needs attention', 'Blockers flagged for manual review', data.needsAttention ? 'warn' : 'good')}
+          ${healthCard(formatGodmodeCount(data.roeReturned), 'ROE returned', roeRate + '% of all lots', 'good')}
+          ${healthCard(formatGodmodeCount(data.notified), 'Homeowners notified', notifyRate + '% of scheduled/cleaned lots', 'neutral')}
+        </div>`;
+
+      let zonesHtml = '';
+      if (data.zones.length) {
+        const topZones = data.zones.slice(0, 12);
+        const maxZone = topZones[0][1] || 1;
+        const zoneRows = topZones.map(([zone, count]) => {
+          const share = Math.round((count / maxZone) * 100);
+          return `
+            <tr>
+              <td style="padding:9px 12px;border-bottom:1px solid ${BORDER};font-weight:600;color:${INK};">${escapeHtml(zone)}</td>
+              <td style="padding:9px 12px;border-bottom:1px solid ${BORDER};width:60%;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div style="flex:1;height:9px;border-radius:5px;background:${SOFT_BG};overflow:hidden;">
+                    <div style="height:100%;width:${share}%;background:${ACCENT};"></div>
+                  </div>
+                  <span style="font-weight:700;color:${INK};width:30px;text-align:right;">${formatGodmodeCount(count)}</span>
+                </div>
+              </td>
+            </tr>`;
+        }).join('');
+        zonesHtml = `
+          ${sectionTitle('Zones served', formatGodmodeCount(data.zoneCount) + ' Altagether zones represented · ' + formatGodmodeCount(data.captainCount) + ' neighborhood captains engaged')}
+          <table style="width:100%;border-collapse:collapse;border:1px solid ${BORDER};border-radius:10px;overflow:hidden;font-size:13px;">
+            <tbody>${zoneRows}</tbody>
+          </table>`;
+      }
+
+      let upcomingHtml = '';
+      if (data.upcoming.length) {
+        const chips = data.upcoming.map((day) => `
+          <div style="flex:0 0 auto;background:#ffffff;border:1px solid ${BORDER};border-left:4px solid #81bdc3;border-radius:10px;padding:12px 16px;min-width:140px;">
+            <div style="font-size:12px;font-weight:700;color:${INK};">${escapeHtml(formatLotWeedingDayLabel(day.key, { weekday: true }))}</div>
+            <div style="margin-top:4px;font-size:12px;color:${MUTED};">${formatGodmodeCount(day.count)} lot${day.count === 1 ? '' : 's'} scheduled</div>
+          </div>`).join('');
+        upcomingHtml = `
+          ${sectionTitle('Upcoming scheduled cleanings', 'The next volunteer work days already on the calendar')}
+          <div style="display:flex;gap:12px;flex-wrap:wrap;page-break-inside:avoid;">${chips}</div>`;
+      }
+
+      const footerHtml = `
+        <div style="margin-top:38px;padding-top:16px;border-top:2px solid ${BORDER};font-size:11px;color:${MUTED};line-height:1.6;">
+          Altadena Town Foundation — Lot Weeding Program &middot; Report generated ${escapeHtml(dateLabel)} at ${escapeHtml(timeLabel)}.<br/>
+          This report reflects a live snapshot of the program's request tracking. Figures may change as new requests arrive and volunteer work continues.
+        </div>`;
+
+      return `
+        <div style="font-family:'Helvetica Neue',Arial,sans-serif;color:${INK};background:#ffffff;padding:40px 44px;width:760px;box-sizing:border-box;">
+          ${heroHtml}
+          ${missionHtml}
+          ${glanceHtml}
+          ${sectionTitle('Request status breakdown', 'Every lot on record, grouped by where it is in the pipeline')}
+          ${statusTableHtml}
+          ${sectionTitle('Program progress', 'How work is moving through scheduling, cleaning, and paperwork')}
+          ${progressHtml}
+          ${sectionTitle('Operational health', 'Follow-up queues and data quality to keep the pipeline moving')}
+          ${healthHtml}
+          ${zonesHtml}
+          ${upcomingHtml}
+          ${footerHtml}
+        </div>`;
+    }
+
+    async function generateLotWeedingAdminReport() {
+      const button = document.getElementById('lotWeedingAdminGenerateReportBtn');
+      const statusEl = document.getElementById('lotWeedingAdminReportStatus');
+      const setStatus = (text) => { if (statusEl) statusEl.textContent = text; };
+
+      if (typeof html2pdf === 'undefined') {
+        setStatus('PDF library unavailable — please refresh and try again.');
+        return;
+      }
+      if (!(lotWeedingAdminState.requests || []).length) {
+        setStatus('No request data loaded yet.');
+        return;
+      }
+
+      if (button) button.disabled = true;
+      setStatus('Building report…');
+
+      const container = document.createElement('div');
+      container.style.cssText = 'position:absolute;left:-99999px;top:0;background:#ffffff;';
+      document.body.appendChild(container);
+
+      try {
+        const data = computeLotWeedingReportData();
+        const logoDataUrl = await loadLotWeedingReportLogoDataUrl();
+        container.innerHTML = buildLotWeedingReportHtml(data, logoDataUrl);
+
+        const now = new Date();
+        const pad = (value) => String(value).padStart(2, '0');
+        const dateForFile = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        const timeForFile = `${pad(now.getHours())}${pad(now.getMinutes())}`;
+        const filename = `altadena-lot-weeding-report-${dateForFile}-${timeForFile}.pdf`;
+
+        const opt = {
+          margin: [12, 12, 12, 12],
+          filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: '#ffffff' },
+          jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
+          pagebreak: { mode: ['css', 'legacy'] }
+        };
+
+        setStatus('Generating PDF…');
+        await html2pdf().set(opt).from(container.firstElementChild).save();
+        setStatus(`Saved ${filename}`);
+      } catch (error) {
+        console.error('Lot weeding report generation failed:', error);
+        setStatus('Report generation failed — see console for details.');
+      } finally {
+        if (container.parentNode) container.parentNode.removeChild(container);
+        if (button) button.disabled = false;
+      }
     }
 
     const LOT_WEEDING_SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1hkjqP0U1PHkfjT3KEgBfTRq-Kwor63IFOJUzQceOVN0/edit?gid=1247542193#gid=1247542193';
@@ -6253,6 +6632,7 @@
       }
 
       document.getElementById('lotWeedingAdminRefreshBtn')?.addEventListener('click', () => loadLotWeedingAdminData(true));
+      document.getElementById('lotWeedingAdminGenerateReportBtn')?.addEventListener('click', () => generateLotWeedingAdminReport());
       attachLotWeedingAdminQueueHandlers();
       attachLotWeedingAdminFollowupHandlers();
 

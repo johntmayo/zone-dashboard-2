@@ -3660,6 +3660,84 @@
       line-height: 1.45;
     }
 
+    .lot-weeding-admin-report-cta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-top: 22px;
+      padding: 20px 22px;
+      background: linear-gradient(135deg, rgba(96, 108, 56, 0.10), rgba(96, 108, 56, 0.04));
+      border: 2px solid rgba(96, 108, 56, 0.35);
+      box-shadow: 3px 3px 0 rgba(31, 41, 55, 0.08);
+    }
+
+    .lot-weeding-admin-report-cta-copy {
+      flex: 1 1 320px;
+      min-width: 260px;
+    }
+
+    .lot-weeding-admin-report-cta-copy h4 {
+      margin: 0;
+      color: var(--brand-primary-dark);
+      font-size: 1.05rem;
+      font-weight: 900;
+      letter-spacing: 0.02em;
+    }
+
+    .lot-weeding-admin-report-cta-copy p {
+      margin: 6px 0 0;
+      color: var(--text-secondary);
+      font-family: 'Merriweather', serif;
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .lot-weeding-admin-report-cta-action {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    .lot-weeding-admin-report-btn {
+      padding: 12px 24px;
+      background: var(--brand-primary-dark);
+      color: #ffffff;
+      border: 2px solid rgba(31, 41, 55, 0.55);
+      box-shadow: 3px 3px 0 rgba(31, 41, 55, 0.18);
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, opacity 0.15s ease;
+    }
+
+    .lot-weeding-admin-report-btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0 rgba(31, 41, 55, 0.22);
+    }
+
+    .lot-weeding-admin-report-btn:active {
+      transform: translate(1px, 1px);
+      box-shadow: 1px 1px 0 rgba(31, 41, 55, 0.22);
+    }
+
+    .lot-weeding-admin-report-btn:disabled {
+      opacity: 0.6;
+      cursor: progress;
+    }
+
+    .lot-weeding-admin-report-status {
+      min-height: 1.1em;
+      color: var(--text-secondary);
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.82rem;
+      text-align: right;
+    }
+
     .lot-weeding-admin-help-tab {
       padding: 18px;
       background: #FDFBF7;
