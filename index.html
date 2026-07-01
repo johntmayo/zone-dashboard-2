@@ -488,7 +488,7 @@
       <div class="lot-weeding-admin-view">
         <section class="lot-weeding-admin-hero">
           <div>
-            <p class="godmode-kicker">Townwide operations</p>
+            <p class="godmode-kicker">Neighbors helping neighbors</p>
             <h2>Lot Weeding Command Center</h2>
             <p class="godmode-subtitle">See requests, schedule cleanings, and resolve issues.</p>
           </div>
@@ -1204,7 +1204,7 @@
     // Declared up here (not next to the nav helpers below) because updateNavigationState()
     // runs during initial synchronous load, before those later declarations are reached.
     // Drop a partner org's logo at this path to brand the nav for lot-weeding-only users.
-    const LOT_WEEDING_PARTNER_LOGO_SRC = 'public/images/partner-logo.png';
+    const LOT_WEEDING_PARTNER_LOGO_SRC = 'public/images/atf-logo.png';
     let currentUserRoles = [];
     let currentUserCapabilities = [];
     let welcomeAuthState = 'idle'; // idle | loading | zone_picker | not_registered | server_error
@@ -3848,14 +3848,15 @@
         return `<option value="${escapeHtmlAttr(value)}" ${value === normalizedCurrent ? 'selected' : ''}>${escapeHtml(label)}</option>`;
       }).join('');
     }
+    // Pin/status colors reuse the main app's palette (colorPalette in the non-lot-weeding map).
     const LOT_WEEDING_STATUS_META = {
-      Requested: { color: '#fc9936', label: 'Requested' },
-      'Schedule Next': { color: '#8872b1', label: 'Schedule Next' },
-      'On-Deck': { color: '#8872b1', label: 'Schedule Next' },
-      Scheduled: { color: '#3cb2bd', label: 'Scheduled' },
-      Cleaned: { color: '#a3cc73', label: 'Cleaned' },
-      'Needs Attention': { color: '#cb6a7c', label: 'Needs Attention' },
-      Cancelled: { color: '#d6d6d6', label: 'Cancelled' }
+      Requested: { color: '#fdba77', label: 'Requested' },        // light-caramel
+      'Schedule Next': { color: '#f9d6d3', label: 'Schedule Next' }, // soft-blush
+      'On-Deck': { color: '#f9d6d3', label: 'Schedule Next' },
+      Scheduled: { color: '#81bdc3', label: 'Scheduled' },        // sky-blue-light
+      Cleaned: { color: '#afc892', label: 'Cleaned' },            // dry-sage
+      'Needs Attention': { color: '#bc455a', label: 'Needs Attention' }, // dusty-mauve
+      Cancelled: { color: '#e5e5e5', label: 'Cancelled' }         // ash-grey
     };
 
     const LOT_WEEDING_ADMIN_VIEW_FILTERS = [
@@ -3951,19 +3952,24 @@
 
     function renderLotWeedingAdminCaptainsHtml(request) {
       // Multiple captains for a lot are stored as semicolon-separated lists, with the
-      // name and email fields aligned by position (captain 1 = index 0, etc.).
+      // name, email, and phone fields aligned by position (captain 1 = index 0, etc.).
       const names = String(request.captainName || '').split(';').map((value) => value.trim());
       const emails = String(request.captainEmail || '').split(';').map((value) => value.trim());
-      const count = Math.max(names.filter(Boolean).length, emails.filter(Boolean).length);
+      const phones = String(request.captainPhone || '').split(';').map((value) => value.trim());
+      const count = Math.max(names.filter(Boolean).length, emails.filter(Boolean).length, phones.filter(Boolean).length);
       if (!count) return 'No captain listed';
       const rows = [];
       for (let i = 0; i < count; i++) {
         const name = names[i] || '';
         const email = emails[i] || '';
+        const phone = phones[i] || '';
         const parts = [];
         if (name) parts.push(`<span class="lot-weeding-admin-captain-name">${escapeHtml(name)}</span>`);
         if (email) {
           parts.push(`<span class="lot-weeding-admin-contact-email-wrap"><a href="mailto:${escapeHtmlAttr(email)}">${escapeHtml(email)}</a>${renderLotWeedingAdminCopyEmailButton(email)}</span>`);
+        }
+        if (phone) {
+          parts.push(`<span class="lot-weeding-admin-contact-phone">${escapeHtml(formatLotWeedingPhone(phone))}</span>`);
         }
         if (!parts.length) continue;
         rows.push(`<div class="lot-weeding-admin-captain-row">${parts.join('<span class="lot-weeding-admin-contact-sep"> · </span>')}</div>`);
@@ -4419,11 +4425,34 @@
       return next;
     }
 
+    // Mirrors the main app's createColoredMarkerIcon: a status-colored circle with a hard
+    // offset charcoal shadow + charcoal stroke, growing when emphasized (clicked/selected).
+    function buildLotWeedingAdminMarkerIcon({ color, emphasized, strokeColor }) {
+      const size = emphasized ? 25 : 20;
+      const strokeWidth = emphasized ? 2 : 1.5;
+      const anchor = (size / 2) - 1;
+      const svgIcon = `
+        <svg width="${size}" height="${size}" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="8" fill="#1F2937"/>
+          <circle cx="10" cy="10" r="8" fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+        </svg>
+      `;
+      return L.divIcon({
+        html: svgIcon,
+        className: 'custom-colored-marker lot-weeding-admin-marker',
+        iconSize: [size, size],
+        iconAnchor: [anchor, anchor],
+        popupAnchor: [0, -anchor]
+      });
+    }
+
     function createLotWeedingAdminMarker(request, map) {
       const coords = getLotWeedingRequestCoordinates(request);
       if (!coords || !map || typeof L === 'undefined') return null;
       const status = String(request.status || 'Requested');
-      const marker = L.circleMarker([coords.latitude, coords.longitude]).addTo(map);
+      const marker = L.marker([coords.latitude, coords.longitude], {
+        icon: buildLotWeedingAdminMarkerIcon({ color: getLotWeedingStatusMeta(status).color, emphasized: false, strokeColor: '#1F2937' })
+      }).addTo(map);
       applyLotWeedingAdminMarkerStyle(marker, request);
       marker.bindTooltip(`${status}: ${request.address || request.apn || 'Lot weeding request'}`, {
         direction: 'top',
@@ -4550,6 +4579,25 @@
       updateLotWeedingMapControls();
     }
 
+    // Zone labels (name + captains) should only appear once zoomed in enough to be legible,
+    // mirroring the main Map tab's Altagether Zones behavior (MAPBOX_ADDITIONAL_LAYER_CONFIG.labelMinZoom).
+    // Otherwise every zone name stacks up and clutters the townwide view.
+    const LOT_WEEDING_ZONE_LABEL_MIN_ZOOM = Number.isFinite(MAPBOX_ADDITIONAL_LAYER_CONFIG?.labelMinZoom)
+      ? MAPBOX_ADDITIONAL_LAYER_CONFIG.labelMinZoom
+      : 16;
+
+    function updateLotWeedingZoneLabelVisibility() {
+      const map = lotWeedingAdminState.map;
+      const mapEl = document.getElementById('lotWeedingAdminMap');
+      if (!map || !mapEl) return;
+      const zoom = map.getZoom?.();
+      const show = Boolean(lotWeedingAdminState.zoneOverlayVisible)
+        && Boolean(lotWeedingAdminState.zoneOverlayLayer)
+        && Number.isFinite(zoom)
+        && zoom >= LOT_WEEDING_ZONE_LABEL_MIN_ZOOM;
+      mapEl.classList.toggle('lw-show-zone-labels', show);
+    }
+
     function clearLotWeedingAdminZoneOverlay() {
       const layer = lotWeedingAdminState.zoneOverlayLayer;
       const map = lotWeedingAdminState.map;
@@ -4559,6 +4607,7 @@
       lotWeedingAdminState.zoneOverlayLayer = null;
       lotWeedingAdminState.zoneOverlayLoading = false;
       lotWeedingAdminState.zoneOverlayStatus = '';
+      updateLotWeedingZoneLabelVisibility();
       updateLotWeedingZoneOverlayStatus();
     }
 
@@ -4610,6 +4659,7 @@
         if (typeof layer.bringToBack === 'function') layer.bringToBack();
         lotWeedingAdminState.markers.forEach((entry) => entry.marker?.bringToFront?.());
         lotWeedingAdminState.zoneOverlayLayer = layer;
+        updateLotWeedingZoneLabelVisibility();
         lotWeedingAdminState.zoneOverlayStatus = `${formatGodmodeCount(featureCollection.features.length)} zones shown`;
       } catch (error) {
         console.warn('[lot-weeding] NC zone overlay failed:', error);
@@ -4828,6 +4878,7 @@
       }).addTo(map);
       installLotWeedingMapControls(map);
       attachLotWeedingAdminDrawHandlers(map);
+      map.on('zoomend', updateLotWeedingZoneLabelVisibility);
 
       const bounds = [];
       const markers = mappedRequests.map((request) => {
@@ -4857,15 +4908,15 @@
       const matchesDay = !dayFilter || toLotWeedingDateKey(request.scheduledDate) === dayFilter;
       const dimmed = Boolean(dayFilter) && !matchesDay;
       const dayHit = Boolean(dayFilter) && matchesDay;
-      marker.setStyle({
-        color: primary ? '#1F2937' : (dayHit ? '#1F2937' : (selected ? '#FBBF24' : '#FFFDF5')),
-        weight: primary ? 4 : (dayHit ? 4 : (selected ? 3 : 2)),
-        fillColor: meta.color,
-        fillOpacity: dimmed ? 0.28 : 0.92,
-        opacity: dimmed ? 0.4 : 1
-      });
-      if (typeof marker.setRadius === 'function') {
-        marker.setRadius(dayHit ? 11 : (selected ? 10 : 7));
+      const emphasized = primary || dayHit || selected;
+      // Charcoal stroke matches the main app; multi-selected (but not the primary/focused) pins
+      // keep an amber ring so the current selection set stays obvious.
+      const strokeColor = (selected && !primary) ? '#FBBF24' : '#1F2937';
+      if (typeof marker.setIcon === 'function') {
+        marker.setIcon(buildLotWeedingAdminMarkerIcon({ color: meta.color, emphasized, strokeColor }));
+      }
+      if (typeof marker.setOpacity === 'function') {
+        marker.setOpacity(dimmed ? 0.4 : 1);
       }
     }
 
@@ -5088,12 +5139,12 @@
               <label class="lot-weeding-admin-label">Date Cleaned
                 <input type="date" class="lot-weeding-admin-input" data-lot-weeding-field="dateCleaned" data-lot-weeding-date="1" data-lot-weeding-date-original="${escapeHtmlAttr(request.dateCleaned)}" value="${escapeHtmlAttr(toLotWeedingDateInputValue(request.dateCleaned))}">
               </label>
-              <label class="lot-weeding-admin-label" title="Has the homeowner been notified of their scheduled cleaning date?">Homeowner Notified
+              <label class="lot-weeding-admin-label" title="Has the homeowner been notified of their scheduled cleaning date?">Homeowner Notified<span class="lot-weeding-admin-tip-icon" aria-hidden="true">&#9432;</span>
                 <select class="lot-weeding-admin-input" data-lot-weeding-field="homeownerNotified">
                   ${renderLotWeedingAdminSelectOptions(LOT_WEEDING_YES_NO_OPTIONS, request.homeownerNotified)}
                 </select>
               </label>
-              <label class="lot-weeding-admin-label" title="Does the homeowner have a contract with Universal Waste Systems for yard waste pickup?">UWS Contract
+              <label class="lot-weeding-admin-label" title="Does the homeowner have a contract with Universal Waste Systems for yard waste pickup?">UWS Contract<span class="lot-weeding-admin-tip-icon" aria-hidden="true">&#9432;</span>
                 <select class="lot-weeding-admin-input" data-lot-weeding-field="universalWasteContract">
                   ${renderLotWeedingAdminSelectOptions(LOT_WEEDING_YES_NO_OPTIONS, request.universalWasteContract)}
                 </select>
@@ -5107,8 +5158,8 @@
             <dl class="lot-weeding-admin-detail-list lot-weeding-admin-detail-list--readonly">
               <div><dt>Requester</dt><dd>${escapeHtml(request.requesterName || 'Unknown requester')}</dd></div>
               <div><dt>Contact</dt><dd class="lot-weeding-admin-contact-dd">${renderLotWeedingAdminContactHtml(request)}</dd></div>
-              <div><dt>Zone</dt><dd>${escapeHtml(request.zone || 'No zone match')}</dd></div>
-              <div><dt>Captain</dt><dd class="lot-weeding-admin-contact-dd">${renderLotWeedingAdminCaptainsHtml(request)}</dd></div>
+              <div class="lot-weeding-admin-detail-divider"><dt>Altagether Zone</dt><dd>${escapeHtml(request.zone || 'No zone match')}</dd></div>
+              <div><dt>Neighborhood Captain</dt><dd class="lot-weeding-admin-contact-dd">${renderLotWeedingAdminCaptainsHtml(request)}</dd></div>
             </dl>
 
             <label class="lot-weeding-admin-label lot-weeding-admin-label--wide lot-weeding-admin-label--notes">Notes

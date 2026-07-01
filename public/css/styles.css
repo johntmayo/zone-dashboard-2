@@ -4063,6 +4063,14 @@
       border-top: 0;
     }
 
+    /* Heavy separator between the requester/contact block and the zone/captain block,
+       matching the 3px rule above Requester. */
+    .lot-weeding-admin-detail-list--readonly div.lot-weeding-admin-detail-divider {
+      border-top: 3px solid rgba(31, 41, 55, 0.88);
+      margin-top: 6px;
+      padding-top: 14px;
+    }
+
     .lot-weeding-admin-contact-dd {
       display: flex;
       flex-wrap: wrap;
@@ -4405,7 +4413,10 @@
 
     /* Zone labels: legible but lightly transparent so pins stay visible underneath,
        and never capture pointer events (clicks pass through to pins / the lasso). */
+    /* Zone labels are hidden until JS adds .lw-show-zone-labels to the map (past labelMinZoom),
+       matching the main Map tab's Altagether Zones behavior so names don't clutter when zoomed out. */
     .lot-weeding-admin-map .lot-weeding-zone-label.leaflet-tooltip {
+      display: none;
       pointer-events: none;
       background: rgba(253, 251, 247, 0.72);
       border: 1px solid rgba(75, 125, 93, 0.55);
@@ -4420,6 +4431,10 @@
       line-height: 1.25;
       text-align: center;
       white-space: nowrap;
+    }
+
+    .lot-weeding-admin-map.lw-show-zone-labels .lot-weeding-zone-label.leaflet-tooltip {
+      display: block;
     }
 
     .lot-weeding-admin-map .lot-weeding-zone-label.leaflet-tooltip::before {
@@ -4734,6 +4749,20 @@
       text-transform: uppercase;
     }
 
+    /* Subtle affordance that a native title tooltip exists on this label. */
+    .lot-weeding-admin-tip-icon {
+      margin-left: 4px;
+      color: var(--text-secondary);
+      opacity: 0.55;
+      font-size: 0.9em;
+      font-weight: 700;
+      cursor: help;
+    }
+
+    .lot-weeding-admin-label:hover .lot-weeding-admin-tip-icon {
+      opacity: 0.9;
+    }
+
     .lot-weeding-admin-label .lot-weeding-admin-input {
       margin-top: 4px;
       text-transform: none;
@@ -4752,44 +4781,47 @@
       text-transform: uppercase;
     }
 
+    /* Badges echo the new pin palette (light-caramel / soft-blush / sky-blue-light /
+       dry-sage / dusty-mauve / ash-grey) using the hue as a background tint + border,
+       with a darker text of the same hue so small pill text stays legible. */
     .lot-weeding-admin-status--scheduled {
-      background: rgba(60, 178, 189, 0.2);
-      color: #3cb2bd;
-      border-color: rgba(60, 178, 189, 0.35);
+      background: rgba(129, 189, 195, 0.24);
+      color: #2f7d85;
+      border-color: rgba(129, 189, 195, 0.45);
     }
 
     .lot-weeding-admin-status--requested {
-      background: rgba(252, 153, 54, 0.2);
-      color: #fc9936;
-      border-color: rgba(252, 153, 54, 0.35);
+      background: rgba(253, 186, 119, 0.26);
+      color: #b56a15;
+      border-color: rgba(253, 186, 119, 0.48);
     }
 
     .lot-weeding-admin-status--on-deck,
     .lot-weeding-admin-status--schedule-next {
-      background: rgba(136, 114, 177, 0.18);
-      color: #8872b1;
-      border-color: rgba(136, 114, 177, 0.32);
+      background: rgba(249, 214, 211, 0.55);
+      color: #b06a70;
+      border-color: rgba(203, 140, 144, 0.5);
     }
 
     .lot-weeding-admin-status--completed,
     .lot-weeding-admin-status--cleaned {
-      background: rgba(163, 204, 115, 0.24);
-      color: #a3cc73;
-      border-color: rgba(163, 204, 115, 0.38);
+      background: rgba(175, 200, 146, 0.3);
+      color: #5f8442;
+      border-color: rgba(175, 200, 146, 0.5);
     }
 
     .lot-weeding-admin-status--flagged,
     .lot-weeding-admin-status--needs-attention {
-      background: rgba(203, 106, 124, 0.16);
-      color: #cb6a7c;
-      border-color: rgba(203, 106, 124, 0.28);
+      background: rgba(188, 69, 90, 0.16);
+      color: #b0384c;
+      border-color: rgba(188, 69, 90, 0.3);
     }
 
     .lot-weeding-admin-status--cancelled,
     .lot-weeding-admin-status--canceled {
-      background: rgba(214, 214, 214, 0.35);
-      color: #bdbdbd;
-      border-color: rgba(189, 189, 189, 0.45);
+      background: rgba(229, 229, 229, 0.5);
+      color: #8a8a8a;
+      border-color: rgba(190, 190, 190, 0.55);
     }
 
     .lot-weeding-admin-no-results {

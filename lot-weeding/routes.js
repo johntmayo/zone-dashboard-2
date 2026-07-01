@@ -205,12 +205,18 @@ function getLotWeedingColumns(headers) {
       'neighborhood captain',
       'captain name',
       'nc name'
-    ], (lower) => lower.includes('captain') || lower === 'nc'),
+    ], (lower) => (lower.includes('captain') || lower === 'nc') && !lower.includes('email') && !lower.includes('phone')),
     captainEmail: findColumn(headers, [
       'captain email',
       'neighborhood captain email',
       'nc email'
     ], (lower) => lower.includes('captain') && lower.includes('email')),
+    captainPhone: findColumn(headers, [
+      'captain phone',
+      'neighborhood captain phone',
+      'nc phone',
+      'captain_phone'
+    ], (lower) => lower.includes('phone') && (lower.includes('captain') || lower.includes('nc'))),
     latitude: findColumn(headers, [
       'latitude',
       'lat',
@@ -258,7 +264,7 @@ function getContextColumns(headers) {
       'captain name',
       'nc name',
       'captain_display_name'
-    ], (lower) => lower.includes('captain') && !lower.includes('email')),
+    ], (lower) => lower.includes('captain') && !lower.includes('email') && !lower.includes('phone')),
     captainEmail: findColumn(headers, [
       'captain email',
       'neighborhood captain email',
@@ -266,6 +272,14 @@ function getContextColumns(headers) {
       'contact email',
       'contact_email'
     ], (lower) => lower.includes('email') && (lower.includes('captain') || lower.includes('contact') || lower.includes('nc'))),
+    captainPhone: findColumn(headers, [
+      'captain phone',
+      'neighborhood captain phone',
+      'nc phone',
+      'captain_phone',
+      'contact phone',
+      'contact_phone'
+    ], (lower) => lower.includes('phone') && (lower.includes('captain') || lower.includes('contact') || lower.includes('nc'))),
     latitude: findColumn(headers, [
       'latitude',
       'lat',
@@ -379,6 +393,7 @@ function normalizeLotWeedingRows(headers, rows) {
       zone: getValue(record, columns.zone),
       captainName: getValue(record, columns.captainName),
       captainEmail: getValue(record, columns.captainEmail),
+      captainPhone: getValue(record, columns.captainPhone),
       latitude: coords ? coords.latitude : null,
       longitude: coords ? coords.longitude : null,
       raw: record
@@ -455,6 +470,7 @@ async function loadContextByApn({ sheetsClient, config }) {
         zone: getValue(record, columns.zone),
         captainName: getValue(record, columns.captainName),
         captainEmail: getValue(record, columns.captainEmail),
+        captainPhone: getValue(record, columns.captainPhone),
         latitude: coords ? coords.latitude : null,
         longitude: coords ? coords.longitude : null
       });
@@ -476,6 +492,7 @@ function enrichRequestsWithContext(requests, contextByApn) {
       zone: request.zone || context.zone || '',
       captainName: request.captainName || context.captainName || '',
       captainEmail: request.captainEmail || context.captainEmail || '',
+      captainPhone: request.captainPhone || context.captainPhone || '',
       latitude: request.latitude ?? context.latitude ?? null,
       longitude: request.longitude ?? context.longitude ?? null
     };
