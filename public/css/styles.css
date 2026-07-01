@@ -135,10 +135,11 @@
 
     .nav-header-partner-logo {
       display: block;
-      max-width: 168px;
-      max-height: 72px;
+      max-width: 100%;
+      max-height: 144px;
       width: auto;
       height: auto;
+      margin: 0 auto;
       object-fit: contain;
     }
 
@@ -352,6 +353,36 @@
       background: var(--accent-gold);
       transform: scaleY(1);
       width: 5px;
+    }
+
+    /* Sign out is an account/utility action, not a nav destination: render it as a compact,
+       centered pill in the bottom cluster (below the logo, above Send feedback) rather than
+       reusing the full-width, left-aligned nav-tab styling. */
+    #signOutBtn.nav-item {
+      display: block;
+      width: fit-content;
+      max-width: 100%;
+      margin: 4px auto 0;
+      padding: 7px 18px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      text-align: center;
+      color: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 999px;
+      overflow: visible;
+    }
+
+    #signOutBtn.nav-item::before {
+      display: none;
+    }
+
+    #signOutBtn.nav-item:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      transform: none;
+      border-color: rgba(255, 255, 255, 0.5);
     }
 
     /* Beta Testers Nav Item - Special standout styling */
