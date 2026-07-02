@@ -8369,7 +8369,18 @@
 
     function findLotWeedingRequestColumns(headers) {
       if (!headers || !Array.isArray(headers)) {
-        return { requestedCol: null, detailsCol: null, statusCol: null, dateScheduledCol: null, apnCol: null, timestampCol: null };
+        return {
+          requestedCol: null,
+          detailsCol: null,
+          notesCol: null,
+          requesterNameCol: null,
+          emailCol: null,
+          phoneCol: null,
+          statusCol: null,
+          dateScheduledCol: null,
+          apnCol: null,
+          timestampCol: null
+        };
       }
 
       const requestedCol = findLotWeedingColumn(headers, [
@@ -8385,6 +8396,34 @@
         'request details',
         'details'
       ], lower => lower.includes('lot') && lower.includes('weeding') && lower.includes('detail'));
+      const notesCol = findLotWeedingColumn(headers, [
+        'notes',
+        'comments'
+      ], lower => lower.includes('note') || lower.includes('comment'));
+      const requesterNameCol = findLotWeedingColumn(headers, [
+        'name of homeowner',
+        'name',
+        'full name',
+        'requester name',
+        'property owner name',
+        'owner name'
+      ], lower => lower.includes('name') && (lower.includes('homeowner') || lower.includes('owner') || lower.includes('requester')));
+      const emailCol = findLotWeedingColumn(headers, [
+        'email of homeowner',
+        'email',
+        'email address',
+        'requester email',
+        'property owner email',
+        'owner email'
+      ], lower => lower.includes('email'));
+      const phoneCol = findLotWeedingColumn(headers, [
+        'phone number of homeowner',
+        'phone',
+        'phone number',
+        'requester phone',
+        'property owner phone',
+        'owner phone'
+      ], lower => lower.includes('phone') || lower.includes('mobile') || lower.includes('cell'));
       const statusCol = findLotWeedingColumn(headers, [
         'status',
         'lot_weeding_status_spring_2026',
@@ -8419,7 +8458,18 @@
         'created at'
       ], lower => lower.includes('timestamp') || lower.includes('submitted') || (lower.includes('created') && lower.includes('at')));
 
-      return { requestedCol, detailsCol, statusCol, dateScheduledCol, apnCol, timestampCol };
+      return {
+        requestedCol,
+        detailsCol,
+        notesCol,
+        requesterNameCol,
+        emailCol,
+        phoneCol,
+        statusCol,
+        dateScheduledCol,
+        apnCol,
+        timestampCol
+      };
     }
 
     function normalizeLotWeedingColumnKey(value) {
@@ -8510,6 +8560,41 @@
       return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
     }
 
+    function buildLotWeedingRequestSummary(row, cols) {
+      const name = cols.requesterNameCol ? String(row[cols.requesterNameCol] || '').trim() : '';
+      const email = cols.emailCol ? String(row[cols.emailCol] || '').trim() : '';
+      const phone = cols.phoneCol ? String(row[cols.phoneCol] || '').trim() : '';
+      const timestampRaw = cols.timestampCol ? String(row[cols.timestampCol] || '').trim() : '';
+      if (!name && !email && !phone && !timestampRaw) return '';
+
+      const parts = [];
+      const dateText = timestampRaw ? (formatLotWeedingScheduledDate(timestampRaw) || timestampRaw) : '';
+      if (name && dateText) parts.push(`Request made by ${name} on ${dateText}.`);
+      else if (name) parts.push(`Request made by ${name}.`);
+      else if (dateText) parts.push(`Request submitted on ${dateText}.`);
+
+      const contactParts = [];
+      if (email) contactParts.push(email);
+      if (phone) {
+        const formattedPhone = formatLotWeedingPhone(phone);
+        contactParts.push(formattedPhone || phone);
+      }
+      if (contactParts.length) {
+        parts.push(`Contact info provided to Altadena Talks: ${contactParts.join(' | ')}`);
+      }
+      return parts.join(' ');
+    }
+
+    function collectLotWeedingRowDetails(row, cols) {
+      const rollup = cols.detailsCol ? String(row[cols.detailsCol] || '').trim() : '';
+      const notes = cols.notesCol ? String(row[cols.notesCol] || '').trim() : '';
+      const summary = rollup || buildLotWeedingRequestSummary(row, cols);
+      const details = [];
+      if (summary) details.push(summary);
+      if (notes && notes !== summary) details.push(notes);
+      return details;
+    }
+
     function shouldReplaceLotWeedingStatus(currentStatus, currentTimestamp, nextStatus, nextTimestamp) {
       if (!currentStatus) return true;
       if (nextTimestamp !== null || currentTimestamp !== null) {
@@ -8559,7 +8644,18 @@
     }
 
     function buildCentralLotWeedingMap(headers, rows) {
-      const { requestedCol, detailsCol, statusCol, dateScheduledCol, apnCol, timestampCol } = findLotWeedingRequestColumns(headers || []);
+      const {
+        requestedCol,
+        detailsCol,
+        notesCol,
+        requesterNameCol,
+        emailCol,
+        phoneCol,
+        statusCol,
+        dateScheduledCol,
+        apnCol,
+        timestampCol
+      } = findLotWeedingRequestColumns(headers || []);
       if (!apnCol) return new Map();
 
       const byApn = new Map();
@@ -8588,9 +8684,15 @@
         const request = byApn.get(apnDigits);
         const rowTimestamp = timestampCol ? parseLotWeedingTimestamp(row[timestampCol]) : null;
         if (!request.apn && rawApn) request.apn = rawApn;
-        const detailValue = detailsCol ? String(row[detailsCol] || '').trim() : '';
         const scheduledDateValue = dateScheduledCol ? formatLotWeedingScheduledDate(row[dateScheduledCol]) : '';
-        if (detailValue) request.details.add(detailValue);
+        collectLotWeedingRowDetails(row, {
+          detailsCol,
+          notesCol,
+          requesterNameCol,
+          emailCol,
+          phoneCol,
+          timestampCol
+        }).forEach((detailValue) => request.details.add(detailValue));
         if (scheduledDateValue) request.scheduledDates.add(scheduledDateValue);
         if (shouldReplaceLotWeedingStatus(request.status, request.statusTimestamp, status, rowTimestamp)) {
           request.status = status;
@@ -8612,8 +8714,21 @@
 
     function addLotWeedingEmbeddedFallbackRequests(requestsByKey, centralMatchedApns, centralMatchedAddresses) {
       const headers = sheetData.headers || [];
-      const { requestedCol, detailsCol, statusCol, dateScheduledCol, apnCol } = findLotWeedingRequestColumns(headers);
+      const {
+        requestedCol,
+        detailsCol,
+        notesCol,
+        requesterNameCol,
+        emailCol,
+        phoneCol,
+        statusCol,
+        dateScheduledCol,
+        apnCol,
+        timestampCol
+      } = findLotWeedingRequestColumns(headers);
       if (!requestedCol) return;
+
+      const detailCols = { detailsCol, notesCol, requesterNameCol, emailCol, phoneCol, timestampCol };
 
       sheetData.addressMap.forEach((rows, address) => {
         (rows || []).forEach(row => {
@@ -8624,7 +8739,6 @@
           if ((apnDigits && centralMatchedApns.has(apnDigits)) || centralMatchedAddresses.has(address)) return;
 
           const key = apnDigits ? `apn:${apnDigits}` : `address:${address}`;
-          const detailValue = detailsCol ? String(row[detailsCol] || '').trim() : '';
           const statusValue = normalizeLotWeedingStatus(statusCol ? row[statusCol] : '') || 'Requested';
           const scheduledDateValue = dateScheduledCol ? formatLotWeedingScheduledDate(row[dateScheduledCol]) : '';
 
@@ -8649,7 +8763,7 @@
           const request = requestsByKey.get(key);
           if (!request.apn && rawApn) request.apn = rawApn;
           request.addresses.add(address);
-          if (detailValue) request.details.add(detailValue);
+          collectLotWeedingRowDetails(row, detailCols).forEach((detailValue) => request.details.add(detailValue));
           if (scheduledDateValue) request.scheduledDates.add(scheduledDateValue);
           if (getLotWeedingStatusPriority(statusValue) > getLotWeedingStatusPriority(request.status)) {
             request.status = statusValue;
@@ -10680,7 +10794,9 @@
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const remediationStatusCol = findColumn(headers, ['remediation', 'status'], ['note']);
       const contactDateCol = findOutreachDateColumn(headers);
-      const hasLotWeedingRequestData = getLotWeedingRequests().length > 0 || Boolean(findLotWeedingRequestColumns(headers).requestedCol);
+      const hasLotWeedingRequestData = getLotWeedingRequests().length > 0 ||
+        Boolean(findLotWeedingRequestColumns(headers).requestedCol) ||
+        Boolean(findLotWeedingRequestColumns(headers).statusCol);
       const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
 
       const streets = getUniqueStreets(addresses);
