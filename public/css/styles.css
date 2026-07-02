@@ -3949,6 +3949,12 @@
 
     .lot-weeding-admin-side-panel.lot-weeding-admin-side-panel--with-subtabs {
       overflow-y: hidden;
+      padding: 14px 0 0;
+    }
+
+    .lot-weeding-admin-side-panel--with-subtabs .lot-weeding-admin-panel-subtabs {
+      margin: 0 18px 12px;
+      flex: 0 0 auto;
     }
 
     .lot-weeding-admin-panel-subtabs {
@@ -3985,10 +3991,10 @@
       flex: 1 1 auto;
       min-height: 0;
       overflow-y: auto;
-    }
-
-    .lot-weeding-admin-panel-subtabs {
-      flex: 0 0 auto;
+      overflow-x: hidden;
+      scrollbar-gutter: stable;
+      padding: 0 18px 18px;
+      box-sizing: border-box;
     }
 
     .lot-weeding-admin-panel-calendar .lot-weeding-admin-calendar-head--compact {
@@ -5545,9 +5551,16 @@
 
     .lot-weeding-admin-calendar-shell {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+      grid-template-columns: minmax(0, 1fr) 380px;
       gap: 16px;
       align-items: start;
+    }
+
+    .lot-weeding-admin-calendar-shell > .lot-weeding-admin-day-panel {
+      width: 380px;
+      max-width: 380px;
+      min-width: 380px;
+      box-sizing: border-box;
     }
 
     .lot-weeding-admin-calendar-card,
@@ -5651,6 +5664,11 @@
       text-align: left;
       cursor: pointer;
       transition: background 0.14s ease, border-color 0.14s ease;
+    }
+
+    .lot-weeding-admin-calendar-card .lot-weeding-admin-cal-cell {
+      min-height: 82px;
+      padding: 8px;
     }
 
     .lot-weeding-admin-cal-cell--empty {
@@ -5910,6 +5928,12 @@
       .lot-weeding-admin-calendar-shell,
       .lot-weeding-admin-followups {
         grid-template-columns: 1fr;
+      }
+
+      .lot-weeding-admin-calendar-shell > .lot-weeding-admin-day-panel {
+        width: auto;
+        max-width: none;
+        min-width: 0;
       }
 
       .lot-weeding-admin-editor .lot-weeding-admin-edit-grid {

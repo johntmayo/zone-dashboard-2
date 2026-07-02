@@ -2,7 +2,12 @@
 
 **Status:** Lot Weeding Command Center is feature-complete for the confirmed console design (June 2026). Staging validation completed on a copied intake sheet with revised columns and service-account Editor access. Recent work is **operator-driven UX polish** (filters bar, single-lot editor layout, contact formatting) plus the **Calendar-in-Map Planner view (Phase 1)** — in-panel calendar on the Map tab with day click/hover map highlighting, behind a reversible feature flag. Production cutover and write-flow tests remain when ready.
 
-**Latest pass (post-batch map reset + Clear selection, July 2026):**
+**Latest pass (calendar width, context bar, report copy, July 2026):**
+- **Calendar tab sidebar fixed width** — day panel column locked at 380px (no minmax shrink/grow when day content changes).
+- **Selection context chip removed** — no more "N selected" bar when switching away from Planner with a pin selected.
+- **Impact report copy** — Altadena Talks Foundation branding; updated hero sub-header, About this program blurb, and footer.
+
+**Previous pass (post-batch map reset + Clear selection, July 2026):**
 - **Batch apply cleanup** — successful batch writes clear selection, drawn polygon, and day filter (batch schedule no longer sets `dayFilter`, which was dimming unrelated pins). Show filter auto-switches to match the action (e.g. Schedule → **Scheduled**).
 - **Map: Clear selection** — after a draw-area group (or any multi-select), **Draw area** hides and **Clear selection** appears on the map until the group is cleared.
 

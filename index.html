@@ -4159,6 +4159,7 @@
       if (lotWeedingAdminState.selectedRowNumbers.has(normalizedRowNumber)) {
         lotWeedingAdminState.selectedRowNumbers.delete(normalizedRowNumber);
       } else {
+        if (lotWeedingAdminState.selectedRowNumbers.size <= 1) resetLotWeedingAdminBatchForm();
         lotWeedingAdminState.selectedRowNumbers.add(normalizedRowNumber);
       }
       lotWeedingAdminState.selectedRowNumber = normalizedRowNumber;
@@ -4171,14 +4172,7 @@
 
     function clearLotWeedingAdminSelection() {
       clearLotWeedingAdminSelectionOnly();
-      lotWeedingAdminState.batchScheduleMessage = '';
-      lotWeedingAdminState.batchScheduleResults = [];
-      lotWeedingAdminState.batchScheduleNextMessage = '';
-      lotWeedingAdminState.batchScheduleNextResults = [];
-      lotWeedingAdminState.batchCleanMessage = '';
-      lotWeedingAdminState.batchCleanResults = [];
-      lotWeedingAdminState.batchAttentionMessage = '';
-      lotWeedingAdminState.batchAttentionResults = [];
+      resetLotWeedingAdminBatchForm();
     }
 
     function hasLotWeedingAdminGroupSelection() {
@@ -4194,11 +4188,27 @@
       if (hint) hint.textContent = getLotWeedingAdminViewFilterHint(filter);
     }
 
+    function resetLotWeedingAdminBatchForm() {
+      lotWeedingAdminState.batchAction = 'schedule';
+      lotWeedingAdminState.batchScheduleDate = '';
+      lotWeedingAdminState.batchCleanDate = '';
+      lotWeedingAdminState.batchAttentionNote = '';
+      lotWeedingAdminState.batchScheduleMessage = '';
+      lotWeedingAdminState.batchScheduleResults = [];
+      lotWeedingAdminState.batchScheduleNextMessage = '';
+      lotWeedingAdminState.batchScheduleNextResults = [];
+      lotWeedingAdminState.batchCleanMessage = '';
+      lotWeedingAdminState.batchCleanResults = [];
+      lotWeedingAdminState.batchAttentionMessage = '';
+      lotWeedingAdminState.batchAttentionResults = [];
+    }
+
     function finalizeLotWeedingAdminBatchAction({ nextFilter = null, successCount = 0 } = {}) {
       if (successCount > 0) {
         clearLotWeedingAdminDayFilter();
         lotWeedingAdminState.selectedRowNumber = null;
         clearLotWeedingAdminSelectionOnly();
+        resetLotWeedingAdminBatchForm();
         if (nextFilter) lotWeedingAdminState.filter = nextFilter;
         if (LOT_WEEDING_PLANNER_CALENDAR_ENABLED) lotWeedingAdminState.panelTab = 'details';
       }
@@ -4752,12 +4762,8 @@
       if (drawBtn) {
         drawBtn.classList.toggle('active', drawing);
         drawBtn.setAttribute('aria-pressed', drawing ? 'true' : 'false');
-        drawBtn.hidden = drawing || groupSelected;
+        drawBtn.hidden = groupSelected;
       }
-      const finishBtn = document.getElementById('lotWeedingMapCloseDrawBtn');
-      if (finishBtn) finishBtn.hidden = !drawing;
-      const cancelBtn = document.getElementById('lotWeedingMapClearDrawBtn');
-      if (cancelBtn) cancelBtn.hidden = !drawing;
       const clearSelectionBtn = document.getElementById('lotWeedingMapClearSelectionBtn');
       if (clearSelectionBtn) clearSelectionBtn.hidden = !groupSelected || drawing;
       const statusEl = document.getElementById('lotWeedingMapStatus');
@@ -4781,8 +4787,6 @@
           wrap.innerHTML = `
             <button type="button" id="lotWeedingMapZonesBtn" class="lot-weeding-map-control-btn" aria-pressed="false" title="Show Altagether zones">Altagether Zones</button>
             <button type="button" id="lotWeedingMapDrawBtn" class="lot-weeding-map-control-btn" aria-pressed="false" title="Draw an area to select the lots inside">Draw area</button>
-            <button type="button" id="lotWeedingMapCloseDrawBtn" class="lot-weeding-map-control-btn lot-weeding-map-control-btn--primary" title="Select the lots inside the drawn area" hidden>Finish</button>
-            <button type="button" id="lotWeedingMapClearDrawBtn" class="lot-weeding-map-control-btn" title="Cancel drawing" hidden>Cancel</button>
             <button type="button" id="lotWeedingMapClearSelectionBtn" class="lot-weeding-map-control-btn" title="Clear the current group selection and drawn area" hidden>Clear selection</button>
             <div class="lot-weeding-map-control-status" id="lotWeedingMapStatus" aria-live="polite" hidden></div>
           `;
@@ -4800,12 +4804,12 @@
         syncLotWeedingAdminZoneOverlay();
       });
       document.getElementById('lotWeedingMapDrawBtn')?.addEventListener('click', () => {
-        const nextEnabled = !lotWeedingAdminState.drawEnabled;
-        if (!nextEnabled) lotWeedingAdminState.drawStatus = '';
-        setLotWeedingAdminDrawEnabled(nextEnabled);
+        if (lotWeedingAdminState.drawEnabled) {
+          if ((lotWeedingAdminState.drawLatLngs || []).length < 3) clearLotWeedingAdminDrawSelection();
+          return;
+        }
+        setLotWeedingAdminDrawEnabled(true);
       });
-      document.getElementById('lotWeedingMapCloseDrawBtn')?.addEventListener('click', closeLotWeedingAdminDrawSelection);
-      document.getElementById('lotWeedingMapClearDrawBtn')?.addEventListener('click', clearLotWeedingAdminDrawSelection);
       document.getElementById('lotWeedingMapClearSelectionBtn')?.addEventListener('click', () => {
         lotWeedingAdminState.selectedRowNumber = null;
         clearLotWeedingAdminSelection();
@@ -4839,7 +4843,7 @@
         L.polyline([latlngs[latlngs.length - 1], lotWeedingAdminState.drawHoverLatLng], { color: '#3B82F6', weight: 3, opacity: 0.9, dashArray: '6,6' }).addTo(layer);
       }
       lotWeedingAdminState.drawStatus = latlngs.length
-        ? (latlngs.length < 3 ? 'Add at least 3 corners.' : 'Click the first corner or Finish to select the lots inside.')
+        ? (latlngs.length < 3 ? 'Add at least 3 corners.' : 'Click the first corner again to select the lots inside.')
         : (lotWeedingAdminState.drawEnabled ? 'Click the map to add corners.' : lotWeedingAdminState.drawStatus);
       updateLotWeedingMapControls();
     }
@@ -4906,6 +4910,7 @@
       lotWeedingAdminState.drawHoverLatLng = null;
       lotWeedingAdminState.drawStatus = '';
       setLotWeedingAdminDrawEnabled(false);
+      resetLotWeedingAdminBatchForm();
       refreshLotWeedingAdminMapSelection();
     }
 
@@ -5493,8 +5498,6 @@
 
     function renderLotWeedingAdminContextBar() {
       const chips = [];
-      const selectedCount = getLotWeedingAdminSelectedRequests().length;
-      if (selectedCount && lotWeedingAdminState.activeTab !== 'map') chips.push({ type: 'selection', label: `${formatGodmodeCount(selectedCount)} selected` });
       // Day chip only on tabs where it adds context (not Planner or Calendar — both show the day inline).
       const showDayChip = lotWeedingAdminState.dayFilter
         && lotWeedingAdminState.activeTab !== 'map'
@@ -5504,10 +5507,7 @@
       }
       if (!chips.length) return '';
 
-      const onlyType = chips.length === 1 ? chips[0].type : null;
-      const labelText = onlyType === 'day' ? 'Date selected'
-        : onlyType === 'selection' ? 'Selection'
-        : 'Active filters';
+      const labelText = 'Date selected';
 
       return `
         <section class="lot-weeding-admin-context-bar" aria-label="Active filters and selection">
@@ -5712,7 +5712,7 @@
 
       const heroLogo = logoDataUrl
         ? `<div style="flex:0 0 auto;background:#ffffff;border-radius:14px;padding:14px 16px;box-shadow:0 8px 20px rgba(0,0,0,0.18);">
-             <img src="${logoDataUrl}" alt="Altadena Town Foundation logo" style="display:block;height:120px;width:auto;" />
+             <img src="${logoDataUrl}" alt="Altadena Talks Foundation logo" style="display:block;height:120px;width:auto;" />
            </div>`
         : '';
 
@@ -5720,9 +5720,9 @@
         <div style="position:relative;overflow:hidden;border-radius:16px;background:linear-gradient(135deg,#33402a 0%,#4d5a30 45%,#6c7a3c 100%);color:#ffffff;padding:36px 40px;display:flex;align-items:center;gap:28px;">
           ${heroLogo}
           <div style="flex:1 1 auto;">
-            <div style="text-transform:uppercase;letter-spacing:0.16em;font-size:12px;font-weight:700;color:#e7ecd4;margin-bottom:10px;">Altadena Town Foundation &middot; Lot Weeding Program</div>
+            <div style="text-transform:uppercase;letter-spacing:0.16em;font-size:12px;font-weight:700;color:#e7ecd4;margin-bottom:10px;">Altadena Talks Foundation &middot; Lot Weeding Program</div>
             <div style="font-size:34px;line-height:1.12;font-weight:800;margin-bottom:10px;">Program Impact Report</div>
-            <div style="font-size:14px;color:#eef2e2;max-width:520px;line-height:1.5;">A townwide, volunteer-powered effort helping Altadena homeowners clear post-fire lots — one parcel at a time.</div>
+            <div style="font-size:14px;color:#eef2e2;max-width:520px;line-height:1.5;">A volunteer-led initiative coordinating free lot cleanups for homeowners affected by the Eaton Fire.</div>
             <div style="margin-top:16px;font-size:13px;color:#dfe6cd;">Generated ${escapeHtml(dateLabel)} at ${escapeHtml(timeLabel)}</div>
           </div>
         </div>`;
@@ -5730,10 +5730,8 @@
       const missionHtml = `
         <div style="margin-top:26px;padding:20px 24px;background:${SOFT_BG};border:1px solid ${BORDER};border-radius:12px;color:${INK};font-size:13.5px;line-height:1.6;">
           <strong style="color:${ACCENT};">About this program.</strong>
-          Following the wildfires, overgrown and fire-fuel-laden lots pose a real safety and recovery risk across Altadena.
-          The Lot Weeding Command Center coordinates a fully volunteer effort — neighbors helping neighbors — to triage
-          homeowner requests, schedule cleaning days, and track every lot from intake through completion. The numbers below
-          reflect the current state of that work.
+          The Lot Weeding Program helps homeowners affected by the Eaton Fire keep their properties safe and in compliance through volunteer-led vegetation removal and lot maintenance.<br/><br/>
+          This report provides a live snapshot of the program's operations, including incoming requests, completed cleanups, work currently in progress, and upcoming volunteer deployments. It is intended to provide transparency into both program impact and day-to-day operations.
         </div>`;
 
       const heroStat = (value, label, sub) => `
@@ -5859,8 +5857,7 @@
 
       const footerHtml = `
         <div style="margin-top:38px;padding-top:16px;border-top:2px solid ${BORDER};font-size:11px;color:${MUTED};line-height:1.6;">
-          Altadena Town Foundation — Lot Weeding Program &middot; Report generated ${escapeHtml(dateLabel)} at ${escapeHtml(timeLabel)}.<br/>
-          This report reflects a live snapshot of the program's request tracking. Figures may change as new requests arrive and volunteer work continues.
+          This report reflects live operational data from the Lot Weeding Program. Figures may change as new requests are received, volunteer work is completed, and records are updated.
         </div>`;
 
       return `
@@ -5970,7 +5967,7 @@
               <h4>Work several lots at once</h4>
               <ul>
                 <li>Hold <strong>Shift</strong> and click multiple pins to add or remove them from a selection.</li>
-                <li>Or click <strong>Draw area</strong>, drop corners around a cluster of lots, and press <strong>Finish</strong> to select everything inside (the lasso). Use <strong>Clear selection</strong> on the map (or <strong>Clear</strong> in the panel) to reset the group.</li>
+                <li>Or click <strong>Draw area</strong>, drop corners around a cluster of lots, then click the <strong>first corner</strong> again to select everything inside. Click <strong>Draw area</strong> while drawing (with fewer than 3 corners) to cancel. Use <strong>Clear selection</strong> on the map to reset a finished group.</li>
                 <li>With a group selected, pick an action — <em>Schedule for a date</em>, <em>Mark Schedule Next</em>, <em>Mark Cleaned</em>, or <em>Mark Needs Attention</em> — and apply it to all of them at once.</li>
                 <li>Click a single pin again at any time to drop back to editing just that lot.</li>
               </ul>
