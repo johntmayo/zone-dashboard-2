@@ -1,8 +1,14 @@
 # Lot Weeding Admin Handoff
 
-**Status:** Lot Weeding Command Center is feature-complete for the confirmed console design (June 2026). Staging validation completed on a copied intake sheet with revised columns and service-account Editor access. Recent work is **operator-driven UX polish** (filters bar, single-lot editor layout, contact formatting) plus the **Calendar-in-Map Planner view (Phase 1)** — in-panel calendar on the Map tab with day click/hover map highlighting, behind a reversible feature flag. Production cutover and write-flow tests remain when ready.
+**Status:** Lot Weeding Command Center is feature-complete for the confirmed console design (June 2026). Staging validation completed on a copied intake sheet with revised columns and service-account Editor access. Recent work is **operator-driven UX polish** plus the **Planner** tab (in-panel calendar behind `LOT_WEEDING_PLANNER_CALENDAR_ENABLED`). Production cutover and write-flow tests remain when ready.
 
-**Latest pass (calendar width, context bar, report copy, July 2026):**
+**Latest pass (batch reset, draw area, calendar layout, July 2026):**
+- **Batch action resets to Schedule for a date** — after a successful batch apply, or when starting a new multi-select (draw-area group or shift+click 2nd pin), the action picker returns to **Schedule for a date** with blank dates/notes (`resetLotWeedingAdminBatchForm`).
+- **Draw area: no Finish/Cancel** — **Draw area** stays visible (highlighted while drawing). Close the shape by clicking the **first corner** again; click **Draw area** mid-draw with &lt;3 corners to abort. **Clear selection** on the map clears a finished group + polygon.
+- **Compact calendar scrollbar** — panel body uses `scrollbar-gutter: stable` so the grid doesn't squish horizontally when the scrollbar appears.
+- **Full Calendar tab taller** — day cells on the wide calendar tab are taller (82px); compact in-panel cells unchanged.
+
+**Previous pass (calendar width, context bar, report copy, July 2026):**
 - **Calendar tab sidebar fixed width** — day panel column locked at 380px (no minmax shrink/grow when day content changes).
 - **Selection context chip removed** — no more "N selected" bar when switching away from Planner with a pin selected.
 - **Impact report copy** — Altadena Talks Foundation branding; updated hero sub-header, About this program blurb, and footer.
@@ -69,7 +75,7 @@
 - **Sign out restyled (all nav variants, not just lot-weeding)** — no longer a full-width nav-tab; now a compact **centered pill** in the bottom cluster **below the Altagether logo, above Send feedback** (`#signOutBtn.nav-item` overrides in styles.css: auto width, centered, small text, pill border, no left accent bar, no hover slide). HTML order in `.nav-section-bottom` is logo → Sign out → feedback.
 - **Bug fixes:** (1) fixed a **TDZ crash on load** — `LOT_WEEDING_PARTNER_LOGO_SRC` was used by `updateNavigationState()` during initial synchronous execution before its `const` was initialized, which halted init and trapped users on "Checking your zone access" unless they cleared cache; the const now lives near the top and the nav-chrome call is wrapped in try/catch. (2) **Expired-session recovery** — the Command Center error state now shows **"Sign in with Google"** (calls `signIn()`) when there's no token, instead of a dead "Try again".
 
-**Previous pass:** grouping/batch overhaul — multi-select side panel rebuilt as one **Action picker → single form → summary → collapsible preview → one Apply button** (added **Mark Schedule Next** batch; "Date Scheduled"; removed "Writes … only" pills and duplicate lot lists). Unified selection language to **"N lots selected"**. Map controls simplified to Draw area / Finish + Cancel. **Shift+click** pins to add/remove; queue button **Add to selection / Remove**. Show dropdown + helper text; revised status colors; Schedule Next rename; tooltips; single-lot editor layout.
+**Previous pass:** grouping/batch overhaul — multi-select side panel rebuilt as one **Action picker → single form → summary → collapsible preview → one Apply button** (added **Mark Schedule Next** batch; "Date Scheduled"; removed "Writes … only" pills and duplicate lot lists). Unified selection language to **"N lots selected"**. Map controls: **Altagether Zones**, **Draw area**, **Clear selection**.
 
 **Earlier passes:** batch completion/attention, NC zone overlay, draw-to-select, Follow-up writes, batch scheduling, tabbed console, local post-save refresh.
 
@@ -105,7 +111,7 @@ The spreadsheet remains the source of truth. The command center is the **operato
 
 - **One obvious path per task** — if scheduling a group takes Draw → points → Select, the UI must say so inline; controls should not look broken or inert when idle.
 - **No redundant competing controls** — prefer one clear edit/save pattern; removed single-lot status quick-actions and selection buttons from the filters bar for this reason.
-- **Visible state** — active filters, selection count, and calendar day filter must never be hidden; the context bar exists for this reason.
+- **Visible state** — active filters and calendar day filter should be obvious in-context; context bar is minimal (no selection chip on non-Planner tabs; no day chip on Planner/Calendar).
 - **Preview before writes** — batch operations show what will change; partial failures are reported per lot.
 - **Labels match behavior** — “Select” on the map means “close drawn polygon and select lots inside,” not generic multi-select; naming and affordances must match.
 - **Polish is first-class work** — copy, layout density, disabled/hidden states, and operator testing feedback should be treated as priorities alongside new features.
@@ -115,7 +121,7 @@ The spreadsheet remains the source of truth. The command center is the **operato
 - Map view filter is a **Show** dropdown + helper text (replaced the status chips/filter bar).
 - Map heading bar removed (“Map workspace / Townwide lot-weeding requests / mapped counts”).
 - Single-lot editor layout: editable fields top, read-only requester/contact/zone/captain bottom, Notes last; Map status lat/lon line removed from editor.
-- Map **Select** button removed; drawing now uses **Draw area → Finish/Cancel** with inline hints. Build a selection via draw, **Shift+click** pins, or queue **Add to selection / Remove**.
+- Map **Select** button removed; drawing uses **Draw area** → click **first corner** again to select lots inside (or **Draw area** to abort if &lt;3 corners). Build a selection via draw, **Shift+click** pins, or queue **Add to selection / Remove**. **Clear selection** on map when a group is active.
 - Multi-select side panel collapsed from three stacked batch cards into one **Action picker → form → summary → preview → Apply** flow; selection language unified to **"N lots selected"** (no duplicate count in the map box).
 - **Help tab** added with getting-started instructions and the source-spreadsheet link.
 - Side panel no longer auto-selects the top lot; opens on instructions instead.
@@ -146,18 +152,18 @@ Key pieces:
 
 ### Tabbed operations console
 
-`#lotWeedingAdminView` is a five-tab console — **Map / Calendar / Follow-ups / Stats / Help** — over one shared `lotWeedingAdminState`. Switching tabs preserves selection and calendar day filter.
+`#lotWeedingAdminView` is a five-tab console — **Planner / Calendar / Follow-ups / Stats / Help** — over one shared `lotWeedingAdminState`. Switching tabs preserves selection and calendar day filter.
 
-- **Context bar** — selection count and calendar day filter chips (each clearable). Label is contextual: **Date selected** / **Selection** / **Active filters**. Reliably removed when the last chip is cleared.
-- **Map tab** — **Show** dropdown (Active default + per-status views + All), helper text explaining the current view, search + Refresh, Leaflet map (no heading bar above map), status legend, sortable request queue, single-lot or multi-select side panel. Calendar day filter dims non-matching lots on the map.
-- **Map controls** — **Altagether Zones** (overlay, informational only) and **Draw area** (click corners). While drawing the control swaps to **Finish** (close shape, select lots inside) + **Cancel**; a transient hint line appears only during drawing. No standalone "Select" button, no persistent selection count in the map box (the side panel owns selection state/language). Control cluster is fixed-width so it never reflows as buttons/labels change.
+- **Context bar** — calendar day filter chip on tabs that need it (Follow-ups, Stats, Help). **No day chip on Planner or Calendar** (date is visible in the calendar UI). **No selection context chip** anywhere.
+- **Planner tab** — **Show** dropdown (Active default + per-status views + All), helper text explaining the current view, search + Refresh, Leaflet map (no heading bar above map), status legend, sortable request queue, single-lot or multi-select side panel with optional in-panel **[ Details ] [ Calendar ]** toggle when `LOT_WEEDING_PLANNER_CALENDAR_ENABLED` is true. Calendar day filter dims non-matching lots on the map.
+- **Map controls** — **Altagether Zones** (overlay, informational only) and **Draw area** (click corners; close by clicking the **first corner** again). While a group is active, **Draw area** hides and **Clear selection** appears. No standalone "Select" button, no persistent selection count in the map box (the side panel owns selection state/language). Control cluster is fixed-width so it never reflows as buttons/labels change.
 - **Altagether Zones overlay** — non-interactive (never captures clicks/hover, so the lasso works and it can't block pins), rendered under the pins, with **click-through labels** showing zone name + captain first names (`buildLotWeedingZoneTooltipLabel`), styled lightly transparent (`.lot-weeding-zone-label`). Off by default. **Labels are zoom-gated** — hidden until zoom ≥ `LOT_WEEDING_ZONE_LABEL_MIN_ZOOM` (reuses the main Map tab's `MAPBOX_ADDITIONAL_LAYER_CONFIG.labelMinZoom`, currently 16) via `updateLotWeedingZoneLabelVisibility()` on `zoomend`, which toggles `.lw-show-zone-labels` on the map container (same tooltip-hidden-by-CSS pattern as the main map's `show-nearby-zone-labels`). Keeps names from stacking up when zoomed out.
 - **Building a selection** — draw an area (primary, bulk), **Shift+click** pins to add/remove individually, or use the queue **Add to selection / Remove** buttons. A plain pin click opens the single-lot editor (replaces selection). On load nothing is auto-selected — the panel shows a "No lot selected" instructions state.
 - **Calendar tab (read-only)** — month grid on `Date Scheduled`, day selection → shared `dayFilter`, **Copy day list** with optional contact info (clipboard only).
 - **Follow-ups tab** — **Missing APN**, **Scheduled but not notified**, **ROE outstanding** queues with inline contact info (email has a copy button), **Open & edit**, and one-click **Mark notified** (`Homeowner notified = Yes`) / **Mark ROE returned** (`ROE Status = Returned`).
 - **Stats tab** — workload cards (Active, Schedule Next, Scheduled, Needs Attention, Missing APN, Cleaned, Total), plus a **"Generate Report"** button that downloads a funder-facing PDF (see Latest pass) — hero banner with ATF logo, date+time, all stats plus deeper breakdowns. Filenames include date + time.
 - **Help tab** — "How to Use This Tool": navigate the map, edit a single lot, work several lots at once (Shift+click / Draw-area lasso), and what the other tabs do; plus the source-spreadsheet link (`LOT_WEEDING_SPREADSHEET_URL`). ⚠️ That link currently points at the Altadena-Talks original, not the revised-header copy the tool actually reads — verify before relying on it.
-- **Single side-panel editor** — one lot at a time on the Map tab; **Save lot**. Layout (top → bottom): editable grid → hint → read-only Requester / Contact → heavy divider → **Altagether Zone** / **Neighborhood Captain** → **Notes** → Save. Panel is a fixed height and scrolls internally (map stays a fixed 700px; no layout reflow when selecting).
+- **Single side-panel editor** — one lot at a time on the Planner tab; **Save lot**. Layout (top → bottom): editable grid → hint → read-only Requester / Contact → heavy divider → **Altagether Zone** / **Neighborhood Captain** → **Notes** → Save. Panel is a fixed height and scrolls internally (map stays a fixed 700px; no layout reflow when selecting).
   - **Editable field order** (2 columns): Status | ROE Status; Date Scheduled | Date Cleaned; Homeowner Notified | UWS Contract; APN.
   - Tri-state fields (UWS Contract, Homeowner Notified, ROE Status) show **(unknown)** when blank (writes empty string). **Homeowner Notified** and **UWS Contract** labels have hover tooltips explaining each field.
   - **Contact:** requester email with a small/subtle copy button; **phone is plain text** (not tap-to-call).
@@ -341,7 +347,7 @@ Settled with the product owner. All items below are **implemented** unless noted
 
 ### Locked design rules
 
-- **Tabbed console:** Map / Calendar / Follow-ups / Stats / Help (five tabs); shared state across tabs.
+- **Tabbed console:** Planner / Calendar / Follow-ups / Stats / Help (five tabs); shared state across tabs. Internal `activeTab` id for Planner is still `map`.
 - **Single editor** on Map tab; no per-row inline editing in the queue; no status quick-action buttons.
 - **Assigning `Date Scheduled` auto-sets `Scheduled`**; **`Homeowner notified of schedule` is always manual** (side panel, Follow-ups Mark notified, or spreadsheet — never set by schedule/clean/attention batch writes).
 - **Date pickers** for all date fields in the UI.
@@ -403,8 +409,8 @@ Not planned: persistent named Groups / deployment-group object model; generic sh
 
 ### Phasing / the Calendar-tab redundancy
 
-- **Phase 1 (build now):** add the in-panel Calendar sub-tab on the Map tab; **keep the standalone Calendar tab for now.** They share render code so the duplication is cheap. Wire click-a-day → highlight (mostly already works) and the pin-click → Details auto-switch.
-- **Phase 2 (likely, product owner leaning this way):** remove the redundancy by **renaming the "Map" tab to "Planner"** (map + in-panel calendar) and **retiring the standalone Calendar tab** once the compact calendar reaches parity (it should, since the Calendar tab is just: grid w/ counts, day's lot list, copy button + optional-contact checkbox). Don't do this until the in-panel version is confirmed to feel good.
+- **Phase 1 (shipped):** in-panel Calendar sub-tab on the Planner tab; standalone **Calendar** tab retained for wide-screen use. Shared render code; click-a-day → highlight; pin-click → Details auto-switch; Map renamed to **Planner**.
+- **Phase 2 (not planned):** retiring the standalone Calendar tab was considered but **declined** — operators like the wide Calendar tab. Do not remove it unless explicitly requested.
 
 ### Implementation pointers (files/functions)
 
@@ -504,7 +510,8 @@ Intake stores free-text dates. `parseLotWeedingDate` / `toLotWeedingDateKey` nor
 
 - **Plain marker click** → `focusLotWeedingAdminLot` (single lot, replaces selection).
 - **Shift+click marker** → `toggleLotWeedingAdminRequestSelection` (add/remove from multi-selection).
-- **Multi-select** → Draw area → **Finish**, Shift+click pins, or queue **Add to selection / Remove**.
+- **Multi-select** → Draw area → click **first corner** again; Shift+click pins; queue **Add to selection / Remove**. **Clear selection** on map when group active.
+- **Batch form resets** to **Schedule for a date** when starting a new group or after successful batch apply.
 - **Selection changes** on Map tab update in place via `refreshLotWeedingAdminMapSelection` (no full map rebuild on click).
 - **Batch action panel** → `renderLotWeedingBatchActions` reads `lotWeedingAdminState.batchAction`; `applyLotWeedingSelectedBatchAction` dispatches to the schedule/scheduleNext/clean/attention writers.
 
@@ -512,7 +519,7 @@ Intake stores free-text dates. `parseLotWeedingDate` / `toLotWeedingDateKey` nor
 
 - Batch clean: requires Date Cleaned; writes `status` + `dateCleaned` only.
 - Batch attention: writes `status: Needs Attention`; optional note appended to `details`.
-- Clearing selection resets batch message/result state.
+- Clearing selection resets batch form via `resetLotWeedingAdminBatchForm` (action → schedule, dates/notes cleared).
 
 ---
 
@@ -521,27 +528,25 @@ Intake stores free-text dates. `parseLotWeedingDate` / `toLotWeedingDateKey` nor
 ```text
 Continue the Lot Weeding Admin work. Read LOT_WEEDING_ADMIN_HANDOFF.md (Purpose, UX Expectations, What We Built) and CODEBASE_FIELD_GUIDE.md.
 
-Context: Lot Weeding Command Center — Map / Calendar / Follow-ups / Stats / Help over shared lotWeedingAdminState. Staging validation done (copied intake sheet, revised columns, service-account Editor). Core features shipped: batch schedule/clean/attention, Follow-up Mark notified / Mark ROE returned, NC zone overlay, draw-to-select, local post-save refresh.
+Context: Lot Weeding Command Center — **Planner** / Calendar / Follow-ups / Stats / Help over shared lotWeedingAdminState. Staging validation done (copied intake sheet, revised columns, service-account Editor). Core features shipped: batch schedule/clean/attention, Follow-up Mark notified / Mark ROE returned, NC zone overlay, draw-to-select, local post-save refresh.
 
 Recent UX (do not regress):
 - Five tabs incl. **Help** ("How to Use This Tool" + spreadsheet link `LOT_WEEDING_SPREADSHEET_URL`). Note: that link points at the Altadena-Talks original, NOT the revised-header copy the tool actually reads — verify before relying on it.
-- Map tab: **Show** dropdown + helper text (not filter chips). Status colors reuse the main app palette: Requested #fdba77, Schedule Next #f9d6d3, Scheduled #81bdc3, Cleaned #afc892, Needs Attention #bc455a, Cancelled #e5e5e5. Pins use the main app's SVG style (offset charcoal shadow + charcoal stroke, grow-on-emphasis); badges echo the hues with darker legible text.
-- Multi-select side panel = one Action picker (Schedule for a date / Mark Schedule Next / Mark Cleaned / Mark Needs Attention) → single form → summary → collapsible preview → one Apply button + per-lot results. Header "N lots selected" + Clear. Do not bring back the three stacked batch cards or "Writes … only" pills.
-- Selection language is "N lots selected" everywhere; map box shows NO persistent selection count.
-- Map controls: **Altagether Zones** + Draw area; while drawing → Finish + Cancel. No standalone Select button. Fixed-width control cluster. Zones overlay is NON-interactive (under pins, click-through name+captain labels) — don't make it clickable/hoverable (breaks the lasso).
+- Planner tab: **Show** dropdown + helper text (not filter chips). Status colors reuse the main app palette: Requested #fdba77, Schedule Next #f9d6d3, Scheduled #81bdc3, Cleaned #afc892, Needs Attention #bc455a, Cancelled #e5e5e5. Pins use the main app's SVG style (offset charcoal shadow + charcoal stroke, grow-on-emphasis); badges echo the hues with darker legible text. In-panel **[ Details ] [ Calendar ]** when `LOT_WEEDING_PLANNER_CALENDAR_ENABLED` (default true).
+- Multi-select side panel = one Action picker (Schedule for a date / Mark Schedule Next / Mark Cleaned / Mark Needs Attention) → single form → summary → collapsible preview → one Apply button + per-lot results. **Resets to Schedule for a date** after apply or new group. Header "N lots selected" + Clear.
+- Selection language is "N lots selected" everywhere; map box shows NO persistent selection count. **No selection context chip** on non-Planner tabs.
+- Map controls: **Altagether Zones** + **Draw area** (+ **Clear selection** when group active). While drawing: **Draw area** stays visible; close shape by clicking **first corner** again (no Finish/Cancel). Zones overlay is NON-interactive (under pins, click-through name+captain labels).
 - Build selection via: draw area, Shift+click pins, or queue Add to selection / Remove. Plain pin click opens single-lot editor. Nothing auto-selects on load (panel shows instructions).
 - Map is fixed 700px height; side panel scrolls internally. Do NOT reintroduce variable map height (caused scroll jank).
 - Single-lot editor: editable fields top (Status, ROE Status, Date Scheduled, Date Cleaned, Homeowner Notified, UWS Contract, APN), read-only Requester/Contact then a heavy divider then Altagether Zone/Neighborhood Captain below, Notes at bottom. Requester email has a subtle copy button; phone is PLAIN TEXT (not tap-to-call). Captain row = name+email+phone per captain (semicolon-separated, index-aligned; phone mapped through routes.js). Homeowner Notified / UWS Contract labels have hover tooltips + a subtle ⓘ icon.
-- Context bar label is contextual (Date selected / Selection / Active filters) and disappears when the last chip is cleared.
-- Lot-weeding-only users: stripped left nav (only Lot Weeding Command Center + Sign out, no blur) + partner logo `public/images/atf-logo.png` (`LOT_WEEDING_PARTNER_LOGO_SRC`, `.nav-header-partner-logo` max-height 288px, centered). Keep `applyLotWeedingOnlyNavChrome` in try/catch and any const it reads declared before `updateNavigationState` runs (TDZ crash risk). Expired session → error card offers "Sign in with Google" (signIn()).
-- Sign out button is a compact centered pill (all nav variants) below the logo, above Send feedback (`#signOutBtn.nav-item` in styles.css) — don't revert it to a full-width nav tab.
-- **Login landing:** signed-out users must always land on the **Home** login page — the `savedView` restore on load is gated on a valid `accessToken` (don't restore a remembered tab when signed out). The global `#homeSigninPrompt` overlay shows on every view *except* Home/Admin Mode/Lot Weeding (which render their own sign-in UI) and is NOT gated on a saved sheet URL. Don't reintroduce per-tab sign-in dead-ends.
-- Stats tab has a **Generate Report** button → funder-facing PDF (hero banner w/ ATF logo, date+time, all stats + status/progress/health/zones/upcoming breakdowns). Uses the already-loaded `html2pdf` lib; report HTML is inline-styled; filenames include date AND time (`altadena-lot-weeding-report-YYYY-MM-DD-HHMM.pdf`). Functions: `computeLotWeedingReportData` / `loadLotWeedingReportLogoDataUrl` / `buildLotWeedingReportHtml` / `generateLotWeedingAdminReport`. Do not turn this into a long in-dashboard scrollable report — it's a downloadable PDF by design.
+- Context bar: day chip only on tabs that need it (not Planner/Calendar). No selection chip.
+- Lot-weeding-only users: stripped nav + partner logo (`LOT_WEEDING_PARTNER_LOGO_SRC`, max-height 288px). Expired session → "Sign in with Google". Signed-out users land on Home (not remembered tabs).
+- Stats tab has a **Generate Report** button → funder-facing PDF (**Altadena Talks Foundation** branding; updated About/footer copy). Hero banner w/ ATF logo, date+time, all stats + breakdowns. Uses `html2pdf`; filenames include date AND time.
 - Status **Schedule Next** (not On-Deck); legacy On-Deck sheet values normalize on read.
 - No status quick-actions; no Last Contact Date in UI/PATCH; tri-state fields use (unknown) default.
 - Homeowner notified always manual.
 
-Goal: Continue UX polish from operator feedback (see UX Expectations). **Planner Phase 1 is live** — in-panel calendar on Map tab (`LOT_WEEDING_PLANNER_CALENDAR_ENABLED`, default true; set false to revert). Phase 2 when asked: rename Map→Planner, retire standalone Calendar tab. Optional: write-flow tests, batch PATCH endpoint, production cutover when asked.
+Goal: Continue UX polish from operator feedback (see UX Expectations). **Planner** tab + in-panel calendar live (`LOT_WEEDING_PLANNER_CALENDAR_ENABLED`, default true; set false to revert). Standalone Calendar tab retained. Optional: write-flow tests, batch PATCH endpoint, production cutover when asked.
 
 Do not: invent sheet columns; remove mirror compatibility; change Access Sheet or production env vars without explicit request.
 
