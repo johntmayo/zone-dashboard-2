@@ -11524,7 +11524,7 @@
       return parts;
     }
     
-    // Get unique emails from currently filtered addresses (for export modal "copy email blob")
+    // Get unique emails from currently filtered addresses (for export modal "copy all emails")
     function getFilteredEmails() {
       if (!sheetData || !sheetData.addressMap) return [];
       const headers = sheetData.headers;
@@ -11546,7 +11546,7 @@
       return Array.from(emailSet).sort();
     }
     
-    // Show export modal: Print, Export CSV, or Copy email blob (same width as Share Newsletter modal)
+    // Show export modal: Print, Export CSV, or Copy all emails (same width as Share Newsletter modal)
     function showExportModal() {
       const filteredAddresses = getFilteredAddresses();
       const appliedFilters = getAppliedFiltersSummary();
@@ -11577,14 +11577,14 @@
                 <div class="newsletter-modal-instructions">
                   <p><strong>Print</strong> — Open a print-friendly call sheet in a new window.</p>
                   <p><strong>Export CSV</strong> — Download a spreadsheet file of the filtered list.</p>
-                  <p><strong>Copy email blob</strong> — Copy a comma-separated list of email addresses to paste into your email client.</p>
+                  <p><strong>Copy all emails</strong> — Copy a comma-separated list of email addresses to paste into your email client.</p>
                 </div>
               </div>
             </div>
             <div class="newsletter-modal-actions">
               <button type="button" class="btn-copy-emails" id="exportModalPrintBtn">Print</button>
               <button type="button" class="btn-newsletter-link export-modal-btn-csv" id="exportModalCsvBtn">Export CSV</button>
-              <button type="button" class="btn-copy-emails" id="exportModalEmailBlobBtn" ${emailBlobCount === 0 ? 'disabled title="No email addresses in the filtered list."' : ''}>Copy email blob</button>
+              <button type="button" class="btn-copy-emails" id="exportModalEmailBlobBtn" ${emailBlobCount === 0 ? 'disabled title="No email addresses in the filtered list."' : ''}>Copy all emails</button>
             </div>
           </div>
         </div>
@@ -11641,7 +11641,7 @@
             emailBlobBtn.textContent = '✓ Copied!';
             emailBlobBtn.style.background = 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)';
             setTimeout(() => {
-              emailBlobBtn.textContent = 'Copy email blob';
+              emailBlobBtn.textContent = 'Copy all emails';
               emailBlobBtn.style.background = '';
             }, 2000);
           } catch (err) {
@@ -11656,7 +11656,7 @@
               emailBlobBtn.textContent = '✓ Copied!';
               emailBlobBtn.style.background = 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)';
               setTimeout(() => {
-                emailBlobBtn.textContent = 'Copy email blob';
+                emailBlobBtn.textContent = 'Copy all emails';
                 emailBlobBtn.style.background = '';
               }, 2000);
             } catch (e2) {
