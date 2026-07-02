@@ -4164,8 +4164,13 @@
       lotWeedingAdminState.selectedRowNumber = normalizedRowNumber;
     }
 
-    function clearLotWeedingAdminSelection() {
+    function clearLotWeedingAdminSelectionOnly() {
       lotWeedingAdminState.selectedRowNumbers = new Set();
+      clearLotWeedingAdminDrawnArea();
+    }
+
+    function clearLotWeedingAdminSelection() {
+      clearLotWeedingAdminSelectionOnly();
       lotWeedingAdminState.batchScheduleMessage = '';
       lotWeedingAdminState.batchScheduleResults = [];
       lotWeedingAdminState.batchScheduleNextMessage = '';
@@ -4174,7 +4179,36 @@
       lotWeedingAdminState.batchCleanResults = [];
       lotWeedingAdminState.batchAttentionMessage = '';
       lotWeedingAdminState.batchAttentionResults = [];
-      clearLotWeedingAdminDrawnArea();
+    }
+
+    function hasLotWeedingAdminGroupSelection() {
+      return Boolean(lotWeedingAdminState.drawSelectionActive)
+        || getLotWeedingAdminSelectedRequests().length > 1;
+    }
+
+    function syncLotWeedingAdminShowFilterUi() {
+      const showFilter = document.getElementById('lotWeedingAdminShowFilter');
+      const hint = document.getElementById('lotWeedingAdminShowHint');
+      const filter = lotWeedingAdminState.filter || 'active';
+      if (showFilter) showFilter.value = filter;
+      if (hint) hint.textContent = getLotWeedingAdminViewFilterHint(filter);
+    }
+
+    function finalizeLotWeedingAdminBatchAction({ nextFilter = null, successCount = 0 } = {}) {
+      if (successCount > 0) {
+        clearLotWeedingAdminDayFilter();
+        lotWeedingAdminState.selectedRowNumber = null;
+        clearLotWeedingAdminSelectionOnly();
+        if (nextFilter) lotWeedingAdminState.filter = nextFilter;
+        if (LOT_WEEDING_PLANNER_CALENDAR_ENABLED) lotWeedingAdminState.panelTab = 'details';
+      }
+      if (lotWeedingAdminState.activeTab === 'map' && lotWeedingAdminState.map) {
+        refreshLotWeedingAdminMapData();
+        if (successCount > 0) syncLotWeedingAdminShowFilterUi();
+        updateLotWeedingMapControls();
+      } else {
+        renderLotWeedingAdminView();
+      }
     }
 
     function zoomLotWeedingAdminMapToSelection() {
@@ -4708,6 +4742,7 @@
 
     function updateLotWeedingMapControls() {
       const drawing = Boolean(lotWeedingAdminState.drawEnabled);
+      const groupSelected = hasLotWeedingAdminGroupSelection();
       const zoneBtn = document.getElementById('lotWeedingMapZonesBtn');
       if (zoneBtn) {
         zoneBtn.classList.toggle('active', Boolean(lotWeedingAdminState.zoneOverlayVisible));
@@ -4717,12 +4752,14 @@
       if (drawBtn) {
         drawBtn.classList.toggle('active', drawing);
         drawBtn.setAttribute('aria-pressed', drawing ? 'true' : 'false');
-        drawBtn.hidden = drawing;
+        drawBtn.hidden = drawing || groupSelected;
       }
       const finishBtn = document.getElementById('lotWeedingMapCloseDrawBtn');
       if (finishBtn) finishBtn.hidden = !drawing;
       const cancelBtn = document.getElementById('lotWeedingMapClearDrawBtn');
       if (cancelBtn) cancelBtn.hidden = !drawing;
+      const clearSelectionBtn = document.getElementById('lotWeedingMapClearSelectionBtn');
+      if (clearSelectionBtn) clearSelectionBtn.hidden = !groupSelected || drawing;
       const statusEl = document.getElementById('lotWeedingMapStatus');
       if (statusEl) {
         // Only show transient guidance while drawing or while zones are loading; never a
@@ -4746,6 +4783,7 @@
             <button type="button" id="lotWeedingMapDrawBtn" class="lot-weeding-map-control-btn" aria-pressed="false" title="Draw an area to select the lots inside">Draw area</button>
             <button type="button" id="lotWeedingMapCloseDrawBtn" class="lot-weeding-map-control-btn lot-weeding-map-control-btn--primary" title="Select the lots inside the drawn area" hidden>Finish</button>
             <button type="button" id="lotWeedingMapClearDrawBtn" class="lot-weeding-map-control-btn" title="Cancel drawing" hidden>Cancel</button>
+            <button type="button" id="lotWeedingMapClearSelectionBtn" class="lot-weeding-map-control-btn" title="Clear the current group selection and drawn area" hidden>Clear selection</button>
             <div class="lot-weeding-map-control-status" id="lotWeedingMapStatus" aria-live="polite" hidden></div>
           `;
           L.DomEvent.disableClickPropagation(wrap);
@@ -4768,6 +4806,11 @@
       });
       document.getElementById('lotWeedingMapCloseDrawBtn')?.addEventListener('click', closeLotWeedingAdminDrawSelection);
       document.getElementById('lotWeedingMapClearDrawBtn')?.addEventListener('click', clearLotWeedingAdminDrawSelection);
+      document.getElementById('lotWeedingMapClearSelectionBtn')?.addEventListener('click', () => {
+        lotWeedingAdminState.selectedRowNumber = null;
+        clearLotWeedingAdminSelection();
+        applyLotWeedingAdminSelectionChange();
+      });
       updateLotWeedingMapControls();
     }
 
@@ -5092,6 +5135,7 @@
         el.classList.toggle('selected', isSelected);
         el.classList.toggle('active', rowNumber === Number(lotWeedingAdminState.selectedRowNumber));
       });
+      updateLotWeedingMapControls();
     }
 
     // Clicking a map marker (or "Inspect") focuses exactly one lot in the single editor,
@@ -5451,10 +5495,11 @@
       const chips = [];
       const selectedCount = getLotWeedingAdminSelectedRequests().length;
       if (selectedCount && lotWeedingAdminState.activeTab !== 'map') chips.push({ type: 'selection', label: `${formatGodmodeCount(selectedCount)} selected` });
-      // On Map + in-panel calendar, the selected day is already visible in the panel — skip the
-      // context bar here so toggling a day doesn't shove the map down.
-      const showDayChipOnMap = !(LOT_WEEDING_PLANNER_CALENDAR_ENABLED && lotWeedingAdminState.activeTab === 'map');
-      if (lotWeedingAdminState.dayFilter && showDayChipOnMap) {
+      // Day chip only on tabs where it adds context (not Planner or Calendar — both show the day inline).
+      const showDayChip = lotWeedingAdminState.dayFilter
+        && lotWeedingAdminState.activeTab !== 'map'
+        && lotWeedingAdminState.activeTab !== 'calendar';
+      if (showDayChip) {
         chips.push({ type: 'day', label: `Date: ${formatLotWeedingDayLabel(lotWeedingAdminState.dayFilter)}` });
       }
       if (!chips.length) return '';
@@ -5925,7 +5970,7 @@
               <h4>Work several lots at once</h4>
               <ul>
                 <li>Hold <strong>Shift</strong> and click multiple pins to add or remove them from a selection.</li>
-                <li>Or click <strong>Draw area</strong>, drop corners around a cluster of lots, and press <strong>Finish</strong> to select everything inside (the lasso). After a draw selection, use <strong>Clear</strong> before shift+clicking more pins.</li>
+                <li>Or click <strong>Draw area</strong>, drop corners around a cluster of lots, and press <strong>Finish</strong> to select everything inside (the lasso). Use <strong>Clear selection</strong> on the map (or <strong>Clear</strong> in the panel) to reset the group.</li>
                 <li>With a group selected, pick an action — <em>Schedule for a date</em>, <em>Mark Schedule Next</em>, <em>Mark Cleaned</em>, or <em>Mark Needs Attention</em> — and apply it to all of them at once.</li>
                 <li>Click a single pin again at any time to drop back to editing just that lot.</li>
               </ul>
@@ -6449,8 +6494,7 @@
       lotWeedingAdminState.batchScheduleMessage = failureCount
         ? `Scheduled ${formatGodmodeCount(successCount)} lot${successCount === 1 ? '' : 's'}; ${formatGodmodeCount(failureCount)} failed.`
         : `Scheduled ${formatGodmodeCount(successCount)} lot${successCount === 1 ? '' : 's'} for ${scheduledDate}.`;
-      lotWeedingAdminState.dayFilter = toLotWeedingDateKey(dateValue);
-      refreshLotWeedingAdminMapData();
+      finalizeLotWeedingAdminBatchAction({ nextFilter: 'scheduled', successCount });
     }
 
     async function markLotWeedingSelectedScheduleNext() {
@@ -6489,7 +6533,7 @@
       lotWeedingAdminState.batchScheduleNextMessage = failureCount
         ? `Marked ${formatGodmodeCount(successCount)} lot${successCount === 1 ? '' : 's'} Schedule Next; ${formatGodmodeCount(failureCount)} failed.`
         : `Marked ${formatGodmodeCount(successCount)} lot${successCount === 1 ? '' : 's'} Schedule Next.`;
-      refreshLotWeedingAdminMapData();
+      finalizeLotWeedingAdminBatchAction({ nextFilter: 'on_deck', successCount });
     }
 
     function applyLotWeedingSelectedBatchAction() {
@@ -6544,7 +6588,7 @@
       lotWeedingAdminState.batchCleanMessage = failureCount
         ? `Marked ${formatGodmodeCount(successCount)} lot${successCount === 1 ? '' : 's'} cleaned; ${formatGodmodeCount(failureCount)} failed.`
         : `Marked ${formatGodmodeCount(successCount)} lot${successCount === 1 ? '' : 's'} cleaned on ${dateCleaned}.`;
-      refreshLotWeedingAdminMapData();
+      finalizeLotWeedingAdminBatchAction({ nextFilter: 'cleaned', successCount });
     }
 
     async function markLotWeedingSelectedNeedsAttention() {
@@ -6590,7 +6634,7 @@
       lotWeedingAdminState.batchAttentionMessage = failureCount
         ? `Marked ${formatGodmodeCount(successCount)} lot${successCount === 1 ? '' : 's'} needs attention; ${formatGodmodeCount(failureCount)} failed.`
         : `Marked ${formatGodmodeCount(successCount)} lot${successCount === 1 ? '' : 's'} needs attention.`;
-      refreshLotWeedingAdminMapData();
+      finalizeLotWeedingAdminBatchAction({ nextFilter: 'needs_attention', successCount });
     }
 
     function applyLotWeedingAdminSelectionChange() {
@@ -6907,7 +6951,9 @@
 
       document.querySelectorAll('[data-lot-weeding-tab]').forEach((button) => {
         button.addEventListener('click', () => {
-          lotWeedingAdminState.activeTab = button.getAttribute('data-lot-weeding-tab') || 'map';
+          const nextTab = button.getAttribute('data-lot-weeding-tab') || 'map';
+          if (nextTab === 'map') clearLotWeedingAdminDayFilter();
+          lotWeedingAdminState.activeTab = nextTab;
           renderLotWeedingAdminView();
         });
       });
