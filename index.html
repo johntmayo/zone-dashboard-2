@@ -1307,6 +1307,7 @@
       drawLatLngs: [],
       drawHoverLatLng: null,
       drawSelectionLayer: null,
+      drawSelectionActive: false,
       drawStatus: '',
       lastMapView: null,
       lastSaveAt: null
@@ -4173,6 +4174,7 @@
       lotWeedingAdminState.batchCleanResults = [];
       lotWeedingAdminState.batchAttentionMessage = '';
       lotWeedingAdminState.batchAttentionResults = [];
+      clearLotWeedingAdminDrawnArea();
     }
 
     function zoomLotWeedingAdminMapToSelection() {
@@ -4481,6 +4483,9 @@
         // Shift+click adds/removes a pin from the current selection; a plain click opens
         // the single-lot editor for just that lot.
         if (event?.originalEvent?.shiftKey) {
+          // After a draw-area group is finished, don't let shift+click start a new ad-hoc selection
+          // while the drawn polygon is still on the map.
+          if (lotWeedingAdminState.drawSelectionActive) return;
           toggleLotWeedingAdminRequestSelection(request.rowNumber);
           applyLotWeedingAdminSelectionChange();
           return;
@@ -4813,13 +4818,23 @@
       updateLotWeedingMapControls();
     }
 
+    function clearLotWeedingAdminDrawnArea() {
+      lotWeedingAdminState.drawSelectionActive = false;
+      if (lotWeedingAdminState.drawSelectionLayer) lotWeedingAdminState.drawSelectionLayer.clearLayers();
+    }
+
     function clearLotWeedingAdminDrawSelection() {
       lotWeedingAdminState.drawLatLngs = [];
       lotWeedingAdminState.drawHoverLatLng = null;
       lotWeedingAdminState.drawStatus = '';
       if (lotWeedingAdminState.drawLayer) lotWeedingAdminState.drawLayer.clearLayers();
-      if (lotWeedingAdminState.drawSelectionLayer) lotWeedingAdminState.drawSelectionLayer.clearLayers();
+      clearLotWeedingAdminDrawnArea();
       setLotWeedingAdminDrawEnabled(false);
+    }
+
+    function clearLotWeedingAdminDayFilter() {
+      lotWeedingAdminState.dayFilter = null;
+      lotWeedingAdminState.hoverDayFilter = null;
     }
 
     function closeLotWeedingAdminDrawSelection() {
@@ -4843,6 +4858,7 @@
       }
       lotWeedingAdminState.drawSelectionLayer.clearLayers();
       L.polygon(ring, { color: '#2563EB', weight: 2, fillColor: '#2563EB', fillOpacity: 0.16 }).addTo(lotWeedingAdminState.drawSelectionLayer);
+      lotWeedingAdminState.drawSelectionActive = true;
       lotWeedingAdminState.drawLatLngs = [];
       lotWeedingAdminState.drawHoverLatLng = null;
       lotWeedingAdminState.drawStatus = '';
@@ -4929,9 +4945,7 @@
       const dimmed = Boolean(dayFilter) && !matchesCommittedDay;
       const dayHit = matchesCommittedDay || matchesHoverDay;
       const emphasized = primary || dayHit || selected;
-      // Charcoal stroke matches the main app; multi-selected (but not the primary/focused) pins
-      // keep an amber ring so the current selection set stays obvious.
-      const strokeColor = (selected && !primary) ? '#FBBF24' : '#1F2937';
+      const strokeColor = '#1F2937';
       if (typeof marker.setIcon === 'function') {
         marker.setIcon(buildLotWeedingAdminMarkerIcon({ color: meta.color, emphasized, strokeColor }));
       }
@@ -5089,8 +5103,9 @@
       lotWeedingAdminState.selectedRowNumber = normalized;
       if (LOT_WEEDING_PLANNER_CALENDAR_ENABLED) {
         lotWeedingAdminState.panelTab = 'details';
-        lotWeedingAdminState.hoverDayFilter = null;
+        clearLotWeedingAdminDayFilter();
       }
+      clearLotWeedingAdminDrawnArea();
       if (lotWeedingAdminState.activeTab === 'map' && lotWeedingAdminState.map) {
         refreshLotWeedingAdminMapSelection();
       } else {
@@ -5392,7 +5407,7 @@
         : 'map';
       lotWeedingAdminState.activeTab = activeTab;
       const tabItems = [
-        ['map', 'Map'],
+        ['map', 'Planner'],
         ['calendar', 'Calendar'],
         ['followups', 'Follow-ups'],
         ['stats', 'Stats'],
@@ -5436,7 +5451,10 @@
       const chips = [];
       const selectedCount = getLotWeedingAdminSelectedRequests().length;
       if (selectedCount && lotWeedingAdminState.activeTab !== 'map') chips.push({ type: 'selection', label: `${formatGodmodeCount(selectedCount)} selected` });
-      if (lotWeedingAdminState.dayFilter) {
+      // On Map + in-panel calendar, the selected day is already visible in the panel — skip the
+      // context bar here so toggling a day doesn't shove the map down.
+      const showDayChipOnMap = !(LOT_WEEDING_PLANNER_CALENDAR_ENABLED && lotWeedingAdminState.activeTab === 'map');
+      if (lotWeedingAdminState.dayFilter && showDayChipOnMap) {
         chips.push({ type: 'day', label: `Date: ${formatLotWeedingDayLabel(lotWeedingAdminState.dayFilter)}` });
       }
       if (!chips.length) return '';
@@ -5476,7 +5494,7 @@
           <div class="lot-weeding-admin-stats-intro">
             <p class="lot-weeding-admin-panel-kicker">Townwide snapshot</p>
             <h3>Lot-weeding workload</h3>
-            <p>Use this tab for the big-picture count check. The Map, Calendar, and Follow-ups tabs stay focused on action.</p>
+            <p>Use this tab for the big-picture count check. The Planner, Calendar, and Follow-ups tabs stay focused on action.</p>
           </div>
           <div class="lot-weeding-admin-summary" aria-label="Lot weeding workload summary">
             ${statItems.map(([label, value, detail]) => `
@@ -5883,12 +5901,13 @@
 
           <div class="lot-weeding-admin-help-grid">
             <article class="lot-weeding-admin-help-card">
-              <h4>Navigate the map</h4>
+              <h4>Navigate the planner</h4>
               <ul>
                 <li>Each pin is one lot, colored by its status — see the legend beneath the map.</li>
                 <li>Hover a pin for its address and status; <strong>click</strong> a pin to open that lot in the side panel.</li>
                 <li>Drag to pan and scroll to zoom. Use <strong>Altagether Zones</strong> to toggle the zone overlay on or off.</li>
                 <li>Use the <strong>Show</strong> dropdown to filter which lots appear, or the search box to find an address, APN, requester, or captain.</li>
+                <li>The side panel <strong>Calendar</strong> view highlights a day's lots on the map while you browse dates.</li>
               </ul>
             </article>
 
@@ -5906,7 +5925,7 @@
               <h4>Work several lots at once</h4>
               <ul>
                 <li>Hold <strong>Shift</strong> and click multiple pins to add or remove them from a selection.</li>
-                <li>Or click <strong>Draw area</strong>, drop corners around a cluster of lots, and press <strong>Finish</strong> to select everything inside (the lasso).</li>
+                <li>Or click <strong>Draw area</strong>, drop corners around a cluster of lots, and press <strong>Finish</strong> to select everything inside (the lasso). After a draw selection, use <strong>Clear</strong> before shift+clicking more pins.</li>
                 <li>With a group selected, pick an action — <em>Schedule for a date</em>, <em>Mark Schedule Next</em>, <em>Mark Cleaned</em>, or <em>Mark Needs Attention</em> — and apply it to all of them at once.</li>
                 <li>Click a single pin again at any time to drop back to editing just that lot.</li>
               </ul>
@@ -5915,7 +5934,8 @@
             <article class="lot-weeding-admin-help-card">
               <h4>The other tabs</h4>
               <ul>
-                <li><strong>Calendar</strong> — see scheduled cleanings by day and copy a day's list for volunteers.</li>
+                <li><strong>Planner</strong> — map-first triage, editing, and batch actions; includes an in-panel calendar for scheduling against the map.</li>
+                <li><strong>Calendar</strong> — wide-screen view of scheduled cleanings by day; copy a day's list for volunteers.</li>
                 <li><strong>Follow-ups</strong> — work the queues for missing APNs, homeowners not yet notified, and outstanding ROE forms.</li>
                 <li><strong>Stats</strong> — a townwide snapshot of the current workload.</li>
               </ul>
@@ -6092,9 +6112,16 @@
       const scheduledByDay = getLotWeedingScheduledByDay(filteredRequests);
       const dayKeys = Array.from(scheduledByDay.keys()).sort();
       if (!lotWeedingAdminState.calendarMonth) {
-        const anchorKey = lotWeedingAdminState.dayFilter || dayKeys[0];
-        const anchorDate = lotWeedingDateKeyToDate(anchorKey) || new Date();
-        lotWeedingAdminState.calendarMonth = { year: anchorDate.getFullYear(), month: anchorDate.getMonth() };
+        if (lotWeedingAdminState.dayFilter) {
+          const anchorDate = lotWeedingDateKeyToDate(lotWeedingAdminState.dayFilter);
+          if (anchorDate) {
+            lotWeedingAdminState.calendarMonth = { year: anchorDate.getFullYear(), month: anchorDate.getMonth() };
+          }
+        }
+        if (!lotWeedingAdminState.calendarMonth) {
+          const now = new Date();
+          lotWeedingAdminState.calendarMonth = { year: now.getFullYear(), month: now.getMonth() };
+        }
       }
       return { scheduledByDay, dayKeys };
     }
@@ -6118,7 +6145,7 @@
         const isToday = todayKey === key;
         return `
           <button type="button"
-            class="lot-weeding-admin-cal-cell ${count ? 'has-lots' : ''} ${isSelected ? 'selected' : ''} ${isHovered ? 'hover-preview' : ''} ${isToday ? 'today' : ''} ${compact ? 'lot-weeding-admin-cal-cell--compact' : ''}"
+            class="lot-weeding-admin-cal-cell ${isSelected ? 'selected' : ''} ${isHovered ? 'hover-preview' : ''} ${isToday ? 'today' : ''} ${compact ? 'lot-weeding-admin-cal-cell--compact' : ''}"
             data-lot-weeding-calendar-day="${key}"
             ${count ? '' : 'data-empty="1"'}
             aria-pressed="${isSelected ? 'true' : 'false'}">
@@ -6137,8 +6164,8 @@
 
       if (!selectedKey) {
         return compact
-          ? '<div class="lot-weeding-admin-day-panel lot-weeding-admin-day-panel--compact"><p class="lot-weeding-admin-panel-empty">Select a day to see its scheduled lots and highlight them on the map. Only lots with a Date Scheduled respond to day highlighting.</p></div>'
-          : '<div class="lot-weeding-admin-day-panel"><p class="lot-weeding-admin-panel-empty">Select a day on the calendar to see its scheduled lots and copy the list for volunteers.</p></div>';
+          ? '<div class="lot-weeding-admin-day-panel lot-weeding-admin-day-panel--compact"><p class="lot-weeding-admin-panel-empty">Select a day above to see its lots.</p></div>'
+          : '<div class="lot-weeding-admin-day-panel"><p class="lot-weeding-admin-panel-empty">Select a day to see its scheduled lots and copy the list for volunteers.</p></div>';
       }
 
       return `
@@ -6184,9 +6211,6 @@
       const gridHtml = renderLotWeedingAdminCalendarGridHtml({ year, month, scheduledByDay, todayKey, compact });
       const selectedKey = lotWeedingAdminState.dayFilter;
       const dayPanelHtml = renderLotWeedingAdminCalendarDayPanelHtml(selectedKey, scheduledByDay, { compact });
-      const hintText = compact
-        ? 'Click a day to highlight its scheduled lots on the map. Hover previews without dimming other pins. Only lots with a Date Scheduled respond.'
-        : 'Calendar keys on Date Scheduled. Selecting a day also highlights those lots on the Map tab (shown in the active context bar).';
 
       return {
         scheduledByDay,
@@ -6195,8 +6219,7 @@
         totalScheduled,
         dayKeys,
         gridHtml,
-        dayPanelHtml,
-        hintText
+        dayPanelHtml
       };
     }
 
@@ -6219,7 +6242,6 @@
           <div class="lot-weeding-admin-cal-grid lot-weeding-admin-cal-grid--compact">
             ${core.gridHtml}
           </div>
-          <p class="lot-weeding-admin-cal-hint">${escapeHtml(core.hintText)}</p>
           ${core.dayPanelHtml}
         </div>
       `;
@@ -6246,7 +6268,6 @@
             <div class="lot-weeding-admin-cal-grid">
               ${core.gridHtml}
             </div>
-            <p class="lot-weeding-admin-cal-hint">${escapeHtml(core.hintText)}</p>
           </div>
           ${core.dayPanelHtml}
         </section>
@@ -6729,11 +6750,10 @@
           button.addEventListener('click', () => {
             const nextTab = button.getAttribute('data-lot-weeding-panel-tab') || 'details';
             if (nextTab === lotWeedingAdminState.panelTab) return;
+            if (nextTab === 'details') clearLotWeedingAdminDayFilter();
             lotWeedingAdminState.panelTab = nextTab;
-            lotWeedingAdminState.hoverDayFilter = null;
             if (lotWeedingAdminState.activeTab === 'map' && lotWeedingAdminState.map) {
-              refreshLotWeedingAdminSidePanelInPlace();
-              refreshLotWeedingAdminMarkerStyles();
+              refreshLotWeedingAdminMapDayFilter();
             } else {
               renderLotWeedingAdminView();
             }
