@@ -4043,6 +4043,12 @@
     function parseLotWeedingDate(value) {
       const text = String(value || '').trim();
       if (!text) return null;
+
+      const numericValue = Number(text);
+      if (Number.isFinite(numericValue) && numericValue > 20000 && numericValue < 80000) {
+        return new Date(Date.UTC(1899, 11, 30) + numericValue * 24 * 60 * 60 * 1000);
+      }
+
       const datePart = text.split(/[ T]/)[0];
 
       let match = datePart.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
@@ -4110,7 +4116,10 @@
     function getLotWeedingScheduledByDay(requests) {
       const byDay = new Map();
       (requests || []).forEach((request) => {
-        const key = toLotWeedingDateKey(request.scheduledDate);
+        const raw = String(request.scheduledDate || '').trim();
+        if (!raw) return;
+        const normalized = formatLotWeedingScheduledDate(raw) || raw;
+        const key = toLotWeedingDateKey(normalized);
         if (!key) return;
         if (!byDay.has(key)) byDay.set(key, []);
         byDay.get(key).push(request);
@@ -5372,7 +5381,12 @@
         lotWeedingAdminState.configured = Boolean(payload.configured);
         lotWeedingAdminState.source = payload.source || '';
         lotWeedingAdminState.headers = Array.isArray(payload.headers) ? payload.headers : [];
-        lotWeedingAdminState.requests = Array.isArray(payload.requests) ? payload.requests : [];
+        lotWeedingAdminState.calendarMonth = null;
+        lotWeedingAdminState.requests = (Array.isArray(payload.requests) ? payload.requests : []).map((request) => ({
+          ...request,
+          scheduledDate: formatLotWeedingScheduledDate(request.scheduledDate) || String(request.scheduledDate || '').trim(),
+          dateCleaned: formatLotWeedingScheduledDate(request.dateCleaned) || String(request.dateCleaned || '').trim()
+        }));
         lotWeedingAdminState.stats = payload.stats || { total: 0, open: 0, scheduled: 0, completed: 0, flagged: 0, missingApn: 0 };
         lotWeedingAdminState.lastFetchedAt = payload.lastFetchedAt || '';
         const availableRowNumbers = new Set(lotWeedingAdminState.requests.map((request) => Number(request.rowNumber)));
@@ -6150,20 +6164,34 @@
       return parts.join('<span class="lot-weeding-admin-contact-sep"> · </span>');
     }
 
+    function resolveLotWeedingAdminCalendarMonth(dayKeys) {
+      if (lotWeedingAdminState.dayFilter) {
+        const anchorDate = lotWeedingDateKeyToDate(lotWeedingAdminState.dayFilter);
+        if (anchorDate) {
+          return { year: anchorDate.getFullYear(), month: anchorDate.getMonth() };
+        }
+      }
+
+      const now = new Date();
+      const currentMonth = { year: now.getFullYear(), month: now.getMonth() };
+      const currentPrefix = `${currentMonth.year}-${String(currentMonth.month + 1).padStart(2, '0')}`;
+      if (dayKeys.some((key) => key.startsWith(currentPrefix))) return currentMonth;
+
+      if (dayKeys.length) {
+        const firstScheduled = lotWeedingDateKeyToDate(dayKeys[0]);
+        if (firstScheduled) {
+          return { year: firstScheduled.getFullYear(), month: firstScheduled.getMonth() };
+        }
+      }
+
+      return currentMonth;
+    }
+
     function ensureLotWeedingAdminCalendarMonth(filteredRequests) {
       const scheduledByDay = getLotWeedingScheduledByDay(filteredRequests);
       const dayKeys = Array.from(scheduledByDay.keys()).sort();
       if (!lotWeedingAdminState.calendarMonth) {
-        if (lotWeedingAdminState.dayFilter) {
-          const anchorDate = lotWeedingDateKeyToDate(lotWeedingAdminState.dayFilter);
-          if (anchorDate) {
-            lotWeedingAdminState.calendarMonth = { year: anchorDate.getFullYear(), month: anchorDate.getMonth() };
-          }
-        }
-        if (!lotWeedingAdminState.calendarMonth) {
-          const now = new Date();
-          lotWeedingAdminState.calendarMonth = { year: now.getFullYear(), month: now.getMonth() };
-        }
+        lotWeedingAdminState.calendarMonth = resolveLotWeedingAdminCalendarMonth(dayKeys);
       }
       return { scheduledByDay, dayKeys };
     }
@@ -8429,8 +8457,9 @@
         'lot_weeding_status_spring_2026',
         'lot weeding status spring 2026',
         'lot weeding status',
-        'weeding status'
-      ], lower => lower.includes('lot') && lower.includes('weeding') && lower.includes('status'));
+        'weeding status',
+        'request status'
+      ], lower => lower.includes('status') && !lower.includes('roe') && !lower.includes('right of entry'));
       const dateScheduledCol = findLotWeedingColumn(headers, [
         'date scheduled',
         'scheduled date',
