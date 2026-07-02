@@ -367,6 +367,30 @@ function normalizeSheetValues(values) {
   return { headers, rows: dataRows };
 }
 
+function formatSheetDate(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+
+  const numericValue = Number(text);
+  if (Number.isFinite(numericValue) && numericValue > 20000 && numericValue < 80000) {
+    const date = new Date(Date.UTC(1899, 11, 30) + numericValue * 24 * 60 * 60 * 1000);
+    return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+  }
+
+  const mdyMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (mdyMatch) {
+    const month = Number(mdyMatch[1]);
+    const day = Number(mdyMatch[2]);
+    const year = Number(mdyMatch[3].length === 2 ? `20${mdyMatch[3]}` : mdyMatch[3]);
+    const date = new Date(year, month - 1, day);
+    if (!Number.isNaN(date.getTime())) {
+      return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+    }
+  }
+
+  return text;
+}
+
 function normalizeLotWeedingRows(headers, rows) {
   const columns = getLotWeedingColumns(headers || []);
   return (rows || []).map(({ rowNumber, record }) => {
@@ -386,9 +410,9 @@ function normalizeLotWeedingRows(headers, rows) {
       lastContactDate: getValue(record, columns.lastContactDate),
       requested: isTruthySheetValue(requestedValue) || Boolean(status),
       status: status || 'Requested',
-      scheduledDate: getValue(record, columns.scheduledDate),
+      scheduledDate: formatSheetDate(getValue(record, columns.scheduledDate)),
       homeownerNotified: normalizeYesNo(getValue(record, columns.homeownerNotified)),
-      dateCleaned: getValue(record, columns.dateCleaned),
+      dateCleaned: formatSheetDate(getValue(record, columns.dateCleaned)),
       roeStatus: normalizeRoeStatus(getValue(record, columns.roeStatus)),
       zone: getValue(record, columns.zone),
       captainName: getValue(record, columns.captainName),
@@ -502,7 +526,8 @@ function enrichRequestsWithContext(requests, contextByApn) {
 async function fetchLotWeedingValues({ sheetsClient, config, rangeOverride = '' }) {
   const result = await sheetsClient.spreadsheets.values.get({
     spreadsheetId: config.sheetId,
-    range: rangeWithSheetName(config, rangeOverride)
+    range: rangeWithSheetName(config, rangeOverride),
+    valueRenderOption: 'FORMATTED_VALUE'
   });
   return result.data && result.data.values ? result.data.values : [];
 }
