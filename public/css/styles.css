@@ -4222,21 +4222,32 @@
       color: var(--text-primary);
     }
 
+    /* Match the subtle Details-panel copy button used across the rest of the app
+       (.address-details .person-card__contact .copy-email-btn): reset the native
+       button chrome and use a muted icon that darkens on hover. */
     .lot-weeding-admin-copy-email {
-      opacity: 0.45;
-      padding: 1px;
-      color: var(--text-secondary);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      margin-left: 6px;
+      display: inline-flex;
+      align-items: center;
+      vertical-align: -2px;
+      color: var(--primary);
+      opacity: 0.5;
       transition: opacity 0.15s ease, color 0.15s ease;
     }
 
     .lot-weeding-admin-copy-email svg {
-      width: 12px;
-      height: 12px;
+      display: block;
+      width: 13px;
+      height: 13px;
     }
 
     .lot-weeding-admin-copy-email:hover {
-      opacity: 0.85;
-      color: var(--text-primary);
+      opacity: 1;
+      color: var(--primary);
     }
 
     .lot-weeding-admin-label--notes {

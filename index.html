@@ -2749,8 +2749,19 @@
         // Always show sign-in prompt in floating panel when not signed in
         signinPrompt.classList.remove('hidden');
         if (signOutBtn) signOutBtn.classList.add('hidden');
-        // Show global sign-in overlay if spreadsheet is linked but not signed in (any tab)
-        if (homeSigninPrompt && currentSheetUrl) {
+        // Show the global sign-in overlay on any tab that doesn't already render its
+        // own sign-in affordance, so a signed-out user is never dead-ended without a
+        // way to sign in. Admin Mode and Lot Weeding render their own sign-in cards,
+        // and Home renders the welcome overlay — but the welcome overlay only appears
+        // when there's no linked sheet (or during zone loading/picking), so on Home
+        // with a remembered sheet we must still show this overlay. (No longer gated on
+        // currentSheetUrl — admins have no saved sheet, and would otherwise be stuck.)
+        const welcomeOverlayShowing = currentView === 'home'
+          && (!currentSheetUrl || welcomeAuthState === 'zone_picker' || welcomeAuthState === 'loading');
+        const viewHasOwnSignIn = currentView === 'godmode'
+          || currentView === 'lotWeedingAdmin'
+          || welcomeOverlayShowing;
+        if (homeSigninPrompt && !viewHasOwnSignIn) {
           homeSigninPrompt.classList.remove('hidden');
         } else if (homeSigninPrompt) {
           homeSigninPrompt.classList.add('hidden');
@@ -3940,12 +3951,13 @@
       const phone = String(request.phone || '').trim();
       if (!email && !phone) return 'No contact listed';
       const parts = [];
-      if (email) {
-        parts.push(`<span class="lot-weeding-admin-contact-email-wrap"><a href="mailto:${escapeHtmlAttr(email)}">${escapeHtml(email)}</a>${renderLotWeedingAdminCopyEmailButton(email)}</span>`);
-      }
+      // Phone first, then email — matches the Follow-ups contact line ordering.
       if (phone) {
         const formatted = formatLotWeedingPhone(phone);
         parts.push(`<span class="lot-weeding-admin-contact-phone">${escapeHtml(formatted)}</span>`);
+      }
+      if (email) {
+        parts.push(`<span class="lot-weeding-admin-contact-email-wrap"><a href="mailto:${escapeHtmlAttr(email)}">${escapeHtml(email)}</a>${renderLotWeedingAdminCopyEmailButton(email)}</span>`);
       }
       return parts.join('<span class="lot-weeding-admin-contact-sep"> · </span>');
     }
@@ -3965,11 +3977,12 @@
         const phone = phones[i] || '';
         const parts = [];
         if (name) parts.push(`<span class="lot-weeding-admin-captain-name">${escapeHtml(name)}</span>`);
-        if (email) {
-          parts.push(`<span class="lot-weeding-admin-contact-email-wrap"><a href="mailto:${escapeHtmlAttr(email)}">${escapeHtml(email)}</a>${renderLotWeedingAdminCopyEmailButton(email)}</span>`);
-        }
+        // Phone before email, consistent with the requester contact line.
         if (phone) {
           parts.push(`<span class="lot-weeding-admin-contact-phone">${escapeHtml(formatLotWeedingPhone(phone))}</span>`);
+        }
+        if (email) {
+          parts.push(`<span class="lot-weeding-admin-contact-email-wrap"><a href="mailto:${escapeHtmlAttr(email)}">${escapeHtml(email)}</a>${renderLotWeedingAdminCopyEmailButton(email)}</span>`);
         }
         if (!parts.length) continue;
         rows.push(`<div class="lot-weeding-admin-captain-row">${parts.join('<span class="lot-weeding-admin-contact-sep"> · </span>')}</div>`);
@@ -14405,7 +14418,10 @@
     // Allow restoring any view if we have a saved sheet URL, or if it's home view
     // Note: savedSheetUrl is already loaded above (line 2177), so we can check it directly
     const canRestoreSavedZoneView = savedSheetUrl && !isCurrentUserAdmin;
-    if (savedView && (canOpenViewWithoutSheet(savedView) || canRestoreSavedZoneView)) {
+    // A signed-out user (no valid token) must always land on the canonical Home
+    // login page — never on a remembered tab that could show an inconsistent or
+    // dead-ended signed-out state. Tab memory still works for signed-in reloads.
+    if (accessToken && savedView && (canOpenViewWithoutSheet(savedView) || canRestoreSavedZoneView)) {
       currentView = savedView;
       switchView(savedView);
     } else {

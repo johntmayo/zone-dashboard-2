@@ -2,7 +2,16 @@
 
 **Status:** Lot Weeding Command Center is feature-complete for the confirmed console design (June 2026). Staging validation completed on a copied intake sheet with revised columns and service-account Editor access. Recent work is **operator-driven UX polish** (filters bar, single-lot editor layout, contact formatting). Production cutover and write-flow tests remain when ready.
 
-**Latest pass (Stats "Generate Report" PDF, July 2026):**
+**Latest pass (copy-button restyle + contact ordering, July 2026):**
+- **Contact ordering unified to phone-first.** The requester contact line in the single-lot editor (`renderLotWeedingAdminContactHtml`) previously read **email · phone** while the Follow-ups line read **phone · email**. Both now render **phone · email**, and captain rows (`renderLotWeedingAdminCaptainsHtml`) were aligned to **name · phone · email** to match.
+- **Email copy button now matches the rest of the app.** The lot-weeding copy button (`renderLotWeedingAdminCopyEmailButton`, used in the single-lot editor, captain rows, and Follow-ups contact lines) was rendering with the browser's default `<button>` chrome (grey box/border) because its markup only carried classes and neither `.copy-email-btn` nor `.lot-weeding-admin-copy-email` reset the native chrome — most visible/"weird" in the **Follow-ups** tab. Fixed purely in CSS: `.lot-weeding-admin-copy-email` now mirrors the Details-panel button (`.address-details .person-card__contact .copy-email-btn`) — `background:none; border:none; padding:0; margin-left:6px; inline-flex; vertical-align:-2px; color:var(--primary); opacity:0.5 → 1 on hover; 13px SVG`. Markup/JS unchanged (still hooks `.lot-weeding-admin-copy-email` for `attachLotWeedingAdminCopyEmailHandlers`), so it's a one-place fix that updates every copy button in the lot-weeding UI.
+
+**Previous pass (login-landing consistency, July 2026):**
+- **Signed-out users always land on the canonical Home login page.** The app previously restored the last-visited tab from `localStorage.currentView` on load *regardless of auth state*, so an expired session could drop you on a remembered tab (Admin/Profile/Tools/etc.) with an inconsistent or missing sign-in affordance — you'd have to click Home to actually log in. The init restore now requires a valid `accessToken` (`index.html`, the `savedView` restore block ~14406); otherwise it forces `home`. Tab memory still works for signed-in reloads. Note: this affects the whole app, not just lot-weeding — but zoneless **lot-weeding-only** users now reliably land on the Home welcome overlay when signed out, then get routed to the Command Center by `completeSignInAfterToken` after sign-in (unchanged).
+- **No tab is a sign-in dead-end.** The global sign-in overlay (`#homeSigninPrompt`) now shows on any signed-out view that doesn't already render its own sign-in affordance, and is **no longer gated on a saved sheet URL** (`updateSignInUI`, ~2752). It's suppressed only for **Admin Mode** and **Lot Weeding Command Center** (own sign-in cards) and for **Home *when the welcome overlay is actually showing*** (i.e. no linked sheet / zone loading / zone picker). Important subtlety: the Home welcome overlay only appears when there's **no** `currentSheetUrl`, but a non-admin's saved sheet is restored into `currentSheetUrl` on load even while signed out — so on Home-with-a-remembered-sheet the welcome overlay is hidden and this overlay covers it instead (don't just exclude `home` unconditionally, or you recreate the dead-end). This fixed the Profile-tab dead-end and the admin case (admins have no saved sheet URL, so the overlay used to stay hidden on the middle tabs).
+- **Verified** the Lot Weeding feature does **not** break login for normal users: capability flags default off, nav item is gated by `canAccessLotWeedingAdminView()`, `canOpenView`/`canOpenViewWithoutSheet` force `home` for unauthorized views, and the server independently enforces access on both GET and PATCH (`hasLotWeedingAdminAccess`, fails safe). `applyLotWeedingOnlyNavChrome` is a no-op for normal users and stays wrapped in try/catch.
+
+**Previous pass (Stats "Generate Report" PDF, July 2026):**
 - **Stats tab → "Generate Report" button** — one click produces a polished, **funder-facing PDF** ("Program Impact Report") intended to be attached to an email to potential funders (e.g. the County of Los Angeles) to show the program is thriving. Downloads directly; not an in-dashboard scrollable report.
 - **Cover/hero banner** with the **ATF logo** (`public/images/atf-logo.png` via `LOT_WEEDING_PARTNER_LOGO_SRC`, embedded as a data URL so html2canvas renders it reliably), program title, mission tagline, and the generated date + time.
 - **Contents:** today's date/time; an "at a glance" row (Total Requests, Lots Cleaned, Active Pipeline, Completion Rate); full **status breakdown** table (counts + % share, colored with the shared status palette); **program progress** cards (scheduled, needs attention, ROE returned, homeowners notified); **operational health** cards (ROE outstanding, scheduled-but-not-notified, missing APN, mapped coverage); **zones served** (top zones bar table + zone/captain counts); and **upcoming scheduled cleanings** (next work days). Report HTML is fully **inline-styled** so it's independent of the app stylesheet.
@@ -324,10 +333,57 @@ Not planned: persistent named Groups / deployment-group object model; generic sh
 
 ## Next Work
 
-1. **UX polish** from real operator use — copy/help text, edge-case warnings, mobile workflow.
-2. **Production cutover** when ready — point production env at the validated source sheet (staging copy or approved production intake); do not switch env vars casually.
-3. **Write-flow tests** — PATCH field mapping, batch partial-failure, date round-trip, note append.
-4. **Optional:** narrow batch PATCH endpoint if large group sizes become slow.
+1. **Calendar-in-Map "Planner" view (GREENLIT — build this)** — put the calendar in the Map tab's side panel as a `[Details][Calendar]` sub-tab so map + calendar are visible together and day click/hover highlights lots on the map. Full spec below under **Planned Feature: Calendar-in-Map "Planner" view**.
+2. **UX polish** from real operator use — copy/help text, edge-case warnings, mobile workflow.
+3. **Production cutover** when ready — point production env at the validated source sheet (staging copy or approved production intake); do not switch env vars casually.
+4. **Write-flow tests** — PATCH field mapping, batch partial-failure, date round-trip, note append.
+5. **Optional:** narrow batch PATCH endpoint if large group sizes become slow.
+
+---
+
+## Planned Feature (GREENLIT, not yet built): Calendar-in-Map "Planner" view
+
+> ✅ **Status: APPROVED to build — designed with the product owner (July 2, 2026), not yet implemented.** Documented here so the next agent can build it. This is a real, wanted feature, unlike the "Possible Future Work" below.
+
+**The goal in one sentence:** let the operator see the **map and the calendar at the same time**, and have clicking/hovering a calendar day **highlight that day's lots on the map** — turning scheduling into a spatial+temporal activity on one screen.
+
+**Why this is mostly a layout/wiring job, not new logic:** the highlight already works. When `lotWeedingAdminState.dayFilter` is set, `applyLotWeedingAdminMarkerStyle` (`index.html` ~4914) already computes `dayHit` (grow matching pins) + `dimmed` (fade the rest), and `refreshLotWeedingAdminMarkerStyles()` (~4936) restyles all markers **in place with no map rebuild**. The Calendar tab already writes `dayFilter` on day click (~6672). The only reason the "magic" isn't visible today is that Map and Calendar are separate tabs that never appear together.
+
+### Agreed design (from the discussion)
+
+- **Do NOT duplicate the map onto the Calendar tab.** (Rejected — a second Leaflet instance means double markers/memory and sync bugs; reparenting the one map is fiddly.)
+- **Put the calendar in the Map tab's right-hand side panel as a second sub-tab** — a small **`[ Details ] [ Calendar ]`** toggle at the top of the side panel. Map stays full-size on the left and is always visible (same row = visible together, no scrolling). The map/panel already sit side-by-side via `.lot-weeding-admin-map-shell` (`public/css/styles.css` ~3932, `grid-template-columns: minmax(0, 1fr) minmax(310px, 360px)`).
+  - **Style it as a lightweight segmented control, NOT a second tab bar.** The "tab-within-a-tab" worry dissolves as long as the in-panel toggle looks clearly *different* from the top-level tabs (Map/Calendar/Follow-ups/Stats/Help): the top tabs are the primary nav (underlined tabs); the panel toggle should read as a small segmented pill — different shape/weight/size — with only the two options. Nested tabs are a smell only when the inner control mimics the outer one; a differentiated segmented control is a standard, accepted pattern (Figma inspector, devtools side panels, etc.).
+  - **Framing:** it's really "Details is home + Calendar is one alternate mode," not two coequal nested tabs. "Details" encompasses the panel's existing three states (single-lot editor / multi-select batch / idle); "Calendar" is the toggle-away mode. That mental model keeps it from feeling like duplicated navigation.
+  - **State persistence:** switching Details↔Calendar must swap only the panel *body* — do NOT reset selection/batch state. If the operator is mid-batch-selection, flips to Calendar, then back, the batch form + selection must still be there. (Use a `panelTab` state field; don't tear down batch state on toggle.)
+  - The **Phase 2 rename (Map→"Planner") reinforces this** — "Planner → Details / Calendar" reads more naturally than "Map → Details / Calendar" (a calendar under a tab literally named "Map" is slightly odd). Consider doing the rename early if the compact calendar reaches parity quickly.
+- **Give the calendar more room by widening the side panel to a FIXED width (map gives up ~10%).** Bump the panel column cap from `360px` to roughly **400–430px** in `.lot-weeding-admin-map-shell` (`public/css/styles.css` ~3932, currently `grid-template-columns: minmax(0, 1fr) minmax(310px, 360px)`). At ~360px a 7-col month grid is ~38px cells (tight); ~400–430px gets ~50–55px cells (comfortable). The map barely notices (~5–8% on a typical workspace) and Leaflet's existing `invalidateSize()` keeps the resize clean.
+  - **⚠️ The width is FIXED — do NOT make the panel width change depending on which sub-tab (Details vs Calendar) is active.** The product owner was explicit about this: a width that shifts on toggle would force the map to resize on every switch (the exact scroll/layout jank the team already fought and reverted). One stable split for both sub-tabs.
+  - This widening is a **nice-to-have, not a blocker** — a compact calendar can fit at 360px; if the wider panel crowds the map on smaller laptops it's fine to dial back.
+- **Compact-calendar must carry over everything the Calendar tab does:** the month grid with per-day scheduled-lot **counts**, the **list of lots scheduled** for the selected day, and the **Copy day list** button + the **"include contact info"** checkbox. Reuse/extract from `renderLotWeedingAdminCalendarTab` (`index.html` ~6007) into a compact renderer that fits the ~310–360px-wide, 700px-tall panel (`.lot-weeding-admin-side-panel` ~4099).
+- **Clicking a map pin auto-switches the side panel back to the Details (lot) sub-tab** so the operator can edit that lot. (A plain pin click already calls `focusLotWeedingAdminLot`; just also flip the panel's sub-tab to Details.)
+- **Hover-to-preview (nice-to-have, cheap):** on a day cell `mouseenter`, set a transient hover-day (separate from the committed `dayFilter`), and call `refreshLotWeedingAdminMarkerStyles()`; clear on `mouseleave`. For hover, prefer emphasizing matches only (grow / ring) rather than also dimming everything, so it reads as a light preview vs. click = commit. This is a small branch in `applyLotWeedingAdminMarkerStyle`.
+
+### Phasing / the Calendar-tab redundancy
+
+- **Phase 1 (build now):** add the in-panel Calendar sub-tab on the Map tab; **keep the standalone Calendar tab for now.** They share render code so the duplication is cheap. Wire click-a-day → highlight (mostly already works) and the pin-click → Details auto-switch.
+- **Phase 2 (likely, product owner leaning this way):** remove the redundancy by **renaming the "Map" tab to "Planner"** (map + in-panel calendar) and **retiring the standalone Calendar tab** once the compact calendar reaches parity (it should, since the Calendar tab is just: grid w/ counts, day's lot list, copy button + optional-contact checkbox). Don't do this until the in-panel version is confirmed to feel good.
+
+### Implementation pointers (files/functions)
+
+- Side-panel sub-tab state: add something like `lotWeedingAdminState.panelTab` (`details` | `calendar`); default `details`. Reset to `details` on pin click (`focusLotWeedingAdminLot`).
+- Map tab renderer: `renderLotWeedingAdminMapTab` (`index.html` ~5880) — add the sub-tab toggle + conditional panel body.
+- Side panel renderer: `renderLotWeedingAdminSidePanel` — branch on `panelTab`.
+- Calendar rendering to reuse/compact: `renderLotWeedingAdminCalendarTab` (~6007); day-click handler pattern (~6672); Copy-day-list handler + `includeContactInfo` toggle (~6688).
+- Marker highlight: `applyLotWeedingAdminMarkerStyle` (~4914) + `refreshLotWeedingAdminMarkerStyles` (~4936); shared `dayFilter` state (~1270).
+- Layout: `.lot-weeding-admin-map-shell` columns (~3932) for the ~10% map→panel width shift; `.lot-weeding-admin-side-panel` (~4099, 700px tall, scrolls) for the compact calendar fit.
+- **Mobile:** the map is a deliberate fixed 700px with an internally-scrolling panel (don't reintroduce variable map height). On narrow screens the panel stacks under the map (`.lot-weeding-admin-map-shell` collapses to one column ~4982) — make sure the sub-tab + compact calendar degrade sensibly there.
+
+### Watch-outs
+
+- Only **scheduled** lots (those with `Date Scheduled`) respond to day highlight; Requested/Schedule-Next lots have no date and won't light up — add a touch of copy so that doesn't read as a bug.
+- Keep the existing context-bar **Date chip** behavior (it already reflects `dayFilter` and clears cleanly) working with the in-panel calendar.
+- Don't regress the single-map / Map-tab-only init model (`initializeLotWeedingAdminMap` runs only when `activeTab === 'map'`, ~5349; `destroyLotWeedingAdminMap` on re-render). The in-panel calendar must not rebuild the map on day click/hover — use `refreshLotWeedingAdminMarkerStyles()`.
 
 ---
 
@@ -441,12 +497,13 @@ Recent UX (do not regress):
 - Context bar label is contextual (Date selected / Selection / Active filters) and disappears when the last chip is cleared.
 - Lot-weeding-only users: stripped left nav (only Lot Weeding Command Center + Sign out, no blur) + partner logo `public/images/atf-logo.png` (`LOT_WEEDING_PARTNER_LOGO_SRC`, `.nav-header-partner-logo` max-height 144px, centered). Keep `applyLotWeedingOnlyNavChrome` in try/catch and any const it reads declared before `updateNavigationState` runs (TDZ crash risk). Expired session → error card offers "Sign in with Google" (signIn()).
 - Sign out button is a compact centered pill (all nav variants) below the logo, above Send feedback (`#signOutBtn.nav-item` in styles.css) — don't revert it to a full-width nav tab.
+- **Login landing:** signed-out users must always land on the **Home** login page — the `savedView` restore on load is gated on a valid `accessToken` (don't restore a remembered tab when signed out). The global `#homeSigninPrompt` overlay shows on every view *except* Home/Admin Mode/Lot Weeding (which render their own sign-in UI) and is NOT gated on a saved sheet URL. Don't reintroduce per-tab sign-in dead-ends.
 - Stats tab has a **Generate Report** button → funder-facing PDF (hero banner w/ ATF logo, date+time, all stats + status/progress/health/zones/upcoming breakdowns). Uses the already-loaded `html2pdf` lib; report HTML is inline-styled; filenames include date AND time (`altadena-lot-weeding-report-YYYY-MM-DD-HHMM.pdf`). Functions: `computeLotWeedingReportData` / `loadLotWeedingReportLogoDataUrl` / `buildLotWeedingReportHtml` / `generateLotWeedingAdminReport`. Do not turn this into a long in-dashboard scrollable report — it's a downloadable PDF by design.
 - Status **Schedule Next** (not On-Deck); legacy On-Deck sheet values normalize on read.
 - No status quick-actions; no Last Contact Date in UI/PATCH; tri-state fields use (unknown) default.
 - Homeowner notified always manual.
 
-Goal: Continue UX polish from operator feedback (see UX Expectations). Optional: write-flow tests, batch PATCH endpoint, production cutover when asked.
+Goal: Continue UX polish from operator feedback (see UX Expectations). **Next up (greenlit): the Calendar-in-Map "Planner" view** — see the "Planned Feature: Calendar-in-Map 'Planner' view" section for the full agreed design (calendar as a [Details][Calendar] sub-tab in the Map side panel; click/hover a day → highlight lots on the map; shrink map ~10% for panel width; pin click auto-switches back to Details; keep the full Calendar tab in Phase 1, likely rename Map→Planner and retire it in Phase 2). Optional: write-flow tests, batch PATCH endpoint, production cutover when asked.
 
 Do not: invent sheet columns; remove mirror compatibility; change Access Sheet or production env vars without explicit request.
 
