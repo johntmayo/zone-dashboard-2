@@ -1312,8 +1312,6 @@
       lastMapView: null,
       lastSaveAt: null
     };
-    let lotWeedingAdminSearchTimer = null;
-    
     // Sequential rebuild stages (in order)
     const REBUILD_STAGES_SEQUENTIAL = [
       'Planning/Not Ready to Build Yet',
@@ -5321,6 +5319,10 @@
               <label class="lot-weeding-admin-label">APN
                 <input class="lot-weeding-admin-input" data-lot-weeding-field="apn" value="${escapeHtmlAttr(request.apn)}" placeholder="Assign APN">
               </label>
+              <div class="lot-weeding-admin-readonly-field">
+                <span class="lot-weeding-admin-readonly-label">Date Received</span>
+                <span class="lot-weeding-admin-readonly-value">${escapeHtml(formatLotWeedingAdminDisplayDate(request.timestamp))}</span>
+              </div>
             </div>
             <p class="lot-weeding-admin-editor-hint">Assigning a Date Scheduled automatically sets status to Scheduled. Homeowner notified is always set separately.</p>
 
@@ -6009,10 +6011,9 @@
       if (!request) return '';
       if (field === 'status') return request.status || 'Requested';
       if (field === 'scheduledDate') return toLotWeedingDateKey(request.scheduledDate) || '';
+      if (field === 'dateCleaned') return toLotWeedingDateKey(request.dateCleaned) || '';
       if (field === 'apn') return request.apn || '';
-      if (field === 'zone') return request.zone || '';
       if (field === 'roeStatus') return request.roeStatus || '';
-      if (field === 'mapped') return getLotWeedingRequestCoordinates(request) ? 'mapped' : 'unmapped';
       return request.address || '';
     }
 
@@ -6059,10 +6060,12 @@
                   </select>
                 </div>
                 <div class="lot-weeding-admin-search-wrap">
-                  <input type="search" id="lotWeedingAdminSearch" class="lot-weeding-admin-search" placeholder="Find address, APN, requester, captain..." value="${escapeHtmlAttr(lotWeedingAdminState.query)}">
+                  <input type="search" id="lotWeedingAdminSearch" class="lot-weeding-admin-search" placeholder="Find address, APN, requester, captain..." value="${escapeHtmlAttr(lotWeedingAdminState.query)}" aria-describedby="lotWeedingAdminSearchHint">
+                  <button type="button" class="lot-weeding-admin-search-btn" id="lotWeedingAdminSearchBtn">Search</button>
                   <button type="button" class="lot-weeding-admin-refresh" id="lotWeedingAdminRefreshBtn">Refresh</button>
                 </div>
               </div>
+              <p class="lot-weeding-admin-search-hint" id="lotWeedingAdminSearchHint">Search filters the queue below. Refresh reloads data from the spreadsheet.</p>
               <p class="lot-weeding-admin-show-hint" id="lotWeedingAdminShowHint">${escapeHtml(getLotWeedingAdminViewFilterHint(currentFilter))}</p>
             </div>
           </div>
@@ -6101,11 +6104,10 @@
               <tr>
                 <th>${renderLotWeedingQueueSortButton('address', 'Address')}</th>
                 <th>${renderLotWeedingQueueSortButton('status', 'Status')}</th>
-                <th>${renderLotWeedingQueueSortButton('scheduledDate', 'Scheduled')}</th>
+                <th>${renderLotWeedingQueueSortButton('scheduledDate', 'Date Scheduled')}</th>
+                <th>${renderLotWeedingQueueSortButton('dateCleaned', 'Date Cleaned')}</th>
                 <th>${renderLotWeedingQueueSortButton('apn', 'APN')}</th>
-                <th>${renderLotWeedingQueueSortButton('zone', 'Zone')}</th>
                 <th>${renderLotWeedingQueueSortButton('roeStatus', 'ROE')}</th>
-                <th>${renderLotWeedingQueueSortButton('mapped', 'Map')}</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -6121,20 +6123,14 @@
       const status = resolveLotWeedingAdminStatus(request.status);
       const selected = isLotWeedingAdminRequestSelected(request);
       const primary = Number(request.rowNumber) === Number(lotWeedingAdminState.selectedRowNumber);
-      const coords = getLotWeedingRequestCoordinates(request);
       return `
         <tr class="lot-weeding-admin-queue-item ${selected ? 'selected' : ''} ${primary ? 'primary' : ''}" data-lot-weeding-row="${escapeHtmlAttr(request.rowNumber)}">
-          <td class="lot-weeding-admin-queue-address">
-            <strong>${escapeHtml(request.address || 'Address not provided')}</strong>
-            <span>${escapeHtml(request.requesterName || 'Unknown requester')}${request.phone ? ` | ${escapeHtml(request.phone)}` : ''}${request.email ? ` | ${escapeHtml(request.email)}` : ''}</span>
-            ${request.details ? `<em>${escapeHtml(request.details)}</em>` : ''}
-          </td>
+          <td class="lot-weeding-admin-queue-address">${escapeHtml(request.address || 'Address not provided')}</td>
           <td><span class="lot-weeding-admin-status lot-weeding-admin-status--${escapeHtmlAttr(getLotWeedingStatusClass(status))}">${escapeHtml(status)}</span></td>
-          <td>${escapeHtml(request.scheduledDate || 'Not scheduled')}</td>
+          <td class="lot-weeding-admin-queue-date">${escapeHtml(formatLotWeedingAdminDisplayDate(request.scheduledDate))}</td>
+          <td class="lot-weeding-admin-queue-date">${escapeHtml(formatLotWeedingAdminDisplayDate(request.dateCleaned))}</td>
           <td>${escapeHtml(request.apn || 'Missing APN')}</td>
-          <td>${escapeHtml(request.zone || 'No zone')}</td>
           <td>${escapeHtml(request.roeStatus || '')}</td>
-          <td>${coords ? 'Mapped' : escapeHtml(getLotWeedingUnmappedReason(request))}</td>
           <td>
             <div class="lot-weeding-admin-queue-actions">
               <button type="button" class="lot-weeding-admin-inspect" data-lot-weeding-inspect="${escapeHtmlAttr(request.rowNumber)}">Inspect &amp; edit</button>
@@ -6986,20 +6982,26 @@
       attachLotWeedingAdminContextHandlers();
 
       const searchInput = document.getElementById('lotWeedingAdminSearch');
+      const applyLotWeedingAdminSearch = () => {
+        lotWeedingAdminState.query = searchInput ? (searchInput.value || '').trim() : '';
+        renderLotWeedingAdminView();
+        const refreshedInput = document.getElementById('lotWeedingAdminSearch');
+        if (refreshedInput) {
+          refreshedInput.focus();
+          refreshedInput.setSelectionRange(refreshedInput.value.length, refreshedInput.value.length);
+        }
+      };
+
       if (searchInput) {
-        searchInput.addEventListener('input', () => {
-          lotWeedingAdminState.query = searchInput.value || '';
-          clearTimeout(lotWeedingAdminSearchTimer);
-          lotWeedingAdminSearchTimer = setTimeout(() => {
-            renderLotWeedingAdminView();
-            const refreshedInput = document.getElementById('lotWeedingAdminSearch');
-            if (refreshedInput) {
-              refreshedInput.focus();
-              refreshedInput.setSelectionRange(refreshedInput.value.length, refreshedInput.value.length);
-            }
-          }, 180);
+        searchInput.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            applyLotWeedingAdminSearch();
+          }
         });
       }
+
+      document.getElementById('lotWeedingAdminSearchBtn')?.addEventListener('click', applyLotWeedingAdminSearch);
 
       document.getElementById('lotWeedingAdminRefreshBtn')?.addEventListener('click', () => loadLotWeedingAdminData(true));
       document.getElementById('lotWeedingAdminGenerateReportBtn')?.addEventListener('click', () => generateLotWeedingAdminReport());
@@ -8524,6 +8526,11 @@
       if (normalized === 'needs attention' || normalized === 'flagged' || normalized === 'error' || normalized === 'issue') return 'Needs Attention';
       if (normalized === 'cancelled' || normalized === 'canceled') return 'Cancelled';
       return '';
+    }
+
+    function formatLotWeedingAdminDisplayDate(value) {
+      const formatted = formatLotWeedingScheduledDate(value);
+      return formatted || '—';
     }
 
     function formatLotWeedingScheduledDate(value) {
