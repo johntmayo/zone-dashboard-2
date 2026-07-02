@@ -1,8 +1,19 @@
 # Lot Weeding Admin Handoff
 
-**Status:** Lot Weeding Command Center is feature-complete for the confirmed console design (June 2026). Staging validation completed on a copied intake sheet with revised columns and service-account Editor access. Recent work is **operator-driven UX polish** (filters bar, single-lot editor layout, contact formatting). Production cutover and write-flow tests remain when ready.
+**Status:** Lot Weeding Command Center is feature-complete for the confirmed console design (June 2026). Staging validation completed on a copied intake sheet with revised columns and service-account Editor access. Recent work is **operator-driven UX polish** (filters bar, single-lot editor layout, contact formatting) plus the **Calendar-in-Map Planner view (Phase 1)** — in-panel calendar on the Map tab with day click/hover map highlighting, behind a reversible feature flag. Production cutover and write-flow tests remain when ready.
 
-**Latest pass (copy-button restyle + contact ordering, July 2026):**
+**Latest pass (Calendar-in-Map Planner view, Phase 1, July 2026):**
+- **In-panel calendar on the Map tab** — when `LOT_WEEDING_PLANNER_CALENDAR_ENABLED` is `true` (default), the Map side panel gets a lightweight segmented **`[ Details ] [ Calendar ]`** toggle (distinct from the top tab bar). Map stays full-size on the left; calendar shares the row so operators see geography + schedule together.
+- **Reversible by design** — set `LOT_WEEDING_PLANNER_CALENDAR_ENABLED = false` near the top of `index.html` to restore the pre-Planner Map panel instantly (no code removal). Standalone **Calendar** tab unchanged in Phase 1.
+- **Shared calendar renderer** — extracted `renderLotWeedingAdminCalendarCore` / grid / day-panel HTML so the full Calendar tab and compact panel share one code path (month grid w/ counts, selected-day lot list, Copy day list + include-contact checkbox).
+- **Day click → map highlight without map rebuild** — in-panel day selection sets `dayFilter` and calls `refreshLotWeedingAdminMapDayFilter()` (marker restyle + panel/context-bar swap only). Does **not** call `renderLotWeedingAdminView()` on the Map tab (avoids Leaflet teardown jank).
+- **Hover-to-preview** — day-cell `mouseenter` sets transient `hoverDayFilter`; matching pins emphasize (grow) without dimming others. Click commits `dayFilter` (grow + dim non-matches). Cleared on mouseleave / day click / pin click.
+- **Pin click auto-switches to Details** — `focusLotWeedingAdminLot` sets `panelTab = 'details'` so editing always shows the lot editor.
+- **Panel width** — `.lot-weeding-admin-map-shell--planner` widens the side column cap to **420px** (fixed for both sub-tabs; map gives up ~5–8%). Flag off → original `360px` shell.
+- **State** — `panelTab` (`details` | `calendar`), `hoverDayFilter`; switching sub-tabs preserves selection/batch state.
+- **Copy note** — compact calendar hint clarifies only lots with **Date Scheduled** respond to day highlighting.
+
+**Previous pass (copy-button restyle + contact ordering, July 2026):**
 - **Contact ordering unified to phone-first.** The requester contact line in the single-lot editor (`renderLotWeedingAdminContactHtml`) previously read **email · phone** while the Follow-ups line read **phone · email**. Both now render **phone · email**, and captain rows (`renderLotWeedingAdminCaptainsHtml`) were aligned to **name · phone · email** to match.
 - **Email copy button now matches the rest of the app.** The lot-weeding copy button (`renderLotWeedingAdminCopyEmailButton`, used in the single-lot editor, captain rows, and Follow-ups contact lines) was rendering with the browser's default `<button>` chrome (grey box/border) because its markup only carried classes and neither `.copy-email-btn` nor `.lot-weeding-admin-copy-email` reset the native chrome — most visible/"weird" in the **Follow-ups** tab. Fixed purely in CSS: `.lot-weeding-admin-copy-email` now mirrors the Details-panel button (`.address-details .person-card__contact .copy-email-btn`) — `background:none; border:none; padding:0; margin-left:6px; inline-flex; vertical-align:-2px; color:var(--primary); opacity:0.5 → 1 on hover; 13px SVG`. Markup/JS unchanged (still hooks `.lot-weeding-admin-copy-email` for `attachLotWeedingAdminCopyEmailHandlers`), so it's a one-place fix that updates every copy button in the lot-weeding UI.
 
@@ -333,7 +344,7 @@ Not planned: persistent named Groups / deployment-group object model; generic sh
 
 ## Next Work
 
-1. **Calendar-in-Map "Planner" view (GREENLIT — build this)** — put the calendar in the Map tab's side panel as a `[Details][Calendar]` sub-tab so map + calendar are visible together and day click/hover highlights lots on the map. Full spec below under **Planned Feature: Calendar-in-Map "Planner" view**.
+1. **Calendar-in-Map "Planner" view (Phase 1 DONE — Phase 2 optional)** — in-panel `[Details][Calendar]` on Map tab is live behind `LOT_WEEDING_PLANNER_CALENDAR_ENABLED`. Phase 2 (when confirmed): rename Map → **Planner**, retire standalone Calendar tab. To revert Phase 1 instantly: set the flag to `false`.
 2. **UX polish** from real operator use — copy/help text, edge-case warnings, mobile workflow.
 3. **Production cutover** when ready — point production env at the validated source sheet (staging copy or approved production intake); do not switch env vars casually.
 4. **Write-flow tests** — PATCH field mapping, batch partial-failure, date round-trip, note append.
@@ -341,9 +352,9 @@ Not planned: persistent named Groups / deployment-group object model; generic sh
 
 ---
 
-## Planned Feature (GREENLIT, not yet built): Calendar-in-Map "Planner" view
+## Planned Feature (Phase 1 DONE, Phase 2 optional): Calendar-in-Map "Planner" view
 
-> ✅ **Status: APPROVED to build — designed with the product owner (July 2, 2026), not yet implemented.** Documented here so the next agent can build it. This is a real, wanted feature, unlike the "Possible Future Work" below.
+> ✅ **Phase 1 implemented (July 2026)** behind `LOT_WEEDING_PLANNER_CALENDAR_ENABLED` (default `true`). Set to `false` to revert instantly. Standalone Calendar tab kept for now. Phase 2 (rename Map→Planner, retire Calendar tab) pending operator confirmation.
 
 **The goal in one sentence:** let the operator see the **map and the calendar at the same time**, and have clicking/hovering a calendar day **highlight that day's lots on the map** — turning scheduling into a spatial+temporal activity on one screen.
 
@@ -446,7 +457,8 @@ Read lints on touched files (`index.html`, `public/css/styles.css`, `lot-weeding
 ### Shared state (`lotWeedingAdminState`)
 
 - Tabs: `activeTab` (`map` | `calendar` | `followups` | `stats` | `help`)
-- Filters: `filter`, `query`, `dayFilter`, `calendarMonth`, `includeContactInfo`
+- Panel sub-tab (Map only, when `LOT_WEEDING_PLANNER_CALENDAR_ENABLED`): `panelTab` (`details` | `calendar`)
+- Filters: `filter`, `query`, `dayFilter`, `hoverDayFilter`, `calendarMonth`, `includeContactInfo`
 - Selection: `selectedRowNumbers`, `selectedRowNumber` (no auto-select on load — cleared if the prior lot no longer exists)
 - Batch: `batchSchedule*`, `batchClean*`, `batchAttention*`, `batchScheduleNext*`, `batchAction`
 - Map: `map`, `markers`, zone overlay, draw polygon (`drawEnabled`, `drawLatLngs`, etc.)
@@ -503,7 +515,7 @@ Recent UX (do not regress):
 - No status quick-actions; no Last Contact Date in UI/PATCH; tri-state fields use (unknown) default.
 - Homeowner notified always manual.
 
-Goal: Continue UX polish from operator feedback (see UX Expectations). **Next up (greenlit): the Calendar-in-Map "Planner" view** — see the "Planned Feature: Calendar-in-Map 'Planner' view" section for the full agreed design (calendar as a [Details][Calendar] sub-tab in the Map side panel; click/hover a day → highlight lots on the map; shrink map ~10% for panel width; pin click auto-switches back to Details; keep the full Calendar tab in Phase 1, likely rename Map→Planner and retire it in Phase 2). Optional: write-flow tests, batch PATCH endpoint, production cutover when asked.
+Goal: Continue UX polish from operator feedback (see UX Expectations). **Planner Phase 1 is live** — in-panel calendar on Map tab (`LOT_WEEDING_PLANNER_CALENDAR_ENABLED`, default true; set false to revert). Phase 2 when asked: rename Map→Planner, retire standalone Calendar tab. Optional: write-flow tests, batch PATCH endpoint, production cutover when asked.
 
 Do not: invent sheet columns; remove mirror compatibility; change Access Sheet or production env vars without explicit request.
 
