@@ -39,6 +39,19 @@ test('normalizeLotWeedingRows: maps revised intake columns to stable request fie
   assert.strictEqual(rows[1].roeStatus, 'Returned');
 });
 
+test('normalizeLotWeedingRows: converts Google Sheets serial dates for scheduled/cleaned fields', () => {
+  const parsed = normalizeSheetValues([
+    ['APN', 'Status', 'Date Scheduled', 'Date Cleaned'],
+    ['5842-001-020', 'Scheduled', '46218', '46223']
+  ]);
+
+  const rows = normalizeLotWeedingRows(parsed.headers, parsed.rows);
+
+  assert.strictEqual(rows.length, 1);
+  assert.strictEqual(rows[0].scheduledDate, '7/15/2026');
+  assert.strictEqual(rows[0].dateCleaned, '7/20/2026');
+});
+
 test('normalizeLotWeedingRows: remains compatible with old mirror-style columns', () => {
   const parsed = normalizeSheetValues([
     ['Timestamp', 'Property Address', 'Assessor Parcel Number', 'Request Status', 'Scheduled Date', 'Owner Email', 'Notes'],
