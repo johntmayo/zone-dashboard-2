@@ -3947,6 +3947,10 @@
       overflow: hidden;
     }
 
+    .lot-weeding-admin-side-panel.lot-weeding-admin-side-panel--with-subtabs {
+      overflow-y: hidden;
+    }
+
     .lot-weeding-admin-panel-subtabs {
       display: inline-flex;
       align-self: flex-start;
@@ -3983,8 +3987,8 @@
       overflow-y: auto;
     }
 
-    .lot-weeding-admin-side-panel--calendar .lot-weeding-admin-panel-body {
-      overflow: visible;
+    .lot-weeding-admin-panel-subtabs {
+      flex: 0 0 auto;
     }
 
     .lot-weeding-admin-panel-calendar .lot-weeding-admin-calendar-head--compact {
@@ -4043,6 +4047,18 @@
 
     .lot-weeding-admin-day-panel--compact .lot-weeding-admin-day-panel-head h3 {
       font-size: 1rem;
+    }
+
+    .lot-weeding-admin-day-panel--compact .lot-weeding-admin-day-item {
+      padding: 10px 0;
+      background: transparent;
+      border: none;
+      border-top: 1px solid rgba(31, 41, 55, 0.1);
+      border-radius: 0;
+    }
+
+    .lot-weeding-admin-day-panel--compact .lot-weeding-admin-day-item:first-child {
+      border-top: none;
     }
 
     .lot-weeding-admin-panel-calendar .lot-weeding-admin-cal-hint {
@@ -5648,17 +5664,22 @@
       color: var(--text-secondary);
     }
 
-    .lot-weeding-admin-cal-cell.has-lots {
-      background: rgba(37, 99, 235, 0.08);
-      border-color: rgba(37, 99, 235, 0.32);
+    .lot-weeding-admin-cal-cell:not(.lot-weeding-admin-cal-cell--empty):not(.selected):hover {
+      background: rgba(31, 41, 55, 0.04);
     }
 
-    .lot-weeding-admin-cal-cell.has-lots:hover {
-      background: rgba(37, 99, 235, 0.16);
+    .lot-weeding-admin-cal-cell.today:not(.selected) .lot-weeding-admin-cal-date::after {
+      content: '';
+      display: block;
+      width: 5px;
+      height: 5px;
+      margin: 2px auto 0;
+      border-radius: 999px;
+      background: #D97706;
     }
 
     .lot-weeding-admin-cal-cell.today {
-      box-shadow: inset 0 0 0 2px rgba(217, 119, 6, 0.55);
+      box-shadow: none;
     }
 
     .lot-weeding-admin-cal-cell.selected {
