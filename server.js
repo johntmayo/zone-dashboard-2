@@ -96,6 +96,61 @@ function readUsersMapLegacy() {
 let cachedUsersMap = null;
 let cachedAt = 0;
 const USERS_CACHE_TTL_MS = 60 * 1000;
+const ROLE_GRANT_PREFIX = 'role:';
+const LOT_WEEDING_ADMIN_ROLE = 'lot_weeding_admin';
+
+function normalizeAccessRole(value, fallback = 'captain') {
+  return String(value || fallback).trim().toLowerCase();
+}
+
+function getRoleGrantFromSheetUrl(rawUrl, role) {
+  const value = String(rawUrl || '').trim().toLowerCase();
+  if (!value.startsWith(ROLE_GRANT_PREFIX)) return null;
+  const roleFromUrl = value.slice(ROLE_GRANT_PREFIX.length).trim();
+  return normalizeAccessRole(role === 'captain' ? roleFromUrl : role, roleFromUrl);
+}
+
+function collectAccessRoles(rows) {
+  const roles = new Set();
+  (Array.isArray(rows) ? rows : []).forEach((row) => {
+    const role = normalizeAccessRole(row && row.role, '');
+    if (role) roles.add(role);
+  });
+  return Array.from(roles);
+}
+
+function collectAccessCapabilities(rows) {
+  const roles = collectAccessRoles(rows);
+  const capabilities = new Set(roles);
+  if (roles.includes('admin')) capabilities.add(LOT_WEEDING_ADMIN_ROLE);
+  return Array.from(capabilities);
+}
+
+async function getAccessRowsForEmail(email) {
+  const map = await readUsersMap();
+  return map[String(email || '').trim().toLowerCase()] || [];
+}
+
+async function isAdminEmail(email) {
+  try {
+    const rows = await getAccessRowsForEmail(email);
+    return collectAccessRoles(rows).includes('admin');
+  } catch (err) {
+    console.error('Admin check failed:', err.message);
+    return false;
+  }
+}
+
+async function hasLotWeedingAdminAccess(email) {
+  try {
+    const rows = await getAccessRowsForEmail(email);
+    const capabilities = collectAccessCapabilities(rows);
+    return capabilities.includes(LOT_WEEDING_ADMIN_ROLE);
+  } catch (err) {
+    console.error('Lot weeding admin access check failed:', err.message);
+    return false;
+  }
+}
 
 async function readUsersMap() {
   if (String(process.env.USE_LEGACY_USERS || '').trim() === '1') {
@@ -140,10 +195,29 @@ async function readUsersMap() {
 
       const loginEmail = String(loginEmailRaw).trim().toLowerCase();
       const rawUrl = String(sheetUrlRaw).trim();
-      const role = String(roleRaw || 'captain').trim().toLowerCase();
+      const role = normalizeAccessRole(roleRaw);
+      const roleGrant = getRoleGrantFromSheetUrl(rawUrl, role);
+
+      if (roleGrant) {
+        if (!usersMap[loginEmail]) usersMap[loginEmail] = [];
+        usersMap[loginEmail].push({
+          role: roleGrant,
+          capability: roleGrant,
+          roleGrant: true
+        });
+        continue;
+      }
 
       if (rawUrl === '*') {
-        if (role === 'admin') wildcardAdmins.push(loginEmail);
+        if (role === 'admin') {
+          if (!usersMap[loginEmail]) usersMap[loginEmail] = [];
+          usersMap[loginEmail].push({
+            role: 'admin',
+            capability: 'admin',
+            roleGrant: true
+          });
+          wildcardAdmins.push(loginEmail);
+        }
         continue;
       }
 
@@ -287,9 +361,11 @@ app.get('/api/user-sheets', async (req, res) => {
   }
 
   try {
-    const usersMap = await readUsersMap();
-    const rawSheets = usersMap[emailParam];
-    if (!Array.isArray(rawSheets) || rawSheets.length === 0) {
+    const rawRows = await getAccessRowsForEmail(emailParam);
+    const roles = collectAccessRoles(rawRows);
+    const capabilities = collectAccessCapabilities(rawRows);
+    const rawSheets = rawRows.filter((entry) => entry && (typeof entry === 'string' || entry.url));
+    if ((!Array.isArray(rawSheets) || rawSheets.length === 0) && roles.length === 0) {
       return res.status(403).json({ error: 'not_registered' });
     }
     const sheets = rawSheets.map((entry, index) => {
@@ -298,7 +374,7 @@ app.get('/api/user-sheets', async (req, res) => {
       if (!normalized) throw new Error(`invalid sheet at index ${index}`);
       return normalized;
     });
-    return res.status(200).json({ sheets });
+    return res.status(200).json({ sheets, roles, capabilities });
   } catch (err) {
     const message = err && err.code === 'ENOENT'
       ? 'No users config is available on the server.'
@@ -313,10 +389,7 @@ app.post('/api/admin/refresh-users', async (req, res) => {
   if (!emailParam) return res.status(401).json({ error: 'no_email' });
 
   try {
-    const currentMap = await readUsersMap();
-    const rows = currentMap[emailParam] || [];
-    const isAdmin = rows.some((row) => row && row.role === 'admin');
-    if (!isAdmin) return res.status(401).json({ error: 'not_admin' });
+    if (!await isAdminEmail(emailParam)) return res.status(401).json({ error: 'not_admin' });
 
     cachedUsersMap = null;
     cachedAt = 0;
@@ -338,15 +411,13 @@ app.get('/api/admin/export-users-json', async (req, res) => {
 
   try {
     const usersMap = await readUsersMap();
-    const rows = usersMap[emailParam] || [];
-    const isAdmin = rows.some((row) => row && row.role === 'admin');
-    if (!isAdmin) return res.status(401).json({ error: 'not_admin' });
+    if (!await isAdminEmail(emailParam)) return res.status(401).json({ error: 'not_admin' });
 
     const legacy = {
       _note: `FROZEN SNAPSHOT exported ${new Date().toISOString()} from Access Sheet. See USER_ACCESS_SHEET_MIGRATION.md -> Rollback Plan.`
     };
     for (const [email, entries] of Object.entries(usersMap)) {
-      legacy[email] = entries.map((entry) => entry.url);
+      legacy[email] = entries.map((entry) => entry.url).filter(Boolean);
     }
     const raw = JSON.stringify(legacy, null, 2);
     return res.status(200).json({
@@ -878,31 +949,6 @@ app.post('/api/sheets/values', async (req, res) => {
   }
 });
 
-// GET /api/lot-weeding/values - read central lot-weeding mirror sheet
-app.get('/api/lot-weeding/values', async (req, res) => {
-  if (!LOT_WEEDING_SHEET_ID) {
-    return res.json({ configured: false, values: [] });
-  }
-
-  try {
-    const sheets = await getSheetsClient();
-    const range = req.query.range || 'A1:ZZ5000';
-    const sheetName = req.query.sheetName || LOT_WEEDING_SHEET_NAME || null;
-    const rangeStr = sheetName ? `${sheetName}!${range}` : range;
-    const result = await sheets.spreadsheets.values.get({
-      spreadsheetId: LOT_WEEDING_SHEET_ID,
-      range: rangeStr
-    });
-    res.json({ configured: true, values: result.data.values || [] });
-  } catch (err) {
-    const status = sheetsErrorStatus(err);
-    const message = err.message || (err.response && err.response.data && err.response.data.error && err.response.data.error.message) || 'Sheets API error';
-    console.error('Lot weeding sheet values get error:', message);
-    console.error('Lot weeding sheet error details: code=', err.code, 'response=', err.response && err.response.data ? JSON.stringify(err.response.data) : 'none');
-    res.status(status).json({ error: 'Failed to fetch lot weeding values', message });
-  }
-});
-
 // POST /api/sheets/append - append rows
 app.post('/api/sheets/append', async (req, res) => {
   const { sheetId, values, sheetName = 'Sheet1' } = req.body || {};
@@ -1086,6 +1132,18 @@ app.post('/api/sheets/batch-update-by-resident-id', async (req, res) => {
   }
 });
 
+// --- Lot Weeding source + admin layer ---
+try {
+  const { registerLotWeedingRoutes } = require('./lot-weeding/routes');
+  registerLotWeedingRoutes(app, {
+    getSheetsClient,
+    hasLotWeedingAdminAccess
+  });
+  console.log('Lot weeding routes registered.');
+} catch (err) {
+  console.error('Failed to register lot weeding routes:', err.message);
+}
+
 // --- EPIC-LA integration (read-only cache lookups + admin sync trigger) ---
 // The EPIC cache lives in a dedicated Google Sheet (EPIC_CACHE_SHEET_ID) and
 // is refreshed by `npm run sync:epic` or POST /api/admin/sync-epic. None of
@@ -1094,16 +1152,7 @@ try {
   const { registerEpicRoutes } = require('./epic/routes');
   registerEpicRoutes(app, {
     getSheetsClient,
-    isAdminEmail: async (email) => {
-      try {
-        const map = await readUsersMap();
-        const rows = map[String(email || '').trim().toLowerCase()] || [];
-        return rows.some((row) => row && row.role === 'admin');
-      } catch (err) {
-        console.error('EPIC admin check failed:', err.message);
-        return false;
-      }
-    }
+    isAdminEmail
   });
   console.log('EPIC-LA routes registered.');
 } catch (err) {
@@ -1115,16 +1164,7 @@ try {
   const { registerGodmodeRoutes } = require('./godmode/routes');
   registerGodmodeRoutes(app, {
     getSheetsClient,
-    isAdminEmail: async (email) => {
-      try {
-        const map = await readUsersMap();
-        const rows = map[String(email || '').trim().toLowerCase()] || [];
-        return rows.some((row) => row && row.role === 'admin');
-      } catch (err) {
-        console.error('Godmode admin check failed:', err.message);
-        return false;
-      }
-    }
+    isAdminEmail
   });
   console.log('Godmode routes registered.');
 } catch (err) {
@@ -1156,7 +1196,13 @@ app.listen(PORT, () => {
   console.log(`Central sheet ID (announcements): ${CENTRAL_SHEET_ID}`);
   console.log(`Actions sheet ID: ${ACTIONS_SHEET_ID}`);
   console.log(`NC Directory sheet ID: ${NC_DIRECTORY_SHEET_ID}`);
-  console.log(`Lot weeding mirror sheet ID: ${LOT_WEEDING_SHEET_ID || 'not configured'}`);
+  try {
+    const { getLotWeedingConfig } = require('./lot-weeding/routes');
+    const lotWeedingConfig = getLotWeedingConfig();
+    console.log(`Lot weeding source (${lotWeedingConfig.source}) sheet ID: ${lotWeedingConfig.sheetId || 'not configured'}`);
+  } catch (err) {
+    console.log(`Lot weeding mirror sheet ID: ${LOT_WEEDING_SHEET_ID || 'not configured'}`);
+  }
   console.log(`To change sheets, update the IDs in server.js or set environment variables`);
   logUsersConfigStatusAtStartup();
 });
