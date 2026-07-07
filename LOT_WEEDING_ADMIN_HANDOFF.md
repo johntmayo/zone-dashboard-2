@@ -2,7 +2,11 @@
 
 **Status:** Lot Weeding Command Center is feature-complete for the confirmed console design (June 2026). Staging validation completed on a copied intake sheet with revised columns and service-account Editor access. Recent work is **operator-driven UX polish**, **Planner** tab (in-panel calendar behind `LOT_WEEDING_PLANNER_CALENDAR_ENABLED`), and live-demo hardening for the revised intake sheet. Production env cutover must keep pointing at the revised source sheet; deeper write-flow tests remain future work.
 
-**Latest pass (Planner details + queue table + search UX, July 2026):**
+**Latest pass (status vs Date Scheduled save fix, July 2026):**
+- **Requested / Schedule Next clear Date Scheduled** — single-lot Save and batch **Mark Schedule Next** now write `scheduledDate: ''` when status is Requested or Schedule Next. Fixes the bug where a lot with an existing Date Scheduled could not be moved to Schedule Next (save silently rewrote status back to Scheduled). Status dropdown change also clears the date picker immediately for operator visibility.
+- **Date → Scheduled rule unchanged** — assigning a Date Scheduled still auto-sets status to Scheduled on picker change and on save when status is not Requested/Schedule Next.
+
+**Previous pass (Planner details + queue table + search UX, July 2026):**
 - **Date Received in single-lot editor** — read-only **Date Received** field (from `Request Submission Date Stamp` / `timestamp`) shown beside APN in the editable grid; not PATCHable.
 - **Request queue table cleanup** — Address column is address-only (no requester/contact/notes lumped in). Added **Date Scheduled** and **Date Cleaned** columns; removed **Zone** and **Map**. Action buttons (**Inspect & edit** / **Add to selection**) are side-by-side again.
 - **Explicit Search button** — toolbar is now Search input → **Search** → **Refresh**, with helper copy clarifying Search filters the queue and Refresh reloads spreadsheet data. Search applies on button click or Enter (no longer on every keystroke).
@@ -183,12 +187,12 @@ Key pieces:
   - **Neighborhood Captain:** separate row (below a heavy divider); each captain's name + email (with copy button) + phone (plain text, formatted). Multiple captains are **semicolon-separated in `captainName`/`captainEmail`/`captainPhone`, aligned by index** (`renderLotWeedingAdminCaptainsHtml`). Captain phone is mapped in `lot-weeding/routes.js` (request + context columns via `nc phone`/`captain phone`/`captain_phone`/`contact phone` aliases; name matcher excludes email/phone columns).
   - Tooltipped labels (**Homeowner Notified**, **UWS Contract**) show a subtle **ⓘ** affordance (`.lot-weeding-admin-tip-icon`) next to the text; the tooltip itself is still the native `title` attribute.
   - **Last Contact Date** removed from UI and PATCH (no longer on intake sheet).
-  - Assigning `Date Scheduled` auto-sets `Status = Scheduled`. `Homeowner notified` is manual only — never auto-set by scheduling or batch actions.
+  - Assigning `Date Scheduled` auto-sets `Status = Scheduled`. Setting `Status` to **Requested** or **Schedule Next** clears `Date Scheduled` (single-lot Save and batch Schedule Next). `Homeowner notified` is manual only — never auto-set by scheduling or batch actions.
 - **Map view filter** — **Show** dropdown (not status chips); helper text below explains Active vs each status view. Not a selection/scheduling toolbar.
 - **Multi-select side panel** — single panel for 2+ selected lots: header **"N lots selected"** + **Clear**, status-mix/mapped summary, collapsible **View selected lots** list, then one **Action** picker → one form → plain-language summary → collapsible per-lot preview → one **Apply** button + per-lot results. Replaced the old three stacked batch cards (no more "Writes … only" pills, no duplicate lot lists).
 - **Batch group actions** (action picker) — all use sequential `PATCH /api/lot-weeding-admin/request-row` with summary, collapsible preview, single confirm, and per-lot partial-failure reporting:
   - Schedule for a date → `Date Scheduled` + `Status = Scheduled`
-  - Mark Schedule Next → `Status = Schedule Next` only
+  - Mark Schedule Next → `Status = Schedule Next` + clears `Date Scheduled`
   - Mark Cleaned → `Status = Cleaned` + `Date Cleaned`
   - Mark Needs Attention → `Status = Needs Attention`; optional note appended to Request notes (`details`)
 
@@ -366,7 +370,7 @@ Settled with the product owner. All items below are **implemented** unless noted
 
 - **Tabbed console:** Planner / Calendar / Follow-ups / Stats / Help (five tabs); shared state across tabs. Internal `activeTab` id for Planner is still `map`.
 - **Single editor** on Planner tab; no per-row inline editing in the queue; no status quick-action buttons.
-- **Assigning `Date Scheduled` auto-sets `Scheduled`**; **`Homeowner notified of schedule` is always manual** (side panel, Follow-ups Mark notified, or spreadsheet — never set by schedule/clean/attention batch writes).
+- **Assigning `Date Scheduled` auto-sets `Scheduled`**; **`Requested` / `Schedule Next` clear `Date Scheduled`** (single-lot Save + batch Schedule Next); **`Homeowner notified of schedule` is always manual** (side panel, Follow-ups Mark notified, or spreadsheet — never set by schedule/clean/attention batch writes).
 - **Date pickers** for all date fields in the UI.
 - **Day export** — address-only or with contact info; clipboard only.
 - **NC zones** — overlay only, off by default, not a filter.
@@ -562,6 +566,7 @@ Recent UX (do not regress):
 - Status **Schedule Next** (not On-Deck); legacy On-Deck sheet values normalize on read.
 - No status quick-actions; no Last Contact Date in UI/PATCH; tri-state fields use (unknown) default.
 - Homeowner notified always manual.
+- Requested / Schedule Next clear Date Scheduled on save (and batch Schedule Next); assigning a date still auto-sets Scheduled.
 - Revised source sheet no longer has `REQUEST DETAILS`; captain views synthesize the request summary from `Request Submission Date Stamp`, homeowner name/email/phone, and `Notes`. `Status` is now the canonical status column; legacy `lot_weeding_status_spring_2026` remains an alias. Dates are normalized on read, including Google Sheets serial values.
 - Spreadsheet gotcha: direct sheet edits do not auto-link `Date Scheduled` and `Status`. If manually filling `Date Scheduled`, also set `Status = Scheduled` unless intentionally leaving the lot in another state. The Command Center UI/batch scheduler does this automatically.
 
