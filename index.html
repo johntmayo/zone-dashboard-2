@@ -3898,6 +3898,20 @@
       return status === 'Schedule Next' || status === 'On-Deck';
     }
 
+    function isLotWeedingUnscheduledPipelineStatus(status) {
+      return status === 'Requested' || isLotWeedingScheduleNextStatus(status);
+    }
+
+    // Keep status and Date Scheduled aligned on single-lot save: pipeline statuses clear any assigned date.
+    function applyLotWeedingAdminEditorSaveRules(updates) {
+      if (!updates || typeof updates !== 'object') return updates;
+      const status = String(updates.status || '').trim();
+      if (isLotWeedingUnscheduledPipelineStatus(status)) {
+        updates.scheduledDate = '';
+      }
+      return updates;
+    }
+
     function isLotWeedingTerminalStatus(status) {
       return status === 'Cleaned' || status === 'Cancelled' || status === 'Completed';
     }
@@ -4308,8 +4322,10 @@
       } else if (action === 'scheduleNext') {
         busy = Boolean(lotWeedingAdminState.batchScheduleNextInProgress);
         canApply = canApply && !busy;
-        summary = `${countLabel} lots will be marked Schedule Next so they're ready to assign a date. Nothing else changes.`;
-        previewLine = (request) => `${escapeHtml(resolveLotWeedingAdminStatus(request.status))} → Schedule Next`;
+        summary = `${countLabel} lots will be marked Schedule Next and any assigned Date Scheduled will be cleared. Homeowner notified will not change.`;
+        previewLine = (request) => request.scheduledDate
+          ? `${escapeHtml(resolveLotWeedingAdminStatus(request.status))} → Schedule Next · ${escapeHtml(request.scheduledDate)} cleared`
+          : `${escapeHtml(resolveLotWeedingAdminStatus(request.status))} → Schedule Next`;
         buttonLabel = `Mark ${countLabel} Schedule Next`;
         busyLabel = 'Marking…';
         resultVerb = 'Schedule Next';
@@ -5324,7 +5340,7 @@
                 <span class="lot-weeding-admin-readonly-value">${escapeHtml(formatLotWeedingAdminDisplayDate(request.timestamp))}</span>
               </div>
             </div>
-            <p class="lot-weeding-admin-editor-hint">Assigning a Date Scheduled automatically sets status to Scheduled. Homeowner notified is always set separately.</p>
+            <p class="lot-weeding-admin-editor-hint">Assigning a Date Scheduled automatically sets status to Scheduled. Requested and Schedule Next clear any assigned date. Homeowner notified is always set separately.</p>
 
             <dl class="lot-weeding-admin-detail-list lot-weeding-admin-detail-list--readonly">
               <div><dt>Requester</dt><dd>${escapeHtml(request.requesterName || 'Unknown requester')}</dd></div>
@@ -6530,8 +6546,8 @@
       const results = [];
       for (const request of selectedRequests) {
         try {
-          await patchLotWeedingAdminRow(request.rowNumber, { status: 'Schedule Next' });
-          mergeLotWeedingAdminRowUpdate(request.rowNumber, { status: 'Schedule Next' });
+          await patchLotWeedingAdminRow(request.rowNumber, { status: 'Schedule Next', scheduledDate: '' });
+          mergeLotWeedingAdminRowUpdate(request.rowNumber, { status: 'Schedule Next', scheduledDate: '' });
           results.push({
             ok: true,
             rowNumber: request.rowNumber,
@@ -6874,9 +6890,19 @@
         dateInput.addEventListener('change', () => {
           const form = dateInput.closest('.lot-weeding-admin-editor-form');
           const statusSelect = form?.querySelector('[data-lot-weeding-field="status"]');
-          if (dateInput.value && statusSelect && (statusSelect.value === 'Requested' || isLotWeedingScheduleNextStatus(statusSelect.value))) {
+          if (dateInput.value && statusSelect && isLotWeedingUnscheduledPipelineStatus(statusSelect.value)) {
             statusSelect.value = 'Scheduled';
           }
+        });
+      });
+
+      // Requested / Schedule Next are not tied to a calendar date — clear the picker immediately.
+      root.querySelectorAll('.lot-weeding-admin-editor-form [data-lot-weeding-field="status"]').forEach((statusSelect) => {
+        statusSelect.addEventListener('change', () => {
+          if (!isLotWeedingUnscheduledPipelineStatus(statusSelect.value)) return;
+          const form = statusSelect.closest('.lot-weeding-admin-editor-form');
+          const dateInput = form?.querySelector('[data-lot-weeding-field="scheduledDate"]');
+          if (dateInput) dateInput.value = '';
         });
       });
 
@@ -6904,10 +6930,7 @@
               updates[field] = inputEl.value || '';
             }
           });
-          // Locked decision: assigning a Date Scheduled auto-sets status to Scheduled.
-          if (updates.scheduledDate && (updates.status === 'Requested' || isLotWeedingScheduleNextStatus(updates.status))) {
-            updates.status = 'Scheduled';
-          }
+          applyLotWeedingAdminEditorSaveRules(updates);
           if (!rowNumber || !Object.keys(updates).length) return;
           saveLotWeedingAdminRow(rowNumber, updates, { statusEl, buttonEl: button });
         });
