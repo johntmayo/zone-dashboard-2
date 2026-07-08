@@ -14283,7 +14283,6 @@
         const value = row[col] || '';
         const fieldClass = options.fieldClass ? ` ${options.fieldClass}` : '';
         const inputClass = options.inputClass ? ` ${options.inputClass}` : '';
-        const fieldReadonlyAttr = options.readonly ? ' readonly' : '';
         const copyButtonHtml = options.withCopy && String(value || '').trim()
           ? `<button class="copy-email-btn"
                      data-email="${escapeHtmlAttr(String(value).trim())}"
@@ -14307,17 +14306,17 @@
                 data-person-modal-field="true"
                 data-column="${escapeHtmlAttr(col)}"
                 data-original-value="${attrValue(value)}"
-                ${fieldReadonlyAttr}${disabledAttr}
+                ${disabledAttr}
               >
               ${copyButtonHtml}
             </div>
           </div>
         `;
       };
-      const notesField = (label, col, placeholder = 'Optional', options = {}) => {
+      const notesField = (label, col, placeholder = 'Optional') => {
         if (!col) return '';
         const value = row[col] || '';
-        const fieldReadonlyAttr = (options.readonly || !canEdit) ? ' readonly' : '';
+        const fieldReadonlyAttr = !canEdit ? ' readonly' : '';
         return `
           <div class="person-details-field person-details-field--full">
             <p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p>
@@ -14330,6 +14329,22 @@
               data-original-value="${attrValue(value)}"
               ${fieldReadonlyAttr}${disabledAttr}
             >${escapeHtml(value)}</textarea>
+          </div>
+        `;
+      };
+      const staticField = (label, col, options = {}) => {
+        if (!col) return '';
+        const value = String(row[col] || '').trim();
+        const fieldClass = options.fieldClass ? ` ${options.fieldClass}` : '';
+        const valueClass = options.valueClass ? ` ${options.valueClass}` : '';
+        const emptyText = options.emptyText || '(not set)';
+        const valueHtml = value
+          ? escapeHtml(value)
+          : `<span class="person-details-static__empty">${escapeHtml(emptyText)}</span>`;
+        return `
+          <div class="person-details-field${fieldClass}">
+            <p style="margin:0 0 4px 0;"><label>${escapeHtml(label)}</label></p>
+            <div class="person-details-static${valueClass}">${valueHtml}</div>
           </div>
         `;
       };
@@ -14402,8 +14417,12 @@
               <div class="newsletter-modal-section">
                 <h4 class="newsletter-modal-section-title">Outreach</h4>
                 <div class="person-details-grid">
-                  ${textField('Last outreach attempt', contactDateCol, 'text', { readonly: true })}
-                  ${notesField('Outreach Log', contactNotesCol, 'Running outreach log', { readonly: true })}
+                  ${staticField('Last outreach attempt', contactDateCol)}
+                  ${staticField('Outreach Log', contactNotesCol, {
+                    fieldClass: 'person-details-field--full',
+                    valueClass: ' person-details-static--notes',
+                    emptyText: 'No outreach logged yet'
+                  })}
                 </div>
               </div>
               ${additionalCols.length > 0 ? `
