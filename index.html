@@ -20002,26 +20002,28 @@
 
       root.innerHTML = [
         '<div class="br-panel">',
-        '  <section class="br-band br-band--zone">',
-        '    <div class="br-kicker">What your zone knows</div>',
+        '  <div class="br-columns">',
+        '    <section class="br-band br-band--zone">',
+        '      <div class="br-kicker">What your zone knows</div>',
         captain.rebuildCol
           ? (
-            '    <button type="button" class="br-headline br-headline-btn" data-br-rebuild="__known__">' +
-            '      <strong>' + captain.known + ' of ' + captain.total + ' addresses</strong> have a known build status' +
-            '      <span class="br-pct">' + captain.pctKnown + '% of zone</span>' +
-            '    </button>' +
-            '    <div class="br-metric-list">' + stageRows + '</div>'
+            '      <button type="button" class="br-headline br-headline-btn" data-br-rebuild="__known__">' +
+            '        <strong>' + captain.known + ' of ' + captain.total + ' addresses</strong> have a known build status' +
+            '        <span class="br-pct">' + captain.pctKnown + '% of zone</span>' +
+            '      </button>' +
+            '      <div class="br-metric-list">' + stageRows + '</div>'
           )
-          : '    <p class="br-muted">Build Status column not found in this zone sheet.</p>',
-        '  </section>',
-        '  <section class="br-band br-band--epic">',
-        '    <div class="br-kicker">What the county shows · EPIC-LA</div>',
-        '    <div id="brEpicSection"><p class="br-muted">Loading county permitting data…</p></div>',
-        '  </section>',
-        '  <section class="br-band br-band--plan">',
-        '    <div class="br-kicker">Address Plan</div>',
-        '    <div class="br-plan-strip">' + planChips + '</div>',
-        '  </section>',
+          : '      <p class="br-muted">Build Status column not found in this zone sheet.</p>',
+        '      <div class="br-plan-block">',
+        '        <div class="br-plan-label">Address Plan</div>',
+        '        <div class="br-plan-strip">' + planChips + '</div>',
+        '      </div>',
+        '    </section>',
+        '    <section class="br-band br-band--epic">',
+        '      <div class="br-kicker">What the county shows · EPIC-LA</div>',
+        '      <div id="brEpicSection"><p class="br-muted">Loading county permitting data…</p></div>',
+        '    </section>',
+        '  </div>',
         '  <div class="br-footer">',
         '    <button type="button" class="br-explore" id="brExploreBuild">Explore build status →</button>',
         '  </div>',
