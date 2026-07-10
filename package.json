@@ -8,7 +8,9 @@
     "dev": "nodemon server.js",
     "sync:epic": "node scripts/sync-epic.js",
     "test:epic": "node --test test/epic.test.js",
-    "test:godmode": "node --test test/godmode.test.js"
+    "test:godmode": "node --test test/godmode.test.js",
+    "test:address-id": "node --test test/address-id.test.js",
+    "test:contact-checkin": "node --test test/contact-checkin.test.js"
   },
   "keywords": [
     "dashboard",

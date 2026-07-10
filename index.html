@@ -24,6 +24,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <link rel="stylesheet" href="public/css/styles.css">
   <script src="public/js/utils.js"></script>
+  <script src="public/js/address-id.js"></script>
+  <script src="public/js/contact-checkin.js"></script>
   <!-- Google Analytics 4 (loads only when GA_MEASUREMENT_ID is set) -->
   <script>
     window.trackAnalyticsEvent = function(eventName, params) {
@@ -381,7 +383,17 @@
             </div>
           </div>
 
-          <!-- Panel B: From Altagether -->
+          <!-- Panel B: Contact Check-In (launch campaign slot) -->
+          <div class="home-panel home-panel--checkin contact-checkin-panel">
+            <div class="home-panel-header">
+              <h2>Contact Check-In</h2>
+            </div>
+            <div class="home-panel-content" id="contactCheckInContent">
+              <div class="loading">Loading Contact Check-In...</div>
+            </div>
+          </div>
+
+          <!-- Panel B2: From Altagether (moved below Check-In for launch) -->
           <div class="home-panel home-panel--altagether altagether-panel">
             <div class="home-panel-header">
               <h2>From Altagether</h2>
@@ -542,6 +554,57 @@
                   frameborder="0"
                   scrolling="no">
                 </iframe>
+              </div>
+            </div>
+          </div>
+
+          <!-- Event Funding Module -->
+          <div class="tool-module tool-module--featured" id="eventFunding">
+            <div class="tool-module-header" style="cursor: pointer;">
+              <h3>Event Funding <span class="tool-module-toggle">▼</span></h3>
+              <p>Two ways to cover costs for block parties and zone meet-ups: an Altadena Rotary grant (up to $300 in gift cards) or Altagether reimbursement.</p>
+            </div>
+            <div class="tool-module-content">
+              <div class="event-funding-paths">
+                <section class="event-funding-path">
+                  <h4 class="event-funding-path__title">Altadena Rotary Block Party Grant</h4>
+                  <p class="event-funding-path__summary">Altadena Rotary and Grocery Outlet offer up to <strong>$300 in gift cards</strong> for block parties and neighborhood gatherings that bring people together as we rebuild after the fire.</p>
+                  <ul class="event-funding-list">
+                    <li>Funds can be used for food, drinks, supplies, or activities.</li>
+                    <li>Fill out the application form and email it to Deb Halberstadt at <a href="mailto:halfcityprods@gmail.com">halfcityprods@gmail.com</a>.</li>
+                    <li>Applications are reviewed on a rolling basis — give at least <strong>2 weeks’ notice</strong> before your event.</li>
+                    <li>After your gathering, Rotary asks for a short summary of how the funds were used, turnout, and any photos or highlights.</li>
+                  </ul>
+                  <div class="event-funding-actions">
+                    <a href="public/docs/altadena-rotary-block-party-request-form.pdf" target="_blank" rel="noopener noreferrer" class="tool-link-btn" download>
+                      Download Application Form (PDF)
+                    </a>
+                  </div>
+                </section>
+
+                <section class="event-funding-path">
+                  <h4 class="event-funding-path__title">Altagether Reimbursement</h4>
+                  <p class="event-funding-path__summary">Altagether reimburses Neighborhood Captains for certain zone meet-up expenses under set limits. Maximum reimbursement per zone for meet-ups: <strong>$150</strong>.</p>
+                  <p class="event-funding-subtitle">Reimbursable costs per zone</p>
+                  <ul class="event-funding-list">
+                    <li>Postage for mailings to your zone (Limit: $50)</li>
+                    <li>Printing of letters and flyers (Limit: $50)</li>
+                    <li>Parking, only when specifically representing Altagether at an event such as a trade show or community meeting (Limit: $25)</li>
+                    <li>Space rental for a zone meet-up, e.g., reserving a picnic table in Pasadena (Limit: $128)</li>
+                    <li>Snacks, drinks, ice for a zone meet-up (Limit: $150)</li>
+                  </ul>
+                  <p class="event-funding-subtitle">Not reimbursed</p>
+                  <ul class="event-funding-list">
+                    <li>Alcohol</li>
+                    <li>Transportation costs (e.g. gas, rideshares, or train tickets)</li>
+                  </ul>
+                  <p class="event-funding-note">We have a limited budget and over 100 zones. Thank you for understanding. Last updated January 14, 2026.</p>
+                  <div class="event-funding-actions">
+                    <a href="https://airtable.com/appQZ2SGzHK2MdPVj/pagfmDt9a5JrXK9Z0/form" target="_blank" rel="noopener noreferrer" class="tool-link-btn">
+                      Open Reimbursement Request Form
+                    </a>
+                  </div>
+                </section>
               </div>
             </div>
           </div>
@@ -3146,6 +3209,7 @@
 
     const GODMODE_FIELD_ALIASES = {
       residentId: ['resident_id', 'resident id', 'residentid', 'person_id', 'person id'],
+      addressId: ['address_id', 'address id', 'addressid'],
       name: ['resident name', 'full name', 'name', 'person name', 'voter name'],
       firstName: ['first name', 'firstname'],
       lastName: ['last name', 'lastname', 'surname'],
@@ -7961,7 +8025,7 @@
           });
         });
 
-        // Store data globally (useResidentId: use resident_id for writes when column exists - sort-safe)
+        // Store data globally (useResidentId / useAddressId: sort-safe identity columns when present)
         sheetData = {
           headers,
           data,
@@ -7974,7 +8038,8 @@
           addressColumns,
           getAddressString,
           getStreetString,
-          useResidentId: headers.includes('resident_id')
+          useResidentId: headers.includes('resident_id'),
+          useAddressId: headers.includes('address_id')
         };
         
         // Re-initialize Contact List Creator if user is on Tools view and data just loaded
@@ -9882,6 +9947,16 @@
       }
     }
 
+    // Ensure address_id is set for Add Record: reuse existing canonical match, else mint.
+    // On same-address / multiple-ID conflict: log and leave blank (do not silently pick).
+    function ensureAddressId(headers, valuesByColumn, options) {
+      if (typeof resolveAddressIdForAddRecord !== 'function') return { addressId: '', status: 'unavailable' };
+      return resolveAddressIdForAddRecord(headers, valuesByColumn, {
+        sheetRows: (sheetData && sheetData.data) || [],
+        ...(options || {})
+      });
+    }
+
     // Build one row array in header order from a key-value map
     function buildRowForHeaders(headers, valuesByColumn) {
       return headers.map(h => (valuesByColumn[h] != null && valuesByColumn[h] !== '') ? String(valuesByColumn[h]).trim() : '');
@@ -10024,7 +10099,7 @@
       const normalized = typeof normalizeHeaderKey === 'function'
         ? normalizeHeaderKey(column)
         : lower.replace(/[^a-z0-9]/g, '');
-      if (!lower || normalized === 'residentid') return true;
+      if (!lower || normalized === 'residentid' || normalized === 'addressid') return true;
       if (lower.startsWith('__')) return true;
       if (lower.startsWith('_') && !normalized.startsWith('situs')) return true;
       if (lower.startsWith('person - ') || lower.startsWith('person_')) return true;
@@ -10539,6 +10614,7 @@
           if (latCol && addRecordLat != null) addRecordPendingRowValues[latCol] = String(addRecordLat);
           if (lonCol && addRecordLon != null) addRecordPendingRowValues[lonCol] = String(addRecordLon);
           ensureResidentIdAndApn(headers, addRecordPendingRowValues);
+          ensureAddressId(headers, addRecordPendingRowValues);
           const row = buildRowForHeaders(headers, addRecordPendingRowValues);
           submitBtn.disabled = true;
           submitBtn.textContent = 'Adding…';
@@ -10561,6 +10637,7 @@
         }
         const t = overlay.querySelector('input[name="addRecordType"]:checked').value;
         let rowValuesByColumn = {};
+        let addRecordAddressIdOptions = null;
 
         if (t === 'address') {
           const houseNum = (document.getElementById('addRecordHouseNum').value || '').trim();
@@ -10608,7 +10685,6 @@
           }
           if (latCol) rowValuesByColumn[latCol] = lat;
           if (lonCol) rowValuesByColumn[lonCol] = lon;
-          ensureResidentIdAndApn(headers, rowValuesByColumn);
         } else {
           // t === 'person'
           const personName = (document.getElementById('addRecordPersonNameInput').value || '').trim();
@@ -10623,6 +10699,7 @@
             applyAddRecordZoneDefaults(rowValuesByColumn, zoneDefaults);
             applyAddRecordPersonName(rowValuesByColumn, personName, nameColumns);
             Object.assign(rowValuesByColumn, collectPersonDetails('addRecordP'));
+            addRecordAddressIdOptions = { existingRows };
           } else if (addrType === 'new') {
             const houseNum = (document.getElementById('addRecordPersonHouseNum').value || '').trim();
             const streetVal = personStreetSelect.value === '__other__' ? (document.getElementById('addRecordPersonStreetOther').value || '').trim() : (personStreetSelect.value || '').trim();
@@ -10684,6 +10761,7 @@
         }
 
         ensureResidentIdAndApn(headers, rowValuesByColumn);
+        ensureAddressId(headers, rowValuesByColumn, addRecordAddressIdOptions || undefined);
         const row = buildRowForHeaders(headers, rowValuesByColumn);
         submitBtn.disabled = true;
         submitBtn.textContent = 'Adding…';
@@ -12770,12 +12848,13 @@
         captainAssignedCol = findColumn(headers, 'captain assigned');
       }
 
-      // Find relevant columns (exclude address column itself, backend-only resident_id, and _-prefixed internal columns)
+      // Find relevant columns (exclude address column itself, backend-only resident_id/address_id, and _-prefixed internal columns)
       const detailCols = headers.filter(h =>
         h !== addressCol &&
         !hiddenAddressStructureCols.has(h) &&
         h.toLowerCase() !== 'address' &&
         h.toLowerCase() !== 'resident_id' &&
+        h.toLowerCase() !== 'address_id' &&
         !h.startsWith('_') &&
         rows.some(row => row[h] && row[h].trim())
       );
@@ -12803,7 +12882,7 @@
       // Separate address-level and person-level columns
       const addressLevelCols = headers.filter(h => {
         const lower = h.toLowerCase();
-        if (lower === 'resident_id') return false; // Backend only, never display
+        if (lower === 'resident_id' || lower === 'address_id') return false; // Backend only, never display
         if (lower.includes('apn status')) return false;
         // Explicitly exclude person-level notes and email address
         if (lower.includes('person note')) return false;
@@ -12851,6 +12930,7 @@
       // Fields to hide from person view (address-level; address is shown as header)
       const hiddenFromPersonView = [
         'resident_id', // Backend only, never display
+        'address_id', // Backend only, never display
         'apn',        // Address/parcel-level — shown in address section, not per-person
         'apn status',
         'situshouseno',
@@ -12954,10 +13034,11 @@
       });
       
       // Find Notes columns separately - always show them if signed in, even if empty
-      // Exclude outreach/contact log column - rendered in dedicated outreach logger UI; exclude backend resident_id
+      // Exclude outreach/contact log column - rendered in dedicated outreach logger UI; exclude backend resident_id/address_id
       const allNotesCols = headers.filter(h => 
         h !== addressCol &&
         h.toLowerCase() !== 'resident_id' &&
+        h.toLowerCase() !== 'address_id' &&
         h.toLowerCase().includes('person note') &&
         !((h.toLowerCase().includes('contact') && h.toLowerCase().includes('note')) || (h.toLowerCase().includes('outreach') && (h.toLowerCase().includes('note') || h.toLowerCase().includes('log')))) &&
         accessToken // Only if signed in
@@ -14188,6 +14269,7 @@
       const quickTagCols = getPersonQuickTagColumns(headers);
       const modalHiddenKeywords = [
         'resident_id',
+        'address_id',
         'apn',
         'house #',
         'house number',
@@ -19937,6 +20019,11 @@
       updateOnboardingTourNudge();
       updateZoneSetupPanel();
       updateZoneLeadership();
+      if (typeof refreshContactCheckIn === 'function') {
+        refreshContactCheckIn().catch(function (err) {
+          console.warn('Contact Check-In refresh failed:', err);
+        });
+      }
       
       // Update Actions page if it's currently visible
       if (currentView === 'meetups') {
@@ -24537,7 +24624,7 @@
       if (!module) return;
       
       // Only allow expansion for specific modules
-      const expandableModules = ['contactListCreator', 'zoneReportGenerator', 'batchTaggingTool', 'neighborhoodCaptainCalendar', 'altadenaCalendar'];
+      const expandableModules = ['contactListCreator', 'zoneReportGenerator', 'batchTaggingTool', 'neighborhoodCaptainCalendar', 'altadenaCalendar', 'eventFunding'];
       if (!expandableModules.includes(moduleId)) return;
       
       // If clicking the header of an expanded module, collapse it back to compact size
@@ -24578,7 +24665,7 @@
     // Setup tool module expand functionality
     function setupToolModuleExpansion() {
       // Only these modules should be expandable
-      const expandableModules = ['contactListCreator', 'zoneReportGenerator', 'batchTaggingTool', 'neighborhoodCaptainCalendar', 'altadenaCalendar'];
+      const expandableModules = ['contactListCreator', 'zoneReportGenerator', 'batchTaggingTool', 'neighborhoodCaptainCalendar', 'altadenaCalendar', 'eventFunding'];
       
       document.querySelectorAll('.tool-module').forEach(module => {
         const moduleId = module.id;
