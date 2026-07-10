@@ -1078,9 +1078,51 @@
 
     .home-panel-content {
       padding: 20px 16px;
-      color: var(--text);
+      color: var(--text-primary);
       flex: 0 1 auto;
       min-height: 0;
+    }
+
+    /* Home dashboard — one body tier (Merriweather 15px primary) */
+    .home-panels-grid .home-panel-content {
+      font-family: 'Merriweather', Georgia, serif;
+      font-size: 0.9375rem;
+      line-height: 1.5;
+      color: var(--text-primary);
+    }
+
+    .home-panels-grid .cci-tagline,
+    .home-panels-grid .cci-feed-intro,
+    .home-panels-grid .cci-feed-empty,
+    .home-panels-grid .contact-checkin-feed-panel .cci-feed-list,
+    .home-panels-grid .announcement-description,
+    .home-panels-grid .quick-action-text,
+    .home-panels-grid .br-headline,
+    .home-panels-grid .br-metric-label {
+      font-size: inherit;
+      line-height: inherit;
+      color: var(--text-primary);
+    }
+
+    .home-panels-grid .br-note,
+    .home-panels-grid .br-muted,
+    .home-panels-grid .br-sync,
+    .home-panels-grid .br-pct,
+    .home-panels-grid .cci-muted,
+    .home-panels-grid .cci-feed-meta {
+      font-size: 0.8125rem;
+      line-height: 1.45;
+      color: var(--text-secondary);
+    }
+
+    .home-panels-grid .cci-feed-meta {
+      margin: 0 0 10px;
+    }
+
+    .home-panels-grid .announcement-link,
+    .home-panels-grid .cci-link-btn {
+      color: var(--brand-primary-dark);
+      font-weight: 700;
     }
 
     .home-panel--build .charts-grid {
@@ -1164,7 +1206,6 @@
 
     .br-headline {
       margin: 0 0 10px;
-      font-size: 0.98rem;
       line-height: 1.35;
       color: var(--text-primary);
       text-align: left;
@@ -1217,7 +1258,6 @@
     }
 
     .br-metric-label {
-      font-size: 0.86rem;
       color: var(--text-primary);
       line-height: 1.25;
     }
@@ -1346,9 +1386,6 @@
 
     .cci-feed-intro {
       margin: 0 0 12px;
-      font-size: 0.92rem;
-      line-height: 1.5;
-      color: var(--text-primary);
     }
 
     .cci-community-metrics {
@@ -1378,19 +1415,18 @@
     .cci-community-metric span {
       display: block;
       margin-top: 4px;
-      font-family: 'Merriweather', Georgia, serif;
-      font-size: 11px;
-      font-weight: 800;
-      color: var(--text-primary);
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-secondary);
       line-height: 1.3;
     }
 
     .contact-checkin-feed-panel .cci-feed-list {
       margin: 0;
       padding-left: 18px;
-      color: var(--text-primary);
-      font-size: 0.9rem;
-      line-height: 1.45;
     }
 
     .contact-checkin-feed-panel .cci-feed-list li + li {
@@ -1399,9 +1435,6 @@
 
     .cci-feed-empty {
       margin: 0;
-      font-size: 0.9rem;
-      color: var(--text-primary);
-      line-height: 1.45;
     }
 
     /* Zone Overview intro content should not reserve vertical space */
@@ -1609,10 +1642,9 @@
     }
 
     .announcement-description {
-      color: var(--text);
-      line-height: 1.4;
+      color: var(--text-primary);
+      line-height: 1.5;
       margin-bottom: 4px;
-      font-size: 0.9rem;
     }
 
     .announcement-link {
@@ -1636,10 +1668,9 @@
     }
 
     .quick-action-text {
-      color: var(--text);
+      color: var(--text-primary);
       line-height: 1.5;
       margin-bottom: 8px;
-      font-size: 0.95rem;
     }
 
     .quick-action-links {
@@ -12390,24 +12421,18 @@
 .contact-checkin-panel .home-panel-content {
   padding-top: 12px;
 }
-.cci-tagline-row {
-  display: flex;
-  align-items: baseline;
-  gap: 10px 14px;
-  flex-wrap: wrap;
+.cci-tagline {
   margin: 0 0 14px;
 }
-.cci-tagline {
-  font-family: Merriweather, Georgia, serif;
-  margin: 0;
-  color: var(--text-primary);
-  line-height: 1.45;
-  font-size: 0.95rem;
-  flex: 1 1 14rem;
-}
-.cci-tagline-row .cci-link-btn {
-  flex: 0 0 auto;
+.cci-tagline .announcement-link {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 700;
+  text-decoration: underline;
   white-space: nowrap;
+}
+.cci-tagline .announcement-link:hover {
+  text-decoration: underline;
 }
 .cci-muted { color: var(--text-secondary); margin: 0; }
 .cci-progress-row {
@@ -12459,10 +12484,12 @@
 }
 .cci-mini-stat span {
   display: block;
-  font-family: Merriweather, Georgia, serif;
-  font-size: 11px;
-  font-weight: 800;
-  color: var(--text-primary);
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
   margin-top: 4px;
   line-height: 1.3;
 }
@@ -12473,12 +12500,13 @@
   flex-wrap: wrap;
   align-items: center;
 }
-.home-panel--campaign .cci-primary {
-  box-shadow: 3px 3px 0 rgba(49, 64, 89, 0.25);
-}
 .home-panel--campaign .cci-link-btn {
   color: var(--brand-primary-dark);
   font-weight: 800;
+}
+.cci-home-actions .quick-action-link {
+  display: inline-block;
+  cursor: pointer;
 }
 .cci-primary {
   background: var(--accent-gold);

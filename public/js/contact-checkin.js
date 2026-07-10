@@ -733,10 +733,7 @@
     var summary = computeLocalSummary();
     var startLabel = summary.reviewed > 0 ? 'Continue Contact Check-In' : 'Start Contact Check-In';
     mount.innerHTML = [
-      '<div class="cci-tagline-row">',
-      '  <p class="cci-tagline">Help Altagether understand which households in your zone have been reached—and which may still need help connecting.</p>',
-      '  <button type="button" class="cci-link-btn" id="cciLearnMoreBtn">Learn more</button>',
-      '</div>',
+      '<p class="cci-tagline">Help Altagether understand which households in your zone have been reached—and which may still need help connecting. <a href="#" class="announcement-link" id="cciLearnMoreBtn">Learn more</a></p>',
       '<div class="cci-progress-row">',
       '  <div class="cci-bar"><div class="cci-bar-fill" style="width:' + summary.percentReviewed + '%"></div></div>',
       '  <strong>' + summary.reviewed + ' of ' + summary.total + '</strong>',
@@ -748,7 +745,7 @@
       '  <div class="cci-mini-stat"><strong>' + summary.skipped + '</strong><span>Skipped</span></div>',
       '</div>',
       '<div class="cci-home-actions">',
-      '  <button type="button" class="cci-primary" id="cciStartBtn">' + escapeHtmlLocal(startLabel) + '</button>',
+      '  <button type="button" class="quick-action-link" id="cciStartBtn">' + escapeHtmlLocal(startLabel) + '</button>',
       summary.skipped > 0
         ? '  <button type="button" class="cci-secondary" id="cciReviewSkippedBtn">Review skipped</button>'
         : '',
@@ -756,7 +753,12 @@
     ].join('');
 
     var learnBtn = document.getElementById('cciLearnMoreBtn');
-    if (learnBtn) learnBtn.addEventListener('click', openLearnMore);
+    if (learnBtn) {
+      learnBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        openLearnMore();
+      });
+    }
     var startBtn = document.getElementById('cciStartBtn');
     if (startBtn) startBtn.addEventListener('click', function () { openWizard(false); });
     var skippedBtn = document.getElementById('cciReviewSkippedBtn');
@@ -829,7 +831,7 @@
       '  <div class="cci-community-metric"><strong>' + formatCount(reached) + '</strong><span>Reached</span></div>',
       '  <div class="cci-community-metric"><strong>' + formatCount(zones) + '</strong><span>Zones underway</span></div>',
       '</div>',
-      '<p class="cci-feed-empty" style="margin-bottom:10px;">' +
+      '<p class="cci-feed-meta">' +
         formatCount(captains) + ' captain' + (captains === 1 ? '' : 's') + ' participating' +
         (recent > 0 ? ' · ' + formatCount(recent) + ' reviewed in the last 48 hours' : '') +
       '.</p>',
