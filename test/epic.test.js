@@ -75,6 +75,65 @@ test('mapStage: respects guardrails from the integration plan', () => {
   assert.strictEqual(unknown.confidence, 'low');
 });
 
+test('homepageMilestoneFromOrdinal + milestoneFromRebuildCases: most advanced wins', () => {
+  const {
+    homepageMilestoneFromOrdinal,
+    milestoneFromRebuildCases,
+    summarizeZoneEpicHomepage
+  } = require('../epic/normalize');
+
+  assert.strictEqual(homepageMilestoneFromOrdinal(1), 'application_or_plans');
+  assert.strictEqual(homepageMilestoneFromOrdinal(4), 'application_or_plans');
+  assert.strictEqual(homepageMilestoneFromOrdinal(5), 'permit_issued');
+  assert.strictEqual(homepageMilestoneFromOrdinal(6), 'construction_underway');
+  assert.strictEqual(homepageMilestoneFromOrdinal(7), 'construction_completed');
+
+  assert.strictEqual(
+    milestoneFromRebuildCases([
+      { rebuild_progress_num: 2 },
+      { rebuild_progress_num: 6 },
+      { rebuild_progress_num: 5 }
+    ]),
+    'construction_underway'
+  );
+  assert.strictEqual(milestoneFromRebuildCases([]), '');
+
+  const summary = summarizeZoneEpicHomepage({
+    addressApns: [
+      { address: 'A', apn: '111' },
+      { address: 'B', apn: '222' },
+      { address: 'C', apn: '' },
+      { address: 'D', apn: '111' } // same APN as A — still counts as its own address row
+    ],
+    resultsByApn: {
+      '111': {
+        cases_rebuild: [{ rebuild_progress_num: 7 }],
+        cases_temp_housing: [{ casenumber: 'T1' }],
+        counts: { rebuild: 1, temp_housing: 1, total: 2 },
+        last_synced_at: '2026-07-10T12:00:00.000Z'
+      },
+      '222': {
+        cases_rebuild: [
+          { rebuild_progress_num: 3 },
+          { rebuild_progress_num: 5 }
+        ],
+        cases_temp_housing: [],
+        counts: { rebuild: 2, temp_housing: 0, total: 2 }
+      }
+    }
+  });
+
+  assert.strictEqual(summary.totalAddresses, 4);
+  assert.strictEqual(summary.missingApn, 1);
+  assert.strictEqual(summary.checkedAddresses, 3);
+  assert.strictEqual(summary.withAnyEpic, 3); // A, D (same APN payload), B
+  assert.strictEqual(summary.withRebuildEpic, 3);
+  assert.strictEqual(summary.withTempHousing, 2); // A and D share temp housing on APN 111
+  assert.strictEqual(summary.milestones.find((m) => m.key === 'construction_completed').count, 2); // A+D
+  assert.strictEqual(summary.milestones.find((m) => m.key === 'permit_issued').count, 1); // B most advanced = 5
+  assert.strictEqual(summary.lastSyncedAt, '2026-07-10T12:00:00.000Z');
+});
+
 test('buildRecordFromArcgisAttrs + recordToRow/rowToRecord roundtrip', () => {
   const attrs = {
     OBJECTID: 42,
