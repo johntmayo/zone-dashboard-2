@@ -53,7 +53,7 @@ What remains is mostly: data readiness (`address_id` + `Successfully Contacted` 
 4. Restart local server / redeploy  
 5. Sign in → Home → **Start Contact Check-In** → answer 2–3 addresses → check progress sheet for new rows  
 
-**Note:** Progress sheet tab name is auto-detected (`AddressReviews`, then `Sheet1`, then first tab).
+**Bugfix (Jul 10, 2026):** Widget always showed “Sign in…” even when signed in, because Check-In looked for `window.accessToken` / email, but those live as script-local `let`s in `index.html`. Fixed by passing context into `refreshContactCheckIn({ accessToken, currentUserEmail, currentZoneName, currentSheetId, sheetData })`.
 
 ## Env vars (optional; defaults already set)
 
