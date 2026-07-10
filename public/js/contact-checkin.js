@@ -19,7 +19,9 @@
     reviewSkippedOnly: false,
     loaded: false,
     loading: false,
-    saving: false
+    saving: false,
+    sessionReviews: 0,
+    celebrated: {}
   };
 
   // Bridged from index.html (let/const there are not on window)
@@ -59,10 +61,6 @@
   function truthySheetValue(value) {
     var v = String(value == null ? '' : value).trim().toLowerCase();
     return v === 'true' || v === 'yes' || v === 'y' || v === '1' || v === 'checked' || v === 'x';
-  }
-
-  function sheetCheckboxValue(checked) {
-    return checked ? 'TRUE' : 'FALSE';
   }
 
   function getCaptainId() {
@@ -322,6 +320,259 @@
     }
   }
 
+  // Mirror saved values onto the in-memory sheet rows so the rest of the app
+  // (Neighbors tab, Map, details panel) reflects Check-In edits without a reload.
+  function applyLocalRowUpdates(address, updates) {
+    if (!updates || !updates.length) return;
+    var rowsByResidentId = {};
+    address.residents.forEach(function (resident) {
+      if (resident.residentId && resident.row) rowsByResidentId[resident.residentId] = resident.row;
+    });
+    updates.forEach(function (u) {
+      var row = rowsByResidentId[u.resident_id];
+      if (row) row[u.column] = u.value;
+    });
+  }
+
+  // Re-render Neighbors / Map / Details after in-memory sheet edits.
+  // Uses index.html bridge so selectedAddress + currentView are in scope.
+  function refreshLinkedViews(address) {
+    try {
+      if (typeof syncViewsAfterLocalSheetEdit === 'function') {
+        syncViewsAfterLocalSheetEdit({
+          displayAddress: address && address.displayAddress ? address.displayAddress : ''
+        });
+        return;
+      }
+      var sheet = getSheetData();
+      if (!sheet || !sheet.addressMap) return;
+      if (typeof displayAddressTable === 'function') displayAddressTable();
+      if (typeof displayAddressList === 'function') {
+        displayAddressList(Array.from(sheet.addressMap.keys()).sort());
+      }
+      if (typeof updateMapMarkers === 'function') updateMapMarkers();
+    } catch (err) {
+      console.warn('Contact Check-In: could not refresh linked views', err);
+    }
+  }
+
+  // ---- Milestones & encouragement -----------------------------------------
+
+  var YES_TOASTS = [
+    'Saved — another household connected.',
+    'Saved. Great work reaching your neighbors.',
+    'Saved. That\u2019s one more household heard from.',
+    'Saved — nicely done.'
+  ];
+  var NO_TOASTS = [
+    'Saved. Every review helps map the zone.',
+    'Saved — knowing who hasn\u2019t been reached matters too.',
+    'Saved. Thanks for keeping the picture accurate.',
+    'Saved — onward.'
+  ];
+  var toastCycle = 0;
+
+  function encouragingToast(list) {
+    toastCycle += 1;
+    toast(list[toastCycle % list.length]);
+  }
+
+  function streetOfAddress(displayAddress) {
+    if (typeof extractStreet === 'function') {
+      return String(extractStreet(displayAddress) || '').trim();
+    }
+    return String(displayAddress || '').replace(/^\s*\d+\s*/, '').trim();
+  }
+
+  function isStreetFullyReviewed(street) {
+    if (!street) return false;
+    var items = state.queue.filter(function (item) {
+      return streetOfAddress(item.displayAddress) === street;
+    });
+    if (!items.length) return false;
+    return items.every(function (item) {
+      var review = getReview(item.id);
+      return review && review.review_status === 'reviewed';
+    });
+  }
+
+  function countReviewedOnStreet(street) {
+    if (!street) return 0;
+    return state.queue.filter(function (item) {
+      if (streetOfAddress(item.displayAddress) !== street) return false;
+      var review = getReview(item.id);
+      return review && review.review_status === 'reviewed';
+    }).length;
+  }
+
+  // Pick at most one celebration for this save, most significant first.
+  function detectMilestone(address, prevSummary, nextSummary) {
+    var total = nextSummary.total;
+    if (!total) return null;
+    var zoneLabel = ctx.currentZoneName ? ('in ' + ctx.currentZoneName) : 'in your zone';
+
+    if (nextSummary.reviewed >= total && prevSummary.reviewed < total) {
+      return {
+        key: 'zone_complete',
+        title: 'Zone complete!',
+        message: 'Every address ' + zoneLabel + ' has been reviewed. Incredible work — your neighbors are lucky to have you.',
+        tier: 'major'
+      };
+    }
+
+    var prevPct = (prevSummary.reviewed / total) * 100;
+    var nextPct = (nextSummary.reviewed / total) * 100;
+    var percentMilestones = [
+      { pct: 90, title: 'Almost there!', message: '90% reviewed — you are in the home stretch.' },
+      { pct: 75, title: 'Three quarters done!', message: '75% of your zone is reviewed. The finish line is in sight.' },
+      { pct: 66, title: 'Two-thirds done!', message: 'You have reviewed two-thirds of your zone. Strong momentum.' },
+      { pct: 50, title: 'Halfway there!', message: 'You\u2019ve reviewed half the addresses ' + zoneLabel + '. Keep it rolling.' },
+      { pct: 33, title: 'One-third done!', message: 'A third of your zone is reviewed. Nice pace.' },
+      { pct: 25, title: 'Great momentum!', message: 'A quarter of your zone is already reviewed. Off to a strong start.' },
+      { pct: 20, title: 'Building steam!', message: '20% of your zone reviewed — you are finding your rhythm.' },
+      { pct: 10, title: 'Off and running!', message: '10% of your zone is reviewed. Every address helps the picture.' }
+    ];
+    for (var i = 0; i < percentMilestones.length; i++) {
+      var m = percentMilestones[i];
+      if (prevPct < m.pct && nextPct >= m.pct && !state.celebrated['pct_' + m.pct]) {
+        return { key: 'pct_' + m.pct, title: m.title, message: m.message, tier: 'major' };
+      }
+    }
+
+    var countMilestones = [
+      { count: 1, title: 'First one done!', message: 'Your first address is reviewed. Great way to start.' },
+      { count: 5, title: 'Five down!', message: 'Five addresses reviewed. You are on your way.' },
+      { count: 10, title: 'Ten reviewed!', message: 'Double digits — ten addresses checked off.' },
+      { count: 25, title: 'Twenty-five!', message: 'Twenty-five addresses reviewed. That is real progress.' },
+      { count: 50, title: 'Fifty reviewed!', message: 'Fifty addresses — your zone is taking shape.' }
+    ];
+    for (var c = 0; c < countMilestones.length; c++) {
+      var cm = countMilestones[c];
+      if (prevSummary.reviewed < cm.count && nextSummary.reviewed >= cm.count && !state.celebrated['count_' + cm.count]) {
+        return { key: 'count_' + cm.count, title: cm.title, message: cm.message, tier: cm.count >= 25 ? 'major' : 'mini' };
+      }
+    }
+
+    var street = streetOfAddress(address.displayAddress);
+    if (street && !state.celebrated['street_' + street] && isStreetFullyReviewed(street)) {
+      return {
+        key: 'street_' + street,
+        title: 'Street complete!',
+        message: 'That\u2019s every address on ' + street + ' reviewed. On to the next one.',
+        tier: 'major'
+      };
+    }
+
+    if (street && !state.celebrated['street_prog_' + street]) {
+      var streetTotal = state.queue.filter(function (item) {
+        return streetOfAddress(item.displayAddress) === street;
+      }).length;
+      var streetReviewed = countReviewedOnStreet(street);
+      if (streetTotal >= 3 && streetReviewed >= streetTotal - 1 && streetReviewed < streetTotal) {
+        return {
+          key: 'street_prog_' + street,
+          title: 'Almost done with ' + street + '!',
+          message: 'One more address on this street and it is complete.',
+          tier: 'mini'
+        };
+      }
+    }
+
+    if (nextSummary.remaining === 5 && prevSummary.remaining > 5 && !state.celebrated.home_stretch) {
+      return {
+        key: 'home_stretch',
+        title: 'Home stretch!',
+        message: 'Only 5 addresses left in your whole zone.',
+        tier: 'major'
+      };
+    }
+
+    if (nextSummary.remaining === 1 && prevSummary.remaining > 1 && !state.celebrated.final_one) {
+      return {
+        key: 'final_one',
+        title: 'One left!',
+        message: 'Just one address remaining in your zone.',
+        tier: 'mini'
+      };
+    }
+
+    var n = state.sessionReviews;
+    var sessionMilestones = [3, 5, 8, 10, 15, 20, 25, 30];
+    for (var s = 0; s < sessionMilestones.length; s++) {
+      var sm = sessionMilestones[s];
+      if (n === sm && !state.celebrated['session_' + sm]) {
+        return {
+          key: 'session_' + sm,
+          title: sm + ' this session!',
+          message: sm <= 5
+            ? 'You\u2019re on a roll — ' + sm + ' addresses reviewed since you sat down.'
+            : 'Unstoppable. ' + sm + ' addresses reviewed in one sitting.',
+          tier: sm >= 10 ? 'major' : 'mini'
+        };
+      }
+    }
+    if (n >= 35 && n % 5 === 0 && !state.celebrated['session_' + n]) {
+      return {
+        key: 'session_' + n,
+        title: n + ' this session!',
+        message: 'You are flying — ' + n + ' addresses reviewed without stopping.',
+        tier: 'mini'
+      };
+    }
+
+    return null;
+  }
+
+  function showMiniCelebration(milestone) {
+    state.celebrated[milestone.key] = true;
+    toast('\u2728 ' + milestone.title + ' ' + milestone.message);
+  }
+
+  function showCelebration(milestone) {
+    state.celebrated[milestone.key] = true;
+    var old = document.getElementById('cciCelebrate');
+    if (old) old.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'cciCelebrate';
+    overlay.className = 'cci-celebrate';
+    var confetti = '';
+    for (var i = 0; i < 16; i++) {
+      var left = Math.round(Math.random() * 100);
+      var delay = (Math.random() * 0.6).toFixed(2);
+      var duration = (1.6 + Math.random() * 1.4).toFixed(2);
+      var colors = ['#e8b64c', '#c96f4a', '#7fa96b', '#304059', '#b6cdd8'];
+      var color = colors[i % colors.length];
+      confetti += '<i style="left:' + left + '%;background:' + color +
+        ';animation-delay:' + delay + 's;animation-duration:' + duration + 's;"></i>';
+    }
+    overlay.innerHTML =
+      '<div class="cci-celebrate-card" role="status">' +
+      '  <div class="cci-celebrate-confetti">' + confetti + '</div>' +
+      '  <h2>' + escapeHtmlLocal(milestone.title) + '</h2>' +
+      '  <p>' + escapeHtmlLocal(milestone.message) + '</p>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    var dismiss = function () {
+      overlay.classList.add('leaving');
+      setTimeout(function () { overlay.remove(); }, 400);
+    };
+    overlay.querySelector('.cci-celebrate-card').addEventListener('click', dismiss);
+    setTimeout(dismiss, 4200);
+  }
+
+  function celebrateOrToast(address, prevSummary, toastList) {
+    state.sessionReviews += 1;
+    var milestone = detectMilestone(address, prevSummary, computeLocalSummary());
+    if (milestone) {
+      if (milestone.tier === 'mini') showMiniCelebration(milestone);
+      else showCelebration(milestone);
+    } else {
+      encouragingToast(toastList);
+    }
+  }
+
   function ensureDom() {
     if (document.getElementById('contactCheckInLearnMore')) return;
 
@@ -486,23 +737,24 @@
     var id = escapeHtmlLocal(resident.id);
     return [
       '<div class="cci-person-row">',
-      '  <div class="cci-person-main">',
-      '    <input type="checkbox" class="cci-contact-check" value="' + id + '" id="cci_chk_' + id + '"' + (resident.contacted ? ' checked' : '') + '>',
-      '    <label for="cci_chk_' + id + '"><span class="cci-person-name">' + escapeHtmlLocal(resident.name) + '</span>',
+      '  <input type="checkbox" class="cci-contact-check" value="' + id + '" id="cci_chk_' + id + '"' + (resident.contacted ? ' checked' : '') + '>',
+      '  <div class="cci-person-content">',
+      '    <label class="cci-person-heading" for="cci_chk_' + id + '">',
+      '      <span class="cci-person-name">' + escapeHtmlLocal(resident.name) + '</span>',
       resident.contacted ? ' <span class="cci-status-pill good">Already contacted</span>' : '',
-      '      <div class="cci-tiny">' + (resident.lastOutreach ? 'Last outreach: ' + escapeHtmlLocal(resident.lastOutreach) : 'No outreach logged') + '</div>',
+      '      <span class="cci-tiny">' + (resident.lastOutreach ? 'Last outreach: ' + escapeHtmlLocal(resident.lastOutreach) : 'No outreach logged') + '</span>',
       '    </label>',
-      '  </div>',
-      '  <button type="button" class="cci-options-toggle" data-cci-toggle="cci_opts_' + id + '">Options / notes</button>',
-      '  <div class="cci-person-options" id="cci_opts_' + id + '">',
-      '    <div class="cci-checks">',
-      '      <label><input type="checkbox" data-cci-field="wantsUpdates" data-cci-id="' + id + '"> Wants updates</label>',
-      '      <label><input type="checkbox" data-cci-field="followUp" data-cci-id="' + id + '"> Needs follow-up</label>',
-      '      <label><input type="checkbox" data-cci-field="unable" data-cci-id="' + id + '"> Unable to reach <span class="cci-tooltip" data-tip="Use only when you have tried multiple times and still have not been able to reach this person.">?</span></label>',
-      '      <label><input type="checkbox" data-cci-field="former" data-cci-id="' + id + '"> Former resident</label>',
-      '      <label><input type="checkbox" data-cci-field="deceased" data-cci-id="' + id + '"> Deceased</label>',
+      '    <button type="button" class="cci-options-toggle" data-cci-toggle="cci_opts_' + id + '">Options / notes</button>',
+      '    <div class="cci-person-options" id="cci_opts_' + id + '">',
+      '      <div class="cci-checks">',
+      '        <label><input type="checkbox" data-cci-field="wantsUpdates" data-cci-id="' + id + '"> Wants updates</label>',
+      '        <label><input type="checkbox" data-cci-field="followUp" data-cci-id="' + id + '"> Needs follow-up</label>',
+      '        <label><input type="checkbox" data-cci-field="unable" data-cci-id="' + id + '"> Unable to reach <span class="cci-tooltip" data-tip="Use only when you have tried multiple times and still have not been able to reach this person.">?</span></label>',
+      '        <label><input type="checkbox" data-cci-field="former" data-cci-id="' + id + '"> Former resident</label>',
+      '        <label><input type="checkbox" data-cci-field="deceased" data-cci-id="' + id + '"> Deceased</label>',
+      '      </div>',
+      '      <textarea data-cci-note-id="' + id + '" placeholder="Person note optional"></textarea>',
       '    </div>',
-      '    <textarea data-cci-note-id="' + id + '" placeholder="Person note optional"></textarea>',
       '  </div>',
       '</div>'
     ].join('');
@@ -556,7 +808,7 @@
       statusHtml,
       '</div>',
       '<div class="cci-context-line">',
-      '  <span>' + escapeHtmlLocal(address.outreachSummary) + '</span>',
+      '  <span class="cci-context-text">' + escapeHtmlLocal(address.outreachSummary) + '</span>',
       '  <button type="button" class="cci-link-btn" id="cciToggleOutreachDetails">View details</button>',
       '</div>',
       '<div id="cciOutreachDetails" class="cci-outreach-details hidden">',
@@ -568,8 +820,8 @@
       }).join(''),
       '</div>',
       '<div class="cci-question">Have you successfully contacted anyone at this address?',
-      '<span class="cci-tooltip" data-tip="Contact means a two-way interaction. Sending an email, leaving a voicemail, or dropping off a flyer does not count unless they responded.">?</span></div>',
-      '<div class="cci-definition">Successful contact means they replied, answered, spoke with you, asked a question, or otherwise confirmed they received your message.</div>',
+      '  <span class="cci-tooltip" data-tip="Contact means a two-way interaction. They replied, answered, spoke with you, asked a question, or otherwise confirmed they received your message. Sending an email, leaving a voicemail, or dropping off a flyer does not count unless they responded.">?</span>',
+      '</div>',
       '<div class="cci-choice-row">',
       '  <button type="button" class="cci-big-choice" data-cci-branch="yes">Yes</button>',
       '  <button type="button" class="cci-big-choice" data-cci-branch="no">No</button>',
@@ -579,10 +831,9 @@
       '  <h3>Who have you successfully contacted?</h3>',
       '  <div class="cci-people-list">' + peopleHtml,
       '    <div class="cci-person-row">',
-      '      <div class="cci-person-main">',
-      '        <input type="checkbox" id="cciSomeoneElse">',
-      '        <label for="cciSomeoneElse" class="cci-person-name">Someone else at this address</label>',
-      '      </div>',
+      '      <input type="checkbox" id="cciSomeoneElse">',
+      '      <div class="cci-person-content">',
+      '      <label for="cciSomeoneElse" class="cci-person-heading cci-person-name">Someone else at this address</label>',
       '      <div class="cci-quick-add" id="cciQuickAdd">',
       '        <strong>Quick add resident</strong>',
       '        <div class="cci-form-grid">',
@@ -592,6 +843,7 @@
       '          <input type="email" id="cciNewEmail" placeholder="Email optional">',
       '        </div>',
       '        <textarea id="cciNewNotes" placeholder="Notes optional"></textarea>',
+      '      </div>',
       '      </div>',
       '    </div>',
       '  </div>',
@@ -830,13 +1082,17 @@
         if (field === 'unable') col = unableCol;
         if (field === 'former') col = formerCol;
         if (field === 'deceased') col = deceasedCol;
-        if (col) {
-          updates.push({
-            resident_id: resident.residentId,
-            column: col,
-            value: sheetCheckboxValue(inp.checked)
-          });
-        }
+        if (!col) return;
+
+        var wasChecked = truthySheetValue(resident.row[col]);
+        var isChecked = Boolean(inp.checked);
+        if (isChecked === wasChecked) return;
+
+        updates.push({
+          resident_id: resident.residentId,
+          column: col,
+          value: isChecked ? 'TRUE' : ''
+        });
       });
       var noteEl = document.querySelector('[data-cci-note-id="' + resident.id + '"]');
       if (noteEl && notesCol && noteEl.value.trim()) {
@@ -911,6 +1167,22 @@
 
     if (typeof appendRowsToSheet !== 'function') throw new Error('Add Record is unavailable');
     await appendRowsToSheet([row]);
+
+    // Register the new person in the in-memory sheet data so the Neighbors
+    // tab, Map, and this wizard reflect them without a full reload.
+    var sheet = getSheetData();
+    if (sheet && Array.isArray(sheet.data)) {
+      var localRow = {};
+      headers.forEach(function (h) {
+        localRow[h] = valuesByColumn[h] != null ? String(valuesByColumn[h]) : '';
+      });
+      localRow.__originalIndex = sheet.data.length;
+      sheet.data.push(localRow);
+      if (sheet.addressMap && sheet.addressMap.get(address.displayAddress)) {
+        sheet.addressMap.get(address.displayAddress).push(localRow);
+      }
+      address.rows.push(localRow);
+    }
     return valuesByColumn.resident_id || '';
   }
 
@@ -969,9 +1241,12 @@
         await appendQuickAddResident(address, headers);
       }
 
+      var prevSummary = computeLocalSummary();
       await batchUpdateResidentFields(updates);
       await saveReviewRecord(address.id, 'reviewed', 'yes_successful_contact');
-      toast('Saved. Address reviewed as successfully contacted.');
+      applyLocalRowUpdates(address, updates);
+      refreshLinkedViews(address);
+      celebrateOrToast(address, prevSummary, YES_TOASTS);
       await afterSaveAdvance();
     } catch (err) {
       console.error(err);
@@ -1057,9 +1332,12 @@
         }
       }
 
+      var prevSummary = computeLocalSummary();
       await batchUpdateResidentFields(updates);
       await saveReviewRecord(address.id, 'reviewed', 'no_successful_contact');
-      toast('Saved. Address reviewed as not yet successfully contacted.');
+      applyLocalRowUpdates(address, updates);
+      refreshLinkedViews(address);
+      celebrateOrToast(address, prevSummary, NO_TOASTS);
       await afterSaveAdvance();
     } catch (err) {
       console.error(err);

@@ -11332,6 +11332,7 @@
       const phoneCol = findColumn(headers, 'phone', ['nc']);
       const emailCol = findColumn(headers, 'email');
       const contactDateCol = findOutreachDateColumn(headers);
+      const formerResidentCol = getFormerResidentColumn(headers);
       
       // Get unique values for filters
       const streets = getUniqueStreets(addresses);
@@ -11471,21 +11472,23 @@
             <tbody>
               ${sortedAddresses.map(addr => {
                 const rows = sheetData.addressMap.get(addr);
+                const activeRows = getActiveResidentRows(rows, formerResidentCol);
                 const residents = [];
-                if (rows && residentNameCol) {
-                  rows.forEach(row => {
+                if (activeRows && residentNameCol) {
+                  activeRows.forEach(row => {
                     if (row[residentNameCol] && row[residentNameCol].trim()) {
                       residents.push(row[residentNameCol].trim());
                     }
                   });
                 }
-                const damage = damageCol && rows && rows[0] ? (rows[0][damageCol] || '').trim() : '';
-                const addressPlan = addressPlanCol && rows && rows[0] ? (rows[0][addressPlanCol] || '').trim() : '';
-                const rebuild = rebuildCol && rows && rows[0] ? normalizeRebuildStatusLabel((rows[0][rebuildCol] || '').trim()) : '';
-                const age = ageCol && rows && rows[0] ? (rows[0][ageCol] || '').trim() : '';
-                const phone = phoneCol && rows && rows[0] ? (rows[0][phoneCol] || '').trim() : '';
-                const email = emailCol && rows && rows[0] ? (rows[0][emailCol] || '').trim() : '';
-                const contactDate = contactDateCol && rows && rows[0] ? (rows[0][contactDateCol] || '').trim() : '';
+                const displayRows = activeRows.length ? activeRows : (rows || []);
+                const damage = damageCol && displayRows[0] ? (displayRows[0][damageCol] || '').trim() : '';
+                const addressPlan = addressPlanCol && displayRows[0] ? (displayRows[0][addressPlanCol] || '').trim() : '';
+                const rebuild = rebuildCol && displayRows[0] ? normalizeRebuildStatusLabel((displayRows[0][rebuildCol] || '').trim()) : '';
+                const age = ageCol && displayRows[0] ? (displayRows[0][ageCol] || '').trim() : '';
+                const phone = phoneCol && displayRows[0] ? (displayRows[0][phoneCol] || '').trim() : '';
+                const email = emailCol && displayRows[0] ? (displayRows[0][emailCol] || '').trim() : '';
+                const contactDate = contactDateCol && displayRows[0] ? (displayRows[0][contactDateCol] || '').trim() : '';
                 
                 // Format residents with truncation
                 let residentsDisplay = '-';
@@ -12461,6 +12464,26 @@
 
     function getActiveResidentRows(rows, formerResidentCol) {
       return (Array.isArray(rows) ? rows : []).filter(row => !isFormerResidentRow(row, formerResidentCol));
+    }
+
+    // Called by Contact Check-In after local sheet edits so Neighbors / Map / Details
+    // reflect changes immediately (e.g. marking someone a former resident).
+    function syncViewsAfterLocalSheetEdit(options) {
+      options = options || {};
+      if (!sheetData || !sheetData.addressMap) return;
+
+      if (currentView === 'people' && typeof displayAddressTable === 'function') {
+        displayAddressTable();
+      }
+      if ((currentView === 'map' || currentView === 'people') && typeof displayAddressList === 'function') {
+        displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
+      }
+      if (typeof updateMapMarkers === 'function') {
+        updateMapMarkers();
+      }
+      if (selectedAddress && typeof displayAddressDetails === 'function') {
+        displayAddressDetails(selectedAddress, true);
+      }
     }
 
     function getResidentNameColumn(headers) {
@@ -14681,7 +14704,8 @@
 
           if (field.type === 'checkbox') {
             const originalValue = field.getAttribute('data-original-value') || '';
-            newValue = field.checked ? 'TRUE' : 'FALSE';
+            // Unchecked writes blank (not the word FALSE) into boolean columns
+            newValue = field.checked ? 'TRUE' : '';
             hasChanged = field.checked !== isTruthySheetCheckbox(originalValue);
           } else {
             const originalValue = field.getAttribute('data-original-value') || '';
@@ -15134,7 +15158,8 @@
         });
 
         editableCheckboxes.forEach(checkbox => {
-          const newValue = checkbox.checked ? 'TRUE' : 'FALSE';
+          // Unchecked writes blank (not the word FALSE) into boolean columns
+          const newValue = checkbox.checked ? 'TRUE' : '';
           const originalValue = checkbox.getAttribute('data-original-value') || '';
           const originalValueStr = (originalValue || '').trim();
           const originalValueStrLower = originalValueStr.toLowerCase();
@@ -15280,7 +15305,7 @@
           }
         });
         editableCheckboxes.forEach(checkbox => {
-          const value = checkbox.checked ? 'TRUE' : 'FALSE';
+          const value = checkbox.checked ? 'TRUE' : '';
           checkbox.setAttribute('data-original-value', value);
           
           // Update in-memory data structure
@@ -15288,7 +15313,7 @@
           const isAddressLevel = checkbox.getAttribute('data-address-level') === 'true';
           const address = checkbox.getAttribute('data-address');
           const originalRowIndex = parseInt(checkbox.getAttribute('data-original-row-index'));
-          const checkboxValue = checkbox.checked ? 'TRUE' : 'FALSE';
+          const checkboxValue = checkbox.checked ? 'TRUE' : '';
           
           if (column && address) {
             const colIndex = sheetData.headers.indexOf(column);
@@ -22375,6 +22400,9 @@
         const contactAction = personContactedSelect ? (personContactedSelect.value || '').trim() : '';
         const newsletterValue = personNewsletterSelect ? (personNewsletterSelect.value || '').trim() : '';
         const formerResidentValue = personFormerResidentSelect ? (personFormerResidentSelect.value || '').trim() : '';
+        // Explicit "No" writes blank (not the word FALSE) into boolean columns
+        const newsletterWriteValue = newsletterValue === 'FALSE' ? '' : newsletterValue;
+        const formerResidentWriteValue = formerResidentValue === 'FALSE' ? '' : formerResidentValue;
 
         if (!contactAction && !newsletterValue && !formerResidentValue) {
           if (personStatusMsg) personStatusMsg.textContent = 'Choose at least one person tag to apply.';
@@ -22408,13 +22436,13 @@
           if (useResidentId && residentId) {
             if (contactAction === 'log' && contactDateCol) updatesByResidentId.push({ resident_id: residentId, column: contactDateCol, value: todayForSheet });
             if (contactAction === 'clear' && contactDateCol) updatesByResidentId.push({ resident_id: residentId, column: contactDateCol, value: '' });
-            if (newsletterValue && newsletterCol) updatesByResidentId.push({ resident_id: residentId, column: newsletterCol, value: newsletterValue });
-            if (formerResidentValue && formerResidentCol) updatesByResidentId.push({ resident_id: residentId, column: formerResidentCol, value: formerResidentValue });
+            if (newsletterValue && newsletterCol) updatesByResidentId.push({ resident_id: residentId, column: newsletterCol, value: newsletterWriteValue });
+            if (formerResidentValue && formerResidentCol) updatesByResidentId.push({ resident_id: residentId, column: formerResidentCol, value: formerResidentWriteValue });
           } else if (row && rowNumber > 1) {
             if (contactAction === 'log' && contactColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(contactColIndex) + rowNumber, values: [[todayForSheet]] });
             if (contactAction === 'clear' && contactColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(contactColIndex) + rowNumber, values: [['']] });
-            if (newsletterValue && newsletterColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(newsletterColIndex) + rowNumber, values: [[newsletterValue]] });
-            if (formerResidentValue && formerResidentColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(formerResidentColIndex) + rowNumber, values: [[formerResidentValue]] });
+            if (newsletterValue && newsletterColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(newsletterColIndex) + rowNumber, values: [[newsletterWriteValue]] });
+            if (formerResidentValue && formerResidentColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(formerResidentColIndex) + rowNumber, values: [[formerResidentWriteValue]] });
           }
         });
 
@@ -22460,10 +22488,10 @@
               if (row && contactDateCol) row[contactDateCol] = '';
             }
             if (newsletterValue && newsletterCol && row) {
-              row[newsletterCol] = newsletterValue;
+              row[newsletterCol] = newsletterWriteValue;
             }
             if (formerResidentValue && formerResidentCol) {
-              if (row) row[formerResidentCol] = formerResidentValue;
+              if (row) row[formerResidentCol] = formerResidentWriteValue;
               if (person) person.isFormerResident = formerResidentValue === 'TRUE';
             }
           });
