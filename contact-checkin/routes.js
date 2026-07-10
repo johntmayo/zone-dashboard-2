@@ -54,7 +54,12 @@ function getContactCheckinConfig() {
     sheetId: extractSpreadsheetId(strEnv('CONTACT_CHECKIN_SHEET_ID', DEFAULT_SHEET_ID)),
     sheetName: strEnv('CONTACT_CHECKIN_SHEET_NAME', DEFAULT_SHEET_NAME),
     checkInId: strEnv('CONTACT_CHECKIN_CHECK_IN_ID', DEFAULT_CHECK_IN_ID),
-    cacheTtlMs: intEnv('CONTACT_CHECKIN_CACHE_TTL_MS', DEFAULT_CACHE_TTL_MS)
+    cacheTtlMs: intEnv('CONTACT_CHECKIN_CACHE_TTL_MS', DEFAULT_CACHE_TTL_MS),
+    // Homepage Contact Check-In + Community Feed launch gate (default off).
+    homeEnabled: (() => {
+      const raw = String(process.env.CONTACT_CHECKIN_HOME_ENABLED || '').trim().toLowerCase();
+      return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+    })()
   };
 }
 
@@ -359,7 +364,8 @@ function registerContactCheckinRoutes(app, deps) {
     res.json({
       checkInId: config.checkInId,
       sheetConfigured: Boolean(config.sheetId),
-      sheetName: config.sheetName
+      sheetName: config.sheetName,
+      homeEnabled: Boolean(config.homeEnabled)
     });
   });
 

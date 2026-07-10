@@ -409,7 +409,7 @@
 
             <div class="home-bento-col home-bento-col--side">
               <!-- Panel: Contact Check-In (campaign spotlight — reusable home-panel--campaign) -->
-              <div class="home-panel home-panel--checkin home-panel--campaign contact-checkin-panel">
+              <div class="home-panel home-panel--checkin home-panel--campaign contact-checkin-panel hidden">
                 <div class="home-panel-header">
                   <span class="campaign-badge">Town-wide campaign</span>
                   <h2>Contact Check-In</h2>
@@ -420,7 +420,7 @@
               </div>
 
               <!-- Panel: Contact Check-In Community Feed -->
-              <div class="home-panel home-panel--feed home-panel--campaign-feed contact-checkin-feed-panel">
+              <div class="home-panel home-panel--feed home-panel--campaign-feed contact-checkin-feed-panel hidden">
                 <div class="home-panel-header">
                   <span class="campaign-badge">Town-wide campaign</span>
                   <h2>Community Feed</h2>
@@ -1313,6 +1313,9 @@
     const LOT_WEEDING_PARTNER_LOGO_SRC = 'public/images/atf-logo.png';
     // Flip to false to revert the Map-tab in-panel calendar (Planner view) without removing code.
     const LOT_WEEDING_PLANNER_CALENDAR_ENABLED = true;
+    // Contact Check-In + Community Feed on Home. Ship with false; flip to true to launch,
+    // or set CONTACT_CHECKIN_HOME_ENABLED=true in Vercel (either one turns the cards on).
+    const CONTACT_CHECKIN_HOME_ENABLED = false;
     let currentUserRoles = [];
     let currentUserCapabilities = [];
     let welcomeAuthState = 'idle'; // idle | loading | zone_picker | not_registered | server_error
@@ -20063,6 +20066,28 @@
     }
 
     // Home Dashboard Functions
+
+    // Launch gate: Contact Check-In + Community Feed stay hidden until enabled
+    // via CONTACT_CHECKIN_HOME_ENABLED (index.html constant) or the matching Vercel env var.
+    async function applyContactCheckInHomeLaunchGate() {
+      let enabled = CONTACT_CHECKIN_HOME_ENABLED === true;
+      if (!enabled) {
+        try {
+          const res = await fetch('/api/contact-checkin/config');
+          if (res.ok) {
+            const cfg = await res.json();
+            enabled = Boolean(cfg.homeEnabled);
+          }
+        } catch (err) {
+          console.warn('Contact Check-In launch gate: could not read config', err);
+        }
+      }
+
+      document.querySelectorAll('.contact-checkin-panel, .contact-checkin-feed-panel').forEach((el) => {
+        el.classList.toggle('hidden', !enabled);
+      });
+      return enabled;
+    }
     
     // Update all home dashboard panels
     function updateHomeDashboard() {
@@ -20096,17 +20121,18 @@
       updateOnboardingTourNudge();
       updateZoneSetupPanel();
       updateZoneLeadership();
-      if (typeof refreshContactCheckIn === 'function') {
-        refreshContactCheckIn({
+      applyContactCheckInHomeLaunchGate().then(function (enabled) {
+        if (!enabled || typeof refreshContactCheckIn !== 'function') return;
+        return refreshContactCheckIn({
           accessToken: accessToken,
           currentUserEmail: currentUserEmail,
           currentZoneName: currentZoneName,
           currentSheetId: currentSheetId,
           sheetData: sheetData
-        }).catch(function (err) {
-          console.warn('Contact Check-In refresh failed:', err);
         });
-      }
+      }).catch(function (err) {
+        console.warn('Contact Check-In refresh failed:', err);
+      });
       
       // Update Actions page if it's currently visible
       if (currentView === 'meetups') {
