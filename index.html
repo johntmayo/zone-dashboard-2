@@ -781,6 +781,10 @@
                   <option value="contacted">Outreach attempted</option>
                   <option value="not_contacted">No outreach yet</option>
                 </select>
+                <label id="batchTagEmailOnlyWrap" class="batch-tag-email-filter" style="display:none;">
+                  <input type="checkbox" id="batchTagEmailOnlyFilter">
+                  Show only people with email addresses
+                </label>
                 <select id="batchTagDamageFilter" class="add-record-select" style="display:none;">
                   <option value="all">All damage</option>
                 </select>
@@ -21338,6 +21342,8 @@
       const streetFilter = document.getElementById('batchTagStreetFilter');
       const searchInput = document.getElementById('batchTagSearch');
       const contactFilter = document.getElementById('batchTagContactFilter');
+      const emailOnlyWrap = document.getElementById('batchTagEmailOnlyWrap');
+      const emailOnlyFilter = document.getElementById('batchTagEmailOnlyFilter');
       const damageFilter = document.getElementById('batchTagDamageFilter');
       const addressPlanFilter = document.getElementById('batchTagAddressPlanFilter');
       const buildStatusFilter = document.getElementById('batchTagBuildStatusFilter');
@@ -21486,6 +21492,15 @@
         (lower.includes('contact') && lower.includes('date')) ||
         (lower.includes('outreach') && lower.includes('date'))
       );
+      const emailCol = headers.find((header) => {
+        const lower = String(header || '').trim().toLowerCase();
+        return lower.includes('email address') || (lower.includes('email') && !lower.includes('nc email'));
+      }) || null;
+      const rowHasEmail = (row) => {
+        if (!emailCol || !row) return false;
+        const email = getTrimmedCellValue(row, emailCol);
+        return Boolean(email && email.includes('@'));
+      };
       const newsletterCol = findHeaderByNormalizedName(['Wants Updates', 'Newsletter Subscriber']);
       const formerResidentCol = findColumn(headers, ['former', 'resident'], ['note']);
       const damageCol = findColumn(headers, 'damage');
@@ -21513,7 +21528,8 @@
             originalIndex,
             residentId,
             lastContactRaw,
-            isFormerResident
+            isFormerResident,
+            hasEmail: rowHasEmail(row)
           };
         })
         .filter((person) => person.address);
@@ -21565,6 +21581,7 @@
 
       const currentStreetValue = streetFilter.value || 'all';
       const currentContactValue = contactFilter.value || 'all';
+      const currentEmailOnlyValue = emailOnlyFilter ? emailOnlyFilter.checked : false;
       const currentDamageFilterValue = damageFilter ? (damageFilter.value || 'all') : 'all';
       const currentAddressPlanFilterValue = addressPlanFilter ? (addressPlanFilter.value || 'all') : 'all';
       const currentBuildStatusFilterValue = buildStatusFilter ? (buildStatusFilter.value || 'all') : 'all';
@@ -21577,6 +21594,7 @@
       streetFilter.innerHTML = '<option value="all">All streets</option>' + streetOptions.map((street) => `<option value="${escapeHtml(street)}">${escapeHtml(street)}</option>`).join('');
       streetFilter.value = streetOptions.includes(currentStreetValue) ? currentStreetValue : 'all';
       contactFilter.value = ['all', 'contacted', 'not_contacted'].includes(currentContactValue) ? currentContactValue : 'all';
+      if (emailOnlyFilter) emailOnlyFilter.checked = currentEmailOnlyValue;
 
       const damageOpts = getFullDamageOptions();
       const addressPlanOpts = getFullAddressPlanOptions();
@@ -21655,6 +21673,7 @@
       const getStreetFilterValue = () => (streetFilter.value || 'all').trim();
       const getSearchValue = () => (searchInput.value || '').trim().toLowerCase();
       const getContactFilterValue = () => (contactFilter.value || 'all').trim();
+      const getEmailOnlyFilterValue = () => Boolean(emailOnlyFilter && emailOnlyFilter.checked);
       const getDamageFilterValue = () => (damageFilter && !damageFilter.disabled ? (damageFilter.value || 'all').trim() : 'all');
       const getAddressPlanFilterValue = () => (addressPlanFilter && !addressPlanFilter.disabled ? (addressPlanFilter.value || 'all').trim() : 'all');
       const getBuildStatusFilterValue = () => (buildStatusFilter && !buildStatusFilter.disabled ? (buildStatusFilter.value || 'all').trim() : 'all');
@@ -21692,6 +21711,7 @@
         const selectedStreet = getStreetFilterValue();
         const searchText = getSearchValue();
         const contactStatus = getContactFilterValue();
+        const emailOnly = getEmailOnlyFilterValue();
         return allPeople.filter((person) => {
           const street = extractStreet(person.address);
           if (selectedStreet !== 'all' && street !== selectedStreet) return false;
@@ -21703,6 +21723,7 @@
           const hasContact = Boolean(person.lastContactRaw);
           if (contactStatus === 'contacted' && !hasContact) return false;
           if (contactStatus === 'not_contacted' && hasContact) return false;
+          if (emailOnly && !person.hasEmail) return false;
           return true;
         });
       };
@@ -22231,6 +22252,7 @@
         if (addressTabPanel) addressTabPanel.classList.toggle('hidden', nextTab !== 'address');
         if (personTabPanel) personTabPanel.classList.toggle('hidden', nextTab !== 'person');
         contactFilter.style.display = nextTab === 'person' ? '' : 'none';
+        if (emailOnlyWrap) emailOnlyWrap.style.display = (nextTab === 'person' && emailCol) ? '' : 'none';
         if (damageFilter) damageFilter.style.display = nextTab === 'address' && damageCol ? '' : 'none';
         if (addressPlanFilter) addressPlanFilter.style.display = nextTab === 'address' && addressPlanCol ? '' : 'none';
         if (buildStatusFilter) buildStatusFilter.style.display = nextTab === 'address' && rebuildCol ? '' : 'none';
@@ -22252,6 +22274,7 @@
         setActiveFilterClass(streetFilter, (streetFilter.value || 'all') !== 'all');
         setActiveFilterClass(searchInput, (searchInput.value || '').trim().length > 0);
         setActiveFilterClass(contactFilter, (contactFilter.value || 'all') !== 'all');
+        setActiveFilterClass(emailOnlyWrap, getEmailOnlyFilterValue());
         setActiveFilterClass(damageFilter, damageFilter && !damageFilter.disabled && (damageFilter.value || 'all') !== 'all');
         setActiveFilterClass(addressPlanFilter, addressPlanFilter && !addressPlanFilter.disabled && (addressPlanFilter.value || 'all') !== 'all');
         setActiveFilterClass(buildStatusFilter, buildStatusFilter && !buildStatusFilter.disabled && (buildStatusFilter.value || 'all') !== 'all');
@@ -22275,6 +22298,7 @@
       streetFilter.onchange = handleSharedFilterChange;
       searchInput.oninput = handleSharedFilterChange;
       contactFilter.onchange = handleSharedFilterChange;
+      if (emailOnlyFilter) emailOnlyFilter.onchange = handleSharedFilterChange;
       if (damageFilter) damageFilter.onchange = handleSharedFilterChange;
       if (addressPlanFilter) addressPlanFilter.onchange = handleSharedFilterChange;
       if (buildStatusFilter) buildStatusFilter.onchange = handleSharedFilterChange;
