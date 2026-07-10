@@ -1021,11 +1021,12 @@ app.post('/api/sheets/append-record', async (req, res) => {
       }
     });
 
-    // Write the provided values into the inserted row.
+    // Write as RAW so fractional units (e.g. 1/2) and address_id stay plain text
+    // instead of being coerced into dates/numbers by Sheets.
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
       range: `${sheetName}!A${insertAtRowNumber}:ZZ${insertAtRowNumber}`,
-      valueInputOption: 'USER_ENTERED',
+      valueInputOption: 'RAW',
       requestBody: { values: [values] }
     });
 
@@ -1070,6 +1071,18 @@ function indexToColumnLetter(index) {
   return letter;
 }
 
+// Columns that must stay plain text (Sheets USER_ENTERED can turn 1/2 into a date).
+const SHEETS_TEXT_SAFE_COLUMNS = new Set([
+  '_situshouseno',
+  '_situsunit',
+  'zip',
+  'address_id'
+]);
+
+function isSheetsTextSafeColumn(column) {
+  return SHEETS_TEXT_SAFE_COLUMNS.has(String(column || '').trim().toLowerCase());
+}
+
 // POST /api/sheets/batch-update-by-resident-id - resolve row by resident_id then batch update (sort-safe)
 app.post('/api/sheets/batch-update-by-resident-id', async (req, res) => {
   const { sheetId, sheetName = 'Sheet1', valueInputOption = 'USER_ENTERED', updates } = req.body || {};
@@ -1098,7 +1111,8 @@ app.post('/api/sheets/batch-update-by-resident-id', async (req, res) => {
       if (rid) residentIdToRowNumber.set(rid, i + 2);
     });
 
-    const data = [];
+    const rawData = [];
+    const enteredData = [];
     for (const u of updates) {
       const resident_id = u.resident_id != null ? String(u.resident_id).trim() : '';
       const column = u.column;
@@ -1112,17 +1126,27 @@ app.post('/api/sheets/batch-update-by-resident-id', async (req, res) => {
       const colIndex = headers.findIndex(h => String(h || '').trim() === String(column).trim());
       if (colIndex === -1) continue;
       const colLetter = indexToColumnLetter(colIndex);
-      data.push({ range: `${sheetName}!${colLetter}${rowNum}`, values: [[value]] });
+      const cell = { range: `${sheetName}!${colLetter}${rowNum}`, values: [[value]] };
+      if (isSheetsTextSafeColumn(column)) rawData.push(cell);
+      else enteredData.push(cell);
     }
 
-    if (data.length === 0) {
+    if (rawData.length === 0 && enteredData.length === 0) {
       return res.status(400).json({ error: 'No valid updates after resolving resident_id' });
     }
 
-    await sheets.spreadsheets.values.batchUpdate({
-      spreadsheetId: sheetId,
-      requestBody: { valueInputOption, data }
-    });
+    if (rawData.length) {
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: sheetId,
+        requestBody: { valueInputOption: 'RAW', data: rawData }
+      });
+    }
+    if (enteredData.length) {
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: sheetId,
+        requestBody: { valueInputOption, data: enteredData }
+      });
+    }
     res.json({ success: true });
   } catch (err) {
     const status = sheetsErrorStatus(err);
@@ -1169,6 +1193,16 @@ try {
   console.log('Godmode routes registered.');
 } catch (err) {
   console.error('Failed to register Godmode routes:', err.message);
+}
+
+// --- Contact Check-In (AddressReview progress store) ---
+try {
+  const { registerContactCheckinRoutes, getContactCheckinConfig } = require('./contact-checkin/routes');
+  registerContactCheckinRoutes(app, { getSheetsClient });
+  const checkinConfig = getContactCheckinConfig();
+  console.log(`Contact Check-In routes registered (sheet: ${checkinConfig.sheetId || 'not configured'}).`);
+} catch (err) {
+  console.error('Failed to register Contact Check-In routes:', err.message);
 }
 
 // Explicitly serve standalone HTML pages so they're not caught by the SPA fallback

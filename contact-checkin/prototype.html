@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Altagether Contact Check-In Prototype</title>
+  <style>
+    :root {
+      --deep-space-blue: #304059;
+      --golden-orange: #f59e09;
+      --porcelain: #fdfbf8;
+      --floral-white: #fffdf5;
+      --rosy-copper: #bc5839;
+      --muted-olive: #afc892;
+      --dusty-mauve: #bc455a;
+      --light-caramel: #fdba77;
+      --apricot-cream: #f6cf98;
+      --sky-blue-light: #81bdc3;
+      --soft-blush: #f9d6d3;
+      --alabaster-grey: #e5e5e5;
+      --ink: #1f2937;
+      --muted: #647084;
+      --line: #d9ddd6;
+      --card: #fffdf5;
+      --shadow: 0 14px 32px rgba(48, 64, 89, .18);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--porcelain); color: var(--ink); }
+    body { font-family: Chivo, Arial, sans-serif; font-size: 16px; line-height: 1.35; }
+    .serif { font-family: Merriweather, Georgia, serif; }
+    button, input, textarea, select { font: inherit; }
+
+    .app { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; }
+    .sidebar { background: var(--deep-space-blue); color: white; padding: 26px 22px; position: sticky; top: 0; height: 100vh; }
+    .zone-title { font-size: 28px; font-weight: 900; letter-spacing: -.04em; margin-bottom: 2px; }
+    .org { font-weight: 700; opacity: .85; margin-bottom: 36px; }
+    .nav a { display: block; color: white; text-decoration: none; font-weight: 800; padding: 12px 14px; margin: 3px -14px; border-left: 5px solid transparent; }
+    .nav a.active { background: var(--porcelain); color: var(--deep-space-blue); border-left-color: var(--golden-orange); }
+    .sidebar-footer { position: absolute; left: 22px; right: 22px; bottom: 22px; font-size: 12px; opacity: .8; }
+
+    main { padding: 32px 40px 64px; max-width: 1420px; width: 100%; margin: 0 auto; }
+    .grid { display: grid; grid-template-columns: 1.25fr .85fr; gap: 22px; align-items: start; }
+    .panel { background: var(--floral-white); border: 2px solid var(--deep-space-blue); box-shadow: 5px 5px 0 rgba(48,64,89,.16); padding: 18px; }
+    .panel h2 { margin: 0 0 12px; color: var(--deep-space-blue); font-size: 20px; letter-spacing: .02em; text-transform: uppercase; font-weight: 900; border-bottom: 2px dotted var(--rosy-copper); padding-bottom: 6px; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px 30px; padding: 4px 0 16px; }
+    .stat strong { display:block; font-size: 30px; color: var(--deep-space-blue); line-height: 1; }
+    .stat span { display:block; margin-top: 7px; font-size: 12px; color: var(--deep-space-blue); text-transform: uppercase; font-family: Merriweather, Georgia, serif; font-weight: 800; letter-spacing: .04em; }
+    .placeholder-chart { height: 200px; background: white; border: 1px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--muted); }
+    .quick-card { background: rgba(255,255,255,.75); border-left: 5px solid var(--golden-orange); padding: 16px; margin-top: 10px; }
+    .primary { background: var(--golden-orange); color: #172033; border: 2px solid #172033; box-shadow: 4px 4px 0 #172033; font-weight: 900; padding: 11px 18px; border-radius: 4px; cursor: pointer; }
+    .primary:hover { transform: translate(1px,1px); box-shadow: 3px 3px 0 #172033; }
+    .secondary { background: white; color: var(--deep-space-blue); border: 2px solid var(--deep-space-blue); font-weight: 900; padding: 10px 16px; border-radius: 8px; cursor: pointer; }
+    .link-btn { background: none; border: none; color: var(--deep-space-blue); text-decoration: underline; font-weight: 800; cursor: pointer; padding: 0; }
+    .quiet-btn { background: transparent; border: none; color: var(--muted); font-weight: 700; cursor: pointer; }
+
+    .check-widget { background: var(--floral-white); border: 2px solid var(--deep-space-blue); box-shadow: 5px 5px 0 rgba(48,64,89,.16); padding: 18px; }
+    .check-widget h2 { margin:0 0 4px; font-size:20px; text-transform:uppercase; color:var(--deep-space-blue); border-bottom:2px dotted var(--rosy-copper); padding-bottom:6px; }
+    .check-widget .tagline { font-family: Merriweather, Georgia, serif; margin: 12px 0 16px; }
+    .progress-row { display:grid; grid-template-columns: 1fr auto; align-items:center; gap:12px; margin: 12px 0; }
+    .bar { height: 14px; border: 1px solid var(--deep-space-blue); background: white; overflow: hidden; border-radius: 999px; }
+    .bar-fill { height:100%; width:0%; background: var(--sky-blue-light); transition: width .25s ease; }
+    .mini-stats { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:16px; }
+    .mini-stat { background: white; border:1px solid var(--line); padding:12px; border-radius:10px; }
+    .mini-stat strong { display:block; color:var(--deep-space-blue); font-size:22px; }
+    .mini-stat span { display:block; font-size:12px; color:var(--muted); font-weight:800; text-transform:uppercase; }
+    .network-card { margin-top: 16px; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+    .network-card h3 { margin:0 0 10px; color:var(--deep-space-blue); }
+    .feed { margin: 12px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
+
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(31, 41, 55, .58); display:none; align-items:center; justify-content:center; padding: 20px; z-index: 10; }
+    .modal-backdrop.show { display:flex; }
+    .modal { width: min(900px, 100%); max-height: 92vh; overflow: auto; background: var(--porcelain); border-radius: 18px; box-shadow: var(--shadow); padding: 26px; position: relative; }
+    .modal.wide { width: min(1040px, 100%); }
+    .close { position:absolute; top: 18px; right: 22px; border:0; background:transparent; color:var(--deep-space-blue); font-size: 28px; cursor:pointer; font-weight:900; }
+    .modal h1 { margin:0 36px 6px 0; font-size: 38px; color: var(--deep-space-blue); letter-spacing:-.04em; }
+    .sub { color: var(--muted); font-size: 18px; margin-bottom: 14px; }
+    .wizard-header { display:grid; grid-template-columns: 1fr auto; gap:18px; align-items:end; border-bottom:1px solid var(--line); padding-bottom:18px; margin-bottom: 18px; }
+    .address-card { background:white; border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+    .address-title { color:var(--deep-space-blue); font-size:28px; font-weight:900; letter-spacing:-.03em; margin:0 0 8px; text-decoration: none; }
+    .context-line { background:#f6f6f2; border:1px solid var(--line); border-radius: 10px; padding:12px 14px; color: var(--muted); margin: 12px 0 18px; display:flex; align-items:center; justify-content:space-between; gap: 10px; }
+    .question { font-size: 26px; line-height:1.15; color: var(--deep-space-blue); font-weight: 900; margin: 12px 0 8px; }
+    .definition { font-family: Merriweather, Georgia, serif; color:#333; background: var(--floral-white); border-left: 5px solid var(--rosy-copper); padding: 12px 14px; margin: 10px 0 18px; }
+    .choice-row { display:flex; gap: 12px; flex-wrap: wrap; margin: 18px 0; }
+    .big-choice { border:2px solid var(--deep-space-blue); background:white; color: var(--deep-space-blue); padding:14px 18px; border-radius: 12px; font-weight:900; cursor:pointer; min-width: 130px; text-align:center; }
+    .big-choice.active, .big-choice:hover { background: var(--deep-space-blue); color:white; }
+    .big-choice.skip { border-color: var(--muted); color:var(--muted); }
+    .big-choice.skip:hover { background: var(--muted); color:white; }
+    .branch { display:none; margin-top: 18px; border-top:1px solid var(--line); padding-top: 18px; }
+    .branch.show { display:block; }
+    .people-list { display:grid; gap: 10px; }
+    .person-row { border:1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: var(--porcelain); }
+    .person-main { display:flex; align-items:center; gap:12px; }
+    .person-main input { width: 24px; height: 24px; accent-color: var(--golden-orange); }
+    .person-name { font-weight:900; color:var(--deep-space-blue); font-size: 18px; }
+    .tiny { font-size: 13px; color: var(--muted); }
+    .options-toggle { display:inline-flex; margin: 8px 0 0 36px; font-size:13px; color:var(--muted); background:transparent; border:0; cursor:pointer; text-decoration: underline; font-weight: 800; }
+    .person-options { display:none; margin: 10px 0 0 36px; padding: 12px; border-radius: 10px; background:white; border:1px dashed var(--line); }
+    .person-options.show { display:block; }
+    .checks { display:grid; grid-template-columns: repeat(2, minmax(190px,1fr)); gap: 8px 14px; margin-bottom: 10px; }
+    .checks label { display:flex; gap:8px; align-items:center; }
+    textarea, input[type="text"], input[type="email"], input[type="tel"] { width:100%; border:1px dashed #b9b9b9; border-radius: 8px; padding:10px 12px; background:#fff; color:var(--ink); }
+    textarea { min-height: 76px; resize: vertical; }
+    .address-note { margin-top: 16px; }
+    .actionbar { display:flex; align-items:center; gap: 14px; margin-top: 22px; border-top:1px solid var(--line); padding-top: 18px; }
+    .status-pill { display:inline-flex; padding: 5px 10px; border-radius: 999px; background: var(--soft-blush); color: #7b2834; font-size: 13px; font-weight: 900; }
+    .status-pill.good { background:#e6f0df; color:#3e5d24; }
+    .status-pill.skip { background:#eee; color:#555; }
+    .tooltip { display:inline-flex; width:18px; height:18px; border-radius:50%; align-items:center; justify-content:center; background:var(--deep-space-blue); color:white; font-size:12px; font-weight:900; cursor:help; position:relative; margin-left:6px; }
+    .tooltip:hover::after { content: attr(data-tip); position:absolute; z-index:20; left: 50%; transform: translateX(-50%); bottom: 130%; width: 280px; background:#172033; color:white; padding:10px 12px; border-radius:10px; box-shadow: var(--shadow); font-weight:600; line-height:1.3; }
+    .no-tools { background: var(--floral-white); border:1px solid var(--line); border-radius: 12px; padding: 14px; margin-top: 12px; }
+    .tool-grid { display:grid; grid-template-columns: 1fr; gap: 10px; margin-top:10px; }
+    .tool { background:white; border:1px solid var(--line); border-radius: 10px; padding:12px; }
+    .tool summary { cursor:pointer; font-weight:900; color: var(--deep-space-blue); }
+    .tool-body { margin-top: 12px; }
+    .person-action-row { display:grid; grid-template-columns: auto 1fr; gap:10px; align-items:start; padding:8px 0; border-bottom:1px solid var(--line); }
+    .person-action-row:last-child { border-bottom:0; }
+    .person-action-row input[type="checkbox"] { width:20px; height:20px; accent-color: var(--golden-orange); }
+    .person-note-grid { display:grid; gap:12px; }
+    .person-note-grid label { font-weight:900; color:var(--deep-space-blue); }
+    .optional-note { font-size:13px; color:var(--muted); margin:6px 0 0; }
+    .person-tool-card { background:white; border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:10px; }
+    .person-tool-head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; margin-bottom:8px; }
+    .person-tool-name { color:var(--deep-space-blue); font-weight:900; font-size:17px; }
+    .inline-check { display:flex; align-items:center; gap:8px; font-weight:800; color:var(--deep-space-blue); }
+    .inline-check input { width:20px; height:20px; accent-color: var(--golden-orange); }
+    .mini-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .mini-actions details { border:1px dashed var(--line); border-radius:8px; padding:8px 10px; background:var(--porcelain); flex:1 1 220px; }
+    .mini-actions summary { cursor:pointer; color:var(--muted); font-weight:900; font-size:13px; }
+
+    .no-optional-hub { margin-top: 14px; }
+    .no-optional-link { margin-left:0; }
+    .action-picker { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; margin-top:12px; }
+    .action-card { text-align:left; background:var(--porcelain); border:1px solid var(--line); border-radius:12px; padding:12px 14px; cursor:pointer; color:var(--deep-space-blue); }
+    .action-card strong { display:block; font-size:15px; font-weight:900; }
+    .action-card span { display:block; font-size:13px; color:var(--muted); margin-top:3px; line-height:1.25; }
+    .action-card:hover, .action-card.active { border-color:var(--deep-space-blue); box-shadow: 0 0 0 2px rgba(48,64,89,.08); }
+    .action-panel { display:none; margin-top:12px; padding:14px; background:white; border:1px solid var(--line); border-radius:12px; }
+    .action-panel.show { display:block; }
+    .action-panel h4 { margin:0 0 8px; color:var(--deep-space-blue); font-size:18px; }
+    .field-row { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; }
+    .pending-list { margin-top:10px; display:grid; gap:8px; }
+    .pending-item { background:var(--porcelain); border:1px solid var(--line); border-radius:10px; padding:9px 10px; color:var(--muted); font-size:14px; }
+    .pending-item strong { color:var(--deep-space-blue); }
+    .soft-divider { border-top:1px solid var(--line); margin:12px 0; }
+    .check-list { display:grid; gap:8px; margin-top:8px; }
+    .check-list label { display:flex; align-items:center; gap:10px; color:var(--deep-space-blue); font-weight:800; background:var(--porcelain); border:1px solid var(--line); border-radius:10px; padding:9px 10px; }
+    .check-list input { width:20px; height:20px; accent-color:var(--golden-orange); }
+
+    .optional-hub { margin-top: 14px; }
+    .optional-hub > .options-toggle { margin-left: 0; }
+    .no-extra-panel { margin-left: 0; background: white; border: 1px solid var(--line); }
+    .person-detail-list { display: grid; gap: 8px; margin-top: 10px; }
+    .person-detail-row { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--porcelain); }
+    .person-detail-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .person-detail-name { color: var(--deep-space-blue); font-weight: 900; }
+    .detail-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+    .mini-link { background: transparent; border: 0; padding: 0; color: var(--muted); font-weight: 900; font-size: 13px; text-decoration: underline; cursor: pointer; }
+    .detail-panel { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+    .detail-panel.show { display: block; }
+    .community-progress { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+    .community-feed { margin-top:22px; }
+    .community-metrics { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin:10px 0 8px; }
+    .community-metric { background:var(--porcelain); border:1px solid var(--line); border-radius:10px; padding:9px 10px; }
+    .community-metric strong { display:block; color:var(--deep-space-blue); font-size:18px; line-height:1; }
+    .community-metric span { display:block; color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; margin-top:5px; }
+    .milestone-note { margin-top:10px; padding:10px 12px; background:var(--floral-white); border-left:4px solid var(--golden-orange); color:var(--deep-space-blue); font-weight:800; font-size:14px; }
+    .quick-add { display:none; margin-top:12px; padding:14px; background:white; border:1px dashed var(--line); border-radius:12px; }
+    .quick-add.show { display:block; }
+    .form-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+    .toast { position: fixed; bottom: 22px; right: 22px; background: var(--deep-space-blue); color:white; border-radius: 12px; padding: 12px 16px; box-shadow: var(--shadow); display:none; z-index: 30; font-weight:800; }
+    .toast.show { display:block; }
+
+    .summary-table { width:100%; border-collapse: collapse; margin-top:10px; }
+    .summary-table th, .summary-table td { text-align:left; border-bottom:1px solid var(--line); padding: 10px; }
+    .summary-table th { color: var(--deep-space-blue); font-size:12px; text-transform:uppercase; }
+
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { position: static; height:auto; }
+      .nav { display:flex; flex-wrap: wrap; gap:4px; }
+      .sidebar-footer { display:none; }
+      main { padding: 20px 14px; }
+      .grid { grid-template-columns: 1fr; }
+      .stats, .mini-stats { grid-template-columns: repeat(2, 1fr); }
+      .wizard-header { grid-template-columns: 1fr; }
+      .modal { padding: 20px 16px; max-height: 96vh; }
+      .modal h1 { font-size: 32px; }
+      .tool-grid, .checks, .form-grid { grid-template-columns:1fr; }
+      .actionbar { position: sticky; bottom: 0; background: var(--porcelain); padding-bottom: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="zone-title">Alpine Villa</div>
+      <div class="org">Altagether</div>
+      <nav class="nav">
+        <a class="active" href="#">Home</a>
+        <a href="#">Map</a>
+        <a href="#">Neighbors</a>
+        <a href="#">Actions</a>
+        <a href="#">Tools</a>
+        <a href="#">Resources</a>
+        <a href="#">My NC Profile</a>
+        <a href="#">Admin Mode</a>
+      </nav>
+      <div class="sidebar-footer">ALTAGETHER<br/>Send feedback</div>
+    </aside>
+
+    <main>
+      <div class="grid">
+        <section class="panel">
+          <h2>Zone Overview</h2>
+          <div class="stats">
+            <div class="stat"><strong>37</strong><span>Total addresses</span></div>
+            <div class="stat"><strong>29</strong><span>Total loss</span></div>
+            <div class="stat"><strong>2</strong><span>Sold since fire</span></div>
+            <div class="stat"><strong>68</strong><span>Total people</span></div>
+            <div class="stat"><strong>6</strong><span>Standing</span></div>
+            <div class="stat"><strong>36 of 37</strong><span>Addresses with outreach attempt</span></div>
+          </div>
+          <div class="placeholder-chart">Existing dashboard charts</div>
+        </section>
+
+        <div>
+          <section class="check-widget">
+            <h2>Contact Check-In</h2>
+            <p class="tagline">Help Altagether understand which households in your zone have been reached—and which may still need help connecting. <button class="link-btn" onclick="openLearnMore()">Learn more</button></p>
+            <div class="progress-row">
+              <div class="bar"><div class="bar-fill" id="zoneProgressBar"></div></div>
+              <strong id="zoneProgressText">0 of 0 reviewed</strong>
+            </div>
+            <div class="mini-stats">
+              <div class="mini-stat"><strong id="reviewedCount">0</strong><span>Reviewed</span></div>
+              <div class="mini-stat"><strong id="remainingCount">0</strong><span>Remaining</span></div>
+              <div class="mini-stat"><strong id="reachedCount">0</strong><span>Reached</span></div>
+              <div class="mini-stat"><strong id="skippedCount">0</strong><span>Skipped</span></div>
+            </div>
+            <div style="margin-top:18px; display:flex; gap:12px; flex-wrap:wrap;">
+              <button class="primary" onclick="openWizard()" id="startButton">Start Contact Check-In</button>
+              <button class="secondary" onclick="reviewSkipped()" id="reviewSkippedButton" style="display:none;">Review skipped addresses</button>
+            </div>
+          </section>
+
+          <section class="panel community-feed">
+            <h2>Community Feed</h2>
+            <div class="community-progress">
+              <strong>Altagether-wide Contact Check-In</strong>
+              <div class="tiny" style="margin-top:4px;">Across 15,738 unique addresses in the Altagether database.</div>
+              <div class="community-metrics">
+                <div class="community-metric"><strong>43%</strong><span>Reviewed</span></div>
+                <div class="community-metric"><strong>38%</strong><span>Contact logged</span></div>
+                <div class="community-metric"><strong>61%</strong><span>Outreach logged</span></div>
+              </div>
+              <div class="progress-row" style="margin:10px 0 8px;">
+                <div class="bar"><div class="bar-fill" style="width:43%; background:var(--muted-olive)"></div></div>
+                <strong>6,767 reviewed</strong>
+              </div>
+              <div class="tiny">84 captains have started. 27 zones are complete.</div>
+            </div>
+            <ul class="feed">
+              <li><strong>Lower Meadows</strong> completed Contact Check-In.</li>
+              <li><strong>Florecita Farms</strong> reviewed 12 addresses today.</li>
+              <li><strong>Town-wide milestone:</strong> 328 addresses reviewed in the last 48 hours.</li>
+              <li><strong>Street milestone:</strong> A captain just completed Madison Ave.</li>
+            </ul>
+          </section>
+        </div>
+
+        <section class="panel">
+          <h2 style="color:var(--rosy-copper)">From Altagether</h2>
+          <p class="serif"><strong>Welcome to the Zone Dashboard!</strong><br/>This dashboard helps you track what's happening in your zone.</p>
+          <p class="serif">We include contact information, public data, and tools to make your zone easier to coordinate.</p>
+          <p class="serif"><strong>Next Meeting</strong><br/>Monday, July 13th from 7–8pm.</p>
+        </section>
+
+        <section class="panel">
+          <h2>Quick Actions</h2>
+          <div class="quick-card">Residents requested weeding help for <strong>4 lots</strong> that are not yet scheduled or completed.</div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="learnMoreBackdrop">
+    <section class="modal" role="dialog" aria-modal="true">
+      <button class="close" onclick="closeLearnMore()">×</button>
+      <h1>About Contact Check-In</h1>
+      <p class="serif">Altagether is asking Neighborhood Captains to help us understand which households have been successfully reached, and which may still need help connecting.</p>
+      <p class="serif">A successful contact means a real two-way interaction: someone replied, answered, spoke with you, asked a question, joined a conversation, or otherwise confirmed they received your message.</p>
+      <p class="serif">This is part of a broader community effort with partner organizations working to understand who has been reached after the Eaton Fire and who may still need help connecting.</p>
+      <div class="soft-box">
+        <strong>Participating groups include:</strong>
+        <ul>
+          <li>Altagether</li>
+          <li>Clergy Community Coalition + PostFire</li>
+          <li>Community Women Vital Voices</li>
+          <li>Eaton Fire Residents United + EF Surviving Structures</li>
+        </ul>
+      </div>
+      <p class="serif">Altagether may share address-level contact coverage with Department of Angels and cohort partners: whether someone at each address has been successfully contacted. We will not share resident names, individual contact details, phone numbers, email addresses, notes, or outreach logs.</p>
+      <div class="actionbar"><button class="primary" onclick="closeLearnMore()">Got it</button></div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="wizardBackdrop">
+    <section class="modal wide" role="dialog" aria-modal="true">
+      <button class="close" onclick="closeWizard()">×</button>
+      <div class="wizard-header">
+        <div>
+          <h1>Contact Check-In</h1>
+          <div class="sub">Review one address at a time. Stop whenever you need; your progress is saved.</div>
+        </div>
+        <div style="min-width:260px;">
+          <div class="progress-row" style="margin:0;">
+            <div class="bar"><div class="bar-fill" id="modalProgressBar"></div></div>
+            <strong id="modalProgressText">0%</strong>
+          </div>
+        </div>
+      </div>
+      <div class="address-card" id="addressCard"></div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="adminBackdrop">
+    <section class="modal wide" role="dialog" aria-modal="true">
+      <button class="close" onclick="closeAdmin()">×</button>
+      <h1>Admin Preview</h1>
+      <div class="sub">Detailed progress view for Contact Check-In.</div>
+      <table class="summary-table">
+        <thead><tr><th>Zone</th><th>Captain</th><th>Reviewed</th><th>Reached</th><th>Skipped</th><th>Last activity</th></tr></thead>
+        <tbody>
+          <tr><td>Alpine Villa</td><td>LaVonne / co-captains</td><td id="adminReviewed">0 / 37</td><td id="adminReached">0</td><td id="adminSkipped">0</td><td id="adminUpdated">—</td></tr>
+          <tr><td>Lower Meadows</td><td>Neil Tyler</td><td>42 / 42</td><td>31</td><td>0</td><td>Today</td></tr>
+          <tr><td>Florecita Farms</td><td>Shannon Larsuel</td><td>29 / 34</td><td>22</td><td>2</td><td>Yesterday</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+const checkInId = 'contact_check_in_2026_08';
+const zoneId = 'zone_alpine_villa';
+const captainId = 'captain_demo';
+
+const addresses = [
+  {
+    id: 'addr_1040_alpine_villa_dr', address: '1040 Alpine Villa Dr', apn: '5843-007-006',
+    outreachSummary: 'Outreach has been logged for this address.',
+    residents: [
+      { id:'res_lavonne', name:'LaVonne McCarthy', gender:'F', lastOutreach:'Mar 16, 2026', log:'[Historical] Left voicemail.\n[Mar 16, 2026] Sent intro email.', contacted:false, wantsUpdates:false, doNotContact:false, followUp:false, unable:false, former:false, deceased:false, notes:'' }
+    ]
+  },
+  {
+    id: 'addr_2008_madison', address: '2008 Madison Ave', apn: '5827-012-020',
+    outreachSummary: 'No outreach attempts are currently logged.',
+    residents: [
+      { id:'res_amelia', name:'Amelia Sanders', gender:'', lastOutreach:'', log:'', contacted:false, wantsUpdates:true, doNotContact:false, followUp:false, unable:false, former:false, deceased:false, notes:'' },
+      { id:'res_brian', name:'Brian McKay', gender:'', lastOutreach:'', log:'', contacted:false, wantsUpdates:false, doNotContact:false, followUp:true, unable:false, former:false, deceased:false, notes:'' },
+      { id:'res_franklin', name:'Franklin Moore', gender:'', lastOutreach:'', log:'', contacted:false, wantsUpdates:false, doNotContact:false, followUp:false, unable:false, former:false, deceased:false, notes:'' }
+    ]
+  },
+  {
+    id: 'addr_2211_casitas', address: '2211 Casitas Ave', apn: '5827-012-020',
+    outreachSummary: 'Outreach has been logged for this address.',
+    residents: [
+      { id:'res_ivan', name:'Ivan Stewart', gender:'', lastOutreach:'Jul 1, 2026', log:'[Jul 1, 2026] Texted, no reply.', contacted:false, wantsUpdates:false, doNotContact:false, followUp:false, unable:false, former:false, deceased:false, notes:'' },
+      { id:'res_willard', name:'Willard Scott', gender:'', lastOutreach:'', log:'', contacted:false, wantsUpdates:false, doNotContact:false, followUp:false, unable:false, former:false, deceased:false, notes:'' }
+    ]
+  },
+  {
+    id: 'addr_2211_eighth_casitas', address: '2211 1/8 Casitas Ave', apn: '5827-012-026',
+    outreachSummary: 'No outreach attempts are currently logged.',
+    residents: [
+      { id:'res_scarlett', name:'Scarlett Scottalfred', gender:'', lastOutreach:'', log:'', contacted:false, wantsUpdates:false, doNotContact:false, followUp:false, unable:false, former:false, deceased:false, notes:'' }
+    ]
+  },
+  {
+    id: 'addr_2215_casitas', address: '2215 Casitas Ave', apn: '5827-012-021',
+    outreachSummary: 'Outreach has been logged for this address.',
+    residents: [
+      { id:'res_dora', name:'Dora Hooper', gender:'', lastOutreach:'Historical', log:'[Historical] Knocked on door, no answer.', contacted:false, wantsUpdates:false, doNotContact:false, followUp:false, unable:true, former:false, deceased:false, notes:'' }
+    ]
+  }
+];
+
+const totalZoneAddresses = 37;
+let reviewRecords = {};
+let currentIndex = 0;
+let activeBranch = null;
+let pendingNoOutreach = [];
+let pendingNoNotes = [];
+
+function reviewKey(addressId){ return `${checkInId}__${zoneId}__${captainId}__${addressId}`; }
+function reviewedAddresses(){ return Object.values(reviewRecords).filter(r => r.review_status === 'reviewed').length; }
+function skippedAddresses(){ return Object.values(reviewRecords).filter(r => r.review_status === 'skipped').length; }
+function reachedAddresses(){ return addresses.filter(a => a.residents.some(r => r.contacted)).length; }
+function realReviewedInDemo(){ return reviewedAddresses(); }
+function remainingDemo(){ return addresses.length - reviewedAddresses(); }
+
+function updateHome(){
+  const reviewed = realReviewedInDemo();
+  const pct = Math.round((reviewed / addresses.length) * 100);
+  document.getElementById('zoneProgressBar').style.width = pct + '%';
+  document.getElementById('zoneProgressText').textContent = `${reviewed} of ${addresses.length} reviewed`;
+  document.getElementById('reviewedCount').textContent = reviewed;
+  document.getElementById('remainingCount').textContent = Math.max(0, addresses.length - reviewed);
+  document.getElementById('reachedCount').textContent = reachedAddresses();
+  document.getElementById('skippedCount').textContent = skippedAddresses();
+  document.getElementById('startButton').textContent = reviewed > 0 ? 'Continue Contact Check-In' : 'Start Contact Check-In';
+  const skippedButton = document.getElementById('reviewSkippedButton');
+  if(skippedButton) skippedButton.style.display = skippedAddresses() > 0 ? 'inline-block' : 'none';
+  document.getElementById('adminReviewed').textContent = `${reviewed} / ${addresses.length}`;
+  document.getElementById('adminReached').textContent = reachedAddresses();
+  document.getElementById('adminSkipped').textContent = skippedAddresses();
+  document.getElementById('adminUpdated').textContent = reviewed || skippedAddresses() ? 'Just now' : '—';
+}
+
+function openLearnMore(){ document.getElementById('learnMoreBackdrop').classList.add('show'); }
+function closeLearnMore(){ document.getElementById('learnMoreBackdrop').classList.remove('show'); }
+function openWizard(){
+  currentIndex = findNextIndex();
+  document.getElementById('wizardBackdrop').classList.add('show');
+  renderAddress();
+}
+function closeWizard(){ document.getElementById('wizardBackdrop').classList.remove('show'); updateHome(); }
+function openAdmin(){ updateHome(); document.getElementById('adminBackdrop').classList.add('show'); }
+function closeAdmin(){ document.getElementById('adminBackdrop').classList.remove('show'); }
+function findNextIndex(){
+  const unreviewed = addresses.findIndex(a => !reviewRecords[reviewKey(a.id)] || reviewRecords[reviewKey(a.id)].review_status === 'skipped');
+  return unreviewed >= 0 ? unreviewed : 0;
+}
+function nextAddress(){
+  const next = addresses.findIndex((a, idx) => idx > currentIndex && (!reviewRecords[reviewKey(a.id)] || reviewRecords[reviewKey(a.id)].review_status === 'skipped'));
+  if(next >= 0) currentIndex = next;
+  else {
+    const any = findNextIndex();
+    if(any === currentIndex && reviewedAddresses() >= addresses.length) { showComplete(); return; }
+    currentIndex = any;
+  }
+  renderAddress();
+}
+
+function renderAddress(){
+  const a = addresses[currentIndex];
+  activeBranch = null;
+  pendingNoOutreach = [];
+  pendingNoNotes = [];
+  const reviewed = reviewedAddresses();
+  const pct = Math.round((reviewed / addresses.length) * 100);
+  document.getElementById('modalProgressBar').style.width = pct + '%';
+  document.getElementById('modalProgressText').textContent = `${reviewed} / ${addresses.length}`;
+  const existing = reviewRecords[reviewKey(a.id)];
+  const status = existing ? `<span class="status-pill ${existing.review_status === 'skipped' ? 'skip':'good'}">${existing.review_status === 'skipped' ? 'Skipped for now' : 'Reviewed'}</span>` : '';
+  const peopleHtml = a.residents.map(r => personRow(r)).join('');
+  document.getElementById('addressCard').innerHTML = `
+    <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start;">
+      <div>
+        <h2 class="address-title">${a.address}</h2>
+        <div class="tiny">APN: ${a.apn || 'not set'} · Address_ID: ${a.id}</div>
+      </div>
+      ${status}
+    </div>
+    <div class="context-line">
+      <span>${a.outreachSummary}</span>
+      <button class="link-btn" onclick="toggleOutreachDetails()">View details</button>
+    </div>
+    <div id="outreachDetails" style="display:none; margin:-8px 0 18px; padding:12px; background:white; border:1px solid var(--line); border-radius:10px;">
+      ${a.residents.map(r => `<div style="margin-bottom:8px;"><strong>${r.name}</strong> — ${r.lastOutreach ? 'Last outreach: ' + r.lastOutreach : 'No outreach logged'}${r.log ? `<div class="tiny" style="white-space:pre-line; margin-top:4px;">${r.log}</div>` : ''}</div>`).join('')}
+    </div>
+    <div class="question">Have you successfully contacted anyone at this address?<span class="tooltip" data-tip="Contact means a two-way interaction. Sending an email, leaving a voicemail, or dropping off a flyer does not count unless they responded.">?</span></div>
+    <div class="definition">Successful contact means they replied, answered, spoke with you, asked a question, or otherwise confirmed they received your message.</div>
+    <div class="choice-row">
+      <button class="big-choice" onclick="chooseBranch('yes')">Yes</button>
+      <button class="big-choice" onclick="chooseBranch('no')">No</button>
+      <button class="big-choice skip" onclick="saveSkip()">Skip for now</button>
+    </div>
+    <div class="branch" id="yesBranch">
+      <h3 style="margin-top:0;color:var(--deep-space-blue);">Who have you successfully contacted?</h3>
+      <div class="people-list">${peopleHtml}
+        <div class="person-row">
+          <div class="person-main">
+            <input type="checkbox" id="someoneElse" onchange="toggleQuickAdd(this.checked)">
+            <label for="someoneElse" class="person-name">Someone else at this address</label>
+          </div>
+          <div class="quick-add" id="quickAdd">
+            <strong>Quick add resident</strong>
+            <div class="form-grid" style="margin-top:10px;">
+              <input type="text" id="newFirst" placeholder="First name">
+              <input type="text" id="newLast" placeholder="Last name">
+              <input type="tel" id="newPhone" placeholder="Phone optional">
+              <input type="email" id="newEmail" placeholder="Email optional">
+            </div>
+            <textarea id="newNotes" placeholder="Notes optional" style="margin-top:10px;"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="address-note">
+        <button class="options-toggle" style="margin-left:0;" onclick="toggleEl('addressNoteBox')">Add context about this address</button>
+        <div class="person-options" id="addressNoteBox" style="margin-left:0;">
+          <textarea id="addressNote" placeholder="Address note optional"></textarea>
+        </div>
+      </div>
+      <div class="actionbar">
+        <button class="primary" onclick="saveYes()">Save & Next</button>
+        <button class="quiet-btn" onclick="renderAddress()">Cancel</button>
+      </div>
+    </div>
+    <div class="branch" id="noBranch">
+      <h3 style="margin-top:0;color:var(--deep-space-blue);">Got it.</h3>
+      <p class="serif">This address will count as reviewed, but not yet successfully contacted.</p>
+      <div class="no-optional-hub">
+        <button class="options-toggle no-optional-link" onclick="toggleEl('noExtraPanel')">Add optional context</button>
+        <div class="person-options no-extra-panel" id="noExtraPanel">
+          <div class="action-picker">
+            <button class="action-card" type="button" onclick="openNoTool('noOutreachTool', this)"><strong>Log outreach attempt</strong><span>Tried to reach someone, no response.</span></button>
+            <button class="action-card" type="button" onclick="openNoTool('noUnableTool', this)"><strong>Mark unable to reach</strong><span>Use after multiple failed attempts.</span></button>
+            <button class="action-card" type="button" onclick="openNoTool('noPersonNoteTool', this)"><strong>Add person note</strong><span>Save context about one resident.</span></button>
+            <button class="action-card" type="button" onclick="openNoTool('noAddressNoteTool', this)"><strong>Add address note</strong><span>Save context about this address.</span></button>
+          </div>
+          <div class="action-panel" id="noOutreachTool">
+            <h4>Log outreach attempt <span class="tooltip" data-tip="An outreach attempt means you tried to reach someone, even if they did not respond. Examples: sent email, called, texted, left voicemail, knocked, mailed a note, or left a flyer.">?</span></h4>
+            <div class="field-row">
+              <select id="outreachPersonSelect">${personOptions()}</select>
+              <select id="noOutreachWhen" onchange="toggleNoSpecificDate()"><option value="Today">Today</option><option value="specific">Specific date</option><option value="Date unknown">I don’t remember when</option></select>
+            </div>
+            <input type="date" id="noOutreachSpecificDate" style="display:none;margin-top:10px;">
+            <textarea id="noOutreachNote" placeholder="e.g. Sent email but did not receive a response" style="margin-top:10px;"></textarea>
+            <div style="margin-top:10px;"><button class="secondary" type="button" onclick="addPendingOutreach()">Add outreach entry</button></div>
+            <div class="pending-list" id="pendingOutreachList"></div>
+          </div>
+          <div class="action-panel" id="noUnableTool">
+            <h4>Mark unable to reach <span class="tooltip" data-tip="Use only when you have tried multiple times and still have not been able to reach this person. This is stronger than not contacted yet.">?</span></h4>
+            <div class="check-list">${unableCheckboxes()}</div>
+          </div>
+          <div class="action-panel" id="noPersonNoteTool">
+            <h4>Add person note</h4>
+            <div class="field-row"><select id="notePersonSelect">${personOptions()}</select></div>
+            <textarea id="noPersonNoteText" placeholder="Person note optional" style="margin-top:10px;"></textarea>
+            <div style="margin-top:10px;"><button class="secondary" type="button" onclick="addPendingPersonNote()">Add note</button></div>
+            <div class="pending-list" id="pendingPersonNoteList"></div>
+          </div>
+          <div class="action-panel" id="noAddressNoteTool">
+            <h4>Add address note</h4>
+            <textarea id="noAddressNote" placeholder="Address note optional"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="actionbar"><button class="primary" onclick="saveNo()">Save & Next</button><button class="quiet-btn" onclick="renderAddress()">Cancel</button></div>
+    </div>
+  `;
+}
+
+function personSelect(id){
+  const a = addresses[currentIndex];
+  return `<select id="${id}" style="width:100%;padding:10px;">${a.residents.map(r => `<option value="${r.id}">${r.name}</option>`).join('')}</select>`;
+}
+function personCheckboxes(name){
+  const a = addresses[currentIndex];
+  return a.residents.map(r => `<label class="person-action-row"><input type="checkbox" name="${name}" value="${r.id}"><span><strong>${r.name}</strong><div class="tiny">${r.lastOutreach ? 'Last outreach: '+r.lastOutreach : 'No outreach logged'}</div></span></label>`).join('');
+}
+function personNoteFields(){
+  const a = addresses[currentIndex];
+  return a.residents.map(r => `<label>${r.name}<textarea data-no-note-id="${r.id}" placeholder="Person note optional">${r.notes || ''}</textarea></label>`).join('');
+}
+function noBranchPersonTools(){
+  const a = addresses[currentIndex];
+  return a.residents.map(r => `
+    <div class="person-detail-row">
+      <div class="person-detail-head">
+        <div>
+          <div class="person-detail-name">${r.name}</div>
+          <div class="tiny">${r.lastOutreach ? 'Last outreach: '+r.lastOutreach : 'No outreach logged'}</div>
+        </div>
+        <label class="inline-check"><input type="checkbox" data-unable-id="${r.id}" ${r.unable?'checked':''}> Unable to reach <span class="tooltip" data-tip="Use only when you have tried multiple times and still have not been able to reach this person. This is stronger than not contacted yet.">?</span></label>
+      </div>
+      <div class="detail-actions">
+        <button class="mini-link" onclick="toggleEl('log_${r.id}')" type="button">Log outreach attempt <span class="tooltip" data-tip="An outreach attempt means you tried to reach someone, even if they did not respond. Examples: sent email, called, texted, left voicemail, knocked, mailed a note, or left a flyer.">?</span></button>
+        <button class="mini-link" onclick="toggleEl('note_${r.id}')" type="button">Add person note</button>
+      </div>
+      <div class="detail-panel" id="log_${r.id}">
+        <select data-outreach-when="${r.id}" onchange="toggleOutreachDateFor('${r.id}')" style="width:100%;padding:10px;"><option value="Today">Today</option><option value="specific">Specific date</option><option value="Date unknown">I don’t remember when</option></select>
+        <input type="date" data-outreach-date="${r.id}" style="display:none;margin-top:8px;width:100%;padding:10px;">
+        <textarea data-outreach-note="${r.id}" placeholder="e.g. Sent email but did not receive a response" style="margin-top:8px;"></textarea>
+      </div>
+      <div class="detail-panel" id="note_${r.id}"><textarea data-no-note-id="${r.id}" placeholder="Person note optional">${r.notes || ''}</textarea></div>
+    </div>`).join('');
+}
+
+function personOptions(){
+  const a = addresses[currentIndex];
+  return a.residents.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+}
+function unableCheckboxes(){
+  const a = addresses[currentIndex];
+  return a.residents.map(r => `<label><input type="checkbox" data-unable-id="${r.id}" ${r.unable?'checked':''}> ${r.name}</label>`).join('');
+}
+function openNoTool(id, btn){
+  document.querySelectorAll('#noExtraPanel .action-panel').forEach(p => p.classList.remove('show'));
+  document.querySelectorAll('#noExtraPanel .action-card').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById(id);
+  if(panel) panel.classList.add('show');
+  if(btn) btn.classList.add('active');
+}
+function toggleNoSpecificDate(){
+  const sel = document.getElementById('noOutreachWhen');
+  const date = document.getElementById('noOutreachSpecificDate');
+  if(sel && date) date.style.display = sel.value === 'specific' ? 'block' : 'none';
+}
+function getNoOutreachWhen(){
+  const sel = document.getElementById('noOutreachWhen');
+  if(!sel) return 'Today';
+  if(sel.value === 'specific') return document.getElementById('noOutreachSpecificDate')?.value || 'Specific date';
+  return sel.value;
+}
+function personNameById(id){
+  const a = addresses[currentIndex];
+  return a.residents.find(r => r.id === id)?.name || 'Unknown person';
+}
+function addPendingOutreach(){
+  const personId = document.getElementById('outreachPersonSelect')?.value;
+  const note = document.getElementById('noOutreachNote')?.value.trim();
+  const when = getNoOutreachWhen();
+  if(!personId || !note){ toast('Choose a person and add an outreach note.'); return; }
+  pendingNoOutreach.push({ personId, when, note });
+  document.getElementById('noOutreachNote').value = '';
+  renderPendingOutreach();
+}
+function renderPendingOutreach(){
+  const list = document.getElementById('pendingOutreachList');
+  if(!list) return;
+  list.innerHTML = pendingNoOutreach.map((x, i) => `<div class="pending-item"><strong>${personNameById(x.personId)}</strong> — ${x.when}: ${x.note} <button class="mini-link" type="button" onclick="removePendingOutreach(${i})">remove</button></div>`).join('');
+}
+function removePendingOutreach(i){ pendingNoOutreach.splice(i,1); renderPendingOutreach(); }
+function addPendingPersonNote(){
+  const personId = document.getElementById('notePersonSelect')?.value;
+  const note = document.getElementById('noPersonNoteText')?.value.trim();
+  if(!personId || !note){ toast('Choose a person and add a note.'); return; }
+  pendingNoNotes.push({ personId, note });
+  document.getElementById('noPersonNoteText').value = '';
+  renderPendingPersonNotes();
+}
+function renderPendingPersonNotes(){
+  const list = document.getElementById('pendingPersonNoteList');
+  if(!list) return;
+  list.innerHTML = pendingNoNotes.map((x, i) => `<div class="pending-item"><strong>${personNameById(x.personId)}</strong> — ${x.note} <button class="mini-link" type="button" onclick="removePendingPersonNote(${i})">remove</button></div>`).join('');
+}
+function removePendingPersonNote(i){ pendingNoNotes.splice(i,1); renderPendingPersonNotes(); }
+function getOutreachWhenLabelFor(id){
+  const sel = document.querySelector(`[data-outreach-when="${id}"]`);
+  const val = sel?.value || 'Today';
+  if(val === 'specific') return document.querySelector(`[data-outreach-date="${id}"]`)?.value || 'Specific date';
+  return val;
+}
+function toggleOutreachDateFor(id){
+  const sel = document.querySelector(`[data-outreach-when="${id}"]`);
+  const date = document.querySelector(`[data-outreach-date="${id}"]`);
+  if(date && sel) date.style.display = sel.value === 'specific' ? 'block' : 'none';
+}
+function personRow(r){
+  return `<div class="person-row">
+    <div class="person-main">
+      <input type="checkbox" class="contactCheck" value="${r.id}" id="chk_${r.id}" ${r.contacted ? 'checked' : ''}>
+      <label for="chk_${r.id}"><span class="person-name">${r.name}</span>${r.contacted ? ' <span class="status-pill good">Already contacted</span>' : ''}<div class="tiny">${r.lastOutreach ? 'Last outreach: '+r.lastOutreach : 'No outreach logged'}</div></label>
+    </div>
+    <button class="options-toggle" onclick="toggleEl('opts_${r.id}')">Options / notes</button>
+    <div class="person-options" id="opts_${r.id}">
+      <div class="checks">
+        <label><input type="checkbox" data-field="wantsUpdates" data-id="${r.id}" ${r.wantsUpdates?'checked':''}> Wants updates</label>
+        <label><input type="checkbox" data-field="doNotContact" data-id="${r.id}" ${r.doNotContact?'checked':''}> Do not contact <span class="tooltip" data-tip="Use when someone has clearly asked not to be contacted again. Different from not wanting regular updates.">?</span></label>
+        <label><input type="checkbox" data-field="followUp" data-id="${r.id}" ${r.followUp?'checked':''}> Needs follow-up</label>
+        <label><input type="checkbox" data-field="unable" data-id="${r.id}" ${r.unable?'checked':''}> Unable to reach <span class="tooltip" data-tip="Use only when you have tried multiple times and still have not been able to reach this person.">?</span></label>
+        <label><input type="checkbox" data-field="former" data-id="${r.id}" ${r.former?'checked':''}> Former resident</label>
+        <label><input type="checkbox" data-field="deceased" data-id="${r.id}" ${r.deceased?'checked':''}> Deceased</label>
+      </div>
+      <textarea data-note-id="${r.id}" placeholder="Person note optional">${r.notes || ''}</textarea>
+    </div>
+  </div>`;
+}
+function toggleEl(id){ document.getElementById(id).classList.toggle('show'); }
+function toggleOutreachDetails(){ const el = document.getElementById('outreachDetails'); el.style.display = el.style.display === 'none' ? 'block' : 'none'; }
+function toggleQuickAdd(show){ document.getElementById('quickAdd').classList.toggle('show', show); }
+function chooseBranch(branch){
+  activeBranch = branch;
+  document.querySelectorAll('.big-choice').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('yesBranch').classList.toggle('show', branch === 'yes');
+  document.getElementById('noBranch').classList.toggle('show', branch === 'no');
+}
+function persistOptionFields(){
+  const a = addresses[currentIndex];
+  document.querySelectorAll('[data-field]').forEach(inp => {
+    const r = a.residents.find(x => x.id === inp.dataset.id);
+    if(r) r[inp.dataset.field] = inp.checked;
+  });
+  document.querySelectorAll('[data-note-id]').forEach(txt => {
+    const r = a.residents.find(x => x.id === txt.dataset.noteId);
+    if(r) r.notes = txt.value;
+  });
+}
+function makeReview(answer, status='reviewed'){
+  const a = addresses[currentIndex];
+  reviewRecords[reviewKey(a.id)] = {
+    review_key: reviewKey(a.id), check_in_id: checkInId, address_id: a.id, zone_id: zoneId, captain_id: captainId,
+    review_status: status, answer: answer || '', reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString()
+  };
+}
+function milestoneMessage(){
+  const reviewed = reviewedAddresses();
+  if(reviewed === 2) return 'Nice momentum: 2 addresses reviewed.';
+  if(reviewed === 3) return 'Street chunk complete in this demo.';
+  if(reviewed === Math.ceil(addresses.length / 2)) return 'Halfway through the demo queue.';
+  if(reviewed === addresses.length) return 'Contact Check-In complete.';
+  return '';
+}
+function toastMilestone(){
+  const msg = milestoneMessage();
+  if(msg) setTimeout(() => toast(msg), 300);
+}
+function saveYes(){
+  const a = addresses[currentIndex];
+  persistOptionFields();
+  const selected = Array.from(document.querySelectorAll('.contactCheck:checked')).map(i => i.value);
+  if(document.getElementById('someoneElse').checked){
+    const first = document.getElementById('newFirst').value.trim();
+    const last = document.getElementById('newLast').value.trim();
+    if(!first && !last){ toast('Add a name for the new person, or uncheck Someone else.'); return; }
+    const id = 'res_' + Math.random().toString(36).slice(2,8);
+    a.residents.push({ id, name: `${first} ${last}`.trim(), gender:'', lastOutreach:'', log:'', contacted:true, wantsUpdates:false, doNotContact:false, followUp:false, unable:false, former:false, deceased:false, notes: document.getElementById('newNotes').value.trim() });
+  }
+  if(selected.length === 0 && !document.getElementById('someoneElse').checked){ toast('Select at least one person, or choose No / Skip.'); return; }
+  a.residents.forEach(r => { if(selected.includes(r.id)) r.contacted = true; });
+  makeReview('yes_successful_contact');
+  toast('Saved. Address reviewed as successfully contacted.');
+  updateHome();
+  toastMilestone();
+  nextAddress();
+}
+function saveNo(){
+  const a = addresses[currentIndex];
+  a.residents.forEach(r => {
+    const unable = document.querySelector(`[data-unable-id="${r.id}"]`);
+    if(unable) r.unable = unable.checked;
+  });
+  pendingNoOutreach.forEach(entry => {
+    const r = a.residents.find(x => x.id === entry.personId);
+    if(r){
+      r.lastOutreach = entry.when;
+      r.log = `[${entry.when}] ${entry.note}` + (r.log ? `\n${r.log}` : '');
+    }
+  });
+  pendingNoNotes.forEach(entry => {
+    const r = a.residents.find(x => x.id === entry.personId);
+    if(r) r.notes = (r.notes ? r.notes + '\n' : '') + entry.note;
+  });
+  makeReview('no_successful_contact');
+  toast('Saved. Address reviewed as not yet successfully contacted.');
+  updateHome();
+  toastMilestone();
+  nextAddress();
+}
+function saveSkip(){
+  const a = addresses[currentIndex];
+  makeReview('', 'skipped');
+  toast('Skipped for now. It will stay in your queue.');
+  updateHome();
+  nextAddress();
+}
+function showComplete(){
+  document.getElementById('addressCard').innerHTML = `<h2 class="address-title">You finished the demo queue.</h2><p class="serif">In the real dashboard, this would celebrate completion and offer a skipped-address review queue.</p><div class="mini-stats"><div class="mini-stat"><strong>${reviewedAddresses()}</strong><span>Reviewed</span></div><div class="mini-stat"><strong>${reachedAddresses()}</strong><span>Reached</span></div><div class="mini-stat"><strong>${skippedAddresses()}</strong><span>Skipped</span></div><div class="mini-stat"><strong>${addresses.length}</strong><span>Demo addresses</span></div></div><div class="actionbar"><button class="primary" onclick="closeWizard()">Return home</button><button class="secondary" onclick="reviewSkipped()">Review skipped addresses</button><button class="secondary" onclick="resetDemo()">Reset demo</button></div>`;
+}
+function resetDemo(){ reviewRecords = {}; addresses.forEach(a=>a.residents.forEach(r=>r.contacted=false)); currentIndex=0; updateHome(); renderAddress(); }
+function toast(msg){ const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 2400); }
+
+updateHome();
+</script>
+</body>
+</html>
