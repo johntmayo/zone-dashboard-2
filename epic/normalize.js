@@ -287,10 +287,125 @@ function buildLookupPayload(records, { apnNorm, lastSyncedAt } = {}) {
   };
 }
 
+/** Homepage Building & Rebuilding — broad county milestone buckets (not captain stages). */
+const HOMEPAGE_EPIC_MILESTONES = [
+  { key: 'application_or_plans', label: 'Application or plans under review' },
+  { key: 'permit_issued', label: 'Permit issued' },
+  { key: 'construction_underway', label: 'Construction underway' },
+  { key: 'construction_completed', label: 'Construction completed' }
+];
+
+function homepageMilestoneFromOrdinal(ordinal) {
+  const n = Number(ordinal) || 0;
+  if (n >= 7) return 'construction_completed';
+  if (n >= 6) return 'construction_underway';
+  if (n >= 5) return 'permit_issued';
+  if (n >= 1) return 'application_or_plans';
+  // Unknown county progress still counts as early-track for homepage rollup.
+  return 'application_or_plans';
+}
+
+function progressOrdinalFromCase(caseRecord) {
+  if (!caseRecord) return 0;
+  const num = Number(caseRecord.rebuild_progress_num);
+  if (Number.isFinite(num) && num > 0) return num;
+  const key = String(caseRecord.rebuild_progress || '').toLowerCase().trim();
+  return REBUILD_PROGRESS_ORDINAL[key] || 0;
+}
+
+/** Most advanced rebuild milestone for one APN's rebuild cases. Empty if none. */
+function milestoneFromRebuildCases(cases) {
+  if (!Array.isArray(cases) || cases.length === 0) return '';
+  let maxOrd = 0;
+  cases.forEach((c) => {
+    maxOrd = Math.max(maxOrd, progressOrdinalFromCase(c));
+  });
+  return homepageMilestoneFromOrdinal(maxOrd);
+}
+
+/**
+ * Zone-level EPIC homepage summary.
+ * Counts unique addresses (via their APNs), not case rows.
+ * opts.addressApns: array of { address, apn } for every zone address (apn may be '').
+ * opts.resultsByApn: map/object of normalized APN → by-apn lookup payload.
+ */
+function summarizeZoneEpicHomepage({ addressApns, resultsByApn, lastSyncedAt } = {}) {
+  const rows = Array.isArray(addressApns) ? addressApns : [];
+  const results = resultsByApn && typeof resultsByApn === 'object' ? resultsByApn : {};
+  const getResult = (apn) => {
+    if (!apn) return null;
+    if (typeof results.get === 'function') return results.get(apn) || null;
+    return results[apn] || null;
+  };
+
+  const milestoneCounts = {};
+  HOMEPAGE_EPIC_MILESTONES.forEach((m) => { milestoneCounts[m.key] = 0; });
+
+  let withApn = 0;
+  let missingApn = 0;
+  let withAnyEpic = 0;
+  let withRebuildEpic = 0;
+  let withTempHousing = 0;
+  let sync = String(lastSyncedAt || '').trim();
+
+  rows.forEach((row) => {
+    const apn = String((row && row.apn) || '').trim();
+    if (!apn) {
+      missingApn += 1;
+      return;
+    }
+    withApn += 1;
+    const payload = getResult(apn);
+    if (!payload) return;
+    if (!sync && payload.last_synced_at) sync = String(payload.last_synced_at).trim();
+
+    const rebuildCases = payload.cases_rebuild || [];
+    const tempCases = payload.cases_temp_housing || [];
+    const total = payload.counts
+      ? Number(payload.counts.total) || 0
+      : (rebuildCases.length + tempCases.length);
+
+    if (total > 0) withAnyEpic += 1;
+    if (tempCases.length > 0 || (payload.counts && Number(payload.counts.temp_housing) > 0)) {
+      withTempHousing += 1;
+    }
+    if (rebuildCases.length > 0 || (payload.counts && Number(payload.counts.rebuild) > 0)) {
+      withRebuildEpic += 1;
+      const key = milestoneFromRebuildCases(rebuildCases);
+      if (key && Object.prototype.hasOwnProperty.call(milestoneCounts, key)) {
+        milestoneCounts[key] += 1;
+      }
+    }
+  });
+
+  const totalAddresses = rows.length;
+  const checkedAddresses = withApn;
+  const pctOfZone = totalAddresses > 0 ? Math.round((withAnyEpic / totalAddresses) * 100) : 0;
+  const pctOfChecked = checkedAddresses > 0 ? Math.round((withAnyEpic / checkedAddresses) * 100) : 0;
+
+  return {
+    totalAddresses,
+    checkedAddresses,
+    missingApn,
+    withAnyEpic,
+    withRebuildEpic,
+    withTempHousing,
+    pctOfZone,
+    pctOfChecked,
+    milestones: HOMEPAGE_EPIC_MILESTONES.map((m) => ({
+      key: m.key,
+      label: m.label,
+      count: milestoneCounts[m.key] || 0
+    })),
+    lastSyncedAt: sync
+  };
+}
+
 module.exports = {
   CACHE_COLUMNS,
   META_COLUMNS,
   REBUILD_PROGRESS_ORDINAL,
+  HOMEPAGE_EPIC_MILESTONES,
   normalizeApn,
   arcgisDateToIso,
   isTemporaryHousing,
@@ -299,5 +414,8 @@ module.exports = {
   recordToRow,
   rowToRecord,
   buildLookupPayload,
-  fromBoolString
+  fromBoolString,
+  homepageMilestoneFromOrdinal,
+  milestoneFromRebuildCases,
+  summarizeZoneEpicHomepage
 };

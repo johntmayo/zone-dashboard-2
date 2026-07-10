@@ -24,6 +24,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <link rel="stylesheet" href="public/css/styles.css">
   <script src="public/js/utils.js"></script>
+  <script src="public/js/address-id.js"></script>
+  <script src="public/js/contact-checkin.js"></script>
   <!-- Google Analytics 4 (loads only when GA_MEASUREMENT_ID is set) -->
   <script>
     window.trackAnalyticsEvent = function(eventName, params) {
@@ -106,7 +108,6 @@
         <button class="nav-item hidden" type="button" id="navSwitchZone">Switch Zone</button>
         <button class="nav-item hidden" data-view="godmode" id="navGodmode">Admin Mode</button>
         <button class="nav-item hidden" data-view="lotWeedingAdmin" id="navLotWeedingAdmin">Lot Weeding Command Center</button>
-        <a href="about.html" target="_blank" rel="noopener noreferrer" class="nav-item nav-item-link">About the Dashboard</a>
       </div>
       <div class="nav-section nav-section-bottom">
         <div class="nav-logo">
@@ -114,6 +115,8 @@
         </div>
         <button class="nav-item hidden" id="signOutBtn" type="button">Sign out</button>
         <div class="nav-feedback-wrap">
+          <a href="about.html" target="_blank" rel="noopener noreferrer" class="nav-feedback-link">About</a>
+          <span class="nav-feedback-sep" aria-hidden="true">·</span>
           <a href="https://airtable.com/appLrjspqPboCt2ma/pagutixyE91qfPMVd/form" target="_blank" rel="noopener noreferrer" class="nav-feedback-link">Send feedback</a>
         </div>
       </div>
@@ -258,191 +261,207 @@
         </div>
 
         <div class="home-panels-grid">
-          <!-- Panel A: Zone Overview -->
-          <div class="home-panel home-panel--overview">
-            <div class="home-panel-header">
-              <h2>Zone Overview</h2>
-            </div>
-            <div class="home-panel-content" id="zoneSnapshotContent">
-              <div class="loading">Loading zone data...</div>
-            </div>
-            <div id="zoneStatCards" class="zone-stat-cards hidden">
-              <div class="zone-stat-column">
-                <div class="zone-stat-item">
-                  <span class="zone-stat-number" id="statTotalAddresses">—</span>
-                  <span class="zone-stat-label">Total Addresses</span>
+          <div class="home-bento-columns">
+            <div class="home-bento-col home-bento-col--main">
+              <!-- Panel A: Zone Overview -->
+              <div class="home-panel home-panel--overview">
+                <div class="home-panel-header">
+                  <h2>Zone Overview</h2>
                 </div>
-                <div class="zone-stat-item">
-                  <span class="zone-stat-number" id="statTotalPeople">—</span>
-                  <span class="zone-stat-label">Total People</span>
+                <div class="home-panel-content" id="zoneSnapshotContent">
+                  <div class="loading">Loading zone data...</div>
                 </div>
-                <div class="zone-stat-item">
-                  <span class="zone-stat-number" id="statContacted">—</span>
-                  <span class="zone-stat-label">Addresses with Outreach Attempt</span>
-                </div>
-              </div>
-              <div class="zone-stat-column">
-                <div class="zone-stat-item">
-                  <span class="zone-stat-number" id="statTotalLoss">—</span>
-                  <span class="zone-stat-label">Total Loss</span>
-                </div>
-                <div class="zone-stat-item">
-                  <span class="zone-stat-number" id="statStanding">—</span>
-                  <span class="zone-stat-label">Standing</span>
-                </div>
-                <div class="zone-stat-item">
-                  <span class="zone-stat-number" id="statDamageNotSet">—</span>
-                  <span class="zone-stat-label">Damage Not Set</span>
-                </div>
-              </div>
-              <div class="zone-stat-column">
-                <div class="zone-stat-item">
-                  <span class="zone-stat-number" id="statSoldSinceFire">—</span>
-                  <span class="zone-stat-label">Sold Since Fire</span>
-                </div>
-              </div>
-            </div>
-            <div class="zone-overview-charts hidden" id="zoneOverviewCharts">
-              <!-- Left Chart Carousel -->
-              <div class="chart-carousel-wrapper">
-                <div class="chart-carousel-container">
-                  <button class="chart-carousel-arrow chart-carousel-arrow-left" aria-label="Previous chart">
-                    <span class="chart-carousel-arrow-symbol">‹</span>
-                  </button>
-                  <div class="chart-carousel-track">
-                    <div class="chart-container-small chart-carousel-slide active" data-chart-index="0">
-                      <div class="chart-title">Addresses with Outreach Attempt</div>
-                      <canvas id="zoneOverviewLeftAddressesChart"></canvas>
+                <div id="zoneStatCards" class="zone-stat-cards hidden">
+                  <div class="zone-stat-column">
+                    <div class="zone-stat-item">
+                      <span class="zone-stat-number" id="statTotalAddresses">—</span>
+                      <span class="zone-stat-label">Total Addresses</span>
                     </div>
-                    <div class="chart-container-small chart-carousel-slide" data-chart-index="1">
-                      <div class="chart-title">Streets Distribution</div>
-                      <canvas id="zoneOverviewLeftStreetsChart"></canvas>
+                    <div class="zone-stat-item">
+                      <span class="zone-stat-number" id="statTotalPeople">—</span>
+                      <span class="zone-stat-label">Total People</span>
                     </div>
-                    <div class="chart-container-small chart-carousel-slide" data-chart-index="2">
-                      <div class="chart-title">People per Address</div>
-                      <canvas id="zoneOverviewLeftPeopleChart"></canvas>
+                    <div class="zone-stat-item">
+                      <span class="zone-stat-number" id="statContacted">—</span>
+                      <span class="zone-stat-label">Addresses with Outreach Attempt</span>
                     </div>
                   </div>
-                  <button class="chart-carousel-arrow chart-carousel-arrow-right" aria-label="Next chart">
-                    <span class="chart-carousel-arrow-symbol">›</span>
-                  </button>
-                  <div class="chart-carousel-dots" data-carousel="left"></div>
+                  <div class="zone-stat-column">
+                    <div class="zone-stat-item">
+                      <span class="zone-stat-number" id="statTotalLoss">—</span>
+                      <span class="zone-stat-label">Total Loss</span>
+                    </div>
+                    <div class="zone-stat-item">
+                      <span class="zone-stat-number" id="statStanding">—</span>
+                      <span class="zone-stat-label">Standing</span>
+                    </div>
+                    <div class="zone-stat-item">
+                      <span class="zone-stat-number" id="statDamageNotSet">—</span>
+                      <span class="zone-stat-label">Damage Not Set</span>
+                    </div>
+                  </div>
+                  <div class="zone-stat-column">
+                    <div class="zone-stat-item">
+                      <span class="zone-stat-number" id="statSoldSinceFire">—</span>
+                      <span class="zone-stat-label">Sold Since Fire</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="zone-overview-charts hidden" id="zoneOverviewCharts">
+                  <!-- Left Chart Carousel -->
+                  <div class="chart-carousel-wrapper">
+                    <div class="chart-carousel-container">
+                      <button class="chart-carousel-arrow chart-carousel-arrow-left" aria-label="Previous chart">
+                        <span class="chart-carousel-arrow-symbol">‹</span>
+                      </button>
+                      <div class="chart-carousel-track">
+                        <div class="chart-container-small chart-carousel-slide active" data-chart-index="0">
+                          <div class="chart-title">Addresses with Outreach Attempt</div>
+                          <canvas id="zoneOverviewLeftAddressesChart"></canvas>
+                        </div>
+                        <div class="chart-container-small chart-carousel-slide" data-chart-index="1">
+                          <div class="chart-title">Streets Distribution</div>
+                          <canvas id="zoneOverviewLeftStreetsChart"></canvas>
+                        </div>
+                        <div class="chart-container-small chart-carousel-slide" data-chart-index="2">
+                          <div class="chart-title">People per Address</div>
+                          <canvas id="zoneOverviewLeftPeopleChart"></canvas>
+                        </div>
+                      </div>
+                      <button class="chart-carousel-arrow chart-carousel-arrow-right" aria-label="Next chart">
+                        <span class="chart-carousel-arrow-symbol">›</span>
+                      </button>
+                      <div class="chart-carousel-dots" data-carousel="left"></div>
+                    </div>
+                  </div>
+                  
+                  <!-- Right Chart Carousel -->
+                  <div class="chart-carousel-wrapper">
+                    <div class="chart-carousel-container">
+                      <button class="chart-carousel-arrow chart-carousel-arrow-left" aria-label="Previous chart">
+                        <span class="chart-carousel-arrow-symbol">‹</span>
+                      </button>
+                      <div class="chart-carousel-track">
+                        <div class="chart-container-small chart-carousel-slide active" data-chart-index="0">
+                          <div class="chart-title">Damage Status</div>
+                          <canvas id="zoneOverviewRightDamageChart"></canvas>
+                        </div>
+                        <div class="chart-container-small chart-carousel-slide" data-chart-index="1">
+                          <div class="chart-title">Build Status</div>
+                          <canvas id="zoneOverviewRightRebuildChart"></canvas>
+                        </div>
+                        <div class="chart-container-small chart-carousel-slide" data-chart-index="2">
+                          <div class="chart-title">Address Plan</div>
+                          <canvas id="zoneOverviewRightHouseholdChart"></canvas>
+                        </div>
+                      </div>
+                      <button class="chart-carousel-arrow chart-carousel-arrow-right" aria-label="Next chart">
+                        <span class="chart-carousel-arrow-symbol">›</span>
+                      </button>
+                      <div class="chart-carousel-dots" data-carousel="right"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Mobile-only: single 6-chart carousel replaces the dual desktop carousels -->
+                <div class="mobile-chart-carousel" id="mobileZoneChartCarousel">
+                  <div class="mobile-chart-header">
+                    <button class="mobile-chart-nav" id="mobileChartPrev" aria-label="Previous chart">&#8249;</button>
+                    <div class="mobile-chart-meta">
+                      <div class="mobile-chart-title" id="mobileChartTitle">Addresses with Outreach Attempt</div>
+                      <div class="mobile-chart-counter" id="mobileChartCounter">1 / 6</div>
+                    </div>
+                    <button class="mobile-chart-nav" id="mobileChartNext" aria-label="Next chart">&#8250;</button>
+                  </div>
+                  <div class="mobile-chart-canvas-wrap">
+                    <canvas id="mobileZoneChart"></canvas>
+                  </div>
+                </div>
+
+                <div class="zone-overview-footer hidden" id="zoneOverviewFooter" style="display:none;">
+                  <div class="stat-item">
+                    <span class="stat-label">Last updated</span>
+                    <span class="stat-value">-</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Panel: Announcements (under Zone Overview) -->
+              <div class="home-panel home-panel--altagether">
+                <div class="home-panel-header">
+                  <h2>Announcements</h2>
+                </div>
+                <div class="home-panel-content" id="altagetherContent">
+                  <div class="loading">Loading announcements...</div>
                 </div>
               </div>
               
-              <!-- Right Chart Carousel -->
-              <div class="chart-carousel-wrapper">
-                <div class="chart-carousel-container">
-                  <button class="chart-carousel-arrow chart-carousel-arrow-left" aria-label="Previous chart">
-                    <span class="chart-carousel-arrow-symbol">‹</span>
-                  </button>
-                  <div class="chart-carousel-track">
-                    <div class="chart-container-small chart-carousel-slide active" data-chart-index="0">
-                      <div class="chart-title">Damage Status</div>
-                      <canvas id="zoneOverviewRightDamageChart"></canvas>
-                    </div>
-                    <div class="chart-container-small chart-carousel-slide" data-chart-index="1">
-                      <div class="chart-title">Build Status</div>
-                      <canvas id="zoneOverviewRightRebuildChart"></canvas>
-                    </div>
-                    <div class="chart-container-small chart-carousel-slide" data-chart-index="2">
-                      <div class="chart-title">Address Plan</div>
-                      <canvas id="zoneOverviewRightHouseholdChart"></canvas>
-                    </div>
-                  </div>
-                  <button class="chart-carousel-arrow chart-carousel-arrow-right" aria-label="Next chart">
-                    <span class="chart-carousel-arrow-symbol">›</span>
-                  </button>
-                  <div class="chart-carousel-dots" data-carousel="right"></div>
+              <!-- Panel: Quick Actions -->
+              <div class="home-panel home-panel--actions">
+                <div class="home-panel-header">
+                  <h2>Quick Actions</h2>
+                </div>
+                <div class="home-panel-content" id="quickActionsContent">
+                  <div class="loading">Loading quick actions...</div>
                 </div>
               </div>
             </div>
 
-            <!-- Mobile-only: single 6-chart carousel replaces the dual desktop carousels -->
-            <div class="mobile-chart-carousel" id="mobileZoneChartCarousel">
-              <div class="mobile-chart-header">
-                <button class="mobile-chart-nav" id="mobileChartPrev" aria-label="Previous chart">&#8249;</button>
-                <div class="mobile-chart-meta">
-                  <div class="mobile-chart-title" id="mobileChartTitle">Addresses with Outreach Attempt</div>
-                  <div class="mobile-chart-counter" id="mobileChartCounter">1 / 6</div>
+            <div class="home-bento-col home-bento-col--side">
+              <!-- Panel: Contact Check-In (campaign spotlight — reusable home-panel--campaign) -->
+              <div class="home-panel home-panel--checkin home-panel--campaign contact-checkin-panel hidden">
+                <div class="home-panel-header">
+                  <span class="campaign-badge">Town-wide campaign</span>
+                  <h2>Contact Check-In</h2>
                 </div>
-                <button class="mobile-chart-nav" id="mobileChartNext" aria-label="Next chart">&#8250;</button>
+                <div class="home-panel-content" id="contactCheckInContent">
+                  <div class="loading">Loading Contact Check-In...</div>
+                </div>
               </div>
-              <div class="mobile-chart-canvas-wrap">
-                <canvas id="mobileZoneChart"></canvas>
-              </div>
-            </div>
 
-            <div class="zone-overview-footer hidden" id="zoneOverviewFooter" style="display:none;">
-              <div class="stat-item">
-                <span class="stat-label">Last updated</span>
-                <span class="stat-value">-</span>
+              <!-- Panel: Contact Check-In Community Feed -->
+              <div class="home-panel home-panel--feed home-panel--campaign-feed contact-checkin-feed-panel hidden">
+                <div class="home-panel-header">
+                  <span class="campaign-badge">Town-wide campaign</span>
+                  <h2>Community Feed</h2>
+                </div>
+                <div class="home-panel-content" id="contactCheckInFeedContent">
+                  <div class="loading">Loading community progress...</div>
+                </div>
+              </div>
+              
+              <!-- Panel: Zone Map -->
+              <div class="home-panel home-panel--map home-panel-map">
+                <div class="home-panel-header">
+                  <h2>Mini Map</h2>
+                </div>
+                <div class="home-panel-content home-map-container" id="homeMapContainer">
+                  <div id="homeMap"></div>
+                </div>
+                <div class="home-map-footer">
+                  <a href="#" class="home-map-open-link" id="homeMapOpenFull">Open full map</a>
+                </div>
+              </div>
+
+              <!-- Panel: Zone Leadership -->
+              <div class="home-panel home-panel--leadership">
+                <div class="home-panel-header">
+                  <h2>Zone Leadership</h2>
+                </div>
+                <div class="home-panel-content" id="zoneLeadershipContent">
+                  <div class="loading">Loading zone leadership...</div>
+                </div>
               </div>
             </div>
           </div>
-
-          <!-- Panel B: From Altagether -->
-          <div class="home-panel home-panel--altagether altagether-panel">
-            <div class="home-panel-header">
-              <h2>From Altagether</h2>
-            </div>
-            <div class="home-panel-content" id="altagetherContent">
-              <div class="loading">Loading announcements...</div>
-            </div>
-          </div>
           
-          <!-- Panel B2: Quick Actions -->
-          <div class="home-panel home-panel--actions">
-            <div class="home-panel-header">
-              <h2>Quick Actions</h2>
-            </div>
-            <div class="home-panel-content" id="quickActionsContent">
-              <div class="loading">Loading quick actions...</div>
-            </div>
-          </div>
-          
-          <!-- Panel C: Zone Map -->
-          <div class="home-panel home-panel--map home-panel-map">
-            <div class="home-panel-header">
-              <h2>Mini Map</h2>
-            </div>
-            <div class="home-panel-content home-map-container" id="homeMapContainer">
-              <div id="homeMap" style="width: 100%; height: 100%;"></div>
-            </div>
-          </div>
-          
-          <!-- Panel D: Build Progress Charts -->
+          <!-- Panel: Building & Rebuilding (captain build status + EPIC + Address Plan) -->
           <div class="home-panel home-panel-wide home-panel--build">
             <div class="home-panel-header">
-              <h2>Build Progress</h2>
+              <h2>Building &amp; Rebuilding</h2>
             </div>
-            <div class="home-panel-content">
-              <div class="charts-grid" id="homeChartsGrid">
-                <div class="chart-container">
-                  <div class="chart-title">Address Plan</div>
-                  <canvas id="householdStatusChart"></canvas>
-                </div>
-                <div class="chart-container">
-                  <div class="chart-title">Build Status</div>
-                  <canvas id="rebuildStatusChart"></canvas>
-                </div>
-              </div>
-              <div class="charts-grid charts-grid-wide hidden" id="homeChartsGridWide">
-                <div class="chart-container chart-container-fullwidth">
-                  <div class="chart-title">Build Status (Funnel)</div>
-                  <canvas id="rebuildStatusFunnelChart"></canvas>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Panel E: Zone Leadership -->
-          <div class="home-panel home-panel--leadership">
-            <div class="home-panel-header">
-              <h2>Zone Leadership</h2>
-            </div>
-            <div class="home-panel-content" id="zoneLeadershipContent">
-              <div class="loading">Loading zone leadership...</div>
+            <div class="home-panel-content" id="buildingRebuildingContent">
+              <div class="loading">Loading build status…</div>
             </div>
           </div>
         </div>
@@ -546,6 +565,68 @@
             </div>
           </div>
 
+          <!-- Event Funding Module -->
+          <div class="tool-module tool-module--featured" id="eventFunding">
+            <div class="tool-module-header" style="cursor: pointer;">
+              <h3>Event Funding <span class="tool-module-toggle">▼</span></h3>
+              <p>Two ways to cover costs for block parties and zone meet-ups: Altagether reimbursement ($5 per person in your zone for gatherings) or an Altadena Rotary grant (up to $300 in gift cards).</p>
+            </div>
+            <div class="tool-module-content">
+              <div class="event-funding-paths">
+                <section class="event-funding-path">
+                  <h4 class="event-funding-path__title">Altagether Reimbursement</h4>
+                  <p class="event-funding-path__summary">Altagether has funds available to help Neighborhood Captains communicate with their zones and bring neighbors together. Reimbursable gatherings may include coffee meetups, framing parties, block parties, informal neighbor gatherings, or other zone activities.</p>
+                  <p class="event-funding-subtitle">Zone Gathering Reimbursements</p>
+                  <p class="event-funding-path__summary">The maximum available reimbursement for zone gatherings is <strong>$5 per person in your zone</strong>.</p>
+                  <p class="event-funding-path__summary">To determine your zone’s reimbursement limit, use the approximate number of people you would invite to a gathering. You can base this on the number of residents shown on your dashboard or on your own records, such as the number of people in your neighborhood group chat or email list.</p>
+                  <p class="event-funding-path__summary">For example, if your zone includes 40 people, you may request reimbursement for up to <strong>$200</strong> in eligible gathering expenses.</p>
+                  <p class="event-funding-subtitle">Eligible expenses may include</p>
+                  <ul class="event-funding-list">
+                    <li>Space or picnic-area rental</li>
+                    <li>Snacks and nonalcoholic drinks</li>
+                    <li>Ice and basic gathering supplies</li>
+                    <li>Supplies for activities such as lot-clearing events or framing parties</li>
+                  </ul>
+                  <p class="event-funding-path__summary">Receipts are required for all reimbursement requests. You do not need to spend the full amount available to your zone.</p>
+                  <p class="event-funding-subtitle">Other Reimbursable Expenses</p>
+                  <ul class="event-funding-list">
+                    <li>Postage for mailings to your zone: up to $50</li>
+                    <li>Printing letters, flyers, or other zone materials: up to $50</li>
+                    <li>Parking when specifically representing Altagether at a trade show, community meeting, or similar event: up to $25</li>
+                  </ul>
+                  <p class="event-funding-subtitle">Expenses We Do Not Reimburse</p>
+                  <ul class="event-funding-list">
+                    <li>Alcohol</li>
+                    <li>Transportation expenses, including gas, rideshares, or public transit</li>
+                    <li>Expenses without receipts</li>
+                  </ul>
+                  <p class="event-funding-note">Altagether has a limited reimbursement budget across more than 100 zones. Please use these funds thoughtfully and contact us before making an unusually large or uncertain purchase.</p>
+                  <div class="event-funding-actions">
+                    <a href="https://airtable.com/appQZ2SGzHK2MdPVj/pagfmDt9a5JrXK9Z0/form" target="_blank" rel="noopener noreferrer" class="tool-link-btn">
+                      Open Reimbursement Request Form
+                    </a>
+                  </div>
+                </section>
+
+                <section class="event-funding-path">
+                  <h4 class="event-funding-path__title">Altadena Rotary Block Party Grant</h4>
+                  <p class="event-funding-path__summary">Altadena Rotary and Grocery Outlet offer up to <strong>$300 in gift cards</strong> for block parties and neighborhood gatherings that bring people together as we rebuild after the fire.</p>
+                  <ul class="event-funding-list">
+                    <li>Funds can be used for food, drinks, supplies, or activities.</li>
+                    <li>Fill out the application form and email it to Deb Halberstadt at <a href="mailto:halfcityprods@gmail.com">halfcityprods@gmail.com</a>.</li>
+                    <li>Applications are reviewed on a rolling basis — give at least <strong>2 weeks’ notice</strong> before your event.</li>
+                    <li>After your gathering, Rotary asks for a short summary of how the funds were used, turnout, and any photos or highlights.</li>
+                  </ul>
+                  <div class="event-funding-actions">
+                    <a href="public/docs/altadena-rotary-block-party-request-form.pdf" target="_blank" rel="noopener noreferrer" class="tool-link-btn" download>
+                      Download Application Form (PDF)
+                    </a>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -622,9 +703,6 @@
               </a>
               <a href="https://www.zillow.com/altadena-ca-91001/?searchQueryState=%7B%22isMapVisible%22%3Atrue%2C%22mapBounds%22%3A%7B%22north%22%3A34.232110569367%2C%22south%22%3A34.15628922453173%2C%22east%22%3A-118.0801343821745%2C%22west%22%3A-118.20415972702314%7D%2C%22mapZoom%22%3A14%2C%22usersSearchTerm%22%3A%22Altadena%20CA%2091001%22%2C%22filterState%22%3A%7B%22sort%22%3A%7B%22value%22%3A%22globalrelevanceex%22%7D%7D%2C%22isListVisible%22%3Atrue%2C%22regionSelection%22%3A%5B%7B%22regionId%22%3A96265%2C%22regionType%22%3A7%7D%5D%2C%22pagination%22%3A%7B%7D%7D" target="_blank" rel="noopener noreferrer" style="font-weight: bold; color: var(--primary-dark); text-decoration: underline; font-size: 0.95rem;">
                 Everything for Sale
-              </a>
-              <a href="https://docs.google.com/spreadsheets/d/1qDFwOTnUq87o12n-EeFIZ0xfcqpGOEoNIGFbDJe33a8/edit?gid=757210531#gid=757210531" target="_blank" rel="noopener noreferrer" style="font-weight: bold; color: var(--primary-dark); text-decoration: underline; font-size: 0.95rem;">
-                Sold Properties List
               </a>
             </div>
           </div>
@@ -878,6 +956,19 @@
             <div style="margin-top: 16px;">
               <a href="flyer_tool.html" target="_blank" rel="noopener noreferrer" class="tool-link-btn" id="flyerCreatorLinkBtn">
                 🎨 Open Flyer Creator
+              </a>
+            </div>
+          </div>
+
+          <!-- Newsletter Builder Link Module -->
+          <div class="tool-module tool-module--featured" id="newsletterBuilderLink" data-no-expand="true">
+            <div class="tool-module-header">
+              <h3>Newsletter Builder</h3>
+              <p>Create your own neighborhood newsletter by choosing items from the latest Altagether Newsletter and adding your own zone-specific updates.</p>
+            </div>
+            <div style="margin-top: 16px;">
+              <a href="https://newsletterbuilder.altagether.org/" target="_blank" rel="noopener noreferrer" class="tool-link-btn">
+                Open Newsletter Builder
               </a>
             </div>
           </div>
@@ -1207,6 +1298,9 @@
     const LOT_WEEDING_PARTNER_LOGO_SRC = 'public/images/atf-logo.png';
     // Flip to false to revert the Map-tab in-panel calendar (Planner view) without removing code.
     const LOT_WEEDING_PLANNER_CALENDAR_ENABLED = true;
+    // Contact Check-In + Community Feed on Home. Ship with false; flip to true to launch,
+    // or set CONTACT_CHECKIN_HOME_ENABLED=true in Vercel (either one turns the cards on).
+    const CONTACT_CHECKIN_HOME_ENABLED = false;
     let currentUserRoles = [];
     let currentUserCapabilities = [];
     let welcomeAuthState = 'idle'; // idle | loading | zone_picker | not_registered | server_error
@@ -1236,7 +1330,7 @@
     let currentAddressPlanFilter = 'all'; // Current Address Plan filter (only when Damage = Partial/Total Loss)
     let currentRebuildFilter = 'all'; // Current rebuild status filter
     let currentRemediationFilter = 'all'; // Current Remediation Status filter (address-level)
-    let currentEpicFilter = 'all'; // EPIC permitting filter: all | has_epic
+    let currentEpicFilter = 'all'; // EPIC: all | has_epic | epic_* milestone | epic_temp_housing
     let currentCaptainFilter = 'all'; // Current captain assigned filter
     let currentPersonSearch = ''; // Current resident-name search filter
     let showContactedAddresses = true; // Show addresses with contacted people
@@ -1246,8 +1340,19 @@
       loading: false,
       ready: false,
       error: '',
-      byApnHasRecords: new Map()
+      byApnHasRecords: new Map(),
+      byApnMilestone: new Map(),
+      byApnHasTempHousing: new Map(),
+      lastSyncedAt: '',
+      summary: null
     };
+    // Keep in sync with epic/normalize.js HOMEPAGE_EPIC_MILESTONES
+    const HOMEPAGE_EPIC_MILESTONES = [
+      { key: 'application_or_plans', label: 'Application or plans under review' },
+      { key: 'permit_issued', label: 'Permit issued' },
+      { key: 'construction_underway', label: 'Construction underway' },
+      { key: 'construction_completed', label: 'Construction completed' }
+    ];
     const lotWeedingCentralState = {
       loading: false,
       loaded: false,
@@ -3146,6 +3251,7 @@
 
     const GODMODE_FIELD_ALIASES = {
       residentId: ['resident_id', 'resident id', 'residentid', 'person_id', 'person id'],
+      addressId: ['address_id', 'address id', 'addressid'],
       name: ['resident name', 'full name', 'name', 'person name', 'voter name'],
       firstName: ['first name', 'firstname'],
       lastName: ['last name', 'lastname', 'surname'],
@@ -7961,7 +8067,7 @@
           });
         });
 
-        // Store data globally (useResidentId: use resident_id for writes when column exists - sort-safe)
+        // Store data globally (useResidentId / useAddressId: sort-safe identity columns when present)
         sheetData = {
           headers,
           data,
@@ -7974,7 +8080,8 @@
           addressColumns,
           getAddressString,
           getStreetString,
-          useResidentId: headers.includes('resident_id')
+          useResidentId: headers.includes('resident_id'),
+          useAddressId: headers.includes('address_id')
         };
         
         // Re-initialize Contact List Creator if user is on Tools view and data just loaded
@@ -8224,6 +8331,31 @@
     function normalizeRebuildStatusLabel(str) {
       if (!str || typeof str !== 'string') return str || '';
       return str.trim().replace(/\s*\/\s*/g, '/');
+    }
+
+    function isKnownCaptainBuildStatus(value) {
+      const v = normalizeRebuildStatusLabel(String(value || '').trim());
+      if (!v) return false;
+      const lower = v.toLowerCase();
+      return lower !== 'not started' && lower !== 'none' && lower !== 'unknown';
+    }
+
+    function addressMatchesRebuildFilter(address, rebuildCol) {
+      if (currentRebuildFilter === 'all' || !rebuildCol) return true;
+      const rows = sheetData.addressMap.get(address);
+      if (!rows || !rows[0]) {
+        return currentRebuildFilter === '__known__'
+          ? false
+          : (String(currentRebuildFilter).toLowerCase() === 'not started');
+      }
+      const rebuildValue = normalizeRebuildStatusLabel((rows[0][rebuildCol] || '').trim());
+      if (currentRebuildFilter === '__known__') {
+        return isKnownCaptainBuildStatus(rebuildValue);
+      }
+      if (String(currentRebuildFilter).toLowerCase() === 'not started') {
+        return !isKnownCaptainBuildStatus(rebuildValue);
+      }
+      return rebuildValue === currentRebuildFilter;
     }
 
     // Get all rebuild status options for filter: full sequential list first, then any custom from data
@@ -9882,6 +10014,16 @@
       }
     }
 
+    // Ensure address_id is set for Add Record: reuse existing canonical match, else mint.
+    // On same-address / multiple-ID conflict: log and leave blank (do not silently pick).
+    function ensureAddressId(headers, valuesByColumn, options) {
+      if (typeof resolveAddressIdForAddRecord !== 'function') return { addressId: '', status: 'unavailable' };
+      return resolveAddressIdForAddRecord(headers, valuesByColumn, {
+        sheetRows: (sheetData && sheetData.data) || [],
+        ...(options || {})
+      });
+    }
+
     // Build one row array in header order from a key-value map
     function buildRowForHeaders(headers, valuesByColumn) {
       return headers.map(h => (valuesByColumn[h] != null && valuesByColumn[h] !== '') ? String(valuesByColumn[h]).trim() : '');
@@ -10024,7 +10166,7 @@
       const normalized = typeof normalizeHeaderKey === 'function'
         ? normalizeHeaderKey(column)
         : lower.replace(/[^a-z0-9]/g, '');
-      if (!lower || normalized === 'residentid') return true;
+      if (!lower || normalized === 'residentid' || normalized === 'addressid') return true;
       if (lower.startsWith('__')) return true;
       if (lower.startsWith('_') && !normalized.startsWith('situs')) return true;
       if (lower.startsWith('person - ') || lower.startsWith('person_')) return true;
@@ -10539,6 +10681,7 @@
           if (latCol && addRecordLat != null) addRecordPendingRowValues[latCol] = String(addRecordLat);
           if (lonCol && addRecordLon != null) addRecordPendingRowValues[lonCol] = String(addRecordLon);
           ensureResidentIdAndApn(headers, addRecordPendingRowValues);
+          ensureAddressId(headers, addRecordPendingRowValues);
           const row = buildRowForHeaders(headers, addRecordPendingRowValues);
           submitBtn.disabled = true;
           submitBtn.textContent = 'Adding…';
@@ -10561,6 +10704,7 @@
         }
         const t = overlay.querySelector('input[name="addRecordType"]:checked').value;
         let rowValuesByColumn = {};
+        let addRecordAddressIdOptions = null;
 
         if (t === 'address') {
           const houseNum = (document.getElementById('addRecordHouseNum').value || '').trim();
@@ -10608,7 +10752,6 @@
           }
           if (latCol) rowValuesByColumn[latCol] = lat;
           if (lonCol) rowValuesByColumn[lonCol] = lon;
-          ensureResidentIdAndApn(headers, rowValuesByColumn);
         } else {
           // t === 'person'
           const personName = (document.getElementById('addRecordPersonNameInput').value || '').trim();
@@ -10623,6 +10766,7 @@
             applyAddRecordZoneDefaults(rowValuesByColumn, zoneDefaults);
             applyAddRecordPersonName(rowValuesByColumn, personName, nameColumns);
             Object.assign(rowValuesByColumn, collectPersonDetails('addRecordP'));
+            addRecordAddressIdOptions = { existingRows };
           } else if (addrType === 'new') {
             const houseNum = (document.getElementById('addRecordPersonHouseNum').value || '').trim();
             const streetVal = personStreetSelect.value === '__other__' ? (document.getElementById('addRecordPersonStreetOther').value || '').trim() : (personStreetSelect.value || '').trim();
@@ -10684,6 +10828,7 @@
         }
 
         ensureResidentIdAndApn(headers, rowValuesByColumn);
+        ensureAddressId(headers, rowValuesByColumn, addRecordAddressIdOptions || undefined);
         const row = buildRowForHeaders(headers, rowValuesByColumn);
         submitBtn.disabled = true;
         submitBtn.textContent = 'Adding…';
@@ -10766,6 +10911,94 @@
       epicPresenceState.ready = false;
       epicPresenceState.error = '';
       epicPresenceState.byApnHasRecords = new Map();
+      epicPresenceState.byApnMilestone = new Map();
+      epicPresenceState.byApnHasTempHousing = new Map();
+      epicPresenceState.lastSyncedAt = '';
+      epicPresenceState.summary = null;
+    }
+
+    function homepageMilestoneFromOrdinal(ordinal) {
+      const n = Number(ordinal) || 0;
+      if (n >= 7) return 'construction_completed';
+      if (n >= 6) return 'construction_underway';
+      if (n >= 5) return 'permit_issued';
+      if (n >= 1) return 'application_or_plans';
+      return 'application_or_plans';
+    }
+
+    function milestoneFromEpicRebuildCases(cases) {
+      if (!Array.isArray(cases) || !cases.length) return '';
+      let maxOrd = 0;
+      cases.forEach((c) => {
+        const num = Number(c && c.rebuild_progress_num);
+        if (Number.isFinite(num) && num > 0) maxOrd = Math.max(maxOrd, num);
+      });
+      return homepageMilestoneFromOrdinal(maxOrd);
+    }
+
+    function getAddressApnDigits(address) {
+      if (!sheetData || !sheetData.addressMap || !sheetData.headers) return '';
+      const apnCol = sheetData.headers.find(h => h.toLowerCase() === 'apn');
+      if (!apnCol) return '';
+      const rows = sheetData.addressMap.get(address);
+      const rawApn = rows && rows[0] ? rows[0][apnCol] : '';
+      return normalizeApnDigits(rawApn);
+    }
+
+    function collectZoneAddressApns() {
+      if (!sheetData || !sheetData.addressMap || !sheetData.headers) return [];
+      const apnCol = sheetData.headers.find(h => h.toLowerCase() === 'apn');
+      return Array.from(sheetData.addressMap.keys()).map((address) => {
+        if (!apnCol) return { address, apn: '' };
+        const rows = sheetData.addressMap.get(address);
+        const rawApn = rows && rows[0] ? rows[0][apnCol] : '';
+        return { address, apn: normalizeApnDigits(rawApn) };
+      });
+    }
+
+    function computeEpicHomepageSummaryFromState() {
+      const addressApns = collectZoneAddressApns();
+      const milestoneCounts = {};
+      HOMEPAGE_EPIC_MILESTONES.forEach((m) => { milestoneCounts[m.key] = 0; });
+      let withApn = 0;
+      let missingApn = 0;
+      let withAnyEpic = 0;
+      let withRebuildEpic = 0;
+      let withTempHousing = 0;
+
+      addressApns.forEach(({ apn }) => {
+        if (!apn) {
+          missingApn += 1;
+          return;
+        }
+        withApn += 1;
+        if (epicPresenceState.byApnHasRecords.get(apn) === true) withAnyEpic += 1;
+        if (epicPresenceState.byApnHasTempHousing.get(apn) === true) withTempHousing += 1;
+        const milestone = epicPresenceState.byApnMilestone.get(apn) || '';
+        if (milestone) {
+          withRebuildEpic += 1;
+          if (Object.prototype.hasOwnProperty.call(milestoneCounts, milestone)) {
+            milestoneCounts[milestone] += 1;
+          }
+        }
+      });
+
+      const totalAddresses = addressApns.length;
+      return {
+        totalAddresses,
+        checkedAddresses: withApn,
+        missingApn,
+        withAnyEpic,
+        withRebuildEpic,
+        withTempHousing,
+        pctOfZone: totalAddresses > 0 ? Math.round((withAnyEpic / totalAddresses) * 100) : 0,
+        milestones: HOMEPAGE_EPIC_MILESTONES.map((m) => ({
+          key: m.key,
+          label: m.label,
+          count: milestoneCounts[m.key] || 0
+        })),
+        lastSyncedAt: epicPresenceState.lastSyncedAt || ''
+      };
     }
 
     async function ensureEpicPresenceMapLoaded() {
@@ -10776,6 +11009,9 @@
       if (!apnCol) {
         epicPresenceState.ready = true;
         epicPresenceState.byApnHasRecords = new Map();
+        epicPresenceState.byApnMilestone = new Map();
+        epicPresenceState.byApnHasTempHousing = new Map();
+        epicPresenceState.summary = computeEpicHomepageSummaryFromState();
         return;
       }
 
@@ -10793,6 +11029,10 @@
       epicPresenceState.loading = true;
       epicPresenceState.error = '';
       epicPresenceState.byApnHasRecords = new Map();
+      epicPresenceState.byApnMilestone = new Map();
+      epicPresenceState.byApnHasTempHousing = new Map();
+      epicPresenceState.lastSyncedAt = '';
+      epicPresenceState.summary = null;
 
       try {
         const chunkSize = 500;
@@ -10808,30 +11048,58 @@
             throw new Error(err.message || err.error || `EPIC lookup failed (${response.status})`);
           }
           const payload = await response.json();
+          if (payload && payload.last_synced_at) {
+            epicPresenceState.lastSyncedAt = String(payload.last_synced_at);
+          }
           const results = payload && payload.results ? payload.results : {};
           Object.entries(results).forEach(([apn, data]) => {
             const total = data && data.counts ? Number(data.counts.total) || 0 : 0;
+            const rebuildCount = data && data.counts ? Number(data.counts.rebuild) || 0 : ((data.cases_rebuild || []).length);
+            const tempCount = data && data.counts ? Number(data.counts.temp_housing) || 0 : ((data.cases_temp_housing || []).length);
             epicPresenceState.byApnHasRecords.set(apn, total > 0);
+            epicPresenceState.byApnHasTempHousing.set(apn, tempCount > 0);
+            const milestone = rebuildCount > 0
+              ? milestoneFromEpicRebuildCases(data.cases_rebuild || [])
+              : '';
+            if (milestone) epicPresenceState.byApnMilestone.set(apn, milestone);
+            if (!epicPresenceState.lastSyncedAt && data && data.last_synced_at) {
+              epicPresenceState.lastSyncedAt = String(data.last_synced_at);
+            }
           });
         }
         epicPresenceState.ready = true;
+        epicPresenceState.summary = computeEpicHomepageSummaryFromState();
       } catch (error) {
         epicPresenceState.error = error && error.message ? error.message : 'Could not load EPIC filter data.';
         epicPresenceState.ready = false;
+        epicPresenceState.summary = null;
       } finally {
         epicPresenceState.loading = false;
       }
     }
 
     function addressHasEpicRecords(address) {
-      if (!sheetData || !sheetData.addressMap || !sheetData.headers) return false;
-      const apnCol = sheetData.headers.find(h => h.toLowerCase() === 'apn');
-      if (!apnCol) return false;
-      const rows = sheetData.addressMap.get(address);
-      const rawApn = rows && rows[0] ? rows[0][apnCol] : '';
-      const apn = normalizeApnDigits(rawApn);
+      const apn = getAddressApnDigits(address);
       if (!apn) return false;
       return epicPresenceState.byApnHasRecords.get(apn) === true;
+    }
+
+    function addressMatchesEpicFilter(address) {
+      if (currentEpicFilter === 'all') return true;
+      if (!epicPresenceState.ready) return true;
+      const apn = getAddressApnDigits(address);
+      if (!apn) return false;
+      if (currentEpicFilter === 'has_epic') {
+        return epicPresenceState.byApnHasRecords.get(apn) === true;
+      }
+      if (currentEpicFilter === 'epic_temp_housing') {
+        return epicPresenceState.byApnHasTempHousing.get(apn) === true;
+      }
+      if (String(currentEpicFilter).indexOf('epic_') === 0) {
+        const key = String(currentEpicFilter).slice(5);
+        return epicPresenceState.byApnMilestone.get(apn) === key;
+      }
+      return true;
     }
 
     // Populate persistent filter bar
@@ -10912,6 +11180,7 @@
         </select>` : ''}
         ${rebuildCol ? `<select id="persistentRebuildFilter" class="${currentRebuildFilter !== 'all' ? 'filter-active' : ''}" title="For properties in recovery, this tracks the physical progress of construction.">
           <option value="all" ${currentRebuildFilter === 'all' ? 'selected' : ''}>All Build Status</option>
+          <option value="__known__" ${currentRebuildFilter === '__known__' ? 'selected' : ''}>Has known build status</option>
           ${rebuildStatusesArray.map(status => `<option value="${status.replace(/"/g, '&quot;')}" ${currentRebuildFilter === status ? 'selected' : ''}>${status}</option>`).join('')}
         </select>` : ''}
         ${remediationStatusCol ? `<select id="persistentRemediationFilter" class="${currentRemediationFilter !== 'all' ? 'filter-active' : ''}" title="Tracks environmental remediation progress for this address (e.g. soil/debris cleanup).">
@@ -10919,14 +11188,19 @@
           <option value="" ${currentRemediationFilter === '' ? 'selected' : ''}>(not set)</option>
           ${remediationStatuses.map(status => `<option value="${status.replace(/"/g, '&quot;')}" ${currentRemediationFilter === status ? 'selected' : ''}>${status}</option>`).join('')}
         </select>` : ''}
-        <select id="persistentEpicFilter" class="${currentEpicFilter !== 'all' ? 'filter-active' : ''}" title="Filter addresses by whether they have EPIC permitting records.">
+        <select id="persistentEpicFilter" class="${currentEpicFilter !== 'all' ? 'filter-active' : ''}" title="Filter addresses by EPIC-LA permitting records.">
           <option value="all" ${currentEpicFilter === 'all' ? 'selected' : ''}>EPIC: All addresses</option>
           <option value="has_epic" ${currentEpicFilter === 'has_epic' ? 'selected' : ''}>EPIC: Has permitting records</option>
+          <option value="epic_application_or_plans" ${currentEpicFilter === 'epic_application_or_plans' ? 'selected' : ''}>EPIC: Application / plans under review</option>
+          <option value="epic_permit_issued" ${currentEpicFilter === 'epic_permit_issued' ? 'selected' : ''}>EPIC: Permit issued</option>
+          <option value="epic_construction_underway" ${currentEpicFilter === 'epic_construction_underway' ? 'selected' : ''}>EPIC: Construction underway</option>
+          <option value="epic_construction_completed" ${currentEpicFilter === 'epic_construction_completed' ? 'selected' : ''}>EPIC: Construction completed</option>
+          <option value="epic_temp_housing" ${currentEpicFilter === 'epic_temp_housing' ? 'selected' : ''}>EPIC: Temporary housing</option>
         </select>
         <span id="persistentEpicFilterStatus" class="filters-label" style="font-size:0.75rem; opacity:0.85;">
           ${epicPresenceState.error
             ? 'EPIC filter unavailable'
-            : (currentEpicFilter === 'has_epic' && epicPresenceState.loading ? 'Loading EPIC filter...' : '')}
+            : (currentEpicFilter !== 'all' && epicPresenceState.loading ? 'Loading EPIC filter...' : '')}
         </span>
         ${hasMultipleCaptains && captainAssignedCol ? `<select id="persistentCaptainFilter" class="${currentCaptainFilter !== 'all' ? 'filter-active' : ''}" title="Filter to see addresses assigned to a specific Neighborhood Captain.">
           <option value="all" ${currentCaptainFilter === 'all' ? 'selected' : ''}>Any Captain</option>
@@ -11243,6 +11517,7 @@
       const phoneCol = findColumn(headers, 'phone', ['nc']);
       const emailCol = findColumn(headers, 'email');
       const contactDateCol = findOutreachDateColumn(headers);
+      const formerResidentCol = getFormerResidentColumn(headers);
       
       // Get unique values for filters
       const streets = getUniqueStreets(addresses);
@@ -11285,13 +11560,7 @@
           }
         }
         if (currentRebuildFilter !== 'all' && rebuildCol) {
-          const rows = sheetData.addressMap.get(addr);
-          if (rows && rows[0]) {
-            const rebuildValue = normalizeRebuildStatusLabel((rows[0][rebuildCol] || '').trim());
-            if (rebuildValue !== currentRebuildFilter) return false;
-          } else {
-            return false;
-          }
+          if (!addressMatchesRebuildFilter(addr, rebuildCol)) return false;
         }
         if (currentRemediationFilter !== 'all' && remediationStatusCol) {
           const rows = sheetData.addressMap.get(addr);
@@ -11327,7 +11596,7 @@
           if (isContacted && !showContactedAddresses) return false;
           if (!isContacted && !showUncontactedAddresses) return false;
         }
-        if (currentEpicFilter === 'has_epic' && epicPresenceState.ready && !addressHasEpicRecords(addr)) {
+        if (currentEpicFilter !== 'all' && !addressMatchesEpicFilter(addr)) {
           return false;
         }
         return true;
@@ -11382,21 +11651,23 @@
             <tbody>
               ${sortedAddresses.map(addr => {
                 const rows = sheetData.addressMap.get(addr);
+                const activeRows = getActiveResidentRows(rows, formerResidentCol);
                 const residents = [];
-                if (rows && residentNameCol) {
-                  rows.forEach(row => {
+                if (activeRows && residentNameCol) {
+                  activeRows.forEach(row => {
                     if (row[residentNameCol] && row[residentNameCol].trim()) {
                       residents.push(row[residentNameCol].trim());
                     }
                   });
                 }
-                const damage = damageCol && rows && rows[0] ? (rows[0][damageCol] || '').trim() : '';
-                const addressPlan = addressPlanCol && rows && rows[0] ? (rows[0][addressPlanCol] || '').trim() : '';
-                const rebuild = rebuildCol && rows && rows[0] ? normalizeRebuildStatusLabel((rows[0][rebuildCol] || '').trim()) : '';
-                const age = ageCol && rows && rows[0] ? (rows[0][ageCol] || '').trim() : '';
-                const phone = phoneCol && rows && rows[0] ? (rows[0][phoneCol] || '').trim() : '';
-                const email = emailCol && rows && rows[0] ? (rows[0][emailCol] || '').trim() : '';
-                const contactDate = contactDateCol && rows && rows[0] ? (rows[0][contactDateCol] || '').trim() : '';
+                const displayRows = activeRows.length ? activeRows : (rows || []);
+                const damage = damageCol && displayRows[0] ? (displayRows[0][damageCol] || '').trim() : '';
+                const addressPlan = addressPlanCol && displayRows[0] ? (displayRows[0][addressPlanCol] || '').trim() : '';
+                const rebuild = rebuildCol && displayRows[0] ? normalizeRebuildStatusLabel((displayRows[0][rebuildCol] || '').trim()) : '';
+                const age = ageCol && displayRows[0] ? (displayRows[0][ageCol] || '').trim() : '';
+                const phone = phoneCol && displayRows[0] ? (displayRows[0][phoneCol] || '').trim() : '';
+                const email = emailCol && displayRows[0] ? (displayRows[0][emailCol] || '').trim() : '';
+                const contactDate = contactDateCol && displayRows[0] ? (displayRows[0][contactDateCol] || '').trim() : '';
                 
                 // Format residents with truncation
                 let residentsDisplay = '-';
@@ -11528,7 +11799,7 @@
         parts.push('Address Plan: ' + (currentAddressPlanFilter === '' ? '(not set)' : currentAddressPlanFilter));
       }
       if (currentRebuildFilter !== 'all') {
-        parts.push('Build Status: ' + currentRebuildFilter);
+        parts.push('Build Status: ' + (currentRebuildFilter === '__known__' ? 'Has known build status' : currentRebuildFilter));
       }
       if (currentRemediationFilter !== 'all') {
         parts.push('Remediation Status: ' + (currentRemediationFilter === '' ? '(not set)' : currentRemediationFilter));
@@ -11728,13 +11999,7 @@
           }
         }
         if (currentRebuildFilter !== 'all' && rebuildCol) {
-          const rows = sheetData.addressMap.get(addr);
-          if (rows && rows[0]) {
-            const rebuildValue = normalizeRebuildStatusLabel((rows[0][rebuildCol] || '').trim());
-            if (rebuildValue !== currentRebuildFilter) return false;
-          } else {
-            return false;
-          }
+          if (!addressMatchesRebuildFilter(addr, rebuildCol)) return false;
         }
         if (currentRemediationFilter !== 'all' && remediationStatusCol) {
           const rows = sheetData.addressMap.get(addr);
@@ -11763,7 +12028,7 @@
           if (isContacted && !showContactedAddresses) return false;
           if (!isContacted && !showUncontactedAddresses) return false;
         }
-        if (currentEpicFilter === 'has_epic' && epicPresenceState.ready && !addressHasEpicRecords(addr)) {
+        if (currentEpicFilter !== 'all' && !addressMatchesEpicFilter(addr)) {
           return false;
         }
         return true;
@@ -12281,13 +12546,7 @@
         }
         // Rebuild filter
         if (currentRebuildFilter !== 'all' && rebuildCol) {
-          const rows = sheetData.addressMap.get(addr);
-          if (rows && rows[0]) {
-            const rebuildValue = normalizeRebuildStatusLabel((rows[0][rebuildCol] || '').trim());
-            if (rebuildValue !== currentRebuildFilter) return false;
-          } else {
-            return false;
-          }
+          if (!addressMatchesRebuildFilter(addr, rebuildCol)) return false;
         }
         // Remediation Status filter
         if (currentRemediationFilter !== 'all' && remediationStatusCol) {
@@ -12324,7 +12583,7 @@
           if (isContacted && !showContactedAddresses) return false;
           if (!isContacted && !showUncontactedAddresses) return false;
         }
-        if (currentEpicFilter === 'has_epic' && epicPresenceState.ready && !addressHasEpicRecords(addr)) {
+        if (currentEpicFilter !== 'all' && !addressMatchesEpicFilter(addr)) {
           return false;
         }
         return true;
@@ -12372,6 +12631,26 @@
 
     function getActiveResidentRows(rows, formerResidentCol) {
       return (Array.isArray(rows) ? rows : []).filter(row => !isFormerResidentRow(row, formerResidentCol));
+    }
+
+    // Called by Contact Check-In after local sheet edits so Neighbors / Map / Details
+    // reflect changes immediately (e.g. marking someone a former resident).
+    function syncViewsAfterLocalSheetEdit(options) {
+      options = options || {};
+      if (!sheetData || !sheetData.addressMap) return;
+
+      if (currentView === 'people' && typeof displayAddressTable === 'function') {
+        displayAddressTable();
+      }
+      if ((currentView === 'map' || currentView === 'people') && typeof displayAddressList === 'function') {
+        displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
+      }
+      if (typeof updateMapMarkers === 'function') {
+        updateMapMarkers();
+      }
+      if (selectedAddress && typeof displayAddressDetails === 'function') {
+        displayAddressDetails(selectedAddress, true);
+      }
     }
 
     function getResidentNameColumn(headers) {
@@ -12770,12 +13049,13 @@
         captainAssignedCol = findColumn(headers, 'captain assigned');
       }
 
-      // Find relevant columns (exclude address column itself, backend-only resident_id, and _-prefixed internal columns)
+      // Find relevant columns (exclude address column itself, backend-only resident_id/address_id, and _-prefixed internal columns)
       const detailCols = headers.filter(h =>
         h !== addressCol &&
         !hiddenAddressStructureCols.has(h) &&
         h.toLowerCase() !== 'address' &&
         h.toLowerCase() !== 'resident_id' &&
+        h.toLowerCase() !== 'address_id' &&
         !h.startsWith('_') &&
         rows.some(row => row[h] && row[h].trim())
       );
@@ -12803,7 +13083,7 @@
       // Separate address-level and person-level columns
       const addressLevelCols = headers.filter(h => {
         const lower = h.toLowerCase();
-        if (lower === 'resident_id') return false; // Backend only, never display
+        if (lower === 'resident_id' || lower === 'address_id') return false; // Backend only, never display
         if (lower.includes('apn status')) return false;
         // Explicitly exclude person-level notes and email address
         if (lower.includes('person note')) return false;
@@ -12851,6 +13131,7 @@
       // Fields to hide from person view (address-level; address is shown as header)
       const hiddenFromPersonView = [
         'resident_id', // Backend only, never display
+        'address_id', // Backend only, never display
         'apn',        // Address/parcel-level — shown in address section, not per-person
         'apn status',
         'situshouseno',
@@ -12954,10 +13235,11 @@
       });
       
       // Find Notes columns separately - always show them if signed in, even if empty
-      // Exclude outreach/contact log column - rendered in dedicated outreach logger UI; exclude backend resident_id
+      // Exclude outreach/contact log column - rendered in dedicated outreach logger UI; exclude backend resident_id/address_id
       const allNotesCols = headers.filter(h => 
         h !== addressCol &&
         h.toLowerCase() !== 'resident_id' &&
+        h.toLowerCase() !== 'address_id' &&
         h.toLowerCase().includes('person note') &&
         !((h.toLowerCase().includes('contact') && h.toLowerCase().includes('note')) || (h.toLowerCase().includes('outreach') && (h.toLowerCase().includes('note') || h.toLowerCase().includes('log')))) &&
         accessToken // Only if signed in
@@ -14188,6 +14470,7 @@
       const quickTagCols = getPersonQuickTagColumns(headers);
       const modalHiddenKeywords = [
         'resident_id',
+        'address_id',
         'apn',
         'house #',
         'house number',
@@ -14588,7 +14871,8 @@
 
           if (field.type === 'checkbox') {
             const originalValue = field.getAttribute('data-original-value') || '';
-            newValue = field.checked ? 'TRUE' : 'FALSE';
+            // Unchecked writes blank (not the word FALSE) into boolean columns
+            newValue = field.checked ? 'TRUE' : '';
             hasChanged = field.checked !== isTruthySheetCheckbox(originalValue);
           } else {
             const originalValue = field.getAttribute('data-original-value') || '';
@@ -15041,7 +15325,8 @@
         });
 
         editableCheckboxes.forEach(checkbox => {
-          const newValue = checkbox.checked ? 'TRUE' : 'FALSE';
+          // Unchecked writes blank (not the word FALSE) into boolean columns
+          const newValue = checkbox.checked ? 'TRUE' : '';
           const originalValue = checkbox.getAttribute('data-original-value') || '';
           const originalValueStr = (originalValue || '').trim();
           const originalValueStrLower = originalValueStr.toLowerCase();
@@ -15187,7 +15472,7 @@
           }
         });
         editableCheckboxes.forEach(checkbox => {
-          const value = checkbox.checked ? 'TRUE' : 'FALSE';
+          const value = checkbox.checked ? 'TRUE' : '';
           checkbox.setAttribute('data-original-value', value);
           
           // Update in-memory data structure
@@ -15195,7 +15480,7 @@
           const isAddressLevel = checkbox.getAttribute('data-address-level') === 'true';
           const address = checkbox.getAttribute('data-address');
           const originalRowIndex = parseInt(checkbox.getAttribute('data-original-row-index'));
-          const checkboxValue = checkbox.checked ? 'TRUE' : 'FALSE';
+          const checkboxValue = checkbox.checked ? 'TRUE' : '';
           
           if (column && address) {
             const colIndex = sheetData.headers.indexOf(column);
@@ -16377,6 +16662,15 @@
       const mapDiv = document.getElementById('homeMap');
       if (!mapDiv) {
         return;
+      }
+
+      const openFullMapLink = document.getElementById('homeMapOpenFull');
+      if (openFullMapLink && !openFullMapLink.dataset.bound) {
+        openFullMapLink.dataset.bound = '1';
+        openFullMapLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          switchView('map');
+        });
       }
 
       // Keep the mini map simple: no color-by mode.
@@ -18820,13 +19114,7 @@
         // Rebuild filter
         const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
         if (currentRebuildFilter !== 'all' && rebuildCol) {
-          const rows = sheetData.addressMap.get(address);
-          if (rows && rows[0]) {
-            const rebuildValue = normalizeRebuildStatusLabel((rows[0][rebuildCol] || '').trim());
-            if (rebuildValue !== currentRebuildFilter) return false;
-          } else {
-            return false;
-          }
+          if (!addressMatchesRebuildFilter(address, rebuildCol)) return false;
         }
         // Remediation Status filter
         const remediationStatusCol = findColumn(headers, ['remediation', 'status'], ['note']);
@@ -18866,7 +19154,7 @@
           if (isContacted && !showContactedAddresses) return false;
           if (!isContacted && !showUncontactedAddresses) return false;
         }
-        if (currentEpicFilter === 'has_epic' && epicPresenceState.ready && !addressHasEpicRecords(address)) {
+        if (currentEpicFilter !== 'all' && !addressMatchesEpicFilter(address)) {
           return false;
         }
         
@@ -19505,405 +19793,293 @@
       }
     }
 
-    // Update Rebuild Progress Charts (bar charts for home page)
-    function updateRebuildProgressCharts() {
-      if (!sheetData || !sheetData.data || sheetData.data.length === 0) {
-        return;
-      }
-      
+    // Building & Rebuilding homepage panel (captain build status + EPIC + Address Plan)
+    function formatEpicSyncLabel(iso) {
+      if (!iso) return 'County data refresh time unavailable';
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return 'County data refresh time unavailable';
+      const now = new Date();
+      const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startThat = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const dayDiff = Math.round((startToday - startThat) / 86400000);
+      if (dayDiff <= 0) return 'County data refreshed today';
+      if (dayDiff === 1) return 'County data refreshed yesterday';
+      const label = d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+      const stale = dayDiff >= 3 ? ' — sync may be behind' : '';
+      return 'County data last refreshed ' + label + stale;
+    }
+
+    function escapeBrHtml(text) {
+      if (typeof escapeHtml === 'function') return escapeHtml(text);
+      return String(text == null ? '' : text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function collectCaptainBuildSummary() {
       const headers = sheetData.headers;
-      const data = sheetData.data;
       const addressMap = sheetData.addressMap;
-      const formerResidentCol = getFormerResidentColumn(headers);
-      const activeData = data.filter(row => !isFormerResidentRow(row, formerResidentCol));
-      
-      // Find relevant columns
-      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
-      
-      // 1. Address Plan Bar Chart (for Partial/Total Loss addresses)
-      const statusCounts = {};
-      let statusUnknown = 0;
-      if (addressPlanCol) {
-        activeData.forEach(row => {
-          const val = row[addressPlanCol] ? String(row[addressPlanCol]).trim() : '';
-          if (val) {
-            statusCounts[val] = (statusCounts[val] || 0) + 1;
-          } else {
-            statusUnknown++;
-          }
-        });
-      } else {
-        statusUnknown = activeData.length;
-      }
-      
-      const statusLabels = Object.keys(statusCounts);
-      const statusData = Object.values(statusCounts);
-      if (statusUnknown > 0) {
-        statusLabels.push('Unknown');
-        statusData.push(statusUnknown);
-      }
-      
-      const statusColors = ['#afc892', '#81bdc3', '#fdba77', '#f6cf98', '#bc455a', '#e5e5e5', '#f9d6d3'];
-      
-      const statusCtx = document.getElementById('householdStatusChart');
-      if (householdStatusChart) householdStatusChart.destroy();
-      if (statusCtx && (statusLabels.length > 0 || statusUnknown > 0)) {
-        // Calculate percentages for labels
-        const statusTotal = statusData.reduce((a, b) => a + b, 0);
-        const statusLabelsWithPct = statusLabels.map((label, index) => {
-          const value = statusData[index];
-          const pct = statusTotal > 0 ? ((value / statusTotal) * 100).toFixed(1) : '0';
-          return `${label} (${pct}%)`;
-        });
-        
-        householdStatusChart = new Chart(statusCtx, {
-          type: 'doughnut',
-          data: {
-            labels: statusLabelsWithPct,
-            datasets: [{
-              data: statusData,
-              backgroundColor: statusColors.slice(0, statusLabels.length),
-              borderWidth: 2,
-              borderColor: '#fff'
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '60%',
-            plugins: {
-              legend: {
-                position: 'bottom',
-                padding: 10,
-                labels: {
-                  padding: 12,
-                  font: {
-                    size: 11
-                  },
-                  usePointStyle: true
-                }
-              },
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                    const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0';
-                    const labelWithoutPct = context.label.replace(/\s*\([^)]*\)\s*$/, '');
-                    return labelWithoutPct + ': ' + context.parsed + ' (' + percentage + '%)';
-                  }
-                }
-              }
-            }
-          }
-        });
-      }
-      
-      // 2. Build Status Bar Chart
-      const rebuildStages = [
-        'Planning/Not Ready to Build Yet',
-        'Permits & Pre-Construction',
-        'Under Construction',
-        'Finishing/Preparing to Move Back',
-        'Moved In'
-      ];
-      
-      const rebuildCounts = {};
-      rebuildStages.forEach(stage => {
-        rebuildCounts[stage] = 0;
-      });
-      rebuildCounts['Not Started'] = 0;
-      rebuildCounts['Unknown'] = 0;
-      
+      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
+      const total = addressMap ? addressMap.size : 0;
+      const stageCounts = {};
+      let known = 0;
+
       if (rebuildCol && addressMap) {
-        addressMap.forEach((rows, address) => {
-          const row = rows[0];
-          if (!row || !row[rebuildCol]) {
-            rebuildCounts['Not Started']++;
-            return;
-          }
-          
-          const stage = String(row[rebuildCol] || '').trim();
-          if (!stage || stage === '' || stage.toLowerCase() === 'none') {
-            rebuildCounts['Not Started']++;
-            return;
-          }
-          
-          const stageLower = stage.toLowerCase();
-          let matched = false;
-          
-          // Try exact match first (case-insensitive) with predefined stages
-          for (const knownStage of rebuildStages) {
-            const knownStageLower = knownStage.toLowerCase().trim();
-            if (stageLower === knownStageLower) {
-              rebuildCounts[knownStage]++;
-              matched = true;
-              break;
-            }
-          }
-          
-          // If no exact match, check for "Not Started" variations
-          if (!matched) {
-            if (stageLower.includes('not started') || 
-                stageLower === 'none' ||
-                stageLower === '') {
-              rebuildCounts['Not Started']++;
-              matched = true;
-            }
-          }
-          
-          // If still not matched, use the actual value from spreadsheet (preserve original case)
-          // This allows for custom stages in the spreadsheet
-          if (!matched) {
-            // Check if we already have this exact value in rebuildCounts (preserve original case)
-            if (rebuildCounts.hasOwnProperty(stage)) {
-              rebuildCounts[stage]++;
-            } else {
-              // Use the actual stage value from spreadsheet (preserve original case)
-              rebuildCounts[stage] = 1;
-            }
-          }
-        });
-      } else {
-        rebuildCounts['Not Started'] = addressMap ? addressMap.size : 0;
-      }
-      
-      // Collect all stages (predefined + custom from spreadsheet)
-      const allStagesSet = new Set(rebuildStages);
-      Object.keys(rebuildCounts).forEach(key => {
-        if (key !== 'Not Started' && key !== 'Unknown') {
-          allStagesSet.add(key);
-        }
-      });
-      
-      // Build final labels array: Not Started first, then predefined stages, then custom stages, then Unknown
-      const customStages = Array.from(allStagesSet).filter(s => !rebuildStages.includes(s) && s !== 'Not Started' && s !== 'Unknown');
-      const allRebuildLabels = ['Not Started', ...rebuildStages, ...customStages, 'Unknown'];
-      
-      // Generate data array for all labels (use 0 if stage doesn't exist in rebuildCounts)
-      const rebuildData = allRebuildLabels.map(label => rebuildCounts[label] || 0);
-      
-      // Show all stages even if they're zero (as requested)
-      const rebuildColors = allRebuildLabels.map((label, index) => getRebuildStageColor(label, index));
-      
-      const rebuildCtx = document.getElementById('rebuildStatusChart');
-      if (rebuildStatusChart) rebuildStatusChart.destroy();
-      if (rebuildCtx) {
-        rebuildStatusChart = new Chart(rebuildCtx, {
-          type: 'bar',
-          data: {
-            labels: allRebuildLabels,
-            datasets: [{
-              label: 'Count',
-              data: rebuildData,
-              backgroundColor: rebuildColors.slice(0, allRebuildLabels.length),
-              borderColor: rebuildColors.slice(0, allRebuildLabels.length),
-              borderWidth: 1
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: 'y',
-            plugins: {
-              legend: {
-                display: false
-              },
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                    const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0';
-                    // Use the full label from allRebuildLabels array (not truncated version)
-                    const fullLabel = allRebuildLabels[context.dataIndex] || context.label;
-                    return fullLabel + ': ' + context.parsed + ' (' + percentage + '%)';
-                  }
-                }
-              }
-            },
-            scales: {
-              x: {
-                beginAtZero: true,
-                ticks: {
-                  stepSize: 1,
-                  precision: 0,
-                  font: {
-                    size: 11
-                  }
-                },
-                grid: {
-                  display: true,
-                  color: 'rgba(0, 0, 0, 0.05)'
-                }
-              },
-              y: {
-                ticks: {
-                  font: {
-                    size: 10
-                  },
-                  maxRotation: 0,
-                  autoSkip: false,
-                  callback: function(value, index) {
-                    const label = allRebuildLabels[index];
-                    // Truncate long labels and show full text in tooltip
-                    if (label && label.length > 35) {
-                      return label.substring(0, 32) + '...';
-                    }
-                    return label;
-                  }
-                },
-                grid: {
-                  display: false
-                }
-              }
-            },
-            layout: {
-              padding: {
-                right: 10
-              }
-            }
-          }
-        });
-      }
-      
-      // 3. Build Status Funnel Chart (Sequential Left-to-Right, All Stages)
-      const rebuildFunnelCtx = document.getElementById('rebuildStatusFunnelChart');
-      if (rebuildStatusFunnelChart) rebuildStatusFunnelChart.destroy();
-      if (rebuildFunnelCtx) {
-        // Define sequential order of stages
-        const sequentialOrder = [
-          'Planning/Not Ready to Build Yet',
-          'Permits & Pre-Construction',
-          'Under Construction',
-          'Finishing/Preparing to Move Back',
-          'Moved In'
-        ];
-        
-        // Build funnel data in sequential order (left to right) - include ALL stages
-        const funnelStages = [];
-        const funnelCounts = [];
-        const funnelColors = [];
-        
-        // Add "Not Started" at the beginning
-        const notStartedIndex = allRebuildLabels.indexOf('Not Started');
-        if (notStartedIndex >= 0) {
-          funnelStages.push('Not Started');
-          funnelCounts.push(rebuildData[notStartedIndex] || 0);
-          funnelColors.push(rebuildColors[notStartedIndex % rebuildColors.length]);
-        }
-        
-        // Add all stages in sequential order (including those with 0 counts)
-        sequentialOrder.forEach((stage) => {
-          const stageIndex = allRebuildLabels.indexOf(stage);
-          if (stageIndex >= 0) {
-            funnelStages.push(stage);
-            funnelCounts.push(rebuildData[stageIndex] || 0);
-            funnelColors.push(rebuildColors[stageIndex % rebuildColors.length]);
+        addressMap.forEach((rows) => {
+          const row = rows && rows[0];
+          const raw = row ? String(row[rebuildCol] || '').trim() : '';
+          const stage = normalizeRebuildStatusLabel(raw);
+          if (isKnownCaptainBuildStatus(stage)) {
+            known += 1;
+            stageCounts[stage] = (stageCounts[stage] || 0) + 1;
           } else {
-            // Stage not in data, add with 0 count
-            funnelStages.push(stage);
-            funnelCounts.push(0);
-            funnelColors.push('#e0e0e0'); // Light gray for empty stages
+            stageCounts['Not Started'] = (stageCounts['Not Started'] || 0) + 1;
           }
         });
-        
-        // Add "Unknown" at the end
-        const unknownIndex = allRebuildLabels.indexOf('Unknown');
-        if (unknownIndex >= 0) {
-          funnelStages.push('Unknown');
-          funnelCounts.push(rebuildData[unknownIndex] || 0);
-          funnelColors.push(rebuildColors[unknownIndex % rebuildColors.length]);
+      } else if (addressMap) {
+        stageCounts['Not Started'] = total;
+      }
+
+      const orderedStages = [];
+      ['Not Started', ...REBUILD_STAGES_SEQUENTIAL].forEach((s) => {
+        if (stageCounts[s]) orderedStages.push({ label: s, count: stageCounts[s] });
+      });
+      Object.keys(stageCounts).sort().forEach((s) => {
+        if (orderedStages.some((x) => x.label === s)) return;
+        orderedStages.push({ label: s, count: stageCounts[s] });
+      });
+
+      const planCounts = {};
+      let planKnown = 0;
+      if (addressPlanCol && addressMap) {
+        addressMap.forEach((rows) => {
+          const row = rows && rows[0];
+          const val = row ? String(row[addressPlanCol] || '').trim() : '';
+          if (val) {
+            planKnown += 1;
+            planCounts[val] = (planCounts[val] || 0) + 1;
+          } else {
+            planCounts['Not set'] = (planCounts['Not set'] || 0) + 1;
+          }
+        });
+      }
+
+      return {
+        total,
+        known,
+        pctKnown: total > 0 ? Math.round((known / total) * 100) : 0,
+        stages: orderedStages,
+        rebuildCol: Boolean(rebuildCol),
+        addressPlanCol: Boolean(addressPlanCol),
+        planKnown,
+        planCounts
+      };
+    }
+
+    async function applyBuildingRebuildingExplore(opts) {
+      opts = opts || {};
+      if (opts.rebuildFilter != null) currentRebuildFilter = opts.rebuildFilter;
+      if (opts.addressPlanFilter != null) currentAddressPlanFilter = opts.addressPlanFilter;
+      if (opts.epicFilter != null) {
+        currentEpicFilter = opts.epicFilter;
+        if (currentEpicFilter !== 'all') {
+          await ensureEpicPresenceMapLoaded();
+          if (epicPresenceState.error) {
+            currentEpicFilter = 'all';
+          }
         }
-        
-        const total = funnelCounts.reduce((a, b) => a + b, 0);
-        
-        rebuildStatusFunnelChart = new Chart(rebuildFunnelCtx, {
-          type: 'bar',
-          data: {
-            labels: funnelStages,
-            datasets: [{
-              label: 'Households',
-              data: funnelCounts,
-              backgroundColor: funnelColors,
-              borderColor: funnelColors.map(c => c),
-              borderWidth: 2
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: 'x', // Vertical bars - stages on x-axis going left to right
-            plugins: {
-              legend: {
-                display: false
-              },
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0';
-                    const fullLabel = funnelStages[context.dataIndex] || context.label;
-                    return fullLabel + ': ' + context.parsed + (total > 0 ? ' (' + percentage + '%)' : '');
-                  }
-                }
-              }
-            },
-            scales: {
-              x: {
-                ticks: {
-                  font: {
-                    size: 10
-                  },
-                  maxRotation: 45,
-                  minRotation: 45,
-                  autoSkip: false,
-                  callback: function(value, index) {
-                    const label = funnelStages[index];
-                    if (label && label.length > 25) {
-                      return label.substring(0, 22) + '...';
-                    }
-                    return label;
-                  }
-                },
-                grid: {
-                  display: false
-                }
-              },
-              y: {
-                beginAtZero: true,
-                ticks: {
-                  stepSize: 1,
-                  precision: 0,
-                  font: {
-                    size: 11
-                  }
-                },
-                grid: {
-                  display: true,
-                  color: 'rgba(0, 0, 0, 0.05)'
-                },
-                title: {
-                  display: true,
-                  text: 'Number of Households',
-                  font: {
-                    size: 12
-                  }
-                }
-              }
-            },
-            layout: {
-              padding: {
-                top: 10,
-                bottom: 60,
-                left: 10,
-                right: 10
-              }
-            }
-          }
-        });
+      }
+      populateFilterBar();
+      switchView(opts.view || 'people');
+      if (sheetData && sheetData.addressMap) {
+        displayAddressTable();
+        displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
+        updateMapMarkers();
       }
     }
 
-    // Home Dashboard Functions
+    function renderBuildingRebuildingEpicSection(mount, captain) {
+      if (!mount) return;
+      if (epicPresenceState.loading && !epicPresenceState.ready) {
+        mount.innerHTML = '<p class="br-muted">Loading county permitting data…</p>';
+        return;
+      }
+      if (epicPresenceState.error && !epicPresenceState.ready) {
+        mount.innerHTML = '<p class="br-muted">County permitting data is temporarily unavailable.</p>';
+        return;
+      }
+
+      const summary = epicPresenceState.summary || computeEpicHomepageSummaryFromState();
+      const total = captain.total || summary.totalAddresses || 0;
+
+      if (!summary.withAnyEpic) {
+        mount.innerHTML = [
+          '<p class="br-headline"><strong>No EPIC-LA permitting records</strong> are currently matched to addresses in this zone.</p>',
+          '<p class="br-note">County records are matched by APN and may not reflect all rebuilding activity.</p>',
+          summary.missingApn
+            ? '<p class="br-note">' + summary.missingApn + ' address' + (summary.missingApn === 1 ? '' : 'es') + ' could not be checked (missing APN).</p>'
+            : '',
+          '<p class="br-sync">' + escapeBrHtml(formatEpicSyncLabel(summary.lastSyncedAt)) + '</p>'
+        ].join('');
+        return;
+      }
+
+      const maxMilestone = Math.max(1, ...summary.milestones.map((m) => m.count));
+      const rows = summary.milestones.map((m) => {
+        const width = Math.round((m.count / maxMilestone) * 100);
+        return [
+          '<button type="button" class="br-metric-row" data-br-epic="epic_' + m.key + '">',
+          '  <span class="br-metric-label">' + escapeBrHtml(m.label) + '</span>',
+          '  <span class="br-metric-track"><span class="br-metric-fill" style="width:' + width + '%"></span></span>',
+          '  <span class="br-metric-count">' + m.count + '</span>',
+          '</button>'
+        ].join('');
+      }).join('');
+
+      mount.innerHTML = [
+        '<button type="button" class="br-headline br-headline-btn" data-br-epic="has_epic">',
+        '  <strong>' + summary.withAnyEpic + ' of ' + total + ' addresses</strong> have county permitting records',
+        '  <span class="br-pct">' + summary.pctOfZone + '% of zone</span>',
+        '</button>',
+        '<div class="br-metric-list">' + rows + '</div>',
+        '<button type="button" class="br-temp-housing" data-br-epic="epic_temp_housing">',
+        '  <strong>Temporary housing permits:</strong> ' + summary.withTempHousing + ' address' + (summary.withTempHousing === 1 ? '' : 'es'),
+        '</button>',
+        '<p class="br-note">Matched by APN; absence of a record does not mean rebuilding is not happening.</p>',
+        summary.missingApn
+          ? '<p class="br-note">' + summary.missingApn + ' address' + (summary.missingApn === 1 ? '' : 'es') + ' could not be checked (missing APN).</p>'
+          : '',
+        '<p class="br-sync">' + escapeBrHtml(formatEpicSyncLabel(summary.lastSyncedAt)) + '</p>'
+      ].join('');
+
+      Array.prototype.forEach.call(mount.querySelectorAll('[data-br-epic]'), (btn) => {
+        btn.addEventListener('click', () => {
+          applyBuildingRebuildingExplore({ epicFilter: btn.getAttribute('data-br-epic') });
+        });
+      });
+    }
+
+    function updateRebuildProgressCharts() {
+      const root = document.getElementById('buildingRebuildingContent');
+      if (!root) return;
+      if (!sheetData || !sheetData.data || !sheetData.addressMap || sheetData.data.length === 0) {
+        root.innerHTML = '<div class="empty">Load a spreadsheet to see building &amp; rebuilding status</div>';
+        return;
+      }
+
+      if (householdStatusChart) { householdStatusChart.destroy(); householdStatusChart = null; }
+      if (rebuildStatusChart) { rebuildStatusChart.destroy(); rebuildStatusChart = null; }
+      if (rebuildStatusFunnelChart) { rebuildStatusFunnelChart.destroy(); rebuildStatusFunnelChart = null; }
+
+      const captain = collectCaptainBuildSummary();
+      const maxStage = Math.max(1, ...captain.stages.map((s) => s.count));
+      const stageRows = captain.stages.map((s) => {
+        const width = Math.round((s.count / maxStage) * 100);
+        const filterVal = s.label === 'Not Started' ? s.label : s.label;
+        return [
+          '<button type="button" class="br-metric-row" data-br-rebuild="' + escapeBrHtml(filterVal) + '">',
+          '  <span class="br-metric-label">' + escapeBrHtml(s.label) + '</span>',
+          '  <span class="br-metric-track"><span class="br-metric-fill br-metric-fill--zone" style="width:' + width + '%"></span></span>',
+          '  <span class="br-metric-count">' + s.count + '</span>',
+          '</button>'
+        ].join('');
+      }).join('');
+
+      const planEntries = Object.keys(captain.planCounts).sort((a, b) => {
+        if (a === 'Not set') return 1;
+        if (b === 'Not set') return -1;
+        return captain.planCounts[b] - captain.planCounts[a];
+      });
+      const planChips = captain.addressPlanCol
+        ? planEntries.map((label) => {
+          return '<button type="button" class="br-plan-chip" data-br-plan="' + escapeBrHtml(label === 'Not set' ? '' : label) + '">' +
+            escapeBrHtml(label) + ' <strong>' + captain.planCounts[label] + '</strong></button>';
+        }).join('')
+        : '<span class="br-muted">Address Plan column not found in this zone sheet.</span>';
+
+      root.innerHTML = [
+        '<div class="br-panel">',
+        '  <div class="br-columns">',
+        '    <section class="br-band br-band--zone">',
+        '      <div class="br-kicker">What your zone knows</div>',
+        captain.rebuildCol
+          ? (
+            '      <button type="button" class="br-headline br-headline-btn" data-br-rebuild="__known__">' +
+            '        <strong>' + captain.known + ' of ' + captain.total + ' addresses</strong> have a known build status' +
+            '        <span class="br-pct">' + captain.pctKnown + '% of zone</span>' +
+            '      </button>' +
+            '      <div class="br-metric-list">' + stageRows + '</div>'
+          )
+          : '      <p class="br-muted">Build Status column not found in this zone sheet.</p>',
+        '      <div class="br-plan-block">',
+        '        <div class="br-plan-label">Address Plan</div>',
+        '        <div class="br-plan-strip">' + planChips + '</div>',
+        '      </div>',
+        '    </section>',
+        '    <section class="br-band br-band--epic">',
+        '      <div class="br-kicker">What the county shows · EPIC-LA</div>',
+        '      <div id="brEpicSection"><p class="br-muted">Loading county permitting data…</p></div>',
+        '    </section>',
+        '  </div>',
+        '  <div class="br-footer">',
+        '    <button type="button" class="br-explore" id="brExploreBuild">Explore build status →</button>',
+        '  </div>',
+        '</div>'
+      ].join('');
+
+      Array.prototype.forEach.call(root.querySelectorAll('[data-br-rebuild]'), (btn) => {
+        btn.addEventListener('click', () => {
+          applyBuildingRebuildingExplore({ rebuildFilter: btn.getAttribute('data-br-rebuild') });
+        });
+      });
+      Array.prototype.forEach.call(root.querySelectorAll('[data-br-plan]'), (btn) => {
+        btn.addEventListener('click', () => {
+          applyBuildingRebuildingExplore({ addressPlanFilter: btn.getAttribute('data-br-plan') });
+        });
+      });
+      const explore = document.getElementById('brExploreBuild');
+      if (explore) {
+        explore.addEventListener('click', () => {
+          applyBuildingRebuildingExplore({ rebuildFilter: '__known__', view: 'people' });
+        });
+      }
+
+      const epicMount = document.getElementById('brEpicSection');
+      renderBuildingRebuildingEpicSection(epicMount, captain);
+      ensureEpicPresenceMapLoaded().then(() => {
+        renderBuildingRebuildingEpicSection(document.getElementById('brEpicSection'), captain);
+      }).catch(() => {
+        renderBuildingRebuildingEpicSection(document.getElementById('brEpicSection'), captain);
+      });
+    }
+
+
+// Home Dashboard Functions
+
+    // Launch gate: Contact Check-In + Community Feed stay hidden until enabled
+    // via CONTACT_CHECKIN_HOME_ENABLED (index.html constant) or the matching Vercel env var.
+    async function applyContactCheckInHomeLaunchGate() {
+      let enabled = CONTACT_CHECKIN_HOME_ENABLED === true;
+      if (!enabled) {
+        try {
+          const res = await fetch('/api/contact-checkin/config');
+          if (res.ok) {
+            const cfg = await res.json();
+            enabled = Boolean(cfg.homeEnabled);
+          }
+        } catch (err) {
+          console.warn('Contact Check-In launch gate: could not read config', err);
+        }
+      }
+
+      document.querySelectorAll('.contact-checkin-panel, .contact-checkin-feed-panel').forEach((el) => {
+        el.classList.toggle('hidden', !enabled);
+      });
+      return enabled;
+    }
     
     // Update all home dashboard panels
     function updateHomeDashboard() {
@@ -19937,6 +20113,18 @@
       updateOnboardingTourNudge();
       updateZoneSetupPanel();
       updateZoneLeadership();
+      applyContactCheckInHomeLaunchGate().then(function (enabled) {
+        if (!enabled || typeof refreshContactCheckIn !== 'function') return;
+        return refreshContactCheckIn({
+          accessToken: accessToken,
+          currentUserEmail: currentUserEmail,
+          currentZoneName: currentZoneName,
+          currentSheetId: currentSheetId,
+          sheetData: sheetData
+        });
+      }).catch(function (err) {
+        console.warn('Contact Check-In refresh failed:', err);
+      });
       
       // Update Actions page if it's currently visible
       if (currentView === 'meetups') {
@@ -20928,7 +21116,7 @@
       return result;
     }
 
-    // Panel C: From Altagether (Central Feed)
+    // Panel C: Announcements (Central Feed)
     async function fetchAndDisplayCentralFeed() {
       const content = document.getElementById('altagetherContent');
       if (!content) return;
@@ -22271,6 +22459,9 @@
         const contactAction = personContactedSelect ? (personContactedSelect.value || '').trim() : '';
         const newsletterValue = personNewsletterSelect ? (personNewsletterSelect.value || '').trim() : '';
         const formerResidentValue = personFormerResidentSelect ? (personFormerResidentSelect.value || '').trim() : '';
+        // Explicit "No" writes blank (not the word FALSE) into boolean columns
+        const newsletterWriteValue = newsletterValue === 'FALSE' ? '' : newsletterValue;
+        const formerResidentWriteValue = formerResidentValue === 'FALSE' ? '' : formerResidentValue;
 
         if (!contactAction && !newsletterValue && !formerResidentValue) {
           if (personStatusMsg) personStatusMsg.textContent = 'Choose at least one person tag to apply.';
@@ -22304,13 +22495,13 @@
           if (useResidentId && residentId) {
             if (contactAction === 'log' && contactDateCol) updatesByResidentId.push({ resident_id: residentId, column: contactDateCol, value: todayForSheet });
             if (contactAction === 'clear' && contactDateCol) updatesByResidentId.push({ resident_id: residentId, column: contactDateCol, value: '' });
-            if (newsletterValue && newsletterCol) updatesByResidentId.push({ resident_id: residentId, column: newsletterCol, value: newsletterValue });
-            if (formerResidentValue && formerResidentCol) updatesByResidentId.push({ resident_id: residentId, column: formerResidentCol, value: formerResidentValue });
+            if (newsletterValue && newsletterCol) updatesByResidentId.push({ resident_id: residentId, column: newsletterCol, value: newsletterWriteValue });
+            if (formerResidentValue && formerResidentCol) updatesByResidentId.push({ resident_id: residentId, column: formerResidentCol, value: formerResidentWriteValue });
           } else if (row && rowNumber > 1) {
             if (contactAction === 'log' && contactColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(contactColIndex) + rowNumber, values: [[todayForSheet]] });
             if (contactAction === 'clear' && contactColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(contactColIndex) + rowNumber, values: [['']] });
-            if (newsletterValue && newsletterColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(newsletterColIndex) + rowNumber, values: [[newsletterValue]] });
-            if (formerResidentValue && formerResidentColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(formerResidentColIndex) + rowNumber, values: [[formerResidentValue]] });
+            if (newsletterValue && newsletterColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(newsletterColIndex) + rowNumber, values: [[newsletterWriteValue]] });
+            if (formerResidentValue && formerResidentColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(formerResidentColIndex) + rowNumber, values: [[formerResidentWriteValue]] });
           }
         });
 
@@ -22356,10 +22547,10 @@
               if (row && contactDateCol) row[contactDateCol] = '';
             }
             if (newsletterValue && newsletterCol && row) {
-              row[newsletterCol] = newsletterValue;
+              row[newsletterCol] = newsletterWriteValue;
             }
             if (formerResidentValue && formerResidentCol) {
-              if (row) row[formerResidentCol] = formerResidentValue;
+              if (row) row[formerResidentCol] = formerResidentWriteValue;
               if (person) person.isFormerResident = formerResidentValue === 'TRUE';
             }
           });
@@ -24537,7 +24728,7 @@
       if (!module) return;
       
       // Only allow expansion for specific modules
-      const expandableModules = ['contactListCreator', 'zoneReportGenerator', 'batchTaggingTool', 'neighborhoodCaptainCalendar', 'altadenaCalendar'];
+      const expandableModules = ['contactListCreator', 'zoneReportGenerator', 'batchTaggingTool', 'neighborhoodCaptainCalendar', 'altadenaCalendar', 'eventFunding'];
       if (!expandableModules.includes(moduleId)) return;
       
       // If clicking the header of an expanded module, collapse it back to compact size
@@ -24578,7 +24769,7 @@
     // Setup tool module expand functionality
     function setupToolModuleExpansion() {
       // Only these modules should be expandable
-      const expandableModules = ['contactListCreator', 'zoneReportGenerator', 'batchTaggingTool', 'neighborhoodCaptainCalendar', 'altadenaCalendar'];
+      const expandableModules = ['contactListCreator', 'zoneReportGenerator', 'batchTaggingTool', 'neighborhoodCaptainCalendar', 'altadenaCalendar', 'eventFunding'];
       
       document.querySelectorAll('.tool-module').forEach(module => {
         const moduleId = module.id;
