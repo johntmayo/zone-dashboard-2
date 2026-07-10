@@ -22,6 +22,28 @@
     saving: false
   };
 
+  // Bridged from index.html (let/const there are not on window)
+  var ctx = {
+    accessToken: null,
+    currentUserEmail: null,
+    currentZoneName: '',
+    currentSheetId: null,
+    sheetData: null
+  };
+
+  function setContext(next) {
+    if (!next || typeof next !== 'object') return;
+    if (Object.prototype.hasOwnProperty.call(next, 'accessToken')) ctx.accessToken = next.accessToken || null;
+    if (Object.prototype.hasOwnProperty.call(next, 'currentUserEmail')) ctx.currentUserEmail = next.currentUserEmail || null;
+    if (Object.prototype.hasOwnProperty.call(next, 'currentZoneName')) ctx.currentZoneName = next.currentZoneName || '';
+    if (Object.prototype.hasOwnProperty.call(next, 'currentSheetId')) ctx.currentSheetId = next.currentSheetId || null;
+    if (Object.prototype.hasOwnProperty.call(next, 'sheetData')) ctx.sheetData = next.sheetData || null;
+  }
+
+  function getSheetData() {
+    return ctx.sheetData || null;
+  }
+
   function escapeHtmlLocal(text) {
     if (typeof escapeHtml === 'function') return escapeHtml(text);
     var div = document.createElement('div');
@@ -44,11 +66,11 @@
   }
 
   function getCaptainId() {
-    return String(global.currentUserEmail || '').trim().toLowerCase();
+    return String(ctx.currentUserEmail || '').trim().toLowerCase();
   }
 
   function getZoneId() {
-    return String(global.currentZoneName || '').trim() || 'unknown_zone';
+    return String(ctx.currentZoneName || '').trim() || 'unknown_zone';
   }
 
   function findHeader(headers, exactName, aliases) {
@@ -98,8 +120,8 @@
         reportAddressIdConflict({
           source: 'contact_checkin_queue',
           addressIds: ids.slice(),
-          displayAddress: typeof sheetData !== 'undefined' && sheetData.getAddressString
-            ? sheetData.getAddressString(rows[0])
+          displayAddress: (getSheetData() && getSheetData().getAddressString)
+            ? getSheetData().getAddressString(rows[0])
             : ''
         });
       }
@@ -108,17 +130,19 @@
     // Fallback: synthetic key from display address so Check-In can still run
     // before address_id is fully seeded. Progress will re-key once IDs exist.
     var display = '';
-    if (typeof sheetData !== 'undefined' && typeof sheetData.getAddressString === 'function') {
-      display = sheetData.getAddressString(rows[0]) || '';
+    var sheet = getSheetData();
+    if (sheet && typeof sheet.getAddressString === 'function') {
+      display = sheet.getAddressString(rows[0]) || '';
     }
     return display ? ('legacy__' + display) : '';
   }
 
   function buildQueueFromSheet() {
-    if (typeof sheetData === 'undefined' || !sheetData || !sheetData.addressMap) return [];
-    var headers = sheetData.headers || [];
+    var sheet = getSheetData();
+    if (!sheet || !sheet.addressMap) return [];
+    var headers = sheet.headers || [];
     var items = [];
-    sheetData.addressMap.forEach(function (rows, displayAddress) {
+    sheet.addressMap.forEach(function (rows, displayAddress) {
       var activeRows = (rows || []).filter(function (row) {
         return !isFormerOrDeceased(row, headers);
       });
@@ -281,12 +305,12 @@
 
   async function batchUpdateResidentFields(updatesByResidentId) {
     if (!updatesByResidentId.length) return;
-    if (!global.currentSheetId) throw new Error('No sheet loaded');
+    if (!ctx.currentSheetId) throw new Error('No sheet loaded');
     var res = await fetch('/api/sheets/batch-update-by-resident-id', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sheetId: global.currentSheetId,
+        sheetId: ctx.currentSheetId,
         sheetName: 'Sheet1',
         valueInputOption: 'USER_ENTERED',
         updates: updatesByResidentId
@@ -359,7 +383,7 @@
     if (!mount) return;
     ensureDom();
 
-    if (!global.accessToken || !getCaptainId()) {
+    if (!ctx.accessToken || !getCaptainId()) {
       mount.innerHTML = '<p class="cci-muted">Sign in to start Contact Check-In for your zone.</p>';
       return;
     }
@@ -436,7 +460,7 @@
   }
 
   function openWizard(skippedOnly) {
-    if (!global.accessToken) {
+    if (!ctx.accessToken) {
       toast('Please sign in to use Contact Check-In.');
       return;
     }
@@ -892,7 +916,7 @@
 
   async function saveYesFlow(address) {
     if (state.saving) return;
-    var headers = (typeof sheetData !== 'undefined' && sheetData.headers) ? sheetData.headers : [];
+    var headers = (getSheetData() && getSheetData().headers) ? getSheetData().headers : [];
     var selected = Array.prototype.map.call(document.querySelectorAll('.cci-contact-check:checked'), function (el) {
       return el.value;
     });
@@ -959,7 +983,7 @@
 
   async function saveNoFlow(address) {
     if (state.saving) return;
-    var headers = (typeof sheetData !== 'undefined' && sheetData.headers) ? sheetData.headers : [];
+    var headers = (getSheetData() && getSheetData().headers) ? getSheetData().headers : [];
     state.saving = true;
     try {
       var updates = [];
@@ -1106,7 +1130,8 @@
     }
   }
 
-  async function refreshContactCheckIn() {
+  async function refreshContactCheckIn(nextContext) {
+    if (nextContext) setContext(nextContext);
     ensureDom();
     state.queue = buildQueueFromSheet();
     await loadReviews();
@@ -1115,4 +1140,5 @@
 
   global.refreshContactCheckIn = refreshContactCheckIn;
   global.openContactCheckIn = function () { openWizard(false); };
+  global.setContactCheckInContext = setContext;
 })(typeof window !== 'undefined' ? window : globalThis);

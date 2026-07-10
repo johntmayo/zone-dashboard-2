@@ -20031,7 +20031,13 @@
       updateZoneSetupPanel();
       updateZoneLeadership();
       if (typeof refreshContactCheckIn === 'function') {
-        refreshContactCheckIn().catch(function (err) {
+        refreshContactCheckIn({
+          accessToken: accessToken,
+          currentUserEmail: currentUserEmail,
+          currentZoneName: currentZoneName,
+          currentSheetId: currentSheetId,
+          sheetData: sheetData
+        }).catch(function (err) {
           console.warn('Contact Check-In refresh failed:', err);
         });
       }
