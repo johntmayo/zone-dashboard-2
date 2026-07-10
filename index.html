@@ -260,185 +260,201 @@
         </div>
 
         <div class="home-panels-grid">
-          <!-- Panel A: Zone Overview -->
-          <div class="home-panel home-panel--overview">
-            <div class="home-panel-header">
-              <h2>Zone Overview</h2>
-            </div>
-            <div class="home-panel-content" id="zoneSnapshotContent">
-              <div class="loading">Loading zone data...</div>
-            </div>
-            <div id="zoneStatCards" class="zone-stat-cards hidden">
-              <div class="zone-stat-column">
-                <div class="zone-stat-item">
-                  <span class="zone-stat-number" id="statTotalAddresses">—</span>
-                  <span class="zone-stat-label">Total Addresses</span>
+          <div class="home-bento-columns">
+            <div class="home-bento-col home-bento-col--main">
+              <!-- Panel A: Zone Overview -->
+              <div class="home-panel home-panel--overview">
+                <div class="home-panel-header">
+                  <h2>Zone Overview</h2>
                 </div>
-                <div class="zone-stat-item">
-                  <span class="zone-stat-number" id="statTotalPeople">—</span>
-                  <span class="zone-stat-label">Total People</span>
+                <div class="home-panel-content" id="zoneSnapshotContent">
+                  <div class="loading">Loading zone data...</div>
                 </div>
-                <div class="zone-stat-item">
-                  <span class="zone-stat-number" id="statContacted">—</span>
-                  <span class="zone-stat-label">Addresses with Outreach Attempt</span>
-                </div>
-              </div>
-              <div class="zone-stat-column">
-                <div class="zone-stat-item">
-                  <span class="zone-stat-number" id="statTotalLoss">—</span>
-                  <span class="zone-stat-label">Total Loss</span>
-                </div>
-                <div class="zone-stat-item">
-                  <span class="zone-stat-number" id="statStanding">—</span>
-                  <span class="zone-stat-label">Standing</span>
-                </div>
-                <div class="zone-stat-item">
-                  <span class="zone-stat-number" id="statDamageNotSet">—</span>
-                  <span class="zone-stat-label">Damage Not Set</span>
-                </div>
-              </div>
-              <div class="zone-stat-column">
-                <div class="zone-stat-item">
-                  <span class="zone-stat-number" id="statSoldSinceFire">—</span>
-                  <span class="zone-stat-label">Sold Since Fire</span>
-                </div>
-              </div>
-            </div>
-            <div class="zone-overview-charts hidden" id="zoneOverviewCharts">
-              <!-- Left Chart Carousel -->
-              <div class="chart-carousel-wrapper">
-                <div class="chart-carousel-container">
-                  <button class="chart-carousel-arrow chart-carousel-arrow-left" aria-label="Previous chart">
-                    <span class="chart-carousel-arrow-symbol">‹</span>
-                  </button>
-                  <div class="chart-carousel-track">
-                    <div class="chart-container-small chart-carousel-slide active" data-chart-index="0">
-                      <div class="chart-title">Addresses with Outreach Attempt</div>
-                      <canvas id="zoneOverviewLeftAddressesChart"></canvas>
+                <div id="zoneStatCards" class="zone-stat-cards hidden">
+                  <div class="zone-stat-column">
+                    <div class="zone-stat-item">
+                      <span class="zone-stat-number" id="statTotalAddresses">—</span>
+                      <span class="zone-stat-label">Total Addresses</span>
                     </div>
-                    <div class="chart-container-small chart-carousel-slide" data-chart-index="1">
-                      <div class="chart-title">Streets Distribution</div>
-                      <canvas id="zoneOverviewLeftStreetsChart"></canvas>
+                    <div class="zone-stat-item">
+                      <span class="zone-stat-number" id="statTotalPeople">—</span>
+                      <span class="zone-stat-label">Total People</span>
                     </div>
-                    <div class="chart-container-small chart-carousel-slide" data-chart-index="2">
-                      <div class="chart-title">People per Address</div>
-                      <canvas id="zoneOverviewLeftPeopleChart"></canvas>
+                    <div class="zone-stat-item">
+                      <span class="zone-stat-number" id="statContacted">—</span>
+                      <span class="zone-stat-label">Addresses with Outreach Attempt</span>
                     </div>
                   </div>
-                  <button class="chart-carousel-arrow chart-carousel-arrow-right" aria-label="Next chart">
-                    <span class="chart-carousel-arrow-symbol">›</span>
-                  </button>
-                  <div class="chart-carousel-dots" data-carousel="left"></div>
+                  <div class="zone-stat-column">
+                    <div class="zone-stat-item">
+                      <span class="zone-stat-number" id="statTotalLoss">—</span>
+                      <span class="zone-stat-label">Total Loss</span>
+                    </div>
+                    <div class="zone-stat-item">
+                      <span class="zone-stat-number" id="statStanding">—</span>
+                      <span class="zone-stat-label">Standing</span>
+                    </div>
+                    <div class="zone-stat-item">
+                      <span class="zone-stat-number" id="statDamageNotSet">—</span>
+                      <span class="zone-stat-label">Damage Not Set</span>
+                    </div>
+                  </div>
+                  <div class="zone-stat-column">
+                    <div class="zone-stat-item">
+                      <span class="zone-stat-number" id="statSoldSinceFire">—</span>
+                      <span class="zone-stat-label">Sold Since Fire</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="zone-overview-charts hidden" id="zoneOverviewCharts">
+                  <!-- Left Chart Carousel -->
+                  <div class="chart-carousel-wrapper">
+                    <div class="chart-carousel-container">
+                      <button class="chart-carousel-arrow chart-carousel-arrow-left" aria-label="Previous chart">
+                        <span class="chart-carousel-arrow-symbol">‹</span>
+                      </button>
+                      <div class="chart-carousel-track">
+                        <div class="chart-container-small chart-carousel-slide active" data-chart-index="0">
+                          <div class="chart-title">Addresses with Outreach Attempt</div>
+                          <canvas id="zoneOverviewLeftAddressesChart"></canvas>
+                        </div>
+                        <div class="chart-container-small chart-carousel-slide" data-chart-index="1">
+                          <div class="chart-title">Streets Distribution</div>
+                          <canvas id="zoneOverviewLeftStreetsChart"></canvas>
+                        </div>
+                        <div class="chart-container-small chart-carousel-slide" data-chart-index="2">
+                          <div class="chart-title">People per Address</div>
+                          <canvas id="zoneOverviewLeftPeopleChart"></canvas>
+                        </div>
+                      </div>
+                      <button class="chart-carousel-arrow chart-carousel-arrow-right" aria-label="Next chart">
+                        <span class="chart-carousel-arrow-symbol">›</span>
+                      </button>
+                      <div class="chart-carousel-dots" data-carousel="left"></div>
+                    </div>
+                  </div>
+                  
+                  <!-- Right Chart Carousel -->
+                  <div class="chart-carousel-wrapper">
+                    <div class="chart-carousel-container">
+                      <button class="chart-carousel-arrow chart-carousel-arrow-left" aria-label="Previous chart">
+                        <span class="chart-carousel-arrow-symbol">‹</span>
+                      </button>
+                      <div class="chart-carousel-track">
+                        <div class="chart-container-small chart-carousel-slide active" data-chart-index="0">
+                          <div class="chart-title">Damage Status</div>
+                          <canvas id="zoneOverviewRightDamageChart"></canvas>
+                        </div>
+                        <div class="chart-container-small chart-carousel-slide" data-chart-index="1">
+                          <div class="chart-title">Build Status</div>
+                          <canvas id="zoneOverviewRightRebuildChart"></canvas>
+                        </div>
+                        <div class="chart-container-small chart-carousel-slide" data-chart-index="2">
+                          <div class="chart-title">Address Plan</div>
+                          <canvas id="zoneOverviewRightHouseholdChart"></canvas>
+                        </div>
+                      </div>
+                      <button class="chart-carousel-arrow chart-carousel-arrow-right" aria-label="Next chart">
+                        <span class="chart-carousel-arrow-symbol">›</span>
+                      </button>
+                      <div class="chart-carousel-dots" data-carousel="right"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Mobile-only: single 6-chart carousel replaces the dual desktop carousels -->
+                <div class="mobile-chart-carousel" id="mobileZoneChartCarousel">
+                  <div class="mobile-chart-header">
+                    <button class="mobile-chart-nav" id="mobileChartPrev" aria-label="Previous chart">&#8249;</button>
+                    <div class="mobile-chart-meta">
+                      <div class="mobile-chart-title" id="mobileChartTitle">Addresses with Outreach Attempt</div>
+                      <div class="mobile-chart-counter" id="mobileChartCounter">1 / 6</div>
+                    </div>
+                    <button class="mobile-chart-nav" id="mobileChartNext" aria-label="Next chart">&#8250;</button>
+                  </div>
+                  <div class="mobile-chart-canvas-wrap">
+                    <canvas id="mobileZoneChart"></canvas>
+                  </div>
+                </div>
+
+                <div class="zone-overview-footer hidden" id="zoneOverviewFooter" style="display:none;">
+                  <div class="stat-item">
+                    <span class="stat-label">Last updated</span>
+                    <span class="stat-value">-</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Panel: From Altagether (under Zone Overview) -->
+              <div class="home-panel home-panel--altagether altagether-panel">
+                <div class="home-panel-header">
+                  <h2>From Altagether</h2>
+                </div>
+                <div class="home-panel-content" id="altagetherContent">
+                  <div class="loading">Loading announcements...</div>
                 </div>
               </div>
               
-              <!-- Right Chart Carousel -->
-              <div class="chart-carousel-wrapper">
-                <div class="chart-carousel-container">
-                  <button class="chart-carousel-arrow chart-carousel-arrow-left" aria-label="Previous chart">
-                    <span class="chart-carousel-arrow-symbol">‹</span>
-                  </button>
-                  <div class="chart-carousel-track">
-                    <div class="chart-container-small chart-carousel-slide active" data-chart-index="0">
-                      <div class="chart-title">Damage Status</div>
-                      <canvas id="zoneOverviewRightDamageChart"></canvas>
-                    </div>
-                    <div class="chart-container-small chart-carousel-slide" data-chart-index="1">
-                      <div class="chart-title">Build Status</div>
-                      <canvas id="zoneOverviewRightRebuildChart"></canvas>
-                    </div>
-                    <div class="chart-container-small chart-carousel-slide" data-chart-index="2">
-                      <div class="chart-title">Address Plan</div>
-                      <canvas id="zoneOverviewRightHouseholdChart"></canvas>
-                    </div>
-                  </div>
-                  <button class="chart-carousel-arrow chart-carousel-arrow-right" aria-label="Next chart">
-                    <span class="chart-carousel-arrow-symbol">›</span>
-                  </button>
-                  <div class="chart-carousel-dots" data-carousel="right"></div>
+              <!-- Panel: Quick Actions -->
+              <div class="home-panel home-panel--actions">
+                <div class="home-panel-header">
+                  <h2>Quick Actions</h2>
+                </div>
+                <div class="home-panel-content" id="quickActionsContent">
+                  <div class="loading">Loading quick actions...</div>
                 </div>
               </div>
             </div>
 
-            <!-- Mobile-only: single 6-chart carousel replaces the dual desktop carousels -->
-            <div class="mobile-chart-carousel" id="mobileZoneChartCarousel">
-              <div class="mobile-chart-header">
-                <button class="mobile-chart-nav" id="mobileChartPrev" aria-label="Previous chart">&#8249;</button>
-                <div class="mobile-chart-meta">
-                  <div class="mobile-chart-title" id="mobileChartTitle">Addresses with Outreach Attempt</div>
-                  <div class="mobile-chart-counter" id="mobileChartCounter">1 / 6</div>
+            <div class="home-bento-col home-bento-col--side">
+              <!-- Panel: Contact Check-In -->
+              <div class="home-panel home-panel--checkin contact-checkin-panel">
+                <div class="home-panel-header">
+                  <h2>Contact Check-In</h2>
                 </div>
-                <button class="mobile-chart-nav" id="mobileChartNext" aria-label="Next chart">&#8250;</button>
+                <div class="home-panel-content" id="contactCheckInContent">
+                  <div class="loading">Loading Contact Check-In...</div>
+                </div>
               </div>
-              <div class="mobile-chart-canvas-wrap">
-                <canvas id="mobileZoneChart"></canvas>
+
+              <!-- Panel: Contact Check-In Community Feed -->
+              <div class="home-panel home-panel--feed contact-checkin-feed-panel">
+                <div class="home-panel-header">
+                  <h2>Check-In Campaign Feed</h2>
+                </div>
+                <div class="home-panel-content" id="contactCheckInFeedContent">
+                  <p class="cci-feed-intro">Updates from Altagether’s org-wide <strong>Contact Check-In</strong> campaign — progress across zones as captains review which households have been reached.</p>
+                  <ul class="cci-feed-list" id="contactCheckInFeedList">
+                    <li>Your zone progress is saved automatically as you go.</li>
+                    <li>Network milestones and zone completions will show up here during the campaign.</li>
+                  </ul>
+                </div>
               </div>
-            </div>
-
-            <div class="zone-overview-footer hidden" id="zoneOverviewFooter" style="display:none;">
-              <div class="stat-item">
-                <span class="stat-label">Last updated</span>
-                <span class="stat-value">-</span>
+              
+              <!-- Panel: Zone Map -->
+              <div class="home-panel home-panel--map home-panel-map">
+                <div class="home-panel-header">
+                  <h2>Mini Map</h2>
+                </div>
+                <div class="home-panel-content home-map-container" id="homeMapContainer">
+                  <div id="homeMap"></div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <!-- Panel: Contact Check-In -->
-          <div class="home-panel home-panel--checkin contact-checkin-panel">
-            <div class="home-panel-header">
-              <h2>Contact Check-In</h2>
-            </div>
-            <div class="home-panel-content" id="contactCheckInContent">
-              <div class="loading">Loading Contact Check-In...</div>
-            </div>
-          </div>
-
-          <!-- Panel: From Altagether (under Zone Overview) -->
-          <div class="home-panel home-panel--altagether altagether-panel">
-            <div class="home-panel-header">
-              <h2>From Altagether</h2>
-            </div>
-            <div class="home-panel-content" id="altagetherContent">
-              <div class="loading">Loading announcements...</div>
-            </div>
-          </div>
-
-          <!-- Panel: Contact Check-In Community Feed -->
-          <div class="home-panel home-panel--feed contact-checkin-feed-panel">
-            <div class="home-panel-header">
-              <h2>Check-In Campaign Feed</h2>
-            </div>
-            <div class="home-panel-content" id="contactCheckInFeedContent">
-              <p class="cci-feed-intro">Updates from Altagether’s org-wide <strong>Contact Check-In</strong> campaign — progress across zones as captains review which households have been reached.</p>
-              <ul class="cci-feed-list" id="contactCheckInFeedList">
-                <li>Your zone progress is saved automatically as you go.</li>
-                <li>Network milestones and zone completions will show up here during the campaign.</li>
-              </ul>
+              <!-- Panel: Zone Leadership -->
+              <div class="home-panel home-panel--leadership">
+                <div class="home-panel-header">
+                  <h2>Zone Leadership</h2>
+                </div>
+                <div class="home-panel-content" id="zoneLeadershipContent">
+                  <div class="loading">Loading zone leadership...</div>
+                </div>
+              </div>
             </div>
           </div>
           
-          <!-- Panel: Quick Actions -->
-          <div class="home-panel home-panel--actions">
-            <div class="home-panel-header">
-              <h2>Quick Actions</h2>
-            </div>
-            <div class="home-panel-content" id="quickActionsContent">
-              <div class="loading">Loading quick actions...</div>
-            </div>
-          </div>
-          
-          <!-- Panel: Zone Map -->
-          <div class="home-panel home-panel--map home-panel-map">
-            <div class="home-panel-header">
-              <h2>Mini Map</h2>
-            </div>
-            <div class="home-panel-content home-map-container" id="homeMapContainer">
-              <div id="homeMap" style="width: 100%; height: 100%;"></div>
-            </div>
-          </div>
-          
-          <!-- Panel: Build Progress Charts -->
-          <div class="home-panel home-panel--build">
+          <!-- Panel: Build Progress Charts (full-width bento span) -->
+          <div class="home-panel home-panel-wide home-panel--build">
             <div class="home-panel-header">
               <h2>Build Progress</h2>
             </div>
@@ -459,16 +475,6 @@
                   <canvas id="rebuildStatusFunnelChart"></canvas>
                 </div>
               </div>
-            </div>
-          </div>
-          
-          <!-- Panel: Zone Leadership -->
-          <div class="home-panel home-panel--leadership">
-            <div class="home-panel-header">
-              <h2>Zone Leadership</h2>
-            </div>
-            <div class="home-panel-content" id="zoneLeadershipContent">
-              <div class="loading">Loading zone leadership...</div>
             </div>
           </div>
         </div>
