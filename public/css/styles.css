@@ -1009,25 +1009,30 @@
       color: var(--brand-primary-dark);
     }
 
+    /* True bento: independent column stacks (no shared row tracks / empty pockets) */
     .home-panels-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.95fr);
-      grid-template-areas:
-        "overview checkin"
-        "altagether feed"
-        "actions map"
-        "build leadership";
-      grid-auto-rows: auto;
+      display: flex;
+      flex-direction: column;
       gap: 20px;
       margin-bottom: 20px;
+    }
+
+    .home-bento-columns {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.95fr);
+      gap: 20px;
       align-items: start;
     }
 
-    .home-panel--checkin { grid-area: checkin; }
-    .home-panel--feed { grid-area: feed; }
+    .home-bento-col {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      min-width: 0;
+    }
 
     .home-panel-wide {
-      grid-column: 1 / -1;
+      width: 100%;
     }
 
     .home-panel {
@@ -1040,7 +1045,7 @@
       display: flex;
       flex-direction: column;
       height: auto;
-      align-self: start;
+      width: 100%;
     }
 
     .home-panel-header {
@@ -1063,41 +1068,12 @@
     .home-panel-content {
       padding: 20px 16px;
       color: var(--text);
-      flex: 1;
+      flex: 0 1 auto;
       min-height: 0;
     }
 
-    .home-panel--overview {
-      grid-area: overview;
-    }
-
-    .home-panel--altagether {
-      grid-area: altagether;
-    }
-
-    .home-panel--actions {
-      grid-area: actions;
-    }
-
-    .home-panel--map {
-      grid-area: map;
-    }
-
-    .home-panel--build {
-      grid-area: build;
-    }
-
     .home-panel--build .charts-grid {
-      grid-template-columns: 1fr;
       margin-top: 0;
-    }
-
-    .home-panel--build .charts-grid-wide {
-      grid-template-columns: 1fr;
-    }
-
-    .home-panel--leadership {
-      grid-area: leadership;
     }
 
     .home-panel--feed .home-panel-content {
@@ -1169,24 +1145,19 @@
     }
 
     .home-panel-map {
-      min-height: 280px;
       display: flex;
       flex-direction: column;
       width: 100%;
     }
 
     .home-panel-map .home-panel-content {
-      flex: 1;
+      flex: 0 0 auto;
       padding: 0;
-      display: flex;
-      flex-direction: column;
-      min-height: 260px;
+      display: block;
     }
 
     .home-map-container {
       padding: 0;
-      flex: 1;
-      min-height: 260px;
       height: 280px;
       position: relative;
       overflow: hidden;
@@ -1194,8 +1165,8 @@
 
     .home-map-container #homeMap {
       width: 100%;
-      height: 100%;
-      border-radius: 0 0 12px 12px;
+      height: 280px;
+      border-radius: 0;
     }
 
     .stat-item {
@@ -1515,24 +1486,11 @@
     }
 
     @media (max-width: 1280px) {
-      .home-panels-grid {
+      .home-bento-columns {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        grid-template-areas:
-          "overview checkin"
-          "altagether feed"
-          "actions map"
-          "build leadership";
-        grid-auto-rows: auto;
       }
 
-      .home-panel--overview,
-      .home-panel--checkin,
-      .home-panel--altagether,
-      .home-panel--feed,
-      .home-panel--actions,
-      .home-panel--map,
-      .home-panel--build,
-      .home-panel--leadership {
+      .home-panel {
         min-height: auto;
       }
 
@@ -10111,38 +10069,36 @@
     margin-bottom: 16px;
   }
 
-  /* ---- Home dashboard: single column ---- */
+  /* ---- Home dashboard: single column masonry ---- */
 
   .home-panels-grid {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "overview"
-      "checkin"
-      "feed"
-      "altagether"
-      "actions"
-      "map"
-      "build"
-      "leadership";
-    grid-auto-rows: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* Flatten wrappers so every panel is a direct flex child and can be reordered */
+  .home-bento-columns,
+  .home-bento-col {
+    display: contents;
   }
 
   .home-panel {
     min-height: auto;
   }
 
-  .home-panel-wide {
-    grid-column: auto;
-  }
+  .home-panel--overview { order: 1; }
+  .home-panel--checkin { order: 2; }
+  .home-panel--feed { order: 3; }
+  .home-panel--altagether { order: 4; }
+  .home-panel--actions { order: 5; }
+  .home-panel--map { order: 6; }
+  .home-panel--leadership { order: 7; }
+  .home-panel--build { order: 8; }
 
-  .home-panel--overview { grid-area: overview; }
-  .home-panel--checkin { grid-area: checkin; }
-  .home-panel--feed { grid-area: feed; }
-  .home-panel--altagether { grid-area: altagether; }
-  .home-panel--actions { grid-area: actions; }
-  .home-panel--map { grid-area: map; }
-  .home-panel--build { grid-area: build; }
-  .home-panel--leadership { grid-area: leadership; }
+  .home-panel-wide {
+    width: 100%;
+  }
 
   /* Hide zone mini-map on mobile (too small to be useful) */
   .home-panel-map {
