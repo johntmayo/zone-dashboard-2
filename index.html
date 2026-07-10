@@ -108,7 +108,6 @@
         <button class="nav-item hidden" type="button" id="navSwitchZone">Switch Zone</button>
         <button class="nav-item hidden" data-view="godmode" id="navGodmode">Admin Mode</button>
         <button class="nav-item hidden" data-view="lotWeedingAdmin" id="navLotWeedingAdmin">Lot Weeding Command Center</button>
-        <a href="about.html" target="_blank" rel="noopener noreferrer" class="nav-item nav-item-link">About the Dashboard</a>
       </div>
       <div class="nav-section nav-section-bottom">
         <div class="nav-logo">
@@ -116,6 +115,8 @@
         </div>
         <button class="nav-item hidden" id="signOutBtn" type="button">Sign out</button>
         <div class="nav-feedback-wrap">
+          <a href="about.html" target="_blank" rel="noopener noreferrer" class="nav-feedback-link">About</a>
+          <span class="nav-feedback-sep" aria-hidden="true">·</span>
           <a href="https://airtable.com/appLrjspqPboCt2ma/pagutixyE91qfPMVd/form" target="_blank" rel="noopener noreferrer" class="nav-feedback-link">Send feedback</a>
         </div>
       </div>
@@ -385,10 +386,10 @@
                 </div>
               </div>
 
-              <!-- Panel: From Altagether (under Zone Overview) -->
-              <div class="home-panel home-panel--altagether altagether-panel">
+              <!-- Panel: Announcements (under Zone Overview) -->
+              <div class="home-panel home-panel--altagether">
                 <div class="home-panel-header">
-                  <h2>From Altagether</h2>
+                  <h2>Announcements</h2>
                 </div>
                 <div class="home-panel-content" id="altagetherContent">
                   <div class="loading">Loading announcements...</div>
@@ -407,9 +408,10 @@
             </div>
 
             <div class="home-bento-col home-bento-col--side">
-              <!-- Panel: Contact Check-In -->
-              <div class="home-panel home-panel--checkin contact-checkin-panel">
+              <!-- Panel: Contact Check-In (campaign spotlight — reusable home-panel--campaign) -->
+              <div class="home-panel home-panel--checkin home-panel--campaign contact-checkin-panel">
                 <div class="home-panel-header">
+                  <span class="campaign-badge">Town-wide campaign</span>
                   <h2>Contact Check-In</h2>
                 </div>
                 <div class="home-panel-content" id="contactCheckInContent">
@@ -418,9 +420,9 @@
               </div>
 
               <!-- Panel: Contact Check-In Community Feed -->
-              <div class="home-panel home-panel--feed contact-checkin-feed-panel">
+              <div class="home-panel home-panel--feed home-panel--campaign-feed contact-checkin-feed-panel">
                 <div class="home-panel-header">
-                  <h2>Check-In Campaign Feed</h2>
+                  <h2>Community Feed</h2>
                 </div>
                 <div class="home-panel-content" id="contactCheckInFeedContent">
                   <p class="cci-feed-intro">Updates from Altagether’s org-wide <strong>Contact Check-In</strong> campaign — progress across zones as captains review which households have been reached.</p>
@@ -21087,7 +21089,7 @@
       return result;
     }
 
-    // Panel C: From Altagether (Central Feed)
+    // Panel C: Announcements (Central Feed)
     async function fetchAndDisplayCentralFeed() {
       const content = document.getElementById('altagetherContent');
       if (!content) return;
