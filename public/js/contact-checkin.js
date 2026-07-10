@@ -733,7 +733,10 @@
     var summary = computeLocalSummary();
     var startLabel = summary.reviewed > 0 ? 'Continue Contact Check-In' : 'Start Contact Check-In';
     mount.innerHTML = [
-      '<p class="cci-tagline">Help Altagether understand which households in your zone have been reached—and which may still need help connecting.</p>',
+      '<div class="cci-tagline-row">',
+      '  <p class="cci-tagline">Help Altagether understand which households in your zone have been reached—and which may still need help connecting.</p>',
+      '  <button type="button" class="cci-link-btn" id="cciLearnMoreBtn">Learn more</button>',
+      '</div>',
       '<div class="cci-progress-row">',
       '  <div class="cci-bar"><div class="cci-bar-fill" style="width:' + summary.percentReviewed + '%"></div></div>',
       '  <strong>' + summary.reviewed + ' of ' + summary.total + '</strong>',
@@ -749,7 +752,6 @@
       summary.skipped > 0
         ? '  <button type="button" class="cci-secondary" id="cciReviewSkippedBtn">Review skipped</button>'
         : '',
-      '  <button type="button" class="cci-link-btn" id="cciLearnMoreBtn">Learn more</button>',
       '</div>'
     ].join('');
 
