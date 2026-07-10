@@ -733,10 +733,8 @@
     var summary = computeLocalSummary();
     var startLabel = summary.reviewed > 0 ? 'Continue Contact Check-In' : 'Start Contact Check-In';
     mount.innerHTML = [
-      '<div class="cci-tagline-row">',
-      '  <p class="cci-tagline">Help Altagether understand which households in your zone have been reached—and which may still need help connecting.</p>',
-      '  <button type="button" class="cci-link-btn" id="cciLearnMoreBtn">Learn more</button>',
-      '</div>',
+      '<p class="cci-tagline">Help Altagether understand which households in your zone have been reached—and which may still need help connecting. ',
+      '<button type="button" class="cci-link-btn cci-link-btn--inline" id="cciLearnMoreBtn">Learn more</button></p>',
       '<div class="cci-progress-row">',
       '  <div class="cci-bar"><div class="cci-bar-fill" style="width:' + summary.percentReviewed + '%"></div></div>',
       '  <strong>' + summary.reviewed + ' of ' + summary.total + '</strong>',
@@ -829,7 +827,7 @@
       '  <div class="cci-community-metric"><strong>' + formatCount(reached) + '</strong><span>Reached</span></div>',
       '  <div class="cci-community-metric"><strong>' + formatCount(zones) + '</strong><span>Zones underway</span></div>',
       '</div>',
-      '<p class="cci-feed-empty" style="margin-bottom:10px;">' +
+      '<p class="cci-feed-meta">' +
         formatCount(captains) + ' captain' + (captains === 1 ? '' : 's') + ' participating' +
         (recent > 0 ? ' · ' + formatCount(recent) + ' reviewed in the last 48 hours' : '') +
       '.</p>',
