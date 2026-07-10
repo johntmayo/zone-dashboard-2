@@ -12424,11 +12424,15 @@
 .cci-tagline {
   margin: 0 0 14px;
 }
-.cci-link-btn--inline {
-  display: inline;
-  font: inherit;
-  vertical-align: baseline;
-  white-space: normal;
+.cci-tagline .announcement-link {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+.cci-tagline .announcement-link:hover {
+  text-decoration: underline;
 }
 .cci-muted { color: var(--text-secondary); margin: 0; }
 .cci-progress-row {
@@ -12496,12 +12500,13 @@
   flex-wrap: wrap;
   align-items: center;
 }
-.home-panel--campaign .cci-primary {
-  box-shadow: 3px 3px 0 rgba(49, 64, 89, 0.25);
-}
 .home-panel--campaign .cci-link-btn {
   color: var(--brand-primary-dark);
   font-weight: 800;
+}
+.cci-home-actions .quick-action-link {
+  display: inline-block;
+  cursor: pointer;
 }
 .cci-primary {
   background: var(--accent-gold);
