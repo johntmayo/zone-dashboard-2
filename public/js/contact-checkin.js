@@ -733,11 +733,10 @@
     var summary = computeLocalSummary();
     var startLabel = summary.reviewed > 0 ? 'Continue Contact Check-In' : 'Start Contact Check-In';
     mount.innerHTML = [
-      '<p class="cci-tagline">Help Altagether understand which households in your zone have been reached—and which may still need help connecting. ',
-      '<button type="button" class="cci-link-btn" id="cciLearnMoreBtn">Learn more</button></p>',
+      '<p class="cci-tagline">Help Altagether understand which households in your zone have been reached—and which may still need help connecting.</p>',
       '<div class="cci-progress-row">',
       '  <div class="cci-bar"><div class="cci-bar-fill" style="width:' + summary.percentReviewed + '%"></div></div>',
-      '  <strong>' + summary.reviewed + ' of ' + summary.total + ' reviewed</strong>',
+      '  <strong>' + summary.reviewed + ' of ' + summary.total + '</strong>',
       '</div>',
       '<div class="cci-mini-stats">',
       '  <div class="cci-mini-stat"><strong>' + summary.reviewed + '</strong><span>Reviewed</span></div>',
@@ -748,8 +747,9 @@
       '<div class="cci-home-actions">',
       '  <button type="button" class="cci-primary" id="cciStartBtn">' + escapeHtmlLocal(startLabel) + '</button>',
       summary.skipped > 0
-        ? '  <button type="button" class="cci-secondary" id="cciReviewSkippedBtn">Review skipped addresses</button>'
+        ? '  <button type="button" class="cci-secondary" id="cciReviewSkippedBtn">Review skipped</button>'
         : '',
+      '  <button type="button" class="cci-link-btn" id="cciLearnMoreBtn">Learn more</button>',
       '</div>'
     ].join('');
 
@@ -865,11 +865,7 @@
     state.pendingNoNotes = [];
 
     var address = state.queue[state.currentIndex];
-    var summary = computeLocalSummary();
-    var bar = document.getElementById('cciModalProgressBar');
-    var text = document.getElementById('cciModalProgressText');
-    if (bar) bar.style.width = summary.percentReviewed + '%';
-    if (text) text.textContent = summary.reviewed + ' / ' + summary.total;
+    updateModalProgress();
 
     var existing = getReview(address.id);
     var statusHtml = existing
@@ -1188,7 +1184,16 @@
     return updates;
   }
 
-  async function appendQuickAddResident(address, headers) {
+  function findAddressNotesColumn(headers) {
+    return (headers || []).find(function (h) {
+      var lower = String(h).toLowerCase();
+      return lower.includes('address note') || lower === 'address notes';
+    }) || null;
+  }
+
+  async function appendQuickAddResident(address, headers, options) {
+    options = options || {};
+    var addressNote = options.addressNote ? String(options.addressNote).trim() : '';
     var first = (document.getElementById('cciNewFirst') && document.getElementById('cciNewFirst').value.trim()) || '';
     var last = (document.getElementById('cciNewLast') && document.getElementById('cciNewLast').value.trim()) || '';
     var phone = (document.getElementById('cciNewPhone') && document.getElementById('cciNewPhone').value.trim()) || '';
@@ -1230,6 +1235,18 @@
     if (cellCol && phone) valuesByColumn[cellCol] = phone;
     if (emailCol && email) valuesByColumn[emailCol] = email;
     if (notesCol && notes) valuesByColumn[notesCol] = notes;
+
+    // Address notes are address-level: bake this save's note into the new row
+    // (inheritance may already copy older notes; append the new one if needed).
+    var addressNotesCol = findAddressNotesColumn(headers);
+    if (addressNotesCol && addressNote) {
+      var inherited = String(valuesByColumn[addressNotesCol] || '').trim();
+      if (!inherited) {
+        valuesByColumn[addressNotesCol] = addressNote;
+      } else if (inherited.indexOf(addressNote) === -1) {
+        valuesByColumn[addressNotesCol] = inherited + '\n' + addressNote;
+      }
+    }
 
     if (typeof ensureResidentIdAndApn === 'function') ensureResidentIdAndApn(headers, valuesByColumn);
     if (typeof ensureAddressId === 'function') {
@@ -1299,27 +1316,24 @@
       updates = updates.concat(collectOptionUpdates(address, headers));
 
       var addressNote = document.getElementById('cciAddressNote') && document.getElementById('cciAddressNote').value.trim();
-      if (addressNote) {
-        var addressNotesCol = headers.find(function (h) {
-          var lower = String(h).toLowerCase();
-          return lower.includes('address note') || lower === 'address notes';
-        });
-        if (addressNotesCol && address.residents[0] && address.residents[0].residentId) {
-          // Write address note onto all rows at address via first resident fan-out pattern
-          address.residents.forEach(function (resident) {
-            if (!resident.residentId) return;
-            var existing = String(resident.row[addressNotesCol] || '').trim();
-            updates.push({
-              resident_id: resident.residentId,
-              column: addressNotesCol,
-              value: existing ? (existing + '\n' + addressNote) : addressNote
-            });
+      var addressNotesCol = findAddressNotesColumn(headers);
+      if (addressNote && addressNotesCol) {
+        // Write onto existing residents at this address
+        address.residents.forEach(function (resident) {
+          if (!resident.residentId) return;
+          var existing = String(resident.row[addressNotesCol] || '').trim();
+          updates.push({
+            resident_id: resident.residentId,
+            column: addressNotesCol,
+            value: existing ? (existing + '\n' + addressNote) : addressNote
           });
-        }
+        });
       }
 
+      // Quick-add after collecting existing-resident updates, and pass the
+      // address note so the new row gets it on create (not only via later update).
       if (someoneElse) {
-        await appendQuickAddResident(address, headers);
+        await appendQuickAddResident(address, headers, { addressNote: addressNote || '' });
       }
 
       var prevSummary = computeLocalSummary();
@@ -1397,22 +1411,17 @@
       });
 
       var addressNote = document.getElementById('cciNoAddressNote') && document.getElementById('cciNoAddressNote').value.trim();
-      if (addressNote) {
-        var addressNotesCol = headers.find(function (h) {
-          var lower = String(h).toLowerCase();
-          return lower.includes('address note') || lower === 'address notes';
-        });
-        if (addressNotesCol) {
-          address.residents.forEach(function (resident) {
-            if (!resident.residentId) return;
-            var existing = String(resident.row[addressNotesCol] || '').trim();
-            updates.push({
-              resident_id: resident.residentId,
-              column: addressNotesCol,
-              value: existing ? (existing + '\n' + addressNote) : addressNote
-            });
+      var addressNotesCol = findAddressNotesColumn(headers);
+      if (addressNote && addressNotesCol) {
+        address.residents.forEach(function (resident) {
+          if (!resident.residentId) return;
+          var existing = String(resident.row[addressNotesCol] || '').trim();
+          updates.push({
+            resident_id: resident.residentId,
+            column: addressNotesCol,
+            value: existing ? (existing + '\n' + addressNote) : addressNote
           });
-        }
+        });
       }
 
       var prevSummary = computeLocalSummary();
@@ -1460,10 +1469,19 @@
     renderAddressCard();
   }
 
+  function updateModalProgress(summary) {
+    summary = summary || computeLocalSummary();
+    var bar = document.getElementById('cciModalProgressBar');
+    var text = document.getElementById('cciModalProgressText');
+    if (bar) bar.style.width = summary.percentReviewed + '%';
+    if (text) text.textContent = summary.reviewed + ' / ' + summary.total;
+    return summary;
+  }
+
   function showComplete() {
     var card = document.getElementById('cciAddressCard');
     if (!card) return;
-    var summary = computeLocalSummary();
+    var summary = updateModalProgress();
     card.innerHTML = [
       '<h2 class="cci-address-title">Nice work — you\'re caught up.</h2>',
       '<p class="cci-serif">You can close this and come back anytime. Skipped addresses stay available to review.</p>',

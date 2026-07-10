@@ -195,6 +195,17 @@
     .nav-feedback-wrap {
       margin-top: 12px;
       text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .nav-feedback-sep {
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.35);
+      line-height: 1;
     }
 
     .nav-feedback-link {
@@ -1110,38 +1121,65 @@
       display: none;
     }
     
-    /* Tighter spacing for From Altagether panel */
+    /* Announcements panel — same card chrome as the rest of Home */
     #altagetherContent {
       padding: 8px !important;
     }
 
-    /* From Altagether Panel - Cream background with clay accents */
-    .altagether-panel {
-      background-color: #FFFDF5;
+    /* Reusable campaign spotlight (Contact Check-In now; other campaigns later) */
+    .home-panel--campaign {
+      background:
+        linear-gradient(165deg, #FFF9E8 0%, #FFF3D6 55%, #FFEEC8 100%);
+      border-color: var(--brand-primary-dark);
+      box-shadow: 7px 7px 0 rgba(49, 64, 89, 0.18);
+      position: relative;
     }
 
-    .altagether-panel .home-panel-header {
-      background: transparent;
+    .home-panel--campaign .home-panel-header {
+      padding-top: 14px;
+      padding-bottom: 8px;
     }
 
-    .altagether-panel .home-panel-header h2 {
-      color: var(--accent-clay);
+    .home-panel--campaign .home-panel-header h2 {
+      border-bottom-color: var(--accent-gold);
+      color: var(--brand-primary-dark);
+      font-size: 1.35rem;
     }
 
-    .altagether-panel .announcement-item {
-      background: #FFFDF5;
+    .campaign-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0 0 8px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--brand-primary-dark);
+      color: #fff8e8;
+      font-family: Chivo, sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      line-height: 1.2;
     }
 
-    .altagether-panel .announcement-link {
-      color: #A65A20;
+    .campaign-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-gold);
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
+      flex-shrink: 0;
     }
 
-    .altagether-panel .announcement-link:hover {
-      color: #8B4E1A;
+    .home-panel--campaign-feed {
+      background: linear-gradient(180deg, #F0F6F8 0%, #E7F1F4 100%);
+      box-shadow: 6px 6px 0 rgba(52, 112, 114, 0.12);
     }
 
-    .altagether-panel .announcement-title {
-      color: #6B3D15;
+    .home-panel--campaign-feed .home-panel-header h2 {
+      border-bottom-color: #7FA9B0;
     }
 
     .home-panel-map {
@@ -1239,9 +1277,15 @@
     .announcement-item {
       padding: 10px 12px;
       margin-bottom: 8px;
-      background: #FFFDF5;
+      background: transparent;
       border-radius: 0;
       border: none;
+      border-bottom: 1px solid rgba(49, 64, 89, 0.1);
+    }
+
+    .announcement-item:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
     }
 
     .announcement-title {
@@ -12029,17 +12073,17 @@
 
 /* ===== Contact Check-In ===== */
 .contact-checkin-panel {
-  background-color: #FFFDF5;
   min-height: 280px;
 }
-.contact-checkin-panel .home-panel-header h2 {
-  color: var(--brand-primary-dark);
+.contact-checkin-panel .home-panel-content {
+  padding-top: 12px;
 }
 .cci-tagline {
   font-family: Merriweather, Georgia, serif;
   margin: 0 0 14px;
   color: var(--text-primary);
-  line-height: 1.4;
+  line-height: 1.45;
+  font-size: 0.95rem;
 }
 .cci-muted { color: var(--text-secondary); margin: 0; }
 .cci-progress-row {
@@ -12049,29 +12093,35 @@
   gap: 12px;
   margin: 12px 0;
 }
+.home-panel--campaign .cci-progress-row strong {
+  font-family: Chivo, sans-serif;
+  font-size: 0.95rem;
+  color: var(--brand-primary-dark);
+  white-space: nowrap;
+}
 .cci-bar {
   height: 14px;
-  border: 1px solid var(--brand-primary-dark);
-  background: white;
+  border: 1.5px solid var(--brand-primary-dark);
+  background: rgba(255, 255, 255, 0.7);
   overflow: hidden;
   border-radius: 999px;
 }
 .cci-bar-fill {
   height: 100%;
   width: 0%;
-  background: #81bdc3;
+  background: linear-gradient(90deg, #E8A317 0%, var(--accent-gold) 100%);
   transition: width .25s ease;
 }
 .cci-mini-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  gap: 8px;
   margin-top: 12px;
 }
 .cci-mini-stat {
-  background: white;
-  border: 1px solid #d9ddd6;
-  padding: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(49, 64, 89, 0.16);
+  padding: 10px 8px;
   border-radius: 10px;
 }
 .cci-mini-stat strong {
@@ -12092,6 +12142,14 @@
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  align-items: center;
+}
+.home-panel--campaign .cci-primary {
+  box-shadow: 3px 3px 0 rgba(49, 64, 89, 0.25);
+}
+.home-panel--campaign .cci-link-btn {
+  color: var(--brand-primary-dark);
+  font-weight: 800;
 }
 .cci-primary {
   background: var(--accent-gold);
