@@ -94,13 +94,39 @@ function invalidateReviewCache() {
   cachedReviews = null;
 }
 
+async function resolveSheetName(sheetsClient, config) {
+  const preferred = String(config.sheetName || '').trim();
+  const candidates = [];
+  if (preferred) candidates.push(preferred);
+  ['AddressReviews', 'Sheet1'].forEach((name) => {
+    if (!candidates.includes(name)) candidates.push(name);
+  });
+
+  try {
+    const meta = await sheetsClient.spreadsheets.get({
+      spreadsheetId: config.sheetId,
+      fields: 'sheets.properties.title'
+    });
+    const titles = (meta.data.sheets || [])
+      .map((s) => s.properties && s.properties.title)
+      .filter(Boolean);
+    const matched = candidates.find((name) => titles.includes(name));
+    if (matched) return matched;
+    if (titles.length) return titles[0];
+  } catch (err) {
+    console.warn('Contact Check-In: could not list sheet tabs:', err.message || err);
+  }
+  return preferred || 'AddressReviews';
+}
+
 async function loadReviewRows(sheetsClient, config) {
   const now = Date.now();
   if (cachedReviews && cachedReviews.expiresAt > now) {
     return cachedReviews;
   }
 
-  const range = `${config.sheetName}!A1:I`;
+  const sheetName = await resolveSheetName(sheetsClient, config);
+  const range = `${sheetName}!A1:I`;
   const result = await sheetsClient.spreadsheets.values.get({
     spreadsheetId: config.sheetId,
     range
@@ -112,7 +138,8 @@ async function loadReviewRows(sheetsClient, config) {
   cachedReviews = {
     expiresAt: now + config.cacheTtlMs,
     headers,
-    rows
+    rows,
+    sheetName
   };
   return cachedReviews;
 }
@@ -218,19 +245,21 @@ async function upsertReview(sheetsClient, config, payload) {
     return existing && existing[header] != null ? existing[header] : '';
   });
 
+  const sheetName = loaded.sheetName || await resolveSheetName(sheetsClient, config);
+
   if (existingIndex >= 0) {
     const rowNumber = existingIndex + 2; // header is row 1
     const endCol = indexToColumnLetter(Math.max(headers.length - 1, 0));
     await sheetsClient.spreadsheets.values.update({
       spreadsheetId: config.sheetId,
-      range: `${config.sheetName}!A${rowNumber}:${endCol}${rowNumber}`,
+      range: `${sheetName}!A${rowNumber}:${endCol}${rowNumber}`,
       valueInputOption: 'RAW',
       requestBody: { values: [values] }
     });
   } else {
     await sheetsClient.spreadsheets.values.append({
       spreadsheetId: config.sheetId,
-      range: `${config.sheetName}!A1`,
+      range: `${sheetName}!A1`,
       valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
       requestBody: { values: [values] }
