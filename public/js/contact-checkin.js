@@ -750,14 +750,6 @@
       summary.skipped > 0
         ? '  <button type="button" class="cci-secondary" id="cciReviewSkippedBtn">Review skipped addresses</button>'
         : '',
-      '</div>',
-      '<div class="cci-community-feed">',
-      '  <h3>Community Feed</h3>',
-      '  <p class="cci-tiny">Town-wide Contact Check-In progress will appear here as captains begin reviewing their zones.</p>',
-      '  <ul class="cci-feed-list">',
-      '    <li>Your zone progress is saved automatically as you go.</li>',
-      '    <li>Network milestones and zone completions will show up here during the launch campaign.</li>',
-      '  </ul>',
       '</div>'
     ].join('');
 

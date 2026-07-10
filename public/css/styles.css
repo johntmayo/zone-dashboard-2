@@ -1011,20 +1011,20 @@
 
     .home-panels-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1.45fr) minmax(340px, 1fr);
+      grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.95fr);
       grid-template-areas:
         "overview checkin"
-        "overview altagether"
+        "altagether feed"
         "actions map"
-        "build build"
-        "leadership leadership";
+        "build leadership";
       grid-auto-rows: auto;
       gap: 20px;
       margin-bottom: 20px;
-      align-items: stretch;
+      align-items: start;
     }
 
     .home-panel--checkin { grid-area: checkin; }
+    .home-panel--feed { grid-area: feed; }
 
     .home-panel-wide {
       grid-column: 1 / -1;
@@ -1036,10 +1036,11 @@
       border: var(--border-thickness) solid var(--border-color);
       box-shadow: 6px 6px 0px #D9DBDB;
       overflow: hidden;
-      min-height: 260px;
+      min-height: 0;
       display: flex;
       flex-direction: column;
-      height: 100%;
+      height: auto;
+      align-self: start;
     }
 
     .home-panel-header {
@@ -1086,8 +1087,40 @@
       grid-area: build;
     }
 
+    .home-panel--build .charts-grid {
+      grid-template-columns: 1fr;
+      margin-top: 0;
+    }
+
+    .home-panel--build .charts-grid-wide {
+      grid-template-columns: 1fr;
+    }
+
     .home-panel--leadership {
       grid-area: leadership;
+    }
+
+    .home-panel--feed .home-panel-content {
+      padding: 16px;
+    }
+
+    .cci-feed-intro {
+      margin: 0 0 12px;
+      font-size: 0.92rem;
+      line-height: 1.5;
+      color: var(--text-secondary);
+    }
+
+    .contact-checkin-feed-panel .cci-feed-list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .contact-checkin-feed-panel .cci-feed-list li + li {
+      margin-top: 6px;
     }
 
     /* Zone Overview intro content should not reserve vertical space */
@@ -1136,9 +1169,10 @@
     }
 
     .home-panel-map {
-      min-height: 300px;
+      min-height: 280px;
       display: flex;
       flex-direction: column;
+      width: 100%;
     }
 
     .home-panel-map .home-panel-content {
@@ -1146,12 +1180,14 @@
       padding: 0;
       display: flex;
       flex-direction: column;
+      min-height: 260px;
     }
 
     .home-map-container {
       padding: 0;
       flex: 1;
-      min-height: 300px;
+      min-height: 260px;
+      height: 280px;
       position: relative;
       overflow: hidden;
     }
@@ -1482,17 +1518,17 @@
       .home-panels-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         grid-template-areas:
-          "overview overview"
-          "checkin altagether"
+          "overview checkin"
+          "altagether feed"
           "actions map"
-          "build build"
-          "leadership leadership";
+          "build leadership";
         grid-auto-rows: auto;
       }
 
       .home-panel--overview,
       .home-panel--checkin,
       .home-panel--altagether,
+      .home-panel--feed,
       .home-panel--actions,
       .home-panel--map,
       .home-panel--build,
@@ -10079,7 +10115,15 @@
 
   .home-panels-grid {
     grid-template-columns: 1fr;
-    grid-template-areas: none;
+    grid-template-areas:
+      "overview"
+      "checkin"
+      "feed"
+      "altagether"
+      "actions"
+      "map"
+      "build"
+      "leadership";
     grid-auto-rows: auto;
   }
 
@@ -10088,18 +10132,17 @@
   }
 
   .home-panel-wide {
-    grid-column: 1;
+    grid-column: auto;
   }
 
-  .home-panel--overview,
-  .home-panel--checkin,
-  .home-panel--altagether,
-  .home-panel--actions,
-  .home-panel--map,
-  .home-panel--build,
-  .home-panel--leadership {
-    grid-area: auto;
-  }
+  .home-panel--overview { grid-area: overview; }
+  .home-panel--checkin { grid-area: checkin; }
+  .home-panel--feed { grid-area: feed; }
+  .home-panel--altagether { grid-area: altagether; }
+  .home-panel--actions { grid-area: actions; }
+  .home-panel--map { grid-area: map; }
+  .home-panel--build { grid-area: build; }
+  .home-panel--leadership { grid-area: leadership; }
 
   /* Hide zone mini-map on mobile (too small to be useful) */
   .home-panel-map {
@@ -12093,26 +12136,6 @@
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-}
-.cci-community-feed {
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid #d9ddd6;
-}
-.cci-community-feed h3 {
-  margin: 0 0 8px;
-  color: var(--brand-primary-dark);
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-family: Chivo, sans-serif;
-}
-.cci-feed-list {
-  margin: 8px 0 0;
-  padding-left: 18px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.4;
 }
 .cci-primary {
   background: var(--accent-gold);
