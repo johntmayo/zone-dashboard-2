@@ -21,7 +21,10 @@
     loading: false,
     saving: false,
     sessionReviews: 0,
-    celebrated: {}
+    celebrated: {},
+    refreshTimer: null,
+    pendingRefreshAddress: null,
+    needsViewRefresh: false
   };
 
   // Bridged from index.html (let/const there are not on window)
@@ -54,8 +57,43 @@
   }
 
   function toast(msg) {
-    if (typeof showAppToast === 'function') showAppToast(msg);
-    else alert(msg);
+    showCciNudge({ title: 'Heads up', message: msg, duration: 3200 });
+  }
+
+  function showCciError(message) {
+    showCciNudge({ title: 'Couldn\u2019t save', message: message, tone: 'error', duration: 5000 });
+  }
+
+  // Light confirmation — same family as milestone cards, no confetti.
+  function showCciNudge(opts) {
+    opts = opts || {};
+    var title = opts.title || 'Saved';
+    var message = opts.message || '';
+    var tone = opts.tone || 'default';
+    var duration = opts.duration != null ? opts.duration : 2800;
+
+    var old = document.getElementById('cciNudge');
+    if (old) old.remove();
+
+    var el = document.createElement('div');
+    el.id = 'cciNudge';
+    el.className = 'cci-nudge' + (tone === 'error' ? ' cci-nudge-error' : '');
+    el.innerHTML =
+      '<div class="cci-nudge-card" role="status">' +
+      '  <div class="cci-nudge-accent"></div>' +
+      '  <div class="cci-nudge-body">' +
+      '    <strong>' + escapeHtmlLocal(title) + '</strong>' +
+      (message ? '<span>' + escapeHtmlLocal(message) + '</span>' : '') +
+      '  </div>' +
+      '</div>';
+    document.body.appendChild(el);
+
+    var dismiss = function () {
+      el.classList.add('leaving');
+      setTimeout(function () { if (el.parentNode) el.remove(); }, 280);
+    };
+    el.querySelector('.cci-nudge-card').addEventListener('click', dismiss);
+    setTimeout(dismiss, duration);
   }
 
   function truthySheetValue(value) {
@@ -335,7 +373,7 @@
   }
 
   // Re-render Neighbors / Map / Details after in-memory sheet edits.
-  // Uses index.html bridge so selectedAddress + currentView are in scope.
+  // Deferred so Save & Next feels instant during the wizard.
   function refreshLinkedViews(address) {
     try {
       if (typeof syncViewsAfterLocalSheetEdit === 'function') {
@@ -356,25 +394,69 @@
     }
   }
 
+  function scheduleLinkedViewsRefresh(address) {
+    state.pendingRefreshAddress = address;
+    state.needsViewRefresh = true;
+    if (state.refreshTimer) clearTimeout(state.refreshTimer);
+    var wizardEl = document.getElementById('contactCheckInWizard');
+    if (wizardEl && wizardEl.classList.contains('show')) return;
+
+    state.refreshTimer = setTimeout(function () {
+      state.refreshTimer = null;
+      flushLinkedViewsRefresh();
+    }, 120);
+  }
+
+  function flushLinkedViewsRefresh() {
+    if (state.refreshTimer) {
+      clearTimeout(state.refreshTimer);
+      state.refreshTimer = null;
+    }
+    if (!state.needsViewRefresh) return;
+    var address = state.pendingRefreshAddress;
+    state.needsViewRefresh = false;
+    state.pendingRefreshAddress = null;
+    refreshLinkedViews(address);
+  }
+
+  function setSaveBusy(busy) {
+    Array.prototype.forEach.call(document.querySelectorAll('#cciSaveYes, #cciSaveNo, [data-cci-skip]'), function (btn) {
+      if (!btn) return;
+      btn.disabled = busy;
+      if (busy) btn.classList.add('cci-busy');
+      else btn.classList.remove('cci-busy');
+    });
+    var saveYes = document.getElementById('cciSaveYes');
+    var saveNo = document.getElementById('cciSaveNo');
+    if (saveYes) {
+      if (busy && !saveYes.dataset.cciLabel) saveYes.dataset.cciLabel = saveYes.textContent;
+      saveYes.textContent = busy ? 'Saving\u2026' : (saveYes.dataset.cciLabel || 'Save & Next');
+    }
+    if (saveNo) {
+      if (busy && !saveNo.dataset.cciLabel) saveNo.dataset.cciLabel = saveNo.textContent;
+      saveNo.textContent = busy ? 'Saving\u2026' : (saveNo.dataset.cciLabel || 'Save & Next');
+    }
+  }
+
   // ---- Milestones & encouragement -----------------------------------------
 
-  var YES_TOASTS = [
-    'Saved — another household connected.',
-    'Saved. Great work reaching your neighbors.',
-    'Saved. That\u2019s one more household heard from.',
-    'Saved — nicely done.'
+  var YES_NUDGES = [
+    { title: 'Saved', message: 'Another household connected.' },
+    { title: 'Saved', message: 'Great work reaching your neighbors.' },
+    { title: 'Saved', message: 'That\u2019s one more household heard from.' },
+    { title: 'Saved', message: 'Nicely done — keep going.' }
   ];
-  var NO_TOASTS = [
-    'Saved. Every review helps map the zone.',
-    'Saved — knowing who hasn\u2019t been reached matters too.',
-    'Saved. Thanks for keeping the picture accurate.',
-    'Saved — onward.'
+  var NO_NUDGES = [
+    { title: 'Saved', message: 'Every review helps map the zone.' },
+    { title: 'Saved', message: 'Knowing who hasn\u2019t been reached matters too.' },
+    { title: 'Saved', message: 'Thanks for keeping the picture accurate.' },
+    { title: 'Saved', message: 'Onward to the next address.' }
   ];
-  var toastCycle = 0;
+  var nudgeCycle = 0;
 
-  function encouragingToast(list) {
-    toastCycle += 1;
-    toast(list[toastCycle % list.length]);
+  function encouragingNudge(list) {
+    nudgeCycle += 1;
+    showCciNudge(list[nudgeCycle % list.length]);
   }
 
   function streetOfAddress(displayAddress) {
@@ -525,7 +607,11 @@
 
   function showMiniCelebration(milestone) {
     state.celebrated[milestone.key] = true;
-    toast('\u2728 ' + milestone.title + ' ' + milestone.message);
+    showCciNudge({
+      title: milestone.title,
+      message: milestone.message,
+      duration: 3400
+    });
   }
 
   function showCelebration(milestone) {
@@ -537,7 +623,7 @@
     overlay.id = 'cciCelebrate';
     overlay.className = 'cci-celebrate';
     var confetti = '';
-    for (var i = 0; i < 16; i++) {
+    for (var i = 0; i < 20; i++) {
       var left = Math.round(Math.random() * 100);
       var delay = (Math.random() * 0.6).toFixed(2);
       var duration = (1.6 + Math.random() * 1.4).toFixed(2);
@@ -548,6 +634,7 @@
     }
     overlay.innerHTML =
       '<div class="cci-celebrate-card" role="status">' +
+      '  <div class="cci-celebrate-ring"></div>' +
       '  <div class="cci-celebrate-confetti">' + confetti + '</div>' +
       '  <h2>' + escapeHtmlLocal(milestone.title) + '</h2>' +
       '  <p>' + escapeHtmlLocal(milestone.message) + '</p>' +
@@ -562,14 +649,14 @@
     setTimeout(dismiss, 4200);
   }
 
-  function celebrateOrToast(address, prevSummary, toastList) {
+  function celebrateOrToast(address, prevSummary, nudgeList) {
     state.sessionReviews += 1;
     var milestone = detectMilestone(address, prevSummary, computeLocalSummary());
     if (milestone) {
       if (milestone.tier === 'mini') showMiniCelebration(milestone);
       else showCelebration(milestone);
     } else {
-      encouragingToast(toastList);
+      encouragingNudge(nudgeList);
     }
   }
 
@@ -730,6 +817,7 @@
   function closeWizard() {
     var el = document.getElementById('contactCheckInWizard');
     if (el) el.classList.remove('show');
+    flushLinkedViewsRefresh();
     renderHomeWidget();
   }
 
@@ -1199,6 +1287,7 @@
     }
 
     state.saving = true;
+    setSaveBusy(true);
     try {
       var updates = [];
       var contactCol = findHeader(headers, SUCCESSFULLY_CONTACTED_HEADER, ['successfully contacted']);
@@ -1245,14 +1334,15 @@
       await batchUpdateResidentFields(updates);
       await saveReviewRecord(address.id, 'reviewed', 'yes_successful_contact');
       applyLocalRowUpdates(address, updates);
-      refreshLinkedViews(address);
-      celebrateOrToast(address, prevSummary, YES_TOASTS);
+      celebrateOrToast(address, prevSummary, YES_NUDGES);
       await afterSaveAdvance();
+      scheduleLinkedViewsRefresh(address);
     } catch (err) {
       console.error(err);
-      toast(err.message || 'Could not save Check-In answer.');
+      showCciError(err.message || 'Could not save Check-In answer.');
     } finally {
       state.saving = false;
+      setSaveBusy(false);
     }
   }
 
@@ -1260,6 +1350,7 @@
     if (state.saving) return;
     var headers = (getSheetData() && getSheetData().headers) ? getSheetData().headers : [];
     state.saving = true;
+    setSaveBusy(true);
     try {
       var updates = [];
       var unableCol = typeof findColumn === 'function' ? findColumn(headers, ['unable', 'reach']) : null;
@@ -1336,29 +1427,32 @@
       await batchUpdateResidentFields(updates);
       await saveReviewRecord(address.id, 'reviewed', 'no_successful_contact');
       applyLocalRowUpdates(address, updates);
-      refreshLinkedViews(address);
-      celebrateOrToast(address, prevSummary, NO_TOASTS);
+      celebrateOrToast(address, prevSummary, NO_NUDGES);
       await afterSaveAdvance();
+      scheduleLinkedViewsRefresh(address);
     } catch (err) {
       console.error(err);
-      toast(err.message || 'Could not save Check-In answer.');
+      showCciError(err.message || 'Could not save Check-In answer.');
     } finally {
       state.saving = false;
+      setSaveBusy(false);
     }
   }
 
   async function saveSkip(address) {
     if (state.saving) return;
     state.saving = true;
+    setSaveBusy(true);
     try {
       await saveReviewRecord(address.id, 'skipped', '');
-      toast('Skipped for now. It will stay in your queue.');
+      showCciNudge({ title: 'Skipped for now', message: 'This address stays in your queue.', duration: 2600 });
       await afterSaveAdvance();
     } catch (err) {
       console.error(err);
-      toast(err.message || 'Could not skip address.');
+      showCciError(err.message || 'Could not skip address.');
     } finally {
       state.saving = false;
+      setSaveBusy(false);
     }
   }
 
