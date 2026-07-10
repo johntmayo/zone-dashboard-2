@@ -761,6 +761,101 @@
     if (skippedBtn) skippedBtn.addEventListener('click', function () { openWizard(true); });
   }
 
+  function formatCount(n) {
+    return String(Number(n) || 0);
+  }
+
+  function highlightToHtml(item) {
+    if (!item || !item.type) return '';
+    if (item.type === 'town_milestone') {
+      return '<li><strong>Town-wide:</strong> ' + formatCount(item.count) +
+        ' address' + (item.count === 1 ? '' : 'es') + ' reviewed in the last 48 hours.</li>';
+    }
+    if (item.type === 'zone_progress') {
+      return '<li><strong>' + escapeHtmlLocal(item.zone) + '</strong> reviewed ' +
+        formatCount(item.count) + ' address' + (item.count === 1 ? '' : 'es') + ' recently.</li>';
+    }
+    return '';
+  }
+
+  function renderCommunityFeed(community) {
+    var mount = document.getElementById('contactCheckInFeedContent');
+    if (!mount) return;
+
+    var data = community || {};
+    var reviewed = Number(data.reviewedAddresses) || 0;
+    var reached = Number(data.reached) || 0;
+    var captains = Number(data.captainsParticipating) || 0;
+    var zones = Number(data.zonesParticipating) || 0;
+    var recent = Number(data.reviewedLast48h) || 0;
+    var highlights = Array.isArray(data.highlights) ? data.highlights : [];
+    var hasActivity = reviewed > 0 || captains > 0;
+
+    var local = computeLocalSummary();
+    var feedItems = [];
+    if (local.reviewed > 0 && getZoneId() && getZoneId() !== 'unknown_zone') {
+      feedItems.push(
+        '<li><strong>Your zone:</strong> ' + formatCount(local.reviewed) + ' of ' +
+        formatCount(local.total) + ' addresses reviewed.</li>'
+      );
+    }
+    highlights.forEach(function (item) {
+      // Avoid duplicating the town-wide line when we already show the metric
+      if (item && item.type === 'town_milestone' && recent > 0) return;
+      var html = highlightToHtml(item);
+      if (html) feedItems.push(html);
+    });
+    if (recent > 0) {
+      feedItems.unshift(
+        '<li><strong>Town-wide:</strong> ' + formatCount(recent) +
+        ' address' + (recent === 1 ? '' : 'es') + ' reviewed in the last 48 hours.</li>'
+      );
+    }
+
+    if (!hasActivity) {
+      mount.innerHTML = [
+        '<p class="cci-feed-intro">Updates from Altagether’s org-wide <strong>Contact Check-In</strong> campaign — progress across zones as captains review which households have been reached.</p>',
+        '<p class="cci-feed-empty">No town-wide Check-In activity yet. When captains start reviewing addresses, momentum across zones will show up here.</p>'
+      ].join('');
+      return;
+    }
+
+    mount.innerHTML = [
+      '<p class="cci-feed-intro">Altagether-wide Contact Check-In progress across participating zones.</p>',
+      '<div class="cci-community-metrics">',
+      '  <div class="cci-community-metric"><strong>' + formatCount(reviewed) + '</strong><span>Addresses reviewed</span></div>',
+      '  <div class="cci-community-metric"><strong>' + formatCount(reached) + '</strong><span>Reached</span></div>',
+      '  <div class="cci-community-metric"><strong>' + formatCount(zones) + '</strong><span>Zones underway</span></div>',
+      '</div>',
+      '<p class="cci-feed-empty" style="margin-bottom:10px;">' +
+        formatCount(captains) + ' captain' + (captains === 1 ? '' : 's') + ' participating' +
+        (recent > 0 ? ' · ' + formatCount(recent) + ' reviewed in the last 48 hours' : '') +
+      '.</p>',
+      feedItems.length
+        ? '<ul class="cci-feed-list">' + feedItems.join('') + '</ul>'
+        : '<p class="cci-feed-empty">Your zone progress is saved automatically as you go.</p>'
+    ].join('');
+  }
+
+  async function loadCommunityFeed() {
+    var mount = document.getElementById('contactCheckInFeedContent');
+    if (!mount) return;
+    try {
+      var url = '/api/contact-checkin/community'
+        + '?check_in_id=' + encodeURIComponent(state.checkInId || CHECKIN_DEFAULT_ID);
+      var res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to load community feed');
+      var data = await res.json();
+      renderCommunityFeed(data.community || {});
+    } catch (err) {
+      console.warn('Contact Check-In: could not load community feed', err);
+      mount.innerHTML = [
+        '<p class="cci-feed-intro">Updates from Altagether’s org-wide <strong>Contact Check-In</strong> campaign.</p>',
+        '<p class="cci-feed-empty">Community progress will appear here once Check-In activity is available.</p>'
+      ].join('');
+    }
+  }
+
   function openLearnMore() {
     ensureDom();
     document.getElementById('contactCheckInLearnMore').classList.add('show');
@@ -811,6 +906,7 @@
     if (el) el.classList.remove('show');
     flushLinkedViewsRefresh();
     renderHomeWidget();
+    loadCommunityFeed();
   }
 
   function personRowHtml(resident) {
@@ -822,22 +918,49 @@
       '    <label class="cci-person-heading" for="cci_chk_' + id + '">',
       '      <span class="cci-person-name">' + escapeHtmlLocal(resident.name) + '</span>',
       resident.contacted ? ' <span class="cci-status-pill good">Already contacted</span>' : '',
-      '      <span class="cci-tiny">' + (resident.lastOutreach ? 'Last outreach: ' + escapeHtmlLocal(resident.lastOutreach) : 'No outreach logged') + '</span>',
+      '      <span class="cci-tiny" data-cci-outreach-status="' + id + '" data-original-status="' +
+        escapeHtmlLocal(resident.lastOutreach ? 'Last outreach: ' + resident.lastOutreach : 'No outreach logged') + '">' +
+        (resident.lastOutreach ? 'Last outreach: ' + escapeHtmlLocal(resident.lastOutreach) : 'No outreach logged') +
+      '</span>',
       '    </label>',
       '    <button type="button" class="cci-options-toggle" data-cci-toggle="cci_opts_' + id + '">Options / notes</button>',
       '    <div class="cci-person-options" id="cci_opts_' + id + '">',
-      '      <div class="cci-checks">',
-      '        <label><input type="checkbox" data-cci-field="wantsUpdates" data-cci-id="' + id + '"> Wants updates</label>',
-      '        <label><input type="checkbox" data-cci-field="followUp" data-cci-id="' + id + '"> Needs follow-up</label>',
-      '        <label><input type="checkbox" data-cci-field="unable" data-cci-id="' + id + '"> Unable to reach <span class="cci-tooltip" data-tip="Use only when you have tried multiple times and still have not been able to reach this person.">?</span></label>',
-      '        <label><input type="checkbox" data-cci-field="former" data-cci-id="' + id + '"> Former resident</label>',
-      '        <label><input type="checkbox" data-cci-field="deceased" data-cci-id="' + id + '"> Deceased</label>',
+      '      <div class="cci-person-options-grid">',
+      '        <div class="cci-person-options-main">',
+      '          <div class="cci-checks">',
+      '            <label><input type="checkbox" data-cci-field="wantsUpdates" data-cci-id="' + id + '"> Wants updates</label>',
+      '            <label><input type="checkbox" data-cci-field="followUp" data-cci-id="' + id + '"> Needs follow-up</label>',
+      '            <label><input type="checkbox" data-cci-field="unable" data-cci-id="' + id + '"> Unable to reach <span class="cci-tooltip" data-tip="Use only when you have tried multiple times and still have not been able to reach this person.">?</span></label>',
+      '            <label><input type="checkbox" data-cci-field="former" data-cci-id="' + id + '"> Former resident</label>',
+      '            <label><input type="checkbox" data-cci-field="deceased" data-cci-id="' + id + '"> Deceased</label>',
+      '          </div>',
+      '          <textarea data-cci-note-id="' + id + '" placeholder="Person note optional"></textarea>',
+      '        </div>',
+      '        <div class="cci-person-outreach">',
+      '          <h4>Log outreach <span class="cci-tooltip" data-tip="An outreach attempt means you tried to reach someone, even if they did not respond. For a successful contact, note how you reached them.">?</span></h4>',
+      '          <select data-cci-yes-when="' + id + '">',
+      '            <option value="Today">Today</option>',
+      '            <option value="specific">Specific date</option>',
+      '            <option value="Date unknown">I don’t remember when</option>',
+      '          </select>',
+      '          <input type="date" data-cci-yes-date="' + id + '" class="hidden">',
+      '          <textarea data-cci-yes-note="' + id + '" placeholder="e.g. Spoke by phone about rebuilding"></textarea>',
+      '        </div>',
       '      </div>',
-      '      <textarea data-cci-note-id="' + id + '" placeholder="Person note optional"></textarea>',
       '    </div>',
       '  </div>',
       '</div>'
     ].join('');
+  }
+
+  function residentNamesLine(address) {
+    var names = (address.residents || [])
+      .map(function (r) { return String(r.name || '').trim(); })
+      .filter(Boolean);
+    if (!names.length) {
+      return '<div class="cci-resident-names">No residents listed</div>';
+    }
+    return '<div class="cci-resident-names">' + escapeHtmlLocal(names.join(' · ')) + '</div>';
   }
 
   function personOptionsHtml(address) {
@@ -880,6 +1003,7 @@
       '  <div>',
       '    <h2 class="cci-address-title">' + escapeHtmlLocal(address.displayAddress) + '</h2>',
       '    <div class="cci-tiny">APN: ' + escapeHtmlLocal(address.apn || 'not set') + '</div>',
+      residentNamesLine(address),
       '  </div>',
       statusHtml,
       '</div>',
@@ -1015,6 +1139,29 @@
       });
     }
 
+    Array.prototype.forEach.call(document.querySelectorAll('.cci-contact-check'), function (chk) {
+      chk.addEventListener('change', function () {
+        var opts = document.getElementById('cci_opts_' + chk.value);
+        if (opts && chk.checked) opts.classList.add('show');
+        refreshYesOutreachStatus(chk.value);
+      });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-cci-yes-when]'), function (sel) {
+      sel.addEventListener('change', function () {
+        var id = sel.getAttribute('data-cci-yes-when');
+        var date = document.querySelector('[data-cci-yes-date="' + id + '"]');
+        if (date) date.classList.toggle('hidden', sel.value !== 'specific');
+        refreshYesOutreachStatus(id);
+      });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-cci-yes-note]'), function (note) {
+      note.addEventListener('input', function () {
+        refreshYesOutreachStatus(note.getAttribute('data-cci-yes-note'));
+      });
+    });
+
     var saveYes = document.getElementById('cciSaveYes');
     if (saveYes) saveYes.addEventListener('click', function () { saveYesFlow(address); });
     var cancelYes = document.getElementById('cciCancelYes');
@@ -1043,6 +1190,74 @@
     if (addOutreach) addOutreach.addEventListener('click', function () { addPendingOutreach(address); });
     var addNote = document.getElementById('cciAddPendingNote');
     if (addNote) addNote.addEventListener('click', function () { addPendingPersonNote(address); });
+  }
+
+  function getYesOutreachWhen(personId) {
+    var sel = document.querySelector('[data-cci-yes-when="' + personId + '"]');
+    if (!sel) return 'Today';
+    if (sel.value === 'specific') {
+      var date = document.querySelector('[data-cci-yes-date="' + personId + '"]');
+      return (date && date.value) || 'Specific date';
+    }
+    return sel.value;
+  }
+
+  function refreshYesOutreachStatus(personId) {
+    var status = document.querySelector('[data-cci-outreach-status="' + personId + '"]');
+    if (!status) return;
+    var noteEl = document.querySelector('[data-cci-yes-note="' + personId + '"]');
+    var note = noteEl && noteEl.value.trim();
+    if (note) {
+      var when = getYesOutreachWhen(personId);
+      status.textContent = 'Outreach ready to save · ' + when;
+      return;
+    }
+    var chk = document.getElementById('cci_chk_' + personId);
+    if (chk && chk.checked) {
+      status.textContent = 'Marking as contacted — add outreach details if you want';
+      return;
+    }
+    status.textContent = status.getAttribute('data-original-status') || 'No outreach logged';
+  }
+
+  function collectYesOutreachUpdates(address, headers) {
+    var updates = [];
+    var outreachDateCol = typeof findOutreachDateColumn === 'function' ? findOutreachDateColumn(headers) : null;
+    var outreachLogCol = typeof findOutreachLogColumn === 'function' ? findOutreachLogColumn(headers) : null;
+    if (!outreachDateCol && !outreachLogCol) return updates;
+
+    var todayLabel = typeof getTodayOutreachLabel === 'function' ? getTodayOutreachLabel() : new Date().toLocaleDateString();
+
+    address.residents.forEach(function (resident) {
+      var chk = document.getElementById('cci_chk_' + resident.id);
+      if (!chk || !chk.checked || !resident.residentId) return;
+
+      var noteEl = document.querySelector('[data-cci-yes-note="' + resident.id + '"]');
+      var note = noteEl && noteEl.value.trim();
+      if (!note) return;
+
+      var when = getYesOutreachWhen(resident.id);
+      var whenLabel = when === 'Today' ? todayLabel : when;
+
+      if (outreachDateCol) {
+        updates.push({
+          resident_id: resident.residentId,
+          column: outreachDateCol,
+          value: whenLabel
+        });
+      }
+      if (outreachLogCol) {
+        var existingLog = String(resident.row[outreachLogCol] || '').trim();
+        var prefix = when === 'Date unknown' ? '[Date unknown]' : '[' + whenLabel + ']';
+        updates.push({
+          resident_id: resident.residentId,
+          column: outreachLogCol,
+          value: prefix + ' ' + note + (existingLog ? '\n' + existingLog : '')
+        });
+      }
+    });
+
+    return updates;
   }
 
   function chooseBranch(branch, btn) {
@@ -1314,6 +1529,7 @@
       }
 
       updates = updates.concat(collectOptionUpdates(address, headers));
+      updates = updates.concat(collectYesOutreachUpdates(address, headers));
 
       var addressNote = document.getElementById('cciAddressNote') && document.getElementById('cciAddressNote').value.trim();
       var addressNotesCol = findAddressNotesColumn(headers);
@@ -1518,6 +1734,7 @@
     state.queue = buildQueueFromSheet();
     await loadReviews();
     renderHomeWidget();
+    await loadCommunityFeed();
   }
 
   global.refreshContactCheckIn = refreshContactCheckIn;

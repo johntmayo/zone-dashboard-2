@@ -422,14 +422,11 @@
               <!-- Panel: Contact Check-In Community Feed -->
               <div class="home-panel home-panel--feed home-panel--campaign-feed contact-checkin-feed-panel">
                 <div class="home-panel-header">
+                  <span class="campaign-badge">Town-wide campaign</span>
                   <h2>Community Feed</h2>
                 </div>
                 <div class="home-panel-content" id="contactCheckInFeedContent">
-                  <p class="cci-feed-intro">Updates from Altagether’s org-wide <strong>Contact Check-In</strong> campaign — progress across zones as captains review which households have been reached.</p>
-                  <ul class="cci-feed-list" id="contactCheckInFeedList">
-                    <li>Your zone progress is saved automatically as you go.</li>
-                    <li>Network milestones and zone completions will show up here during the campaign.</li>
-                  </ul>
+                  <div class="loading">Loading community progress...</div>
                 </div>
               </div>
               
@@ -440,6 +437,9 @@
                 </div>
                 <div class="home-panel-content home-map-container" id="homeMapContainer">
                   <div id="homeMap"></div>
+                </div>
+                <div class="home-map-footer">
+                  <a href="#" class="home-map-open-link" id="homeMapOpenFull">Open full map</a>
                 </div>
               </div>
 
@@ -16527,6 +16527,15 @@
       const mapDiv = document.getElementById('homeMap');
       if (!mapDiv) {
         return;
+      }
+
+      const openFullMapLink = document.getElementById('homeMapOpenFull');
+      if (openFullMapLink && !openFullMapLink.dataset.bound) {
+        openFullMapLink.dataset.bound = '1';
+        openFullMapLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          switchView('map');
+        });
       }
 
       // Keep the mini map simple: no color-by mode.

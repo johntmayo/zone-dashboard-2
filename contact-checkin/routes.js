@@ -175,6 +175,84 @@ function summarizeReviews(rows, totalAddresses) {
   };
 }
 
+function parseReviewTimestamp(row) {
+  const raw = String((row && (row.reviewed_at || row.updated_at)) || '').trim();
+  if (!raw) return NaN;
+  const ms = Date.parse(raw);
+  return Number.isFinite(ms) ? ms : NaN;
+}
+
+/** Org-wide Contact Check-In momentum for the Community Feed (no PII). */
+function buildCommunitySummary(rows, { checkInId, nowMs } = {}) {
+  const checkIn = String(checkInId || '').trim();
+  const filtered = (rows || []).filter((row) => {
+    if (!checkIn) return true;
+    return String(row.check_in_id || '').trim() === checkIn;
+  });
+
+  const reviewedRows = filtered.filter((r) => String(r.review_status || '').trim() === 'reviewed');
+  const skipped = filtered.filter((r) => String(r.review_status || '').trim() === 'skipped').length;
+  const reached = reviewedRows.filter((r) => String(r.answer || '').trim() === 'yes_successful_contact').length;
+
+  const reviewedAddresses = new Set();
+  reviewedRows.forEach((r) => {
+    const id = String(r.address_id || '').trim();
+    if (id) reviewedAddresses.add(id);
+  });
+
+  const zones = new Set();
+  const captains = new Set();
+  filtered.forEach((r) => {
+    const zone = String(r.zone_id || '').trim();
+    const captain = String(r.captain_id || '').trim().toLowerCase();
+    if (zone) zones.add(zone);
+    if (captain) captains.add(captain);
+  });
+
+  const now = Number.isFinite(nowMs) ? nowMs : Date.now();
+  const cutoff = now - (48 * 60 * 60 * 1000);
+  const recentReviewed = reviewedRows.filter((r) => {
+    const ts = parseReviewTimestamp(r);
+    return Number.isFinite(ts) && ts >= cutoff;
+  });
+
+  const zoneRecentCounts = {};
+  recentReviewed.forEach((r) => {
+    const zone = String(r.zone_id || '').trim();
+    if (!zone) return;
+    zoneRecentCounts[zone] = (zoneRecentCounts[zone] || 0) + 1;
+  });
+
+  const highlights = [];
+  if (recentReviewed.length > 0) {
+    highlights.push({
+      type: 'town_milestone',
+      count: recentReviewed.length
+    });
+  }
+  Object.keys(zoneRecentCounts)
+    .sort((a, b) => zoneRecentCounts[b] - zoneRecentCounts[a])
+    .slice(0, 4)
+    .forEach((zone) => {
+      highlights.push({
+        type: 'zone_progress',
+        zone,
+        count: zoneRecentCounts[zone]
+      });
+    });
+
+  return {
+    reviewedAddresses: reviewedAddresses.size,
+    reviewedRows: reviewedRows.length,
+    reached,
+    skipped,
+    zonesParticipating: zones.size,
+    captainsParticipating: captains.size,
+    reviewedLast48h: recentReviewed.length,
+    highlights
+  };
+}
+
 async function upsertReview(sheetsClient, config, payload) {
   const checkInId = String(payload.check_in_id || config.checkInId).trim();
   const zoneId = String(payload.zone_id || '').trim();
@@ -285,6 +363,31 @@ function registerContactCheckinRoutes(app, deps) {
     });
   });
 
+  app.get('/api/contact-checkin/community', async (req, res) => {
+    try {
+      const config = getContactCheckinConfig();
+      if (!config.sheetId) {
+        return res.status(500).json({ error: 'CONTACT_CHECKIN_SHEET_ID not configured' });
+      }
+
+      const checkInId = String(req.query.check_in_id || config.checkInId).trim();
+      const sheets = await getSheetsClient();
+      const loaded = await loadReviewRows(sheets, config);
+      const community = buildCommunitySummary(loaded.rows, { checkInId });
+
+      res.json({
+        checkInId,
+        community
+      });
+    } catch (err) {
+      console.error('Contact Check-In community error:', err.message || err);
+      res.status(500).json({
+        error: 'Failed to load Contact Check-In community summary',
+        message: err.message || String(err)
+      });
+    }
+  });
+
   app.get('/api/contact-checkin/reviews', async (req, res) => {
     try {
       const config = getContactCheckinConfig();
@@ -346,6 +449,7 @@ module.exports = {
   getContactCheckinConfig,
   buildReviewKey,
   summarizeReviews,
+  buildCommunitySummary,
   REVIEW_HEADERS,
   DEFAULT_CHECK_IN_ID
 };
