@@ -1097,10 +1097,18 @@
       gap: 14px;
     }
 
+    .br-columns {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 14px;
+      align-items: stretch;
+    }
+
     .br-band {
       border: 1px solid rgba(49, 64, 89, 0.14);
       background: #fff;
       padding: 14px 14px 12px;
+      min-width: 0;
     }
 
     .br-band--zone {
@@ -1114,10 +1122,26 @@
       border-color: rgba(52, 112, 114, 0.22);
     }
 
-    .br-band--plan {
-      background: #FBFBFA;
+    .br-plan-block {
+      margin-top: 14px;
       padding-top: 12px;
-      padding-bottom: 10px;
+      border-top: 1px solid rgba(49, 64, 89, 0.12);
+    }
+
+    .br-plan-label {
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    @media (max-width: 900px) {
+      .br-columns {
+        grid-template-columns: 1fr;
+      }
     }
 
     .br-kicker {
