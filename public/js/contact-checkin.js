@@ -918,35 +918,17 @@
       '    <label class="cci-person-heading" for="cci_chk_' + id + '">',
       '      <span class="cci-person-name">' + escapeHtmlLocal(resident.name) + '</span>',
       resident.contacted ? ' <span class="cci-status-pill good">Already contacted</span>' : '',
-      '      <span class="cci-tiny" data-cci-outreach-status="' + id + '" data-original-status="' +
-        escapeHtmlLocal(resident.lastOutreach ? 'Last outreach: ' + resident.lastOutreach : 'No outreach logged') + '">' +
-        (resident.lastOutreach ? 'Last outreach: ' + escapeHtmlLocal(resident.lastOutreach) : 'No outreach logged') +
-      '</span>',
       '    </label>',
       '    <button type="button" class="cci-options-toggle" data-cci-toggle="cci_opts_' + id + '">Options / notes</button>',
       '    <div class="cci-person-options" id="cci_opts_' + id + '">',
-      '      <div class="cci-person-options-grid">',
-      '        <div class="cci-person-options-main">',
-      '          <div class="cci-checks">',
-      '            <label><input type="checkbox" data-cci-field="wantsUpdates" data-cci-id="' + id + '"> Wants updates</label>',
-      '            <label><input type="checkbox" data-cci-field="followUp" data-cci-id="' + id + '"> Needs follow-up</label>',
-      '            <label><input type="checkbox" data-cci-field="unable" data-cci-id="' + id + '"> Unable to reach <span class="cci-tooltip" data-tip="Use only when you have tried multiple times and still have not been able to reach this person.">?</span></label>',
-      '            <label><input type="checkbox" data-cci-field="former" data-cci-id="' + id + '"> Former resident</label>',
-      '            <label><input type="checkbox" data-cci-field="deceased" data-cci-id="' + id + '"> Deceased</label>',
-      '          </div>',
-      '          <textarea data-cci-note-id="' + id + '" placeholder="Person note optional"></textarea>',
-      '        </div>',
-      '        <div class="cci-person-outreach">',
-      '          <h4>Log outreach <span class="cci-tooltip" data-tip="An outreach attempt means you tried to reach someone, even if they did not respond. For a successful contact, note how you reached them.">?</span></h4>',
-      '          <select data-cci-yes-when="' + id + '">',
-      '            <option value="Today">Today</option>',
-      '            <option value="specific">Specific date</option>',
-      '            <option value="Date unknown">I don’t remember when</option>',
-      '          </select>',
-      '          <input type="date" data-cci-yes-date="' + id + '" class="hidden">',
-      '          <textarea data-cci-yes-note="' + id + '" placeholder="e.g. Spoke by phone about rebuilding"></textarea>',
-      '        </div>',
+      '      <div class="cci-checks">',
+      '        <label><input type="checkbox" data-cci-field="wantsUpdates" data-cci-id="' + id + '"> Wants updates</label>',
+      '        <label><input type="checkbox" data-cci-field="followUp" data-cci-id="' + id + '"> Needs follow-up</label>',
+      '        <label><input type="checkbox" data-cci-field="unable" data-cci-id="' + id + '"> Unable to reach <span class="cci-tooltip" data-tip="Use only when you have tried multiple times and still have not been able to reach this person.">?</span></label>',
+      '        <label><input type="checkbox" data-cci-field="former" data-cci-id="' + id + '"> Former resident</label>',
+      '        <label><input type="checkbox" data-cci-field="deceased" data-cci-id="' + id + '"> Deceased</label>',
       '      </div>',
+      '      <textarea data-cci-note-id="' + id + '" placeholder="Person note optional"></textarea>',
       '    </div>',
       '  </div>',
       '</div>'
@@ -1139,29 +1121,6 @@
       });
     }
 
-    Array.prototype.forEach.call(document.querySelectorAll('.cci-contact-check'), function (chk) {
-      chk.addEventListener('change', function () {
-        var opts = document.getElementById('cci_opts_' + chk.value);
-        if (opts && chk.checked) opts.classList.add('show');
-        refreshYesOutreachStatus(chk.value);
-      });
-    });
-
-    Array.prototype.forEach.call(document.querySelectorAll('[data-cci-yes-when]'), function (sel) {
-      sel.addEventListener('change', function () {
-        var id = sel.getAttribute('data-cci-yes-when');
-        var date = document.querySelector('[data-cci-yes-date="' + id + '"]');
-        if (date) date.classList.toggle('hidden', sel.value !== 'specific');
-        refreshYesOutreachStatus(id);
-      });
-    });
-
-    Array.prototype.forEach.call(document.querySelectorAll('[data-cci-yes-note]'), function (note) {
-      note.addEventListener('input', function () {
-        refreshYesOutreachStatus(note.getAttribute('data-cci-yes-note'));
-      });
-    });
-
     var saveYes = document.getElementById('cciSaveYes');
     if (saveYes) saveYes.addEventListener('click', function () { saveYesFlow(address); });
     var cancelYes = document.getElementById('cciCancelYes');
@@ -1190,74 +1149,6 @@
     if (addOutreach) addOutreach.addEventListener('click', function () { addPendingOutreach(address); });
     var addNote = document.getElementById('cciAddPendingNote');
     if (addNote) addNote.addEventListener('click', function () { addPendingPersonNote(address); });
-  }
-
-  function getYesOutreachWhen(personId) {
-    var sel = document.querySelector('[data-cci-yes-when="' + personId + '"]');
-    if (!sel) return 'Today';
-    if (sel.value === 'specific') {
-      var date = document.querySelector('[data-cci-yes-date="' + personId + '"]');
-      return (date && date.value) || 'Specific date';
-    }
-    return sel.value;
-  }
-
-  function refreshYesOutreachStatus(personId) {
-    var status = document.querySelector('[data-cci-outreach-status="' + personId + '"]');
-    if (!status) return;
-    var noteEl = document.querySelector('[data-cci-yes-note="' + personId + '"]');
-    var note = noteEl && noteEl.value.trim();
-    if (note) {
-      var when = getYesOutreachWhen(personId);
-      status.textContent = 'Outreach ready to save · ' + when;
-      return;
-    }
-    var chk = document.getElementById('cci_chk_' + personId);
-    if (chk && chk.checked) {
-      status.textContent = 'Marking as contacted — add outreach details if you want';
-      return;
-    }
-    status.textContent = status.getAttribute('data-original-status') || 'No outreach logged';
-  }
-
-  function collectYesOutreachUpdates(address, headers) {
-    var updates = [];
-    var outreachDateCol = typeof findOutreachDateColumn === 'function' ? findOutreachDateColumn(headers) : null;
-    var outreachLogCol = typeof findOutreachLogColumn === 'function' ? findOutreachLogColumn(headers) : null;
-    if (!outreachDateCol && !outreachLogCol) return updates;
-
-    var todayLabel = typeof getTodayOutreachLabel === 'function' ? getTodayOutreachLabel() : new Date().toLocaleDateString();
-
-    address.residents.forEach(function (resident) {
-      var chk = document.getElementById('cci_chk_' + resident.id);
-      if (!chk || !chk.checked || !resident.residentId) return;
-
-      var noteEl = document.querySelector('[data-cci-yes-note="' + resident.id + '"]');
-      var note = noteEl && noteEl.value.trim();
-      if (!note) return;
-
-      var when = getYesOutreachWhen(resident.id);
-      var whenLabel = when === 'Today' ? todayLabel : when;
-
-      if (outreachDateCol) {
-        updates.push({
-          resident_id: resident.residentId,
-          column: outreachDateCol,
-          value: whenLabel
-        });
-      }
-      if (outreachLogCol) {
-        var existingLog = String(resident.row[outreachLogCol] || '').trim();
-        var prefix = when === 'Date unknown' ? '[Date unknown]' : '[' + whenLabel + ']';
-        updates.push({
-          resident_id: resident.residentId,
-          column: outreachLogCol,
-          value: prefix + ' ' + note + (existingLog ? '\n' + existingLog : '')
-        });
-      }
-    });
-
-    return updates;
   }
 
   function chooseBranch(branch, btn) {
@@ -1529,7 +1420,6 @@
       }
 
       updates = updates.concat(collectOptionUpdates(address, headers));
-      updates = updates.concat(collectYesOutreachUpdates(address, headers));
 
       var addressNote = document.getElementById('cciAddressNote') && document.getElementById('cciAddressNote').value.trim();
       var addressNotesCol = findAddressNotesColumn(headers);
