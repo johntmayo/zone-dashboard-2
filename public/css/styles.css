@@ -12094,6 +12094,26 @@
   gap: 10px;
   flex-wrap: wrap;
 }
+.cci-community-feed {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #d9ddd6;
+}
+.cci-community-feed h3 {
+  margin: 0 0 8px;
+  color: var(--brand-primary-dark);
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-family: Chivo, sans-serif;
+}
+.cci-feed-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+}
 .cci-primary {
   background: var(--accent-gold);
   color: #172033;
