@@ -9867,6 +9867,12 @@
       border-top: 1px solid rgba(96, 108, 56, 0.1);
     }
 
+    .welcome-help-sep {
+      margin: 0 0.45rem;
+      color: var(--text-light);
+      opacity: 0.7;
+    }
+
     .welcome-help-link a {
       color: var(--primary);
       text-decoration: none;

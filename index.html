@@ -93,6 +93,8 @@
         
         <div class="welcome-help-link">
           <a href="#" id="getHelpBtn">Get Help</a>
+          <span class="welcome-help-sep" aria-hidden="true">·</span>
+          <a href="#" id="welcomeReloadBtn">Reload app</a>
         </div>
       </div>
     </div>
@@ -1775,7 +1777,7 @@
 
     // Load saved sheet URL from localStorage
     const savedSheetUrl = localStorage.getItem('savedSheetUrl');
-    if (savedSheetUrl && !isCurrentUserAdmin) {
+    if (savedSheetUrl) {
       if (input) input.value = savedSheetUrl;
       currentSheetUrl = savedSheetUrl;
       // Auto-load the sheet if user is signed in (wait a bit for OAuth to initialize)
@@ -1806,6 +1808,13 @@
       getHelpBtn.addEventListener('click', (e) => {
         e.preventDefault();
         window.open('about.html', '_blank', 'noopener,noreferrer');
+      });
+    }
+    const welcomeReloadBtn = document.getElementById('welcomeReloadBtn');
+    if (welcomeReloadBtn) {
+      welcomeReloadBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.location.reload();
       });
     }
 
@@ -2156,6 +2165,8 @@
       }
       const storedExpiry = localStorage.getItem('googleOAuthTokenExpiry');
       const exp = storedExpiry ? parseInt(storedExpiry, 10) : 0;
+      const tokenStillValid = exp && Date.now() < exp;
+      // Only attempt silent refresh when we're close to expiry (or expiry is unknown).
       if (exp && Date.now() < exp - OAUTH_REFRESH_WHEN_REMAINING_MS) {
         return;
       }
@@ -2177,7 +2188,17 @@
         ensureGoogleTokenPromise = null;
       });
 
-      await ensureGoogleTokenPromise;
+      try {
+        await ensureGoogleTokenPromise;
+      } catch (error) {
+        // iOS/Android home-screen (standalone) apps often cannot complete silent
+        // Google refresh. Keep using the existing token until it actually expires.
+        if (tokenStillValid) {
+          console.warn('Silent Google token refresh failed; continuing with current session.', error);
+          return;
+        }
+        throw error;
+      }
     }
 
     async function signIn() {
@@ -2917,17 +2938,48 @@
       const welcomeSignInBtn = document.getElementById('welcomeSignInBtn');
       
       if (!welcomeOverlay) return;
+
+      // Restore a remembered zone URL if memory was cleared but localStorage still has it.
+      if (accessToken && !currentSheetUrl) {
+        const rememberedSheetUrl = localStorage.getItem('savedSheetUrl') || '';
+        if (rememberedSheetUrl) currentSheetUrl = rememberedSheetUrl;
+      }
+
+      // Clear a stale "loading" flag once a zone is already linked — otherwise the
+      // welcome overlay can trap signed-in users and block mobile tab switching.
+      if (accessToken && currentSheetUrl && welcomeAuthState === 'loading') {
+        welcomeAuthState = 'idle';
+      }
       
-      // Show welcome message when signed out (canonical login for every user type),
-      // or on home during onboarding / zone picking / loading.
-      const forceZonePicker = currentView === 'home' && welcomeAuthState === 'zone_picker';
-      const forceZoneLoading = currentView === 'home' && welcomeAuthState === 'loading';
+      // Canonical signed-out login, or an explicit signed-in auth/onboarding state.
+      // Do NOT trap signed-in users who already have a zone behind the Home welcome screen.
       const signedOut = !accessToken;
-      const needsOnboarding = currentView === 'home' && (!currentSheetUrl || forceZonePicker || forceZoneLoading);
-      if (signedOut || needsOnboarding) {
+      const hasZone = Boolean(currentSheetUrl);
+      const authBlockingState = welcomeAuthState === 'zone_picker'
+        || welcomeAuthState === 'not_registered'
+        || welcomeAuthState === 'server_error'
+        || (welcomeAuthState === 'loading' && !hasZone);
+      const needsZoneLink = Boolean(
+        accessToken
+        && currentView === 'home'
+        && !hasZone
+        && welcomeAuthState === 'idle'
+        && !isZonelessLotWeedingOnlyUser()
+      );
+      const showWelcome = signedOut || authBlockingState || needsZoneLink;
+      if (showWelcome) {
         welcomeOverlay.classList.remove('hidden');
         document.body.classList.remove('dashboard-active');
         document.body.classList.toggle('is-signed-out', signedOut);
+
+        const welcomeSubtitle = welcomeOverlay.querySelector('.welcome-message > p');
+        if (welcomeSubtitle) {
+          welcomeSubtitle.textContent = signedOut
+            ? 'Sign in with your Google account to access your zone.'
+            : (welcomeAuthState === 'zone_picker'
+              ? 'Choose which zone to open.'
+              : 'Connecting you to your zone…');
+        }
         
         // Update step visibility based on sign-in state
         if (accessToken) {
@@ -7861,14 +7913,25 @@
         if (e && e.message === 'canceled') {
           throw new Error('Not signed in. Please sign in to view data.');
         }
-        accessToken = null;
-        localStorage.removeItem('googleOAuthToken');
-        localStorage.removeItem('googleOAuthTokenExpiry');
-        throw new Error('Your session has expired. Please sign in again.');
+        const storedExpiry = localStorage.getItem('googleOAuthTokenExpiry');
+        const exp = storedExpiry ? parseInt(storedExpiry, 10) : 0;
+        if (exp && Date.now() < exp && accessToken) {
+          // Token is still within its lifetime — continue rather than signing the user out.
+          console.warn('Token refresh failed, but session is still valid. Continuing.', e);
+        } else {
+          accessToken = null;
+          localStorage.removeItem('googleOAuthToken');
+          localStorage.removeItem('googleOAuthTokenExpiry');
+          updateSignInUI();
+          switchView('home');
+          throw new Error('Your session has expired. Please sign in again.');
+        }
       }
       if (!accessToken) {
         localStorage.removeItem('googleOAuthToken');
         localStorage.removeItem('googleOAuthTokenExpiry');
+        updateSignInUI();
+        switchView('home');
         throw new Error('Your session has expired. Please sign in again.');
       }
       const response = await fetch('/api/sheets/values', {
@@ -7882,6 +7945,8 @@
           accessToken = null;
           localStorage.removeItem('googleOAuthToken');
           localStorage.removeItem('googleOAuthTokenExpiry');
+          updateSignInUI();
+          switchView('home');
           throw new Error('Your session has expired. Please sign in again.');
         }
         throw new Error(err.message || err.error || 'Failed to fetch sheet values');
@@ -8141,6 +8206,9 @@
         // Update sheet link label after successful load
         updateSheetLinkLabel();
         updateHeaderTitle();
+        // Zone data is ready — clear any leftover auth loading state so the welcome
+        // overlay cannot keep trapping mobile navigation.
+        if (welcomeAuthState === 'loading') welcomeAuthState = 'idle';
         updateNavigationState();
         
         // Update sign-in UI
