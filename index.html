@@ -202,8 +202,9 @@
     <!-- Global sign-in prompt overlay (shown when spreadsheet linked but not signed in, on any tab) -->
     <div id="homeSigninPrompt" class="home-signin-prompt hidden">
       <div class="home-signin-content">
-        <p><strong>Sign in to view data</strong><br>Click below to sign in with Google and enable viewing and editing</p>
-        <button class="btn-signin" id="homeSignInBtn">
+        <h2 class="home-signin-title">Sign in to continue</h2>
+        <p>Sign in with your Google account to view and edit your zone.</p>
+        <button class="btn-signin welcome-signin-btn" id="homeSignInBtn">
           <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#fff" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill-rule="evenodd"/><path fill="#fff" d="M9 18c2.43 0 4.467-.806 5.96-2.184l-2.908-2.258c-.806.54-1.837.86-3.052.86-2.347 0-4.33-1.584-5.04-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill-rule="evenodd"/><path fill="#fff" d="M3.96 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.348 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.003-2.332z" fill-rule="evenodd"/><path fill="#fff" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.96 7.293C4.67 5.163 6.653 3.58 9 3.58z" fill-rule="evenodd"/></svg>
           Sign in with Google
         </button>
@@ -3203,6 +3204,7 @@
     function updateNavigationState() {
       const leftNav = document.querySelector('.left-nav');
       const navItems = document.querySelectorAll('.nav-item[data-view]');
+      const mobileNavTabs = document.querySelectorAll('.mobile-nav-tab[data-view], .mobile-more-item[data-view]');
       const godmodeNav = document.getElementById('navGodmode');
       const mobileGodmodeNav = document.getElementById('mobileMoreGodmode');
       const lotWeedingAdminNav = document.getElementById('navLotWeedingAdmin');
@@ -3217,34 +3219,34 @@
         if (!item) return;
         item.classList.toggle('hidden', !canAccessLotWeedingAdminView());
       });
+
+      const applyNavItemState = (item) => {
+        const viewName = item.getAttribute('data-view');
+        const allowed = canOpenView(viewName);
+        item.disabled = !allowed;
+        item.style.pointerEvents = allowed ? 'auto' : 'none';
+        item.classList.toggle('is-nav-disabled', !allowed);
+        if (!allowed) {
+          item.setAttribute('aria-disabled', 'true');
+        } else {
+          item.removeAttribute('aria-disabled');
+        }
+      };
       
       if (!currentSheetUrl) {
         // No spreadsheet linked - disable all navigation except Home
         if (leftNav) {
           leftNav.classList.add('disabled');
         }
-        navItems.forEach(item => {
-          const viewName = item.getAttribute('data-view');
-          const isAllowedWithoutZone = canOpenViewWithoutSheet(viewName);
-          if (!isAllowedWithoutZone) {
-            item.disabled = true;
-            item.style.pointerEvents = 'none';
-          } else {
-            item.disabled = false;
-            item.style.pointerEvents = 'auto';
-          }
-        });
+        navItems.forEach(applyNavItemState);
+        mobileNavTabs.forEach(applyNavItemState);
       } else {
         // Spreadsheet linked - enable all navigation
         if (leftNav) {
           leftNav.classList.remove('disabled');
         }
-        navItems.forEach(item => {
-          const viewName = item.getAttribute('data-view');
-          const allowed = canOpenView(viewName);
-          item.disabled = !allowed;
-          item.style.pointerEvents = allowed ? 'auto' : 'none';
-        });
+        navItems.forEach(applyNavItemState);
+        mobileNavTabs.forEach(applyNavItemState);
       }
 
       // Cosmetic nav branding must never be able to break sign-in / navigation.
@@ -15239,6 +15241,14 @@
       } else if (viewName === 'lotWeedingAdmin') {
         loadLotWeedingAdminData();
       }
+
+      // Keep mobile chrome in sync with the actual view (after canOpenView redirects).
+      if (typeof window.syncMobileNav === 'function') {
+        window.syncMobileNav(currentView);
+      }
+      if (viewName !== 'map' && typeof window.closeMobileMapSheet === 'function') {
+        window.closeMobileMapSheet();
+      }
       // Map view doesn't need special content updates - it just shows the map with floating panel
     }
     
@@ -25020,13 +25030,27 @@
           moreTab.classList.toggle('active', moreViews.indexOf(viewName) !== -1);
         }
       }
+      window.syncMobileNav = syncMobileNav;
+
+      function tryMobileSwitchView(view) {
+        if (!canOpenView(view)) {
+          if (typeof showAppToast === 'function') {
+            showAppToast('Link your zone to open this tab.');
+          }
+          syncMobileNav(currentView || 'home');
+          return false;
+        }
+        closeMapSheet();
+        switchView(view);
+        syncMobileNav(currentView || view);
+        return true;
+      }
 
       // ---- Bottom nav tab clicks ----
       document.querySelectorAll('.mobile-nav-tab[data-view]').forEach(function(tab) {
         tab.addEventListener('click', function() {
           var view = this.getAttribute('data-view');
-          switchView(view);
-          syncMobileNav(view);
+          if (!tryMobileSwitchView(view)) return;
           // On mobile, keep the address panel closed by default when switching views.
           // The user opens it intentionally via the List FAB.
           if (window.innerWidth <= 767) {
@@ -25058,8 +25082,7 @@
       document.querySelectorAll('.mobile-more-item[data-view]').forEach(function(item) {
         item.addEventListener('click', function() {
           var view = this.getAttribute('data-view');
-          switchView(view);
-          syncMobileNav(view);
+          if (!tryMobileSwitchView(view)) return;
           closeMoreDrawer();
           if (window.innerWidth <= 767) {
             setTimeout(function() {
@@ -25246,6 +25269,7 @@
         mapSheet.classList.add('hidden');
         if (mapLayersBtn) mapLayersBtn.classList.remove('active');
       }
+      window.closeMobileMapSheet = closeMapSheet;
 
       if (mapLayersBtn) {
         mapLayersBtn.addEventListener('click', function() {
@@ -25260,11 +25284,6 @@
       if (mapSheetBackdrop) {
         mapSheetBackdrop.addEventListener('click', closeMapSheet);
       }
-
-      // Close when switching away from map view
-      document.querySelectorAll('.mobile-nav-tab[data-view]').forEach(function(tab) {
-        tab.addEventListener('click', closeMapSheet);
-      });
 
       // Base map buttons
       var baseStreetBtn = document.getElementById('mobileBaseStreet');

@@ -745,7 +745,7 @@
       '  <div class="cci-mini-stat"><strong>' + summary.skipped + '</strong><span>Skipped</span></div>',
       '</div>',
       '<div class="cci-home-actions">',
-      '  <button type="button" class="quick-action-link" id="cciStartBtn">' + escapeHtmlLocal(startLabel) + '</button>',
+      '  <button type="button" class="cci-primary" id="cciStartBtn">' + escapeHtmlLocal(startLabel) + '</button>',
       summary.skipped > 0
         ? '  <button type="button" class="cci-secondary" id="cciReviewSkippedBtn">Review skipped</button>'
         : '',
@@ -902,12 +902,14 @@
       return;
     }
     document.getElementById('contactCheckInWizard').classList.add('show');
+    document.body.classList.add('cci-wizard-open');
     renderAddressCard();
   }
 
   function closeWizard() {
     var el = document.getElementById('contactCheckInWizard');
     if (el) el.classList.remove('show');
+    document.body.classList.remove('cci-wizard-open');
     flushLinkedViewsRefresh();
     renderHomeWidget();
     loadCommunityFeed();
