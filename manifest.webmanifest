@@ -1,0 +1,25 @@
+{
+  "name": "Zone Dashboard",
+  "short_name": "Zone Dashboard",
+  "description": "Altagether Zone Dashboard for neighborhood captains",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#3f4a32",
+  "theme_color": "#3f4a32",
+  "icons": [
+    {
+      "src": "/public/images/app_icon.png",
+      "sizes": "936x936",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/public/images/app_icon.png",
+      "sizes": "936x936",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

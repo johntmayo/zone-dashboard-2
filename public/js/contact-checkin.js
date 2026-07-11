@@ -745,7 +745,7 @@
       '  <div class="cci-mini-stat"><strong>' + summary.skipped + '</strong><span>Skipped</span></div>',
       '</div>',
       '<div class="cci-home-actions">',
-      '  <button type="button" class="quick-action-link" id="cciStartBtn">' + escapeHtmlLocal(startLabel) + '</button>',
+      '  <button type="button" class="cci-primary" id="cciStartBtn">' + escapeHtmlLocal(startLabel) + '</button>',
       summary.skipped > 0
         ? '  <button type="button" class="cci-secondary" id="cciReviewSkippedBtn">Review skipped</button>'
         : '',
@@ -902,12 +902,14 @@
       return;
     }
     document.getElementById('contactCheckInWizard').classList.add('show');
+    document.body.classList.add('cci-wizard-open');
     renderAddressCard();
   }
 
   function closeWizard() {
     var el = document.getElementById('contactCheckInWizard');
     if (el) el.classList.remove('show');
+    document.body.classList.remove('cci-wizard-open');
     flushLinkedViewsRefresh();
     renderHomeWidget();
     loadCommunityFeed();
@@ -1005,9 +1007,8 @@
           '</div>';
       }).join(''),
       '</div>',
-      '<div class="cci-question">Have you successfully contacted anyone at this address?',
-      '  <span class="cci-tooltip" data-tip="Contact means a two-way interaction. They replied, answered, spoke with you, asked a question, or otherwise confirmed they received your message. Sending an email, leaving a voicemail, or dropping off a flyer does not count unless they responded.">?</span>',
-      '</div>',
+      '<div class="cci-question">Have you successfully contacted anyone at this address?</div>',
+      '<div class="cci-definition">Successful contact means they replied, answered, spoke with you, asked a question, or otherwise confirmed they received your message.</div>',
       '<div class="cci-choice-row">',
       '  <button type="button" class="cci-big-choice" data-cci-branch="yes">Yes</button>',
       '  <button type="button" class="cci-big-choice" data-cci-branch="no">No</button>',

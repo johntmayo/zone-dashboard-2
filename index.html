@@ -9,7 +9,16 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <!-- Deploy marker: if View Source does not show this comment, you are not on the latest index.html. -->
   <!-- map-overlays-v2: altadenaWaterDistricts (combined water tileset) -->
+  <meta name="application-name" content="Zone Dashboard" />
+  <meta name="apple-mobile-web-app-title" content="Zone Dashboard" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#3f4a32" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" type="image/x-icon" href="public/images/favicon.ico" />
+  <link rel="apple-touch-icon" href="public/images/app_icon.png" />
+  <link rel="icon" type="image/png" sizes="936x936" href="public/images/app_icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
@@ -84,6 +93,8 @@
         
         <div class="welcome-help-link">
           <a href="#" id="getHelpBtn">Get Help</a>
+          <span class="welcome-help-sep" aria-hidden="true">·</span>
+          <a href="#" id="welcomeReloadBtn">Reload app</a>
         </div>
       </div>
     </div>
@@ -202,8 +213,9 @@
     <!-- Global sign-in prompt overlay (shown when spreadsheet linked but not signed in, on any tab) -->
     <div id="homeSigninPrompt" class="home-signin-prompt hidden">
       <div class="home-signin-content">
-        <p><strong>Sign in to view data</strong><br>Click below to sign in with Google and enable viewing and editing</p>
-        <button class="btn-signin" id="homeSignInBtn">
+        <h2 class="home-signin-title">Sign in to continue</h2>
+        <p>Sign in with your Google account to view and edit your zone.</p>
+        <button class="btn-signin welcome-signin-btn" id="homeSignInBtn">
           <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#fff" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill-rule="evenodd"/><path fill="#fff" d="M9 18c2.43 0 4.467-.806 5.96-2.184l-2.908-2.258c-.806.54-1.837.86-3.052.86-2.347 0-4.33-1.584-5.04-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill-rule="evenodd"/><path fill="#fff" d="M3.96 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.348 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.003-2.332z" fill-rule="evenodd"/><path fill="#fff" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.96 7.293C4.67 5.163 6.653 3.58 9 3.58z" fill-rule="evenodd"/></svg>
           Sign in with Google
         </button>
@@ -1765,7 +1777,7 @@
 
     // Load saved sheet URL from localStorage
     const savedSheetUrl = localStorage.getItem('savedSheetUrl');
-    if (savedSheetUrl && !isCurrentUserAdmin) {
+    if (savedSheetUrl) {
       if (input) input.value = savedSheetUrl;
       currentSheetUrl = savedSheetUrl;
       // Auto-load the sheet if user is signed in (wait a bit for OAuth to initialize)
@@ -1796,6 +1808,13 @@
       getHelpBtn.addEventListener('click', (e) => {
         e.preventDefault();
         window.open('about.html', '_blank', 'noopener,noreferrer');
+      });
+    }
+    const welcomeReloadBtn = document.getElementById('welcomeReloadBtn');
+    if (welcomeReloadBtn) {
+      welcomeReloadBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.location.reload();
       });
     }
 
@@ -2146,6 +2165,8 @@
       }
       const storedExpiry = localStorage.getItem('googleOAuthTokenExpiry');
       const exp = storedExpiry ? parseInt(storedExpiry, 10) : 0;
+      const tokenStillValid = exp && Date.now() < exp;
+      // Only attempt silent refresh when we're close to expiry (or expiry is unknown).
       if (exp && Date.now() < exp - OAUTH_REFRESH_WHEN_REMAINING_MS) {
         return;
       }
@@ -2167,7 +2188,17 @@
         ensureGoogleTokenPromise = null;
       });
 
-      await ensureGoogleTokenPromise;
+      try {
+        await ensureGoogleTokenPromise;
+      } catch (error) {
+        // iOS/Android home-screen (standalone) apps often cannot complete silent
+        // Google refresh. Keep using the existing token until it actually expires.
+        if (tokenStillValid) {
+          console.warn('Silent Google token refresh failed; continuing with current session.', error);
+          return;
+        }
+        throw error;
+      }
     }
 
     async function signIn() {
@@ -2860,31 +2891,17 @@
         if (homeSigninPrompt) homeSigninPrompt.classList.add('hidden');
         if (signOutBtn) signOutBtn.classList.remove('hidden');
       } else {
-        // Always show sign-in prompt in floating panel when not signed in
-        signinPrompt.classList.remove('hidden');
+        // Canonical login is the welcome overlay. Keep secondary sign-in cards
+        // hidden so every signed-out user sees one consistent screen.
+        signinPrompt.classList.add('hidden');
+        if (homeSigninPrompt) homeSigninPrompt.classList.add('hidden');
         if (signOutBtn) signOutBtn.classList.add('hidden');
-        // Show the global sign-in overlay on any tab that doesn't already render its
-        // own sign-in affordance, so a signed-out user is never dead-ended without a
-        // way to sign in. Admin Mode and Lot Weeding render their own sign-in cards,
-        // and Home renders the welcome overlay — but the welcome overlay only appears
-        // when there's no linked sheet (or during zone loading/picking), so on Home
-        // with a remembered sheet we must still show this overlay. (No longer gated on
-        // currentSheetUrl — admins have no saved sheet, and would otherwise be stuck.)
-        const welcomeOverlayShowing = currentView === 'home'
-          && (!currentSheetUrl || welcomeAuthState === 'zone_picker' || welcomeAuthState === 'loading');
-        const viewHasOwnSignIn = currentView === 'godmode'
-          || currentView === 'lotWeedingAdmin'
-          || welcomeOverlayShowing;
-        if (homeSigninPrompt && !viewHasOwnSignIn) {
-          homeSigninPrompt.classList.remove('hidden');
-        } else if (homeSigninPrompt) {
-          homeSigninPrompt.classList.add('hidden');
-        }
       }
       
       // Update welcome message to reflect sign-in state
       updateWelcomeMessage();
       updateOnboardingTourNudge();
+      updateNavigationState();
     }
 
     // Update sheet link label based on link status
@@ -2921,13 +2938,48 @@
       const welcomeSignInBtn = document.getElementById('welcomeSignInBtn');
       
       if (!welcomeOverlay) return;
+
+      // Restore a remembered zone URL if memory was cleared but localStorage still has it.
+      if (accessToken && !currentSheetUrl) {
+        const rememberedSheetUrl = localStorage.getItem('savedSheetUrl') || '';
+        if (rememberedSheetUrl) currentSheetUrl = rememberedSheetUrl;
+      }
+
+      // Clear a stale "loading" flag once a zone is already linked — otherwise the
+      // welcome overlay can trap signed-in users and block mobile tab switching.
+      if (accessToken && currentSheetUrl && welcomeAuthState === 'loading') {
+        welcomeAuthState = 'idle';
+      }
       
-      // Show welcome message on home when onboarding, or when admins intentionally reopen zone selection.
-      const forceZonePicker = currentView === 'home' && welcomeAuthState === 'zone_picker';
-      const forceZoneLoading = currentView === 'home' && welcomeAuthState === 'loading';
-      if (currentView === 'home' && (!currentSheetUrl || forceZonePicker || forceZoneLoading)) {
+      // Canonical signed-out login, or an explicit signed-in auth/onboarding state.
+      // Do NOT trap signed-in users who already have a zone behind the Home welcome screen.
+      const signedOut = !accessToken;
+      const hasZone = Boolean(currentSheetUrl);
+      const authBlockingState = welcomeAuthState === 'zone_picker'
+        || welcomeAuthState === 'not_registered'
+        || welcomeAuthState === 'server_error'
+        || (welcomeAuthState === 'loading' && !hasZone);
+      const needsZoneLink = Boolean(
+        accessToken
+        && currentView === 'home'
+        && !hasZone
+        && welcomeAuthState === 'idle'
+        && !isZonelessLotWeedingOnlyUser()
+      );
+      const showWelcome = signedOut || authBlockingState || needsZoneLink;
+      if (showWelcome) {
         welcomeOverlay.classList.remove('hidden');
         document.body.classList.remove('dashboard-active');
+        document.body.classList.toggle('is-signed-out', signedOut);
+
+        const welcomeSubtitle = welcomeOverlay.querySelector('.welcome-message > p');
+        if (welcomeSubtitle) {
+          welcomeSubtitle.textContent = signedOut
+            ? 'Sign in with your Google account to access your zone.'
+            : (welcomeAuthState === 'zone_picker'
+              ? 'Choose which zone to open.'
+              : 'Connecting you to your zone…');
+        }
         
         // Update step visibility based on sign-in state
         if (accessToken) {
@@ -3109,6 +3161,7 @@
       } else {
         welcomeOverlay.classList.add('hidden');
         document.body.classList.add('dashboard-active');
+        document.body.classList.remove('is-signed-out');
       }
     }
 
@@ -3191,6 +3244,8 @@
     }
 
     function canOpenView(viewName) {
+      // Signed-out users stay on the canonical Home login screen — no tab hopping.
+      if (!accessToken) return viewName === 'home';
       if (currentSheetUrl || localStorage.getItem('savedSheetUrl')) {
         if (viewName === 'godmode') return isCurrentUserAdmin;
         if (viewName === 'lotWeedingAdmin') return canAccessLotWeedingAdminView();
@@ -3203,6 +3258,7 @@
     function updateNavigationState() {
       const leftNav = document.querySelector('.left-nav');
       const navItems = document.querySelectorAll('.nav-item[data-view]');
+      const mobileNavTabs = document.querySelectorAll('.mobile-nav-tab[data-view], .mobile-more-item[data-view]');
       const godmodeNav = document.getElementById('navGodmode');
       const mobileGodmodeNav = document.getElementById('mobileMoreGodmode');
       const lotWeedingAdminNav = document.getElementById('navLotWeedingAdmin');
@@ -3217,34 +3273,63 @@
         if (!item) return;
         item.classList.toggle('hidden', !canAccessLotWeedingAdminView());
       });
-      
-      if (!currentSheetUrl) {
+
+      const applyNavItemState = (item) => {
+        const viewName = item.getAttribute('data-view');
+        const allowed = canOpenView(viewName);
+        item.disabled = !allowed;
+        item.style.pointerEvents = allowed ? 'auto' : 'none';
+        item.classList.toggle('is-nav-disabled', !allowed);
+        if (!allowed) {
+          item.setAttribute('aria-disabled', 'true');
+        } else {
+          item.removeAttribute('aria-disabled');
+        }
+      };
+
+      // Signed out: lock navigation entirely (canonical welcome login only).
+      if (!accessToken) {
+        if (leftNav) leftNav.classList.add('disabled');
+        navItems.forEach(applyNavItemState);
+        mobileNavTabs.forEach(applyNavItemState);
+        const mobileMoreBtn = document.getElementById('mobileNavMore');
+        if (mobileMoreBtn) {
+          mobileMoreBtn.disabled = true;
+          mobileMoreBtn.style.pointerEvents = 'none';
+          mobileMoreBtn.classList.add('is-nav-disabled');
+          mobileMoreBtn.setAttribute('aria-disabled', 'true');
+        }
+      } else if (!currentSheetUrl) {
         // No spreadsheet linked - disable all navigation except Home
         if (leftNav) {
           leftNav.classList.add('disabled');
         }
-        navItems.forEach(item => {
-          const viewName = item.getAttribute('data-view');
-          const isAllowedWithoutZone = canOpenViewWithoutSheet(viewName);
-          if (!isAllowedWithoutZone) {
-            item.disabled = true;
-            item.style.pointerEvents = 'none';
-          } else {
-            item.disabled = false;
-            item.style.pointerEvents = 'auto';
-          }
-        });
+        navItems.forEach(applyNavItemState);
+        mobileNavTabs.forEach(applyNavItemState);
+        const mobileMoreBtn = document.getElementById('mobileNavMore');
+        if (mobileMoreBtn) {
+          const moreAllowed = canOpenView('tools') || canOpenView('resources') || canOpenView('profile') ||
+            canOpenView('godmode') || canOpenView('lotWeedingAdmin');
+          mobileMoreBtn.disabled = !moreAllowed;
+          mobileMoreBtn.style.pointerEvents = moreAllowed ? 'auto' : 'none';
+          mobileMoreBtn.classList.toggle('is-nav-disabled', !moreAllowed);
+          if (!moreAllowed) mobileMoreBtn.setAttribute('aria-disabled', 'true');
+          else mobileMoreBtn.removeAttribute('aria-disabled');
+        }
       } else {
         // Spreadsheet linked - enable all navigation
         if (leftNav) {
           leftNav.classList.remove('disabled');
         }
-        navItems.forEach(item => {
-          const viewName = item.getAttribute('data-view');
-          const allowed = canOpenView(viewName);
-          item.disabled = !allowed;
-          item.style.pointerEvents = allowed ? 'auto' : 'none';
-        });
+        navItems.forEach(applyNavItemState);
+        mobileNavTabs.forEach(applyNavItemState);
+        const mobileMoreBtn = document.getElementById('mobileNavMore');
+        if (mobileMoreBtn) {
+          mobileMoreBtn.disabled = false;
+          mobileMoreBtn.style.pointerEvents = 'auto';
+          mobileMoreBtn.classList.remove('is-nav-disabled');
+          mobileMoreBtn.removeAttribute('aria-disabled');
+        }
       }
 
       // Cosmetic nav branding must never be able to break sign-in / navigation.
@@ -7828,14 +7913,25 @@
         if (e && e.message === 'canceled') {
           throw new Error('Not signed in. Please sign in to view data.');
         }
-        accessToken = null;
-        localStorage.removeItem('googleOAuthToken');
-        localStorage.removeItem('googleOAuthTokenExpiry');
-        throw new Error('Your session has expired. Please sign in again.');
+        const storedExpiry = localStorage.getItem('googleOAuthTokenExpiry');
+        const exp = storedExpiry ? parseInt(storedExpiry, 10) : 0;
+        if (exp && Date.now() < exp && accessToken) {
+          // Token is still within its lifetime — continue rather than signing the user out.
+          console.warn('Token refresh failed, but session is still valid. Continuing.', e);
+        } else {
+          accessToken = null;
+          localStorage.removeItem('googleOAuthToken');
+          localStorage.removeItem('googleOAuthTokenExpiry');
+          updateSignInUI();
+          switchView('home');
+          throw new Error('Your session has expired. Please sign in again.');
+        }
       }
       if (!accessToken) {
         localStorage.removeItem('googleOAuthToken');
         localStorage.removeItem('googleOAuthTokenExpiry');
+        updateSignInUI();
+        switchView('home');
         throw new Error('Your session has expired. Please sign in again.');
       }
       const response = await fetch('/api/sheets/values', {
@@ -7849,6 +7945,8 @@
           accessToken = null;
           localStorage.removeItem('googleOAuthToken');
           localStorage.removeItem('googleOAuthTokenExpiry');
+          updateSignInUI();
+          switchView('home');
           throw new Error('Your session has expired. Please sign in again.');
         }
         throw new Error(err.message || err.error || 'Failed to fetch sheet values');
@@ -8108,6 +8206,9 @@
         // Update sheet link label after successful load
         updateSheetLinkLabel();
         updateHeaderTitle();
+        // Zone data is ready — clear any leftover auth loading state so the welcome
+        // overlay cannot keep trapping mobile navigation.
+        if (welcomeAuthState === 'loading') welcomeAuthState = 'idle';
         updateNavigationState();
         
         // Update sign-in UI
@@ -15041,6 +15142,10 @@
 
     // Navigation System - Single Page Navigation
     function switchView(viewName) {
+      // Signed-out users always stay on the canonical Home login screen.
+      if (!accessToken) {
+        viewName = 'home';
+      }
       // Prevent switching to non-home views if no spreadsheet is linked
       // Exception: select role-gated views are accessible without a zone sheet
       if (!canOpenView(viewName)) {
@@ -15238,6 +15343,14 @@
         loadGodmodeData();
       } else if (viewName === 'lotWeedingAdmin') {
         loadLotWeedingAdminData();
+      }
+
+      // Keep mobile chrome in sync with the actual view (after canOpenView redirects).
+      if (typeof window.syncMobileNav === 'function') {
+        window.syncMobileNav(currentView);
+      }
+      if (viewName !== 'map' && typeof window.closeMobileMapSheet === 'function') {
+        window.closeMobileMapSheet();
       }
       // Map view doesn't need special content updates - it just shows the map with floating panel
     }
@@ -25020,13 +25133,32 @@
           moreTab.classList.toggle('active', moreViews.indexOf(viewName) !== -1);
         }
       }
+      window.syncMobileNav = syncMobileNav;
+
+      function tryMobileSwitchView(view) {
+        if (!accessToken) {
+          switchView('home');
+          syncMobileNav('home');
+          return false;
+        }
+        if (!canOpenView(view)) {
+          if (typeof showAppToast === 'function') {
+            showAppToast('Link your zone to open this tab.');
+          }
+          syncMobileNav(currentView || 'home');
+          return false;
+        }
+        closeMapSheet();
+        switchView(view);
+        syncMobileNav(currentView || view);
+        return true;
+      }
 
       // ---- Bottom nav tab clicks ----
       document.querySelectorAll('.mobile-nav-tab[data-view]').forEach(function(tab) {
         tab.addEventListener('click', function() {
           var view = this.getAttribute('data-view');
-          switchView(view);
-          syncMobileNav(view);
+          if (!tryMobileSwitchView(view)) return;
           // On mobile, keep the address panel closed by default when switching views.
           // The user opens it intentionally via the List FAB.
           if (window.innerWidth <= 767) {
@@ -25058,8 +25190,7 @@
       document.querySelectorAll('.mobile-more-item[data-view]').forEach(function(item) {
         item.addEventListener('click', function() {
           var view = this.getAttribute('data-view');
-          switchView(view);
-          syncMobileNav(view);
+          if (!tryMobileSwitchView(view)) return;
           closeMoreDrawer();
           if (window.innerWidth <= 767) {
             setTimeout(function() {
@@ -25246,6 +25377,7 @@
         mapSheet.classList.add('hidden');
         if (mapLayersBtn) mapLayersBtn.classList.remove('active');
       }
+      window.closeMobileMapSheet = closeMapSheet;
 
       if (mapLayersBtn) {
         mapLayersBtn.addEventListener('click', function() {
@@ -25260,11 +25392,6 @@
       if (mapSheetBackdrop) {
         mapSheetBackdrop.addEventListener('click', closeMapSheet);
       }
-
-      // Close when switching away from map view
-      document.querySelectorAll('.mobile-nav-tab[data-view]').forEach(function(tab) {
-        tab.addEventListener('click', closeMapSheet);
-      });
 
       // Base map buttons
       var baseStreetBtn = document.getElementById('mobileBaseStreet');
