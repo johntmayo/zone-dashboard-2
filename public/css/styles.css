@@ -10305,8 +10305,7 @@
     height: 60px;
     background: var(--brand-primary-dark);
     border-top: 2px solid var(--text-primary);
-    /* Above homeSigninPrompt (10000) so tabs stay tappable while signed out */
-    z-index: 10050;
+    z-index: 500;
     align-items: stretch;
     box-shadow: 0 -2px 12px rgba(49, 64, 89, 0.25);
     padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -10358,7 +10357,7 @@
     display: block !important;
     position: fixed;
     inset: 0;
-    z-index: 10100;
+    z-index: 800;
     pointer-events: none;
   }
 
@@ -10723,8 +10722,7 @@
     display: block;
     position: fixed;
     inset: 0;
-    /* Below bottom nav (10050) so tabs stay tappable while sheet is open */
-    z-index: 10040;
+    z-index: 590;
     pointer-events: none;
   }
 
@@ -10750,7 +10748,7 @@
     right: 0;
     background: var(--bg-paper);
     border-top: 2px solid var(--text-primary);
-    z-index: 10041;
+    z-index: 595;
     max-height: 70vh;
     overflow-y: auto;
     pointer-events: all;
@@ -10898,28 +10896,33 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  /* During onboarding, hide bottom nav so login is one clear full-screen path */
+  /* During onboarding / signed-out login, hide bottom nav so login is one clear path */
   body:has(.welcome-overlay:not(.hidden)) .mobile-bottom-nav,
-  body:has(.welcome-overlay:not(.hidden)) .mobile-list-fab {
+  body:has(.welcome-overlay:not(.hidden)) .mobile-list-fab,
+  body.is-signed-out .mobile-bottom-nav,
+  body.is-signed-out .mobile-list-fab,
+  body.is-signed-out .mobile-more-drawer {
     display: none !important;
   }
 
   body:has(.welcome-overlay:not(.hidden)) .content-view,
-  body:has(.welcome-overlay:not(.hidden)) .map-container {
+  body:has(.welcome-overlay:not(.hidden)) .map-container,
+  body.is-signed-out .content-view,
+  body.is-signed-out .map-container {
     bottom: 0 !important;
   }
 
-  /* Signed-out prompt: same card language as welcome, above content but under nav */
+  /* Signed-out prompt (legacy fallback only — welcome overlay is canonical) */
   .home-signin-prompt {
     top: auto;
     left: 16px;
     right: 16px;
-    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    bottom: 24px;
     transform: none;
     width: auto;
     max-width: none;
     padding: 28px 20px;
-    max-height: calc(100dvh - 100px - env(safe-area-inset-bottom, 0px));
+    max-height: calc(100dvh - 48px);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     z-index: 10000;

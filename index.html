@@ -9,7 +9,16 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <!-- Deploy marker: if View Source does not show this comment, you are not on the latest index.html. -->
   <!-- map-overlays-v2: altadenaWaterDistricts (combined water tileset) -->
+  <meta name="application-name" content="Zone Dashboard" />
+  <meta name="apple-mobile-web-app-title" content="Zone Dashboard" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#3f4a32" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" type="image/x-icon" href="public/images/favicon.ico" />
+  <link rel="apple-touch-icon" href="public/images/app_icon.png" />
+  <link rel="icon" type="image/png" sizes="936x936" href="public/images/app_icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
@@ -2861,31 +2870,17 @@
         if (homeSigninPrompt) homeSigninPrompt.classList.add('hidden');
         if (signOutBtn) signOutBtn.classList.remove('hidden');
       } else {
-        // Always show sign-in prompt in floating panel when not signed in
-        signinPrompt.classList.remove('hidden');
+        // Canonical login is the welcome overlay. Keep secondary sign-in cards
+        // hidden so every signed-out user sees one consistent screen.
+        signinPrompt.classList.add('hidden');
+        if (homeSigninPrompt) homeSigninPrompt.classList.add('hidden');
         if (signOutBtn) signOutBtn.classList.add('hidden');
-        // Show the global sign-in overlay on any tab that doesn't already render its
-        // own sign-in affordance, so a signed-out user is never dead-ended without a
-        // way to sign in. Admin Mode and Lot Weeding render their own sign-in cards,
-        // and Home renders the welcome overlay — but the welcome overlay only appears
-        // when there's no linked sheet (or during zone loading/picking), so on Home
-        // with a remembered sheet we must still show this overlay. (No longer gated on
-        // currentSheetUrl — admins have no saved sheet, and would otherwise be stuck.)
-        const welcomeOverlayShowing = currentView === 'home'
-          && (!currentSheetUrl || welcomeAuthState === 'zone_picker' || welcomeAuthState === 'loading');
-        const viewHasOwnSignIn = currentView === 'godmode'
-          || currentView === 'lotWeedingAdmin'
-          || welcomeOverlayShowing;
-        if (homeSigninPrompt && !viewHasOwnSignIn) {
-          homeSigninPrompt.classList.remove('hidden');
-        } else if (homeSigninPrompt) {
-          homeSigninPrompt.classList.add('hidden');
-        }
       }
       
       // Update welcome message to reflect sign-in state
       updateWelcomeMessage();
       updateOnboardingTourNudge();
+      updateNavigationState();
     }
 
     // Update sheet link label based on link status
@@ -2923,12 +2918,16 @@
       
       if (!welcomeOverlay) return;
       
-      // Show welcome message on home when onboarding, or when admins intentionally reopen zone selection.
+      // Show welcome message when signed out (canonical login for every user type),
+      // or on home during onboarding / zone picking / loading.
       const forceZonePicker = currentView === 'home' && welcomeAuthState === 'zone_picker';
       const forceZoneLoading = currentView === 'home' && welcomeAuthState === 'loading';
-      if (currentView === 'home' && (!currentSheetUrl || forceZonePicker || forceZoneLoading)) {
+      const signedOut = !accessToken;
+      const needsOnboarding = currentView === 'home' && (!currentSheetUrl || forceZonePicker || forceZoneLoading);
+      if (signedOut || needsOnboarding) {
         welcomeOverlay.classList.remove('hidden');
         document.body.classList.remove('dashboard-active');
+        document.body.classList.toggle('is-signed-out', signedOut);
         
         // Update step visibility based on sign-in state
         if (accessToken) {
@@ -3110,6 +3109,7 @@
       } else {
         welcomeOverlay.classList.add('hidden');
         document.body.classList.add('dashboard-active');
+        document.body.classList.remove('is-signed-out');
       }
     }
 
@@ -3192,6 +3192,8 @@
     }
 
     function canOpenView(viewName) {
+      // Signed-out users stay on the canonical Home login screen — no tab hopping.
+      if (!accessToken) return viewName === 'home';
       if (currentSheetUrl || localStorage.getItem('savedSheetUrl')) {
         if (viewName === 'godmode') return isCurrentUserAdmin;
         if (viewName === 'lotWeedingAdmin') return canAccessLotWeedingAdminView();
@@ -3232,14 +3234,36 @@
           item.removeAttribute('aria-disabled');
         }
       };
-      
-      if (!currentSheetUrl) {
+
+      // Signed out: lock navigation entirely (canonical welcome login only).
+      if (!accessToken) {
+        if (leftNav) leftNav.classList.add('disabled');
+        navItems.forEach(applyNavItemState);
+        mobileNavTabs.forEach(applyNavItemState);
+        const mobileMoreBtn = document.getElementById('mobileNavMore');
+        if (mobileMoreBtn) {
+          mobileMoreBtn.disabled = true;
+          mobileMoreBtn.style.pointerEvents = 'none';
+          mobileMoreBtn.classList.add('is-nav-disabled');
+          mobileMoreBtn.setAttribute('aria-disabled', 'true');
+        }
+      } else if (!currentSheetUrl) {
         // No spreadsheet linked - disable all navigation except Home
         if (leftNav) {
           leftNav.classList.add('disabled');
         }
         navItems.forEach(applyNavItemState);
         mobileNavTabs.forEach(applyNavItemState);
+        const mobileMoreBtn = document.getElementById('mobileNavMore');
+        if (mobileMoreBtn) {
+          const moreAllowed = canOpenView('tools') || canOpenView('resources') || canOpenView('profile') ||
+            canOpenView('godmode') || canOpenView('lotWeedingAdmin');
+          mobileMoreBtn.disabled = !moreAllowed;
+          mobileMoreBtn.style.pointerEvents = moreAllowed ? 'auto' : 'none';
+          mobileMoreBtn.classList.toggle('is-nav-disabled', !moreAllowed);
+          if (!moreAllowed) mobileMoreBtn.setAttribute('aria-disabled', 'true');
+          else mobileMoreBtn.removeAttribute('aria-disabled');
+        }
       } else {
         // Spreadsheet linked - enable all navigation
         if (leftNav) {
@@ -3247,6 +3271,13 @@
         }
         navItems.forEach(applyNavItemState);
         mobileNavTabs.forEach(applyNavItemState);
+        const mobileMoreBtn = document.getElementById('mobileNavMore');
+        if (mobileMoreBtn) {
+          mobileMoreBtn.disabled = false;
+          mobileMoreBtn.style.pointerEvents = 'auto';
+          mobileMoreBtn.classList.remove('is-nav-disabled');
+          mobileMoreBtn.removeAttribute('aria-disabled');
+        }
       }
 
       // Cosmetic nav branding must never be able to break sign-in / navigation.
@@ -15043,6 +15074,10 @@
 
     // Navigation System - Single Page Navigation
     function switchView(viewName) {
+      // Signed-out users always stay on the canonical Home login screen.
+      if (!accessToken) {
+        viewName = 'home';
+      }
       // Prevent switching to non-home views if no spreadsheet is linked
       // Exception: select role-gated views are accessible without a zone sheet
       if (!canOpenView(viewName)) {
@@ -25033,6 +25068,11 @@
       window.syncMobileNav = syncMobileNav;
 
       function tryMobileSwitchView(view) {
+        if (!accessToken) {
+          switchView('home');
+          syncMobileNav('home');
+          return false;
+        }
         if (!canOpenView(view)) {
           if (typeof showAppToast === 'function') {
             showAppToast('Link your zone to open this tab.');
