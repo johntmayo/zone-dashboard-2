@@ -109,7 +109,7 @@ The right-side panel rendered when a captain clicks an address. Rebuilt April 22
 - `data-contact-column` and `data-log-column` attributes on the composer's submit button carry the **current** outreach column names, resolved at render time via `findOutreachDateColumn` / `findOutreachLogColumn`. Do not hardcode column names here.
 - `.editable-inline` (contenteditable spans), `.editable-notes` (textareas), `.editable-checkbox`, `.editable-dropdown` all use `data-address`, `data-original-row-index`, `data-column`, and `data-address-level` attributes to route updates to the correct sheet cell. Any new editable field must follow this pattern to hook into the autosave / batch-save flow.
 
-**Typography policy inside `.address-details`:** All text uses Chivo (sans-serif), overriding the app-wide Merriweather body font. This is a deliberate local deviation from the app style guide — the panel is a dense data/case-management UI, not reading material. If you add new text inside the panel, do not re-introduce serif inheritance. The ladder is documented in the banner comment at the top of the "Details Panel Redesign" CSS block.
+**Typography policy inside `.address-details`:** All text uses Chivo (sans-serif), overriding the app-wide Lora body font. This is a deliberate local deviation from the app style guide — the panel is a dense data/case-management UI, not reading material. If you add new text inside the panel, do not re-introduce serif inheritance. The ladder is documented in the banner comment at the top of the "Details Panel Redesign" CSS block.
 
 ### Outreach column resilience (public/js/utils.js)
 
