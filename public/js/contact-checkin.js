@@ -1007,9 +1007,8 @@
           '</div>';
       }).join(''),
       '</div>',
-      '<div class="cci-question">Have you successfully contacted anyone at this address?',
-      '  <span class="cci-tooltip" data-tip="Contact means a two-way interaction. They replied, answered, spoke with you, asked a question, or otherwise confirmed they received your message. Sending an email, leaving a voicemail, or dropping off a flyer does not count unless they responded.">?</span>',
-      '</div>',
+      '<div class="cci-question">Have you successfully contacted anyone at this address?</div>',
+      '<div class="cci-definition">Successful contact means they replied, answered, spoke with you, asked a question, or otherwise confirmed they received your message.</div>',
       '<div class="cci-choice-row">',
       '  <button type="button" class="cci-big-choice" data-cci-branch="yes">Yes</button>',
       '  <button type="button" class="cci-big-choice" data-cci-branch="no">No</button>',

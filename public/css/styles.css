@@ -12797,15 +12797,19 @@
 .cci-outreach-person { margin-bottom: 8px; }
 .cci-question {
   font-size: 24px;
-  line-height: 1.25;
+  line-height: 1.15;
   color: var(--brand-primary-dark);
   font-weight: 900;
-  margin: 12px 0 18px;
+  margin: 12px 0 8px;
   font-family: Chivo, sans-serif;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
+}
+.cci-definition {
+  font-family: Merriweather, Georgia, serif;
+  color: #333;
+  background: #fffdf5;
+  border-left: 5px solid var(--accent-clay);
+  padding: 12px 14px;
+  margin: 10px 0 18px;
 }
 .cci-choice-row {
   display: flex;
