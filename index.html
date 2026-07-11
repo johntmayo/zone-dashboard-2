@@ -1336,7 +1336,9 @@
     let currentRemediationFilter = 'all'; // Current Remediation Status filter (address-level)
     let currentEpicFilter = 'all'; // EPIC: all | has_epic | epic_* milestone | epic_temp_housing
     let currentCaptainFilter = 'all'; // Current captain assigned filter
-    let currentPersonSearch = ''; // Current resident-name search filter
+    let currentPersonSearch = ''; // Current text search filter (names, notes, contact info)
+    let personSearchDebounceTimer = null;
+    let filterSearchColumnsCache = null;
     let showContactedAddresses = true; // Show addresses with contacted people
     let showUncontactedAddresses = true; // Show addresses with uncontacted people
     let showSoldSinceJan25Tags = false; // Show SOLD labels next to sold-since-fire map dots
@@ -8072,6 +8074,7 @@
         });
 
         // Store data globally (useResidentId / useAddressId: sort-safe identity columns when present)
+        filterSearchColumnsCache = null;
         sheetData = {
           headers,
           data,
@@ -8523,14 +8526,85 @@
       });
     }
 
+    function resolveFilterSearchColumns(headers) {
+      if (!headers || !Array.isArray(headers)) return {};
+      if (filterSearchColumnsCache && filterSearchColumnsCache.headers === headers) {
+        return filterSearchColumnsCache.cols;
+      }
+      const cols = {
+        residentName: getResidentNameColumn(headers),
+        personNotes: headers.find((header) => {
+          const lower = String(header || '').toLowerCase();
+          return lower.includes('person note') &&
+            !((lower.includes('contact') && lower.includes('note')) ||
+              (lower.includes('outreach') && (lower.includes('note') || lower.includes('log'))));
+        }) || null,
+        addressNotes: findColumn(headers, ['address', 'note']),
+        outreachLog: findOutreachLogColumn(headers),
+        formerResidentNotes: findColumn(headers, ['former', 'resident', 'note']),
+        homePhone: headers.find((header) => {
+          const lower = String(header || '').toLowerCase();
+          return (lower.includes('home phone') || lower.includes('homephone') ||
+            (lower.includes('phone') && lower.includes('home'))) &&
+            !lower.includes('cell') && !lower.includes('mobile');
+        }) || null,
+        cellPhone: headers.find((header) => {
+          const lower = String(header || '').toLowerCase();
+          return (lower.includes('cell') || lower.includes('mobile')) &&
+            (lower.includes('phone') || lower.includes('cell') || lower.includes('mobile'));
+        }) || null,
+        email: headers.find((header) => {
+          const lower = String(header || '').toLowerCase();
+          return lower.includes('email address') || (lower.includes('email') && !lower.includes('nc email'));
+        }) || null
+      };
+      filterSearchColumnsCache = { headers, cols };
+      return cols;
+    }
+
+    function filterSearchValueMatchesQuery(rawValue, query) {
+      const value = String(rawValue || '').trim();
+      if (!value || !query) return false;
+      if (value.toLowerCase().includes(query)) return true;
+      const queryDigits = query.replace(/\D/g, '');
+      if (queryDigits.length >= 3) {
+        const valueDigits = value.replace(/\D/g, '');
+        if (valueDigits.includes(queryDigits)) return true;
+      }
+      return false;
+    }
+
     function addressMatchesPersonSearch(address, headers) {
       const query = String(currentPersonSearch || '').trim().toLowerCase();
       if (!query) return true;
       if (!sheetData || !sheetData.addressMap) return false;
-      const residentNameCol = getResidentNameColumn(headers || []);
-      if (!residentNameCol) return false;
       const rows = sheetData.addressMap.get(address) || [];
-      return rows.some(row => String(row[residentNameCol] || '').toLowerCase().includes(query));
+      if (rows.length === 0) return false;
+
+      const searchCols = resolveFilterSearchColumns(headers || []);
+      const rowFields = [
+        searchCols.residentName,
+        searchCols.personNotes,
+        searchCols.outreachLog,
+        searchCols.formerResidentNotes,
+        searchCols.homePhone,
+        searchCols.cellPhone,
+        searchCols.email
+      ].filter(Boolean);
+
+      for (const row of rows) {
+        for (const col of rowFields) {
+          if (filterSearchValueMatchesQuery(row[col], query)) return true;
+        }
+      }
+
+      if (searchCols.addressNotes) {
+        for (const row of rows) {
+          if (filterSearchValueMatchesQuery(row[searchCols.addressNotes], query)) return true;
+        }
+      }
+
+      return false;
     }
 
     // Get captain assigned value for an address
@@ -11211,7 +11285,7 @@
           <option value="" ${currentCaptainFilter === '' ? 'selected' : ''}>(not specified)</option>
           ${captainNames.map(name => `<option value="${escapeHtml(name).replace(/"/g, '&quot;')}" ${currentCaptainFilter === name ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}
         </select>` : ''}
-        <input type="text" id="persistentPersonSearch" placeholder="Search Person" value="${escapeHtml(currentPersonSearch)}" class="${currentPersonSearch.trim() ? 'filter-active' : ''}" title="Filter addresses by resident name (partial match).">
+        <input type="text" id="persistentPersonSearch" placeholder="Search names &amp; notes" value="${escapeHtml(currentPersonSearch)}" class="${currentPersonSearch.trim() ? 'filter-active' : ''}" title="Filter addresses by resident name, notes, outreach log, email, or phone (partial match).">
         ${(contactDateCol || soldSinceFireCol) ? `
         <div class="contact-filter-group">
           ${contactDateCol ? `
@@ -11477,6 +11551,11 @@
 
       const personSearchInput = document.getElementById('persistentPersonSearch');
       if (personSearchInput) {
+        const applyPersonSearchFilter = () => {
+          displayAddressTable();
+          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
+          updateMapMarkers();
+        };
         personSearchInput.addEventListener('input', (e) => {
           currentPersonSearch = (e.target.value || '').trim();
           if (currentPersonSearch) {
@@ -11484,9 +11563,8 @@
           } else {
             personSearchInput.classList.remove('filter-active');
           }
-          displayAddressTable();
-          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
-          updateMapMarkers();
+          if (personSearchDebounceTimer) clearTimeout(personSearchDebounceTimer);
+          personSearchDebounceTimer = setTimeout(applyPersonSearchFilter, 200);
         });
       }
 
