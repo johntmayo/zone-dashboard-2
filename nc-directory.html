@@ -7,7 +7,7 @@
   <link rel="icon" type="image/x-icon" href="public/images/favicon.ico" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Lora:wght@400;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg-paper: #FDFBF7;
@@ -22,7 +22,8 @@
     }
     * { box-sizing: border-box; }
     .hidden { display: none !important; }
-    html, body { margin: 0; padding: 0; min-height: 100%; font-family: 'Merriweather', serif; background: var(--bg-paper); color: var(--text-primary); }
+    /* Structural/data UI defaults to Chivo; genuine reading blocks (bios, intro) opt back into Lora below. */
+    html, body { margin: 0; padding: 0; min-height: 100%; font-family: 'Chivo', sans-serif; background: var(--bg-paper); color: var(--text-primary); }
     h1, h2, h3, .nav-item, .btn { font-family: 'Chivo', sans-serif; font-weight: 700; }
     .header {
       background: var(--brand-primary-dark);
@@ -60,15 +61,24 @@
     .filters label { font-size: 0.9rem; color: var(--text-secondary); font-weight: 400; }
     .count { font-size: 0.9rem; color: var(--text-secondary); font-weight: 400; margin-left: auto; }
     .filters select {
-      padding: 0.5rem 0.75rem;
+      padding: 0.5rem 2rem 0.5rem 0.75rem;
       border: 2px solid var(--border-color);
       border-radius: 4px;
       font-size: 0.9rem;
-      font-family: 'Merriweather', serif;
+      font-family: 'Chivo', sans-serif;
       background: white;
+      /* Custom chevron replaces native select chrome */
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%231F2937' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 12px 8px;
+      cursor: pointer;
     }
     .filter-section { margin-top: 1rem; }
-    .filter-section-label { font-size: 0.9rem; color: var(--text-secondary); font-weight: 600; margin-bottom: 0.5rem; display: block; }
+    .filter-section-label { font-size: 0.9rem; color: var(--text-secondary); font-weight: 700; margin-bottom: 0.5rem; display: block; }
     .filter-cta { font-size: 0.9rem; color: var(--text-secondary); margin: 0.5rem 0 0; }
     .filter-cta a, .intro-blurb a, .intro-instructions a { color: var(--accent-green); text-decoration: underline; font-weight: 700; }
     .filter-cta a:hover, .intro-blurb a:hover, .intro-instructions a:hover { opacity: 0.85; }
@@ -81,7 +91,7 @@
       border: 1px solid var(--border-color);
       border-radius: 4px;
       font-size: 0.9rem;
-      font-family: 'Merriweather', serif;
+      font-family: 'Chivo', sans-serif;
       cursor: pointer;
     }
     .filter-chip.active { background: var(--accent-gold); border-color: var(--brand-primary-dark); color: var(--text-primary); }
@@ -107,7 +117,7 @@
     .card .contact .email-wrap:hover .copy-email-btn { opacity: 1; }
     .card .contact .copy-email-btn:hover { background: #E5E7EB; color: var(--text-primary); }
     .card .tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; }
-    .card .tags-label { font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.75rem; margin-bottom: 0.25rem; font-weight: 600; }
+    .card .tags-label { font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.75rem; margin-bottom: 0.25rem; font-weight: 700; }
     .tag { background: #EEF2FF; color: var(--brand-primary-dark); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; }
     .tag.badge { background: #FEF3C7; color: #92400E; }
     .tag.badge.badge-1year { background: linear-gradient(135deg, #FDE68A 0%, #FCD34D 100%); color: #78350F; font-weight: 700; padding: 0.35rem 0.6rem; font-size: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
@@ -118,14 +128,16 @@
     .tag.badge.badge-newsletter::before { content: '✉ '; }
 .tag.badge.badge-dena-native { background: linear-gradient(135deg, #F2EDE6 0%, #D4C4B0 50%, #9B8B7A 100%); color: #3D3529; font-weight: 700; padding: 0.35rem 0.6rem; font-size: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.06); border: 1px solid rgba(61,53,41,0.15); }
 .tag.badge.badge-dena-native::before { content: '✦ '; }
-    .card .bio { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; }
+    /* Genuine reading material stays serif */
+    .card .bio { font-family: 'Lora', serif; font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; }
     .card .location { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; }
-    .card .notes-bio { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; font-style: italic; }
-    .card .ask-me-about { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.1rem; line-height: 1.4; }
+    .card .notes-bio { font-family: 'Lora', serif; font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; font-style: italic; }
+    .card .ask-me-about { font-family: 'Lora', serif; font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.1rem; line-height: 1.4; }
     .loading, .error { text-align: center; padding: 2rem; font-size: 1.1rem; }
     .error { color: var(--accent-clay); }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .intro-blurb {
+      font-family: 'Lora', serif;
       font-size: 0.95rem; line-height: 1.6; margin: 0 0 1.5rem; max-width: 48rem;
       padding: 1.25rem 1.5rem; border-radius: 8px;
       background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 40%, #FEF9E7 100%);
@@ -133,20 +145,20 @@
       color: var(--text-primary);
     }
     .intro-blurb strong { color: var(--brand-primary-dark); }
-    .intro-instructions { font-size: 0.95rem; color: var(--text-secondary); line-height: 1.6; margin: 0 0 1.5rem; max-width: 48rem; }
+    .intro-instructions { font-family: 'Lora', serif; font-size: 0.95rem; color: var(--text-secondary); line-height: 1.6; margin: 0 0 1.5rem; max-width: 48rem; }
     .accordion { border: 2px solid var(--border-color); border-radius: 4px; background: var(--bg-card); margin-top: 1rem; margin-bottom: 0.5rem; }
-    .accordion-header { padding: 0.5rem 0.75rem; cursor: pointer; font-weight: 600; font-size: 0.9rem; font-family: 'Merriweather', serif; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between; }
+    .accordion-header { padding: 0.5rem 0.75rem; cursor: pointer; font-weight: 700; font-size: 0.9rem; font-family: 'Chivo', sans-serif; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between; }
     .accordion-header:hover { background: #F9FAFB; }
     .accordion-header::after { content: '▼'; font-size: 0.7rem; transition: transform 0.2s; }
     .accordion.open .accordion-header::after { transform: rotate(-180deg); }
     .accordion-body { max-height: 0; overflow: hidden; transition: max-height 0.2s ease-out; }
     .accordion.open .accordion-body { max-height: 500px; overflow-y: auto; }
     .accordion-inner { padding: 0.85rem 0.85rem 1rem; border-top: 1px solid var(--border-color); }
-    .accordion-inner label { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; font-size: 0.9rem; font-family: 'Merriweather', serif; cursor: pointer; }
+    .accordion-inner label { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; font-size: 0.9rem; font-family: 'Chivo', sans-serif; cursor: pointer; }
     .accordion-inner input[type="checkbox"] { margin: 0; }
     .interest-filter-groups { display: grid; gap: 0.85rem; }
     .interest-filter-group { border: 1px solid #ECE7DD; border-radius: 10px; background: #FCFBF8; padding: 0.75rem; }
-    .interest-filter-group-title { margin: 0 0 0.2rem; font-family: 'Chivo', sans-serif; font-size: 0.88rem; font-weight: 800; color: var(--brand-primary-dark); letter-spacing: 0.02em; }
+    .interest-filter-group-title { margin: 0 0 0.2rem; font-family: 'Chivo', sans-serif; font-size: 0.88rem; font-weight: 900; color: var(--brand-primary-dark); letter-spacing: 0.02em; }
     .interest-filter-group-copy { margin: 0 0 0.55rem; color: var(--text-secondary); font-size: 0.78rem; line-height: 1.45; }
     .interest-filter-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem 0.75rem; }
     .interest-filter-option { min-width: 0; }
@@ -174,8 +186,8 @@
     .results-bar .view-toggle button {
       padding: 0.4rem 0.75rem;
       font-size: 0.9rem;
-      font-family: 'Merriweather', serif;
-      font-weight: 600;
+      font-family: 'Chivo', sans-serif;
+      font-weight: 700;
       border: none;
       background: var(--bg-card);
       color: var(--text-secondary);
@@ -204,7 +216,7 @@
     .list-table tbody tr:hover { background: #F3F4F6; }
     .list-table .email-cell a { color: var(--accent-green); text-decoration: none; }
     .list-table .email-cell a:hover { text-decoration: underline; }
-    .results-bar .export-btn { padding: 0.4rem 0.75rem; font-size: 0.9rem; font-family: 'Merriweather', serif; font-weight: 600; border: 2px solid var(--accent-green); background: var(--bg-card); color: var(--accent-green); border-radius: 4px; cursor: pointer; }
+    .results-bar .export-btn { padding: 0.4rem 0.75rem; font-size: 0.9rem; font-family: 'Chivo', sans-serif; font-weight: 700; border: 2px solid var(--accent-green); background: var(--bg-card); color: var(--accent-green); border-radius: 4px; cursor: pointer; }
     .results-bar .export-btn:hover { background: var(--accent-green); color: white; }
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
     .modal-overlay.hidden { display: none; }
@@ -212,7 +224,7 @@
     .modal h3 { margin: 0 0 1rem; font-size: 1.15rem; }
     .modal-filters { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem; padding: 0.75rem; background: #F9FAFB; border-radius: 4px; }
     .modal-actions { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; }
-    .modal-actions button { padding: 0.6rem 1rem; font-size: 0.95rem; font-weight: 600; border-radius: 4px; cursor: pointer; border: 2px solid; }
+    .modal-actions button { padding: 0.6rem 1rem; font-size: 0.95rem; font-weight: 700; border-radius: 4px; cursor: pointer; border: 2px solid; }
     .modal-copy-btn { background: var(--accent-green); color: white; border-color: var(--accent-green); }
     .modal-copy-btn:hover { opacity: 0.9; }
     .modal-copy-btn:disabled { opacity: 0.5; cursor: not-allowed; }

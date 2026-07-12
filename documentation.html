@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Lora:wght@400;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg-paper: #FDFBF7;
@@ -25,7 +25,7 @@
       margin: 0;
       padding: 0;
       min-height: 100vh;
-      font-family: 'Merriweather', serif;
+      font-family: 'Chivo', sans-serif;
       background: var(--bg-paper);
       color: var(--text-primary);
       line-height: 1.6;
@@ -34,6 +34,11 @@
       font-family: 'Chivo', sans-serif;
       font-weight: 900;
       color: var(--primary-dark);
+    }
+    /* Reading surfaces — docs prose stays Lora */
+    .content p,
+    .content li {
+      font-family: 'Lora', Georgia, serif;
     }
     .container {
       max-width: 1200px;

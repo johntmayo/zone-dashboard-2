@@ -12,12 +12,18 @@
       --accent-gold: #F59E0B;
       --accent-clay: #BC5838;
       --accent-altagether-green: #283618;
-      --accent-teal: #347072;           /* ACCENT 4: Earthy Teal (Tools page) */
+      --accent-teal: #347072;           /* ACCENT 4: Earthy Teal — non-button accents only (EPIC band, data viz, map markers). Never buttons. */
       
+      /* -- TYPOGRAPHY -- */
+      --font-ui: 'Chivo', sans-serif;
+      --font-reading: 'Lora', Georgia, serif;
+
       /* -- BORDERS & SHADOWS (Zine Aesthetic) -- */
       --border-thickness: 2px;
       --border-color: var(--text-primary);
       --shadow-base: 6px 6px 0px var(--text-primary);
+      /* Neutral section rule — orange/red is reserved for genuine alerts, CTAs, and campaign callouts */
+      --rule-neutral: #D0CFC8;
       
       /* Legacy mappings for compatibility */
       --primary: var(--brand-primary-dark);
@@ -51,12 +57,39 @@
       height: 100%;
       overflow-x: hidden;
       overflow-y: auto;
-      font-family: 'Merriweather', serif;
+      font-family: var(--font-ui);
       background: var(--bg-paper);
       color: var(--text-primary);
       /* Paper texture */
       background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjRkRGQkY3Ii8+CjxwYXRoIGQ9Ik0wIDBoNHY0SDB6IiBmaWxsPSIjMDAwIiBmaWxsLW9wYWNpdHk9IjAuMDIiLz4KPC9zdmc+');
     }
+
+    /* ═══════════════════════════════════════════════════════════════
+       READING SURFACES (Lora opt-in)
+       Body default is Chivo. Only genuine reading material goes here.
+       If something looks wrongly sans after a change, ADD its selector
+       to this list — do not flip body back to serif.
+       ═══════════════════════════════════════════════════════════════ */
+    .reading-text,
+    .about-section p,
+    .about-section-intro,
+    .help-card p,
+    .announcement-description,
+    .cci-tagline,
+    .cci-serif,
+    .cci-definition,
+    .cci-nudge-body span,
+    .cci-celebrate-card p,
+    .event-funding-path__summary,
+    .event-funding-list,
+    .event-funding-note,
+    .alert-card-urgent,
+    .lot-weeding-admin-help-intro p:last-child,
+    .lot-weeding-admin-help-card li,
+    .lot-weeding-admin-help-source p {
+      font-family: var(--font-reading);
+    }
+
 
     /* When dashboard is active (welcome overlay hidden), only app regions scroll */
     body.dashboard-active {
@@ -231,7 +264,7 @@
       border-radius: 6px;
       color: var(--accent-gold);
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;
       text-align: center;
       cursor: pointer;
       transition: all 0.2s ease;
@@ -284,7 +317,7 @@
     .beta-feedback-modal-header h3 {
       margin: 0;
       font-size: 18px;
-      font-weight: 600;
+      font-weight: 700;
     }
 
     .beta-feedback-close {
@@ -554,7 +587,6 @@
       margin: 0 0 12px 0;
       color: var(--text-primary);
       line-height: 1.6;
-      font-family: 'Merriweather', serif;
     }
 
     .about-promise-list,
@@ -658,7 +690,7 @@
       font-family: 'Chivo', sans-serif;
       font-weight: 900;
       padding-bottom: 8px;
-      border-bottom: 2px dotted var(--accent-clay);
+      border-bottom: 1px solid var(--rule-neutral);
     }
 
     .help-card h4 {
@@ -670,7 +702,6 @@
       margin-bottom: 20px;
       color: var(--text-primary);
       line-height: 1.6;
-      font-family: 'Merriweather', serif;
     }
 
     .help-card-buttons {
@@ -706,11 +737,11 @@
       box-shadow: 2px 2px 0px var(--text-primary);
     }
 
-    /* Tools page link buttons - Teal */
+    /* Tools page link buttons - Navy (navigation/launch tier) */
     .tool-link-btn {
       display: inline-block;
       padding: 12px 24px;
-      background-color: var(--accent-teal);
+      background-color: var(--brand-primary-dark);
       color: #F3F4F6;
       text-decoration: none;
       border-radius: 0;
@@ -792,15 +823,33 @@
       transition: top 0.3s ease;
     }
 
+    .filter-bar-main {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
     .filter-bar-content {
       display: flex;
       gap: 12px;
       flex-wrap: wrap;
       align-items: center;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .filter-bar-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-shrink: 0;
+      margin-left: auto;
     }
 
     .filter-bar .filters-label {
-      font-weight: 800;
+      font-family: 'Chivo', sans-serif;
+      font-weight: 900;
       font-size: 1rem;
       color: var(--primary-dark);
       letter-spacing: 0.5px;
@@ -831,7 +880,7 @@
     .filter-bar select:focus {
       outline: none;
       border-color: var(--primary);
-      background: rgba(255, 255, 255, 1);
+      background-color: rgba(255, 255, 255, 1);
       box-shadow: 0 4px 8px rgba(96, 108, 56, 0.2), 0 0 0 3px rgba(96, 108, 56, 0.1);
     }
 
@@ -844,7 +893,7 @@
 
     .filter-bar select.filter-active {
       border-color: var(--accent);
-      background: rgba(221, 161, 94, 0.15);
+      background-color: rgba(221, 161, 94, 0.15);
       box-shadow: 0 2px 6px rgba(188, 108, 37, 0.2);
     }
 
@@ -879,11 +928,13 @@
     }
 
     .filter-bar .contact-filter-checkbox span {
-      font-weight: 500;
+      font-weight: 400;
     }
 
     .details-header {
-      font-weight: 800;
+      /* Navigation chrome — Chivo, not serif */
+      font-family: 'Chivo', sans-serif;
+      font-weight: 900;
       font-size: 1.1rem;
       color: var(--primary-dark);
       letter-spacing: 0.5px;
@@ -925,7 +976,7 @@
       background: rgba(253, 251, 247, 0.95);
       color: var(--primary-dark);
       font-size: 0.9rem;
-      font-weight: 800;
+      font-weight: 900;
       cursor: pointer;
       z-index: 205;
       box-shadow: 0 1px 3px rgba(31, 41, 55, 0.15);
@@ -1072,7 +1123,7 @@
       font-weight: 900;
       letter-spacing: 0.3px;
       text-transform: uppercase;
-      border-bottom: 2px dotted #BD5838;
+      border-bottom: 1px solid var(--rule-neutral);
       padding-bottom: 5px;
     }
 
@@ -1083,9 +1134,9 @@
       min-height: 0;
     }
 
-    /* Home dashboard — one body tier (Merriweather 15px primary) */
+    /* Home dashboard — structural UI default (reading surfaces opt into Lora) */
     .home-panels-grid .home-panel-content {
-      font-family: 'Merriweather', Georgia, serif;
+      font-family: var(--font-ui);
       font-size: 0.9375rem;
       line-height: 1.5;
       color: var(--text-primary);
@@ -1173,7 +1224,7 @@
     .br-plan-label {
       font-family: 'Chivo', sans-serif;
       font-size: 0.72rem;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: 0.04em;
       text-transform: uppercase;
       color: var(--text-secondary);
@@ -1189,7 +1240,7 @@
     .br-kicker {
       font-family: 'Chivo', sans-serif;
       font-size: 0.7rem;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--text-secondary);
@@ -1230,7 +1281,7 @@
       margin-left: 8px;
       font-size: 0.82rem;
       color: var(--text-secondary);
-      font-weight: 600;
+      font-weight: 700;
     }
 
     .br-metric-list {
@@ -1280,7 +1331,7 @@
 
     .br-metric-count {
       font-family: 'Chivo', sans-serif;
-      font-weight: 800;
+      font-weight: 900;
       font-size: 0.9rem;
       color: var(--brand-primary-dark);
       min-width: 1.5rem;
@@ -1302,8 +1353,8 @@
     }
 
     .br-temp-housing:hover {
-      border-color: var(--accent-teal);
-      color: var(--accent-teal);
+      border-color: var(--accent-clay);
+      color: var(--accent-clay);
     }
 
     .br-note,
@@ -1353,7 +1404,7 @@
     .br-explore {
       border: 0;
       background: transparent;
-      color: var(--accent-teal);
+      color: var(--brand-primary-dark);
       font-family: 'Chivo', sans-serif;
       font-weight: 700;
       font-size: 0.9rem;
@@ -1453,8 +1504,11 @@
       padding: 8px !important;
     }
 
-    /* Reusable campaign spotlight (Contact Check-In now; other campaigns later) */
-    .home-panel--campaign {
+    /* Reusable campaign spotlight — Contact Check-In and Community Feed share
+       identical treatment so they read as one paired campaign system, visually
+       distinct from ambient reference cards. */
+    .home-panel--campaign,
+    .home-panel--campaign-feed {
       background: #FFF9E8;
       border-color: var(--brand-primary-dark);
       box-shadow: 7px 7px 0 rgba(49, 64, 89, 0.18);
@@ -1467,7 +1521,8 @@
       padding-bottom: 8px;
     }
 
-    .home-panel--campaign .home-panel-header h2 {
+    .home-panel--campaign .home-panel-header h2,
+    .home-panel--campaign-feed .home-panel-header h2 {
       border-bottom-color: var(--accent-clay);
       color: var(--brand-primary-dark);
       font-size: 1.35rem;
@@ -1485,7 +1540,7 @@
       color: var(--accent-clay);
       font-family: Chivo, sans-serif;
       font-size: 0.7rem;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       line-height: 1.2;
@@ -1498,15 +1553,6 @@
       border-radius: 0;
       background: var(--accent-clay);
       flex-shrink: 0;
-    }
-
-    .home-panel--campaign-feed {
-      background: #F0F6F8;
-      box-shadow: 6px 6px 0 rgba(52, 112, 114, 0.12);
-    }
-
-    .home-panel--campaign-feed .home-panel-header h2 {
-      border-bottom-color: var(--accent-clay);
     }
 
     .home-panel-map {
@@ -1543,7 +1589,7 @@
       font-family: 'Chivo', sans-serif;
       font-size: 0.85rem;
       font-weight: 700;
-      color: var(--accent-teal);
+      color: var(--brand-primary-dark);
       text-decoration: none;
     }
 
@@ -1574,14 +1620,14 @@
     .stat-label {
       font-size: 1.05rem;
       color: var(--text);
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: 0.3px;
       line-height: 1.4;
     }
 
     .stat-value {
       font-size: 1.75rem;
-      font-weight: 800;
+      font-weight: 900;
       color: var(--primary-dark);
       font-family: 'Chivo', sans-serif;
       letter-spacing: -0.5px;
@@ -1593,7 +1639,7 @@
 
     .stat-group-title {
       font-size: 1.1rem;
-      font-weight: 800;
+      font-weight: 900;
       color: var(--primary-dark);
       margin-bottom: 12px;
       font-family: 'Chivo', sans-serif;
@@ -1634,7 +1680,7 @@
     }
 
     .announcement-title {
-      font-weight: 800;
+      font-weight: 900;
       font-size: 1rem;
       color: var(--primary-dark);
       margin-bottom: 4px;
@@ -1650,7 +1696,7 @@
     .announcement-link {
       color: var(--primary);
       text-decoration: none;
-      font-weight: 600;
+      font-weight: 700;
     }
 
     .announcement-link:hover {
@@ -1706,9 +1752,8 @@
       border: none;
       box-shadow: none;
       padding: 2px 4px;
-      color: var(--accent-teal);
-      font-weight: 600;
-      font-family: 'Merriweather', serif;
+      color: var(--accent-altagether-green);
+      font-weight: 700;
     }
 
     .quick-action-link.person-link:hover {
@@ -1823,7 +1868,7 @@
       justify-content: space-between;
       gap: 16px;
       padding: 18px 24px 24px;
-      border-top: 2px dotted var(--accent-clay);
+      border-top: 1px solid var(--rule-neutral);
       background: #FFFDF5;
     }
 
@@ -1942,7 +1987,7 @@
       padding-bottom: 8px;
       font-family: 'Chivo', sans-serif;
       text-transform: uppercase;
-      border-bottom: 2px dotted var(--accent-clay);
+      border-bottom: 1px solid var(--rule-neutral);
     }
 
     .action-card-content {
@@ -1950,7 +1995,6 @@
       line-height: 1.6;
       margin-bottom: 16px;
       font-size: 0.95rem;
-      font-family: 'Merriweather', serif;
     }
 
     .action-card-links {
@@ -2037,7 +2081,7 @@
 
     .lot-weeding-program-note {
       font-family: 'Chivo', sans-serif;
-      font-weight: 800;
+      font-weight: 900;
       color: var(--brand-primary-dark);
     }
 
@@ -2227,6 +2271,8 @@
 
     .newsletter-modal {
       background: white;
+      /* Modal form context — structural, so Chivo throughout */
+      font-family: 'Chivo', sans-serif;
       border-radius: 12px;
       padding: 32px;
       max-width: 700px;
@@ -2246,7 +2292,7 @@
 
     .newsletter-modal-title {
       font-size: 1.8rem;
-      font-weight: 800;
+      font-weight: 900;
       color: var(--primary-dark);
       font-family: 'Chivo', sans-serif;
       margin: 0 0 8px 0;
@@ -2324,7 +2370,7 @@
     }
 
     .newsletter-email-count {
-      font-weight: 600;
+      font-weight: 700;
       color: var(--primary-dark);
       margin-bottom: 12px;
     }
@@ -2372,7 +2418,7 @@
       border-radius: 8px;
       padding: 12px 24px;
       font-size: 1rem;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       transition: all 0.2s;
     }
@@ -2389,7 +2435,7 @@
       border-radius: 8px;
       padding: 12px 24px;
       font-size: 1rem;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       transition: all 0.2s;
     }
@@ -2406,7 +2452,7 @@
       border-radius: 10px;
       padding: 12px 24px;
       font-size: 0.9rem;
-      font-weight: 800;
+      font-weight: 900;
       cursor: pointer;
       transition: all 0.2s ease;
       box-shadow: 0 4px 12px rgba(245, 158, 11, 0.32);
@@ -2432,7 +2478,7 @@
       border-radius: 8px;
       padding: 12px 24px;
       font-size: 1rem;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       text-decoration: none;
       display: inline-block;
@@ -2461,17 +2507,9 @@
       -webkit-overflow-scrolling: touch;
     }
 
-    /* People View Header */
+    /* People View Header — removed; actions live in the shared filter bar */
     .people-view-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-      padding-bottom: 16px;
-      border-bottom: 2px solid var(--primary);
-      flex-wrap: wrap;
-      gap: 16px;
-      flex-shrink: 0;
+      display: none;
     }
 
     .people-view-actions {
@@ -2486,11 +2524,12 @@
       border: none;
       border-radius: 8px;
       font-size: 0.95rem;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       transition: all 0.2s ease;
       box-shadow: 0 2px 8px rgba(188, 108, 37, 0.3);
       font-family: 'Chivo', sans-serif;
+      white-space: nowrap;
     }
 
     .btn-print-export:hover {
@@ -2498,16 +2537,32 @@
       box-shadow: 0 4px 12px rgba(188, 108, 37, 0.4);
     }
 
+    /* Tertiary / export — outlined, not filled gold */
+    .btn-print-export--secondary {
+      background: var(--bg-card);
+      color: var(--brand-primary-dark);
+      border: 2px solid var(--brand-primary-dark);
+      box-shadow: 2px 2px 0 var(--text-primary);
+    }
+
+    .btn-print-export--secondary:hover {
+      background: rgba(49, 64, 89, 0.08);
+      box-shadow: 3px 3px 0 var(--text-primary);
+    }
+
     /* Address Table View - scroll is on #peopleTableView; container grows with table */
     .address-table-container {
       width: 100%;
       overflow-x: auto;
       overflow-y: visible;
+      -webkit-overflow-scrolling: touch;
     }
 
     .address-table {
-      width: auto;
+      width: max-content;
       min-width: 100%;
+      /* Data scanning, not reading — structural contexts use Chivo */
+      font-family: 'Chivo', sans-serif;
       border-collapse: collapse;
       background: rgba(255, 255, 255, 0.95);
       box-shadow: 0 4px 12px rgba(40, 54, 24, 0.15), 0 2px 4px rgba(40, 54, 24, 0.1);
@@ -2527,33 +2582,66 @@
     .address-table th {
       padding: 16px;
       text-align: left;
-      font-weight: 800;
+      font-weight: 900;
       font-size: 0.95rem;
       letter-spacing: 0.5px;
       text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
 
+    /* People — first column */
     .address-table th:nth-child(1),
     .address-table td:nth-child(1) {
-      width: auto;
-      min-width: 120px; /* Minimum width to prevent it from getting too narrow */
-      white-space: nowrap; /* Keep addresses on one line */
+      width: 300px;
+      min-width: 240px;
+      max-width: 330px;
     }
 
     .address-table th:nth-child(2),
     .address-table td:nth-child(2) {
-      width: 25%;
-      max-width: 300px;
+      width: auto;
+      min-width: 140px;
     }
 
-    .address-table td:nth-child(2) {
-      overflow: hidden;
+    .address-table__residents {
+      white-space: normal;
+      overflow: visible;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .address-table__address {
       white-space: nowrap;
+    }
+
+    .address-table__build {
+      white-space: normal;
+      line-height: 1.45;
+      word-break: break-word;
+      min-width: 9rem;
+      max-width: 14rem;
+    }
+
+    .address-table__phone,
+    .address-table__email,
+    .address-table__outreach {
+      white-space: nowrap;
+    }
+
+    .address-table__phone {
+      min-width: 9.5rem;
+    }
+
+    .address-table__email {
+      min-width: 12rem;
+    }
+
+    .address-table__outreach {
+      min-width: 10rem;
     }
 
     .address-table td {
       padding: 14px 16px;
-      border-bottom: 2px dotted var(--accent-clay);
+      border-bottom: 1px solid var(--rule-neutral);
       transition: all 0.2s ease;
     }
 
@@ -2590,7 +2678,8 @@
     }
 
     .filters-label {
-      font-weight: 800;
+      font-family: 'Chivo', sans-serif;
+      font-weight: 900;
       font-size: 1rem;
       color: var(--primary-dark);
       letter-spacing: 0.5px;
@@ -2622,7 +2711,7 @@
     }
 
     .contact-filter-checkbox span {
-      font-weight: 500;
+      font-weight: 400;
     }
 
     .table-filters select {
@@ -2638,7 +2727,7 @@
     .table-filters select:focus {
       outline: none;
       border-color: var(--primary);
-      background: rgba(255, 255, 255, 1);
+      background-color: rgba(255, 255, 255, 1);
       box-shadow: 0 4px 8px rgba(96, 108, 56, 0.2), 0 0 0 3px rgba(96, 108, 56, 0.1);
     }
 
@@ -2723,7 +2812,7 @@
 
     .chart-title {
       font-size: 1rem;
-      font-weight: 800;
+      font-weight: 900;
       color: var(--primary-dark);
       margin-bottom: 16px;
       text-align: center;
@@ -2885,12 +2974,12 @@
     .zone-overview-footer .stat-label {
       font-size: 0.9rem;
       color: rgba(40, 54, 24, 0.7);
-      font-weight: 500;
+      font-weight: 400;
     }
 
     .zone-overview-footer .stat-value {
       font-size: 0.95rem;
-      font-weight: 600;
+      font-weight: 700;
       color: rgba(40, 54, 24, 0.8);
       font-family: inherit;
     }
@@ -2932,7 +3021,7 @@
       border-radius: 8px;
       cursor: pointer;
       font-size: 0.9rem;
-      font-weight: 800;
+      font-weight: 900;
       margin-left: auto;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       box-shadow: 0 2px 6px rgba(188, 108, 37, 0.3);
@@ -2956,7 +3045,7 @@
 
     .save-status-small.error {
       color: var(--brown);
-      font-weight: 600;
+      font-weight: 700;
     }
 
     /* Floating Address Panel */
@@ -3003,7 +3092,7 @@
       border-bottom: 4px solid transparent;
       cursor: pointer;
       font-size: 0.95rem;
-      font-weight: 800;
+      font-weight: 900;
       color: var(--text-light);
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
@@ -3023,7 +3112,7 @@
       color: var(--primary-dark);
       border-bottom-color: var(--accent);
       background: transparent;
-      font-weight: 800;
+      font-weight: 900;
     }
 
     .tab-btn.active::after {
@@ -3044,7 +3133,7 @@
       border-radius: 0;
       cursor: pointer;
       font-size: 0.85rem;
-      font-weight: 800;
+      font-weight: 900;
       color: var(--primary-dark);
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       box-shadow: 0 2px 4px rgba(96, 108, 56, 0.2);
@@ -3097,9 +3186,8 @@
 
     .person-age-gender {
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 14px;
-      font-weight: 500;
+      font-weight: 400;
       letter-spacing: 0;
       line-height: 1.35;
       white-space: nowrap;
@@ -3164,7 +3252,7 @@
       color: #134446;
       border: 1px solid rgba(52, 112, 114, 0.28);
       font-size: 0.72rem;
-      font-weight: 600;
+      font-weight: 700;
     }
 
     .outreach-notes-input.contact-notes-quick {
@@ -3223,7 +3311,7 @@
       background: transparent;
       color: var(--text-secondary);
       font-size: 0.78rem;
-      font-weight: 600;
+      font-weight: 700;
       text-decoration: underline;
       cursor: pointer;
     }
@@ -3396,7 +3484,7 @@
     .former-residents-title {
       font-size: 0.8em;
       color: #999;
-      font-weight: 600;
+      font-weight: 700;
       margin-bottom: 8px;
       text-transform: uppercase;
       letter-spacing: 0.04em;
@@ -3436,7 +3524,7 @@
 
     .person-info strong {
       color: var(--text-secondary);
-      font-weight: 500;
+      font-weight: 400;
     }
     
     .copy-email-btn {
@@ -3496,7 +3584,7 @@
 
     .person-info-inline .person-info-item strong {
       color: var(--text-secondary);
-      font-weight: 500;
+      font-weight: 400;
     }
     .person-info-inline .person-modal-jump {
       white-space: nowrap;
@@ -3510,7 +3598,7 @@
 
     .error {
       color: var(--brown);
-      font-weight: 600;
+      font-weight: 700;
     }
 
     /* Godmode admin view */
@@ -3556,7 +3644,6 @@
       max-width: 680px;
       margin: 12px 0 0;
       color: rgba(253, 251, 247, 0.82);
-      font-family: 'Merriweather', serif;
       line-height: 1.5;
     }
 
@@ -3586,7 +3673,6 @@
     .godmode-state-card p {
       margin: 0 0 18px;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       line-height: 1.5;
     }
 
@@ -3622,7 +3708,7 @@
     .godmode-stat-label {
       color: var(--text-secondary);
       font-size: 0.78rem;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }
@@ -3630,7 +3716,6 @@
     .godmode-stat-detail {
       margin-top: 8px;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.78rem;
       line-height: 1.35;
     }
@@ -3666,7 +3751,6 @@
       max-width: 780px;
       margin: 10px 0 0;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       line-height: 1.5;
     }
 
@@ -3731,7 +3815,6 @@
       min-height: 32px;
       margin-top: 5px;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.78rem;
       font-style: normal;
       line-height: 1.35;
@@ -3896,7 +3979,7 @@
       margin-top: 3px;
       color: var(--text-secondary);
       font-size: 0.78rem;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: 0.04em;
       text-transform: uppercase;
     }
@@ -3904,7 +3987,6 @@
     .godmode-lot-weeding-request p {
       margin: 7px 0 0;
       color: var(--text-primary);
-      font-family: 'Merriweather', serif;
       font-size: 0.82rem;
       line-height: 1.4;
     }
@@ -4041,7 +4123,6 @@
     .lot-weeding-admin-stats-intro p:last-child {
       margin: 7px 0 0;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       line-height: 1.45;
     }
 
@@ -4074,7 +4155,6 @@
     .lot-weeding-admin-report-cta-copy p {
       margin: 6px 0 0;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.9rem;
       line-height: 1.45;
     }
@@ -4094,7 +4174,7 @@
       box-shadow: 3px 3px 0 rgba(31, 41, 55, 0.18);
       font-family: 'Chivo', sans-serif;
       font-size: 0.95rem;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: 0.03em;
       cursor: pointer;
       transition: transform 0.08s ease, box-shadow 0.08s ease, opacity 0.15s ease;
@@ -4145,7 +4225,6 @@
     .lot-weeding-admin-help-intro p:last-child {
       margin: 7px 0 0;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       line-height: 1.45;
     }
 
@@ -4178,7 +4257,6 @@
 
     .lot-weeding-admin-help-card li {
       color: var(--text-primary);
-      font-family: 'Merriweather', serif;
       font-size: 0.84rem;
       line-height: 1.5;
     }
@@ -4197,7 +4275,6 @@
     .lot-weeding-admin-help-source p {
       margin: 0;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.86rem;
       line-height: 1.5;
     }
@@ -4252,14 +4329,13 @@
     .lot-weeding-admin-show-select {
       min-width: 11rem;
       text-transform: none;
-      font-weight: 600;
+      font-weight: 700;
     }
 
     .lot-weeding-admin-show-hint {
       margin: 0;
       width: 100%;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.8rem;
       line-height: 1.4;
     }
@@ -4283,7 +4359,6 @@
     .lot-weeding-admin-filters-intro {
       margin: 0;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.84rem;
       line-height: 1.45;
     }
@@ -4301,7 +4376,6 @@
       background: rgba(96, 108, 56, 0.1);
       border: 1px solid rgba(96, 108, 56, 0.24);
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.84rem;
       line-height: 1.45;
     }
@@ -4487,7 +4561,6 @@
     .lot-weeding-admin-selection-bar span {
       margin-top: 3px;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.78rem;
     }
 
@@ -4586,7 +4659,6 @@
       background: rgba(253, 251, 247, 0.92);
       border: 2px solid rgba(31, 41, 55, 0.2);
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.86rem;
       pointer-events: none;
     }
@@ -4634,7 +4706,6 @@
 
     .lot-weeding-admin-panel-empty-list li {
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.84rem;
       line-height: 1.5;
     }
@@ -4647,7 +4718,6 @@
     .lot-weeding-admin-panel-empty,
     .lot-weeding-admin-panel-note {
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.86rem;
       line-height: 1.45;
     }
@@ -4797,7 +4867,6 @@
     .lot-weeding-admin-panel-notes p {
       margin: 6px 0 12px;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.84rem;
       line-height: 1.45;
     }
@@ -4838,7 +4907,6 @@
     .lot-weeding-admin-selected-list p {
       margin: 4px 0 0;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.74rem;
       line-height: 1.35;
     }
@@ -5013,7 +5081,6 @@
     .lot-weeding-admin-search-hint {
       margin: 6px 0 0;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.72rem;
       line-height: 1.35;
     }
@@ -5064,7 +5131,6 @@
       background: rgba(255, 253, 245, 0.9);
       border: 1px solid rgba(31, 41, 55, 0.16);
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.66rem;
       line-height: 1.25;
       pointer-events: none;
@@ -5157,7 +5223,6 @@
     .lot-weeding-admin-empty p {
       margin: 0 0 14px;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       line-height: 1.5;
     }
 
@@ -5309,7 +5374,6 @@
       background: rgba(96, 108, 56, 0.08);
       border-left: 4px solid rgba(96, 108, 56, 0.4);
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.82rem;
       line-height: 1.4;
     }
@@ -5398,7 +5462,6 @@
     .lot-weeding-admin-row-status {
       margin-top: 7px;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.78rem;
       line-height: 1.35;
     }
@@ -5491,7 +5554,6 @@
     .lot-weeding-admin-no-results {
       padding: 24px !important;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       text-align: center;
     }
 
@@ -5634,7 +5696,6 @@
 
     .lot-weeding-admin-context-empty {
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.8rem;
     }
 
@@ -5815,7 +5876,6 @@
     .lot-weeding-admin-editor-hint {
       margin: 12px 0 0;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.76rem;
       line-height: 1.4;
     }
@@ -5826,7 +5886,6 @@
       border-radius: 8px;
       background: rgba(31, 41, 55, 0.05);
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.74rem;
       line-height: 1.45;
     }
@@ -5843,7 +5902,6 @@
     .lot-weeding-admin-group-summary {
       margin: 0 0 12px;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.8rem;
       line-height: 1.4;
     }
@@ -5894,7 +5952,6 @@
     .lot-weeding-admin-batch-summary {
       margin: 4px 0 12px;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.8rem;
       line-height: 1.45;
     }
@@ -6174,7 +6231,6 @@
     .lot-weeding-admin-cal-hint {
       margin: 14px 0 0;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.76rem;
       line-height: 1.4;
     }
@@ -6209,7 +6265,6 @@
       gap: 8px;
       margin-bottom: 12px;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.8rem;
       line-height: 1.35;
       cursor: pointer;
@@ -6275,7 +6330,6 @@
       display: block;
       margin-top: 3px;
       color: var(--text-primary);
-      font-family: 'Merriweather', serif;
       font-size: 0.76rem;
       font-style: normal;
     }
@@ -6343,7 +6397,6 @@
       margin: 0;
       padding: 12px 16px;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.8rem;
       line-height: 1.4;
       border-bottom: 1px solid rgba(31, 41, 55, 0.1);
@@ -6440,7 +6493,6 @@
       padding-bottom: 7px;
       border-bottom: 1px dotted rgba(31, 41, 55, 0.22);
       color: var(--text-primary);
-      font-family: 'Merriweather', serif;
       font-size: 0.84rem;
     }
 
@@ -6459,7 +6511,6 @@
     .godmode-breakdown-empty {
       margin: 0;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.84rem;
     }
 
@@ -6515,7 +6566,6 @@
     .godmode-result-limit {
       margin: 10px 0 14px;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       font-size: 0.82rem;
       line-height: 1.45;
     }
@@ -6609,7 +6659,6 @@
 
     .godmode-result-address {
       margin-top: 4px;
-      font-family: 'Merriweather', serif;
       font-size: 0.9rem;
     }
 
@@ -6618,7 +6667,7 @@
       color: var(--text-secondary);
       font-family: 'Chivo', sans-serif;
       font-size: 0.76rem;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }
@@ -6643,7 +6692,6 @@
     .godmode-profile-header p:last-child {
       margin: 8px 0 0;
       color: rgba(253, 251, 247, 0.82);
-      font-family: 'Merriweather', serif;
     }
 
     .godmode-profile-fields {
@@ -6673,7 +6721,6 @@
     .godmode-profile-fields dd {
       margin: 0;
       color: var(--text-primary);
-      font-family: 'Merriweather', serif;
       font-size: 0.92rem;
       overflow-wrap: anywhere;
     }
@@ -6682,7 +6729,6 @@
     .godmode-empty {
       padding: 24px;
       color: var(--text-secondary);
-      font-family: 'Merriweather', serif;
       text-align: center;
     }
 
@@ -6908,7 +6954,7 @@
       border-radius: 8px;
       cursor: pointer;
       font-size: 0.9rem;
-      font-weight: 800;
+      font-weight: 900;
       margin: 0;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       box-shadow: 0 4px 8px rgba(40, 54, 24, 0.3);
@@ -6931,7 +6977,7 @@
       border-radius: 10px;
       cursor: pointer;
       font-size: 0.95rem;
-      font-weight: 800;
+      font-weight: 900;
       display: inline-flex;
       align-items: center;
       gap: 10px;
@@ -6999,7 +7045,7 @@
     .tool-module.expanded .tool-module-header {
       margin-bottom: 32px;
       padding-bottom: 16px;
-      border-bottom: 2px dotted var(--accent-clay);
+      border-bottom: 1px solid var(--rule-neutral);
       cursor: pointer;
     }
 
@@ -7024,7 +7070,8 @@
       font-size: 0.95rem;
       margin: 0;
       line-height: 1.5;
-      font-family: 'Merriweather', serif;
+      /* Functional signpost, not prose */
+      font-family: 'Chivo', sans-serif;
     }
 
     .tool-module-toggle {
@@ -7129,7 +7176,6 @@
 
     .event-funding-path__summary {
       margin: 0 0 12px;
-      font-family: 'Merriweather', serif;
       font-size: 0.95rem;
       line-height: 1.55;
       color: var(--text-primary);
@@ -7148,7 +7194,6 @@
     .event-funding-list {
       margin: 0;
       padding-left: 1.2rem;
-      font-family: 'Merriweather', serif;
       font-size: 0.92rem;
       line-height: 1.55;
       color: var(--text-primary);
@@ -7160,7 +7205,6 @@
 
     .event-funding-note {
       margin: 14px 0 0;
-      font-family: 'Merriweather', serif;
       font-size: 0.85rem;
       line-height: 1.5;
       color: var(--text-secondary);
@@ -7203,7 +7247,7 @@
       letter-spacing: 1.5px;
       margin: 0 0 16px 0;
       padding-bottom: 8px;
-      border-bottom: 2px dotted var(--accent-clay);
+      border-bottom: 1px solid var(--rule-neutral);
     }
 
     /* Featured Tool Module - Primary tools with subtle emphasis */
@@ -7245,21 +7289,24 @@
       }
     }
 
-    /* Tools page CTA buttons - Teal */
+    /* Tools page CTA buttons — navy for tool actions, outlined for Export (tertiary) */
     .tool-module .btn-generate-report,
     .tool-module .btn-export {
-      background-color: var(--accent-teal);
+      background-color: var(--brand-primary-dark);
       color: #F3F4F6;
       border: 2px solid var(--text-primary);
       border-radius: 0;
       box-shadow: 2px 2px 0px var(--text-primary);
       font-family: 'Chivo', sans-serif;
       font-weight: 700;
-      font-family: 'Chivo', sans-serif;
-      font-weight: 700;
       padding: 12px 20px;
       cursor: pointer;
       transition: all 0.1s ease;
+    }
+
+    .tool-module .btn-export {
+      background-color: var(--bg-card);
+      color: var(--brand-primary-dark);
     }
 
     .tool-module .btn-generate-report:hover,
@@ -7317,6 +7364,8 @@
       flex-wrap: wrap;
       margin-bottom: 18px;
       align-items: center;
+      /* Form/data-entry context — structural, so Chivo */
+      font-family: 'Chivo', sans-serif;
     }
 
     .batch-tag-filters select.batch-tag-filter-active,
@@ -7324,13 +7373,13 @@
     .batch-tag-filters select.batch-tag-filter-active:hover,
     .batch-tag-filters input.batch-tag-filter-active:hover {
       border: 1px solid var(--accent-gold);
-      background: rgba(245, 158, 11, 0.14);
+      background-color: rgba(245, 158, 11, 0.14);
       box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.14);
     }
 
     .batch-tag-filters select.batch-tag-filter-active:focus,
     .batch-tag-filters input.batch-tag-filter-active:focus {
-      background: #ffffff;
+      background-color: #ffffff;
       box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.28);
     }
 
@@ -7363,14 +7412,14 @@
 
     .add-record-select.batch-tag-apply-armed,
     .add-record-select.batch-tag-apply-armed:hover {
-      border: 1px solid var(--accent-teal);
-      background: rgba(52, 112, 114, 0.1);
-      box-shadow: 0 0 0 2px rgba(52, 112, 114, 0.15);
+      border: 1px solid var(--brand-primary-dark);
+      background-color: rgba(49, 64, 89, 0.08);
+      box-shadow: 0 0 0 2px rgba(49, 64, 89, 0.15);
     }
 
     .add-record-select.batch-tag-apply-armed:focus {
-      background: #ffffff;
-      box-shadow: 0 0 0 2px rgba(52, 112, 114, 0.28);
+      background-color: #ffffff;
+      box-shadow: 0 0 0 2px rgba(49, 64, 89, 0.28);
     }
 
     .batch-tab-panel {
@@ -7386,6 +7435,8 @@
       grid-template-columns: minmax(0, 1.7fr) minmax(300px, 0.95fr);
       gap: 20px;
       align-items: start;
+      /* Form/data-entry context — structural, so Chivo */
+      font-family: 'Chivo', sans-serif;
     }
 
     .batch-tag-main-pane {
@@ -7428,7 +7479,7 @@
     .batch-tag-selection-count {
       font-family: 'Chivo', sans-serif;
       font-size: 1.15rem;
-      font-weight: 800;
+      font-weight: 900;
       color: var(--primary-dark);
       margin-bottom: 12px;
     }
@@ -7450,7 +7501,7 @@
     }
 
     .batch-tag-selection-item__main {
-      font-weight: 600;
+      font-weight: 700;
       color: var(--text-primary);
     }
 
@@ -7479,7 +7530,7 @@
 
     .batch-tag-toolbar-meta {
       font-size: 0.85rem;
-      font-weight: 600;
+      font-weight: 700;
       color: var(--text-secondary);
     }
 
@@ -7559,7 +7610,7 @@
     }
 
     .batch-tag-row-main {
-      font-weight: 600;
+      font-weight: 700;
       display: block;
       min-width: 0;
     }
@@ -7616,7 +7667,7 @@
     }
 
     .batch-tag-row-chip__value {
-      font-weight: 600;
+      font-weight: 700;
     }
 
     .batch-tag-list-row.is-selected .batch-tag-row-chip {
@@ -7738,7 +7789,7 @@
       font-size: 1.4rem;
       margin: 0 0 24px 0;
       font-family: 'Chivo', sans-serif;
-      font-weight: 800;
+      font-weight: 900;
     }
 
     .list-type-buttons {
@@ -7883,7 +7934,7 @@
     }
 
     .builder-filter-group label {
-      font-weight: 600;
+      font-weight: 700;
       color: var(--primary-dark);
       margin-bottom: 8px;
       font-size: 0.95rem;
@@ -7940,7 +7991,7 @@
     }
 
     .checkbox-option.all-option {
-      font-weight: 600;
+      font-weight: 700;
       color: var(--primary-dark);
       border-bottom: 1px solid rgba(40, 54, 24, 0.2);
       padding-bottom: 6px;
@@ -7977,7 +8028,7 @@
       border-radius: 8px;
       padding: 12px 24px;
       font-size: 1rem;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       transition: all 0.2s ease;
       font-family: 'Chivo', sans-serif;
@@ -8012,21 +8063,22 @@
       flex-wrap: wrap;
     }
 
+    /* Tertiary tier — output actions (Export/Print) are outlined, not filled */
     .btn-export, .btn-print {
-      background: var(--accent);
-      color: white;
-      border: none;
+      background: var(--bg-card);
+      color: var(--brand-primary-dark);
+      border: 2px solid var(--brand-primary-dark);
       border-radius: 8px;
       padding: 10px 20px;
       font-size: 0.95rem;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       transition: all 0.2s ease;
       box-shadow: 0 2px 8px rgba(40, 54, 24, 0.2);
     }
 
     .btn-export:hover, .btn-print:hover {
-      background: var(--accent-dark);
+      background: rgba(49, 64, 89, 0.08);
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(40, 54, 24, 0.3);
     }
@@ -8036,7 +8088,7 @@
       padding: 12px;
       background: rgba(96, 108, 56, 0.1);
       border-radius: 6px;
-      font-weight: 600;
+      font-weight: 700;
       color: var(--primary-dark);
     }
 
@@ -8101,7 +8153,7 @@
 
     .contact-list-address-count {
       font-size: 0.9rem;
-      font-weight: 600;
+      font-weight: 700;
       background: rgba(255, 255, 255, 0.2);
       padding: 6px 12px;
       border-radius: 20px;
@@ -8158,7 +8210,7 @@
     .contact-list-item-address {
       font-size: 1rem;
       color: var(--text);
-      font-weight: 500;
+      font-weight: 400;
     }
 
     .contact-list-item-details {
@@ -8176,7 +8228,7 @@
     .contact-list-detail-label {
       font-size: 0.85rem;
       color: var(--text-light);
-      font-weight: 600;
+      font-weight: 700;
       margin-bottom: 4px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
@@ -8197,7 +8249,7 @@
     .contact-list-notes-label {
       font-size: 0.85rem;
       color: var(--text-light);
-      font-weight: 600;
+      font-weight: 700;
       margin-bottom: 6px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
@@ -8239,7 +8291,7 @@
       font-size: 1.5rem;
       margin: 0 0 8px 0;
       font-family: 'Chivo', sans-serif;
-      font-weight: 800;
+      font-weight: 900;
     }
 
     .wizard-section-desc {
@@ -8405,7 +8457,7 @@
       font-size: 1.2rem;
       margin: 0 0 8px 0;
       font-family: 'Chivo', sans-serif;
-      font-weight: 800;
+      font-weight: 900;
     }
 
     .custom-filters-header p {
@@ -8428,7 +8480,7 @@
       font-size: 1.2rem;
       margin: 0 0 16px 0;
       font-family: 'Chivo', sans-serif;
-      font-weight: 800;
+      font-weight: 900;
     }
 
     .summary-details {
@@ -8511,7 +8563,7 @@
       border-radius: 8px;
       padding: 14px 28px;
       font-size: 1.1rem;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       transition: all 0.2s ease;
       font-family: 'Chivo', sans-serif;
@@ -8528,7 +8580,7 @@
       padding: 8px 16px;
       border-radius: 6px;
       font-size: 0.9rem;
-      font-weight: 500;
+      font-weight: 400;
     }
 
     .zone-report-status.loading {
@@ -8618,7 +8670,7 @@
       font-size: 2.5rem;
       color: var(--primary-dark);
       font-family: 'Chivo', sans-serif;
-      font-weight: 800;
+      font-weight: 900;
       margin: 0 0 12px 0;
     }
 
@@ -8643,7 +8695,7 @@
       font-size: 1.8rem;
       color: var(--primary-dark);
       font-family: 'Chivo', sans-serif;
-      font-weight: 800;
+      font-weight: 900;
       margin: 0 0 20px 0;
       padding-bottom: 12px;
       border-bottom: 2px solid var(--primary);
@@ -8678,7 +8730,7 @@
 
     .zone-report-stat-value {
       font-size: 2.5rem;
-      font-weight: 800;
+      font-weight: 900;
       color: var(--primary-dark);
       font-family: 'Chivo', sans-serif;
       margin-bottom: 8px;
@@ -8687,7 +8739,7 @@
     .zone-report-stat-label {
       font-size: 0.95rem;
       color: var(--text);
-      font-weight: 600;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -8756,7 +8808,7 @@
       padding: 4px 12px;
       border-radius: 12px;
       font-size: 0.85rem;
-      font-weight: 600;
+      font-weight: 700;
       margin-right: 8px;
       margin-bottom: 4px;
     }
@@ -8825,7 +8877,7 @@
       border-radius: 10px;
       cursor: pointer;
       font-size: 0.9rem;
-      font-weight: 800;
+      font-weight: 900;
       margin-top: 12px;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       box-shadow: 0 4px 12px rgba(188, 108, 37, 0.4);
@@ -8835,7 +8887,7 @@
     .btn-save-small {
       padding: 8px 16px;
       font-size: 0.9rem;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: 0.3px;
       margin-top: 0;
     }
@@ -8910,7 +8962,7 @@
       font-size: 1.5rem;
       margin: 0 0 12px 0;
       font-family: 'Chivo', sans-serif;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: -0.3px;
       line-height: 1.3;
     }
@@ -9243,7 +9295,7 @@
       color: #7c2d12;
       font-family: 'Chivo', sans-serif;
       font-size: 10px;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: 0.5px;
       line-height: 1;
       margin: 0;
@@ -9313,7 +9365,7 @@
 
     .overlay-floating-card-subtitle {
       font-size: 16px;
-      font-weight: 500;
+      font-weight: 400;
       line-height: 1.25;
     }
 
@@ -9326,7 +9378,7 @@
       color: #1e3a8a;
       font-family: 'Chivo', sans-serif;
       font-size: 12px;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: 0.2px;
       box-shadow: 0 2px 8px rgba(30, 58, 138, 0.16);
       transform: translate(-50%, -50%);
@@ -9343,7 +9395,7 @@
       color: #4c1d95;
       font-family: 'Chivo', sans-serif;
       font-size: 12px;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: 0.2px;
       box-shadow: 0 2px 8px rgba(76, 29, 149, 0.16);
       transform: translate(-50%, -50%);
@@ -9362,7 +9414,7 @@
 
     .overlay-census-badge-subtitle {
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
       line-height: 1.25;
       white-space: normal;
     }
@@ -9412,13 +9464,13 @@
     }
     .add-record-input:hover,
     .add-record-select:hover {
-      background: rgba(255, 255, 255, 0.7);
+      background-color: rgba(255, 255, 255, 0.7);
       border-color: var(--mint);
     }
     .add-record-input:focus,
     .add-record-select:focus {
       outline: none;
-      background: white;
+      background-color: white;
       border: 1px solid var(--river);
       box-shadow: 0 0 0 2px rgba(58, 110, 165, 0.15);
     }
@@ -9528,7 +9580,7 @@
     }
     .app-toast-title {
       font-size: 0.8rem;
-      font-weight: 600;
+      font-weight: 700;
       margin-bottom: 4px;
       opacity: 0.9;
     }
@@ -9690,7 +9742,7 @@
       font-size: 1.75rem;
       margin: 0 0 8px 0;
       font-family: 'Chivo', sans-serif;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: -0.3px;
       line-height: 1.3;
     }
@@ -9806,7 +9858,7 @@
       opacity: 0.75;
       color: var(--text-light);
       line-height: 1.25;
-      font-weight: 500;
+      font-weight: 400;
     }
 
     .welcome-zone-role {
@@ -9925,7 +9977,7 @@
       font-size: 1.15rem;
       color: var(--primary-dark);
       font-family: 'Chivo', sans-serif;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: -0.2px;
       line-height: 1.3;
     }
@@ -9948,7 +10000,7 @@
       align-items: center;
       gap: 8px;
       color: var(--primary-dark);
-      font-weight: 500;
+      font-weight: 400;
       margin-top: 12px;
       padding: 8px 12px;
       background: rgba(96, 108, 56, 0.08);
@@ -10088,7 +10140,6 @@
     box-shadow: 6px 6px 0px #D9DBDB;
     padding: 25px;
     margin-bottom: 20px;
-    font-family: 'Merriweather', serif;
 }
 
 .alert-card-urgent h3 {
@@ -10191,7 +10242,12 @@
     overflow: hidden; /* clip the fade gradient */
   }
 
-  /* Scroll hint: right-edge fade gradient */
+  .filter-bar-main {
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* Scroll hint: right-edge fade gradient (over filter chips only) */
   .filter-bar::after {
     content: '';
     position: absolute;
@@ -10216,6 +10272,15 @@
 
   .filter-bar-content::-webkit-scrollbar {
     display: none; /* hide scrollbar on Chrome/Safari */
+  }
+
+  .filter-bar-actions {
+    gap: 6px;
+  }
+
+  .filter-bar-actions .btn-print-export {
+    padding: 7px 12px;
+    font-size: 0.82rem;
   }
 
   .filter-bar .filters-label {
@@ -10412,7 +10477,7 @@
     font-size: 1.3rem;
     color: var(--brand-primary-dark);
     padding: 8px 20px 14px;
-    border-bottom: 2px dotted var(--accent-clay);
+    border-bottom: 1px solid var(--rule-neutral);
     letter-spacing: 0.3px;
   }
 
@@ -10503,7 +10568,7 @@
     color: var(--brand-primary-dark);
     letter-spacing: 0.3px;
     padding: 4px 0 12px 0;
-    border-bottom: 2px dotted var(--accent-clay);
+    border-bottom: 1px solid var(--rule-neutral);
     margin-bottom: 16px;
   }
 
@@ -10666,11 +10731,6 @@
 
   /* ---- People view ---- */
 
-  .people-view-header {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
   .content-view#peopleView {
     padding-top: 12px !important;
   }
@@ -10800,7 +10860,7 @@
     background: transparent;
     font-family: 'Chivo', sans-serif;
     font-size: 0.85rem;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
     color: var(--text-primary);
     -webkit-tap-highlight-color: transparent;
@@ -11126,7 +11186,7 @@
   color: var(--brand-primary-dark);
   font-family: 'Chivo', sans-serif;
   font-size: 0.82rem;
-  font-weight: 800;
+  font-weight: 900;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
@@ -11146,7 +11206,6 @@
   background: #fff;
   color: var(--text-primary);
   font-size: 0.95rem;
-  font-family: 'Merriweather', serif;
   line-height: 1.4;
   transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
 }
@@ -11162,7 +11221,7 @@
   outline: none;
   border-color: rgba(49, 64, 89, 0.55);
   box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.18);
-  background: #ffffff;
+  background-color: #ffffff;
 }
 
 .profile-textarea {
@@ -11246,7 +11305,7 @@
   color: var(--brand-primary-dark);
   font-family: 'Chivo', sans-serif;
   font-size: 0.95rem;
-  font-weight: 800;
+  font-weight: 900;
   letter-spacing: 0.02em;
 }
 
@@ -11327,7 +11386,7 @@
 
 .zone-stat-label {
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-secondary);
@@ -11384,15 +11443,15 @@
    labels, values, and checkbox text all read as one coherent,
    case-management-oriented system.
 
-   Hierarchy:
+   Hierarchy (weights collapsed to the loaded Chivo set: 400/700/900):
      T1  Section title (Address, person name)  1.0–1.05rem / 700
-     T2  Section divider label                  0.75rem / 600 / muted
+     T2  Section divider label                  0.75rem / 700 / muted
      T3  Subtitle / metadata                    0.74–0.78rem / 400 / muted
-     T4  Field label (Home, Cell, Email, etc.)  0.76rem / 600 / muted
-     T5  Data value                             0.88rem / 500 / primary
-     T6  Checkbox / tag item name               0.85rem / 500 / primary
-     T7  Button text                            0.82rem / 600–700
-     T8  Status text                            0.72rem / 500 / muted
+     T4  Field label (Home, Cell, Email, etc.)  0.76rem / 700 / muted
+     T5  Data value                             0.88rem / 400 / primary
+     T6  Checkbox / tag item name               0.85rem / 400 / primary
+     T7  Button text                            0.82rem / 700
+     T8  Status text                            0.72rem / 400 / muted
    ───────────────────────────────────────────────────────────── */
 
 .address-details,
@@ -11428,7 +11487,7 @@
 .address-details .person-card__contact strong,
 .address-details .details-section__body .person-info > strong {
   font-family: 'Chivo', sans-serif;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.76rem;
   color: var(--text-secondary);
   letter-spacing: 0.01em;
@@ -11443,7 +11502,7 @@
 .address-details .address-tags-section label > strong,
 .address-details label .editable-checkbox + strong {
   font-family: 'Chivo', sans-serif;
-  font-weight: 500;
+  font-weight: 400;
   font-size: 0.85rem;
   color: var(--text-primary);
   letter-spacing: 0;
@@ -11456,7 +11515,7 @@
   font-family: 'Chivo', sans-serif;
   color: var(--text-primary);
   font-size: 0.88rem;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 /* Ensure the interactive value (jump-to-modal button inside contact rows)
@@ -11464,7 +11523,7 @@
 .address-details .person-modal-jump {
   font-family: 'Chivo', sans-serif;
   font-size: 0.88rem;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 /* Toolbar: 2-row layout — buttons row + reserved status row.
@@ -11505,7 +11564,7 @@
   padding: 0 2px;
   font-family: 'Chivo', sans-serif;
   font-size: 0.72rem;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--text-secondary);
   letter-spacing: 0.01em;
 }
@@ -11814,7 +11873,7 @@
 
 .apn-helper__link {
   font-size: 0.78rem;
-  font-weight: 600;
+  font-weight: 700;
   color: #1f5c2f;
   text-decoration: underline;
 }
@@ -11829,7 +11888,7 @@
   list-style: none;
   cursor: pointer;
   font-family: 'Chivo', sans-serif;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.8rem;
   color: var(--text-secondary);
   position: relative;
@@ -12062,7 +12121,7 @@
 .details-section-divider__label {
   font-family: 'Chivo', sans-serif;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-secondary);
   letter-spacing: 0.02em;
   text-transform: none;
@@ -12086,7 +12145,7 @@
 
 .details-field__label {
   font-family: 'Chivo', sans-serif;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.76rem;
   color: var(--text-secondary);
   letter-spacing: 0.01em;
@@ -12119,7 +12178,7 @@
   list-style: none;
   cursor: pointer;
   font-family: 'Chivo', sans-serif;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.8rem;
   color: var(--text-secondary);
   padding: 3px 0 3px 16px;
@@ -12230,7 +12289,7 @@
 .person-card__tags-label {
   margin: 0 0 4px;
   font-family: 'Chivo', sans-serif;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.76rem;
   color: var(--text-secondary);
   letter-spacing: 0.01em;
@@ -12261,7 +12320,7 @@
 }
 
 .address-details .person-card__contact strong {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.78rem;
 }
 
@@ -12294,13 +12353,13 @@
 
 .outreach-status__label {
   font-family: 'Chivo', sans-serif;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-secondary);
 }
 
 .outreach-status__value {
   color: var(--text-primary);
-  font-weight: 500;
+  font-weight: 400;
 }
 
 /* Legacy fallback: if .outreach-last-date still rendered */
@@ -12323,7 +12382,7 @@
   cursor: pointer;
   font-family: 'Chivo', sans-serif;
   font-size: 0.76rem;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--text-secondary);
   padding: 2px 0 2px 14px;
   position: relative;
@@ -12397,7 +12456,7 @@
 
 .outreach-composer .details-field__label {
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .outreach-composer .outreach-notes-input.contact-notes-quick {
@@ -12425,7 +12484,7 @@
 
 /* Outreach log toggle: lighter weight */
 .outreach-log-toggle {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.72rem;
   padding: 3px 10px;
   min-width: 116px;
@@ -12449,7 +12508,7 @@
 /* Former residents: softer label */
 .address-details .former-residents-title {
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: none;
   letter-spacing: 0.01em;
   color: var(--text-secondary);
@@ -12468,7 +12527,7 @@
 
 .address-details .person-info strong {
   color: var(--text-secondary);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.78rem;
   font-family: 'Chivo', sans-serif;
   letter-spacing: 0.01em;
@@ -12603,7 +12662,7 @@
 }
 .home-panel--campaign .cci-link-btn {
   color: var(--brand-primary-dark);
-  font-weight: 800;
+  font-weight: 900;
 }
 .cci-home-actions .quick-action-link {
   display: inline-block;
@@ -12636,7 +12695,7 @@
   border: none;
   color: var(--brand-primary-dark);
   text-decoration: underline;
-  font-weight: 800;
+  font-weight: 900;
   cursor: pointer;
   padding: 0;
   font: inherit;
@@ -12699,7 +12758,6 @@
   font-weight: 900;
 }
 .cci-serif {
-  font-family: Merriweather, Georgia, serif;
   color: #333;
   line-height: 1.45;
 }
@@ -12783,7 +12841,7 @@
 .cci-context-text { opacity: 0.85; }
 .cci-context-line .cci-link-btn {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-secondary);
   opacity: 0.9;
 }
@@ -12804,7 +12862,6 @@
   font-family: Chivo, sans-serif;
 }
 .cci-definition {
-  font-family: Merriweather, Georgia, serif;
   color: #333;
   background: #fffdf5;
   border-left: 5px solid var(--accent-clay);
@@ -12992,7 +13049,7 @@
   padding: 10px 12px;
   border-radius: 10px;
   box-shadow: 0 14px 32px rgba(48, 64, 89, .18);
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.3;
   text-align: left;
 }
@@ -13060,7 +13117,7 @@
   align-items: center;
   gap: 10px;
   color: var(--brand-primary-dark);
-  font-weight: 800;
+  font-weight: 900;
   background: #fdfbf8;
   border: 1px solid #d9ddd6;
   border-radius: 10px;
@@ -13121,7 +13178,6 @@
   color: var(--brand-primary-dark);
 }
 .cci-nudge-body span {
-  font-family: Merriweather, Georgia, serif;
   font-size: 14px;
   line-height: 1.4;
   color: #444;
@@ -13184,7 +13240,6 @@
 }
 .cci-celebrate-card p {
   margin: 0;
-  font-family: Merriweather, Georgia, serif;
   color: #444;
   font-size: 15px;
   line-height: 1.45;
@@ -13308,4 +13363,32 @@
   .cci-tagline .announcement-link {
     white-space: normal;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Custom select treatment
+   Replaces native browser <select> chrome (the most visible polish
+   gap) with a custom chevron and consistent cursor/padding, while
+   preserving each context's existing border language (dashed =
+   editable field, solid = filter chrome).
+   ═══════════════════════════════════════════════════════════════ */
+.filter-bar select,
+.table-filters select,
+.address-filters select,
+.add-record-select,
+.address-details select,
+.address-details-modal select,
+.person-details-modal select,
+.cci-address-card select,
+.profile-select,
+.builder-filter-group select:not([multiple]) {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%231F2937' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px 8px;
+  padding-right: 32px;
+  cursor: pointer;
 }
