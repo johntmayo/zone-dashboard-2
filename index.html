@@ -1331,6 +1331,13 @@
       range: '',
       query: '',
       selectedIndex: null,
+      userActivity: {
+        loading: false,
+        error: '',
+        rows: [],
+        summary: null,
+        lastFetchedAt: ''
+      },
       zoneSort: { key: 'zone', direction: 'asc' },
       captainSort: { key: 'captain', direction: 'asc' }
     };
@@ -3987,11 +3994,46 @@
       return Number(value || 0).toLocaleString();
     }
 
+    function formatGodmodeActivityTime(value) {
+      if (!value) return 'Never seen';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return date.toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    }
+
     function getGodmodeFilteredRows() {
       const query = godmodeState.query.trim().toLowerCase();
       return godmodeState.rows
         .map((row, index) => ({ row, index }))
         .filter(({ row }) => !query || buildGodmodeSearchText(row).includes(query));
+    }
+
+    async function loadGodmodeUserActivity() {
+      if (!currentUserEmail) return;
+      godmodeState.userActivity.loading = true;
+      godmodeState.userActivity.error = '';
+      try {
+        const res = await fetch(`/api/admin/user-activity?email=${encodeURIComponent(currentUserEmail)}`);
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(payload.message || payload.error || 'Could not load dashboard use.');
+        }
+        godmodeState.userActivity.rows = Array.isArray(payload.rows) ? payload.rows : [];
+        godmodeState.userActivity.summary = payload.summary || null;
+        godmodeState.userActivity.lastFetchedAt = payload.lastFetchedAt || '';
+      } catch (error) {
+        console.error('Godmode user activity load error:', error);
+        godmodeState.userActivity.error = error.message || 'Could not load dashboard use.';
+        godmodeState.userActivity.rows = [];
+        godmodeState.userActivity.summary = null;
+      } finally {
+        godmodeState.userActivity.loading = false;
+      }
     }
 
     async function loadGodmodeData(force = false) {
@@ -4013,6 +4055,7 @@
       try {
         const [res] = await Promise.all([
           fetch(`/api/admin/godmode-master?email=${encodeURIComponent(currentUserEmail)}`),
+          loadGodmodeUserActivity(),
           loadCentralLotWeedingData()
         ]);
         const payload = await res.json().catch(() => ({}));
@@ -7264,6 +7307,86 @@
       `;
     }
 
+    function renderGodmodeUserActivity() {
+      const activity = godmodeState.userActivity || {};
+      const rows = Array.isArray(activity.rows) ? activity.rows : [];
+      const activeRows = rows.filter((row) => row.active !== false);
+      const recentRows = activeRows.slice(0, 8);
+      const summary = activity.summary || {};
+      const activeUsers = summary.active_users ?? activeRows.length;
+      const seenUsers = summary.seen_users ?? activeRows.filter((row) => row.last_seen_at).length;
+      const totalLogins = summary.total_logins ?? activeRows.reduce((sum, row) => sum + (Number(row.login_count) || 0), 0);
+      const mostRecent = summary.last_seen_at || recentRows.find((row) => row.last_seen_at)?.last_seen_at || '';
+
+      if (activity.loading) {
+        return `
+          <section class="godmode-usage-card">
+            <div class="godmode-usage-heading">
+              <div>
+                <p class="godmode-kicker">Dashboard Use</p>
+                <h3>Loading user activity...</h3>
+              </div>
+            </div>
+          </section>
+        `;
+      }
+
+      return `
+        <section class="godmode-usage-card">
+          <div class="godmode-usage-heading">
+            <div>
+              <p class="godmode-kicker">Dashboard Use</p>
+              <h3>Recent admin-visible logins</h3>
+              <p>Uses <code>last_seen_at</code> and <code>login_count</code> from the User Access Sheet.</p>
+            </div>
+            <span>${activity.lastFetchedAt ? `Checked ${escapeHtml(formatGodmodeActivityTime(activity.lastFetchedAt))}` : 'Live from Access Sheet'}</span>
+          </div>
+          ${activity.error ? `<div class="godmode-usage-error">${escapeHtml(activity.error)}</div>` : `
+            <div class="godmode-usage-stats">
+              <div>
+                <strong>${formatGodmodeCount(activeUsers)}</strong>
+                <span>Active users</span>
+              </div>
+              <div>
+                <strong>${formatGodmodeCount(seenUsers)}</strong>
+                <span>Seen at least once</span>
+              </div>
+              <div>
+                <strong>${formatGodmodeCount(totalLogins)}</strong>
+                <span>Total recorded logins</span>
+              </div>
+              <div>
+                <strong>${escapeHtml(formatGodmodeActivityTime(mostRecent))}</strong>
+                <span>Most recent use</span>
+              </div>
+            </div>
+            <div class="godmode-usage-list">
+              ${recentRows.map((row) => `
+                <article class="godmode-usage-row">
+                  <div>
+                    <strong>${escapeHtml(row.captainName || row.email || 'Unknown user')}</strong>
+                    <span>${escapeHtml(row.email || '')}</span>
+                  </div>
+                  <div>
+                    <strong>${escapeHtml(row.zone || row.role || 'No zone listed')}</strong>
+                    <span>${escapeHtml(row.role || 'captain')}</span>
+                  </div>
+                  <div>
+                    <strong>${escapeHtml(formatGodmodeActivityTime(row.last_seen_at))}</strong>
+                    <span>Last seen</span>
+                  </div>
+                  <div>
+                    <strong>${formatGodmodeCount(row.login_count || 0)}</strong>
+                    <span>Logins</span>
+                  </div>
+                </article>
+              `).join('') || '<p class="godmode-breakdown-empty">No dashboard usage has been recorded yet.</p>'}
+            </div>
+          `}
+        </section>
+      `;
+    }
+
     function renderGodmodeLotWeedingPlanner(rollups) {
       const requests = rollups.lotWeedingRequests || [];
       const demandZones = rollups.zones
@@ -7773,6 +7896,7 @@
       const rollups = buildGodmodeRollups(filteredRows);
       content.innerHTML = `
         ${renderGodmodeSummary(rollups)}
+        ${renderGodmodeUserActivity()}
         ${renderGodmodeLotWeedingPlanner(rollups)}
         ${renderGodmodeBreakdowns(filteredRows)}
         ${renderGodmodeZoneDirectory(rollups)}
