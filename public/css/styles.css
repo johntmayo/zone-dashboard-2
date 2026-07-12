@@ -2567,15 +2567,14 @@
     .address-table th:nth-child(1),
     .address-table td:nth-child(1) {
       width: auto;
-      min-width: 120px; /* Minimum width to prevent it from getting too narrow */
-      white-space: nowrap; /* Keep addresses on one line */
+      min-width: 180px;
+      max-width: none;
     }
 
     .address-table th:nth-child(2),
     .address-table td:nth-child(2) {
       width: auto;
-      min-width: 180px;
-      max-width: none;
+      min-width: 120px;
     }
 
     .address-table__residents {
@@ -2583,6 +2582,10 @@
       overflow: visible;
       line-height: 1.45;
       word-break: break-word;
+    }
+
+    .address-table__address {
+      white-space: nowrap;
     }
 
     .address-table td {
