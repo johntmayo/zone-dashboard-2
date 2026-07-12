@@ -11852,26 +11852,13 @@
                 const email = emailCol && displayRows[0] ? (displayRows[0][emailCol] || '').trim() : '';
                 const contactDate = contactDateCol && displayRows[0] ? (displayRows[0][contactDateCol] || '').trim() : '';
                 
-                // Format residents with truncation
-                let residentsDisplay = '-';
-                if (residents.length > 0) {
-                  const residentsText = residents.join(', ');
-                  const totalCount = residents.length;
-                  // If text is long, truncate and show count in parentheses
-                  // With expanded column (300px max), allow ~35 chars before truncating
-                  if (residentsText.length > 35) {
-                    // Truncate to fit column width, leaving space for "... (X Total)" which is ~12-15 chars
-                    const truncateTo = Math.max(20, 35 - (totalCount.toString().length + 12));
-                    residentsDisplay = residentsText.substring(0, truncateTo) + '... (' + totalCount + ' Total)';
-                  } else {
-                    residentsDisplay = residentsText;
-                  }
-                }
+                // Show every resident — the column exists to list them all
+                const residentsDisplay = residents.length > 0 ? residents.join(', ') : '-';
                 
                 return `
                   <tr class="table-address-row" data-address="${addr.replace(/"/g, '&quot;')}">
                     <td title="${addr}">${addr}</td>
-                    <td title="${residents.length > 0 ? residents.join(', ') : '-'}">${residentsDisplay}</td>
+                    <td class="address-table__residents">${residentsDisplay}</td>
                     ${damageCol ? `<td>${damage || '-'}</td>` : ''}
                     ${addressPlanCol ? `<td>${addressPlan || '-'}</td>` : ''}
                     ${rebuildCol ? `<td>${rebuild || '-'}</td>` : ''}
