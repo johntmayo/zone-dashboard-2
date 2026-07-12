@@ -11820,8 +11820,8 @@
           <table class="address-table">
             <thead>
               <tr>
+                <th class="sortable" data-sort="residents" title="Click to sort">Community Members ${tableSortColumn === 'residents' ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>
                 <th class="sortable" data-sort="address" title="Click to sort">Address ${tableSortColumn === 'address' ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>
-                <th class="sortable" data-sort="residents" title="Click to sort">Residents ${tableSortColumn === 'residents' ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>
                 ${damageCol ? `<th class="sortable" data-sort="${damageCol.toLowerCase()}" title="Click to sort">Damage ${tableSortColumn === damageCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${addressPlanCol ? `<th class="sortable" data-sort="${addressPlanCol.toLowerCase()}" title="Click to sort">Address Plan ${tableSortColumn === addressPlanCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${rebuildCol ? `<th class="sortable" data-sort="${rebuildCol.toLowerCase()}" title="Click to sort">Build Status ${tableSortColumn === rebuildCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
@@ -11852,13 +11852,13 @@
                 const email = emailCol && displayRows[0] ? (displayRows[0][emailCol] || '').trim() : '';
                 const contactDate = contactDateCol && displayRows[0] ? (displayRows[0][contactDateCol] || '').trim() : '';
                 
-                // Show every resident — the column exists to list them all
+                // Show every community member — the Neighbors tab lists people first
                 const residentsDisplay = residents.length > 0 ? residents.join(', ') : '-';
                 
                 return `
                   <tr class="table-address-row" data-address="${addr.replace(/"/g, '&quot;')}">
-                    <td title="${addr}">${addr}</td>
                     <td class="address-table__residents">${residentsDisplay}</td>
+                    <td class="address-table__address" title="${addr}">${addr}</td>
                     ${damageCol ? `<td>${damage || '-'}</td>` : ''}
                     ${addressPlanCol ? `<td>${addressPlan || '-'}</td>` : ''}
                     ${rebuildCol ? `<td>${rebuild || '-'}</td>` : ''}
