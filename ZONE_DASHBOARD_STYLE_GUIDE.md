@@ -23,13 +23,14 @@
 
 ## Typography
 
-- **Display/UI font:** `Chivo`, loaded at weights **400 / 700 / 900 only**. Used for headings, nav, buttons, panel labels, and all structural/data/functional contexts.
-- **Body/content font:** `Lora`, loaded at weights **400 / 700 only**. Used for genuine reading material only.
-- **Weight rule:** never request weights that aren't loaded (no 500/600/800). Collapse: 500 → 400, 600 → 700, 800 → 900 (Chivo); 600 → 700 (Lora).
+- **Default (body):** `Chivo` via `--font-ui`. The whole app is structural/UI by default.
+- **Reading opt-in:** `Lora` via `--font-reading`. Applied only through the **READING SURFACES** allowlist in `public/css/styles.css` (and the `.reading-text` helper class).
+- **Loaded weights only:** Chivo `400 / 700 / 900`, Lora `400 / 700`. Never request 500/600/800. Collapse: 500 → 400, 600 → 700, 800 → 900 (Chivo); 600 → 700 (Lora).
 - **The structure/reading boundary:**
-  - **Lora (reading):** announcements body copy, Contact Check-In explanatory prose (`.cci-serif`), Help/About/Docs/Discord long-form, directory bios, any future editorial content.
-  - **Chivo (structure):** table cells (Neighbors table is data scanning, not reading), tool/resource card descriptions, filter labels, panel headers, modal form contexts, the Details panel (all-Chivo by design), NC Directory structural UI.
+  - **Lora (reading):** announcements body, Contact Check-In explanatory prose (`.cci-serif`, definitions, celebrate/nudge copy), Help/About/Docs/Discord long-form prose, Event Funding policy text, directory bios/intros, lot-weeding Help tab prose, any future editorial content (add the selector to the allowlist — do **not** flip body back to serif).
+  - **Chivo (structure):** everything else — tables, tool/resource card descriptions, filters, panel chrome, modals, forms, profile fields, godmode/admin UI, build metrics, Quick Actions.
 - **Style rule:** sans for structure plus serif for reading gives an organized but human feel. When in doubt, ask "does someone *read* this, or *scan* it?" — scanning is Chivo.
+- **Flyer tool exception:** flyer *output* still uses `--font-body: Lora`; the flyer *UI chrome* uses Chivo.
 
 ## Buttons (three-tier system)
 
@@ -70,5 +71,5 @@
 - If adding new screens, default to:
   - paper background plus navy structure
   - gold as primary highlight
-  - Chivo headings and Lora body (reading contexts only)
+  - Chivo headings and Lora only on reading surfaces (see Typography)
   - strong border plus simple shadow (avoid glassy or over-modern styles)
