@@ -912,7 +912,7 @@
                             </select>
                           </div>
                           <div id="batchPersonNewsletterWrap">
-                            <label style="display:block; margin-bottom:4px; font-weight:600;">Subscribe to updates</label>
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Wants updates</label>
                             <select id="batchPersonNewsletter" class="add-record-select" style="min-width:160px;">
                               <option value="">— no change —</option>
                               <option value="TRUE">Yes</option>
@@ -11399,9 +11399,9 @@
           </label>
           ` : ''}
           ${soldSinceFireCol ? `
-          <label class="contact-filter-checkbox" title="Show SOLD tags next to addresses marked as sold since January 2025.">
+          <label class="contact-filter-checkbox" title="Label addresses marked as sold since January 2025 with a SOLD tag on the map.">
             <input type="checkbox" id="persistentShowSoldTagsCheckbox" ${showSoldSinceJan25Tags ? 'checked' : ''}>
-            <span>Show sold since Jan '25</span>
+            <span>Label sold since Jan '25</span>
           </label>
           ` : ''}
         </div>
@@ -11824,7 +11824,7 @@
                 <th class="sortable" data-sort="address" title="Click to sort">Address ${tableSortColumn === 'address' ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>
                 ${damageCol ? `<th class="sortable" data-sort="${damageCol.toLowerCase()}" title="Click to sort">Damage ${tableSortColumn === damageCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${addressPlanCol ? `<th class="sortable" data-sort="${addressPlanCol.toLowerCase()}" title="Click to sort">Address Plan ${tableSortColumn === addressPlanCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
-                ${rebuildCol ? `<th class="sortable" data-sort="${rebuildCol.toLowerCase()}" title="Click to sort">Build Status ${tableSortColumn === rebuildCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
+                ${rebuildCol ? `<th class="address-table__build sortable" data-sort="${rebuildCol.toLowerCase()}" title="Click to sort">Build Status ${tableSortColumn === rebuildCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${ageCol ? `<th class="sortable" data-sort="${ageCol.toLowerCase()}" title="Click to sort">Apprx Age ${tableSortColumn === ageCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${phoneCol ? `<th class="address-table__phone">Phone</th>` : ''}
                 ${emailCol ? `<th class="address-table__email">Email</th>` : ''}
@@ -11861,7 +11861,7 @@
                     <td class="address-table__address" title="${addr}">${addr}</td>
                     ${damageCol ? `<td>${damage || '-'}</td>` : ''}
                     ${addressPlanCol ? `<td>${addressPlan || '-'}</td>` : ''}
-                    ${rebuildCol ? `<td>${rebuild || '-'}</td>` : ''}
+                    ${rebuildCol ? `<td class="address-table__build">${rebuild || '-'}</td>` : ''}
                     ${ageCol ? `<td>${age || '-'}</td>` : ''}
                     ${phoneCol ? `<td class="address-table__phone">${phone || '-'}</td>` : ''}
                     ${emailCol ? `<td class="address-table__email">${email || '-'}</td>` : ''}
@@ -12847,7 +12847,7 @@
 
     function getQuickTagDisplayLabel(colName) {
       const raw = String(colName || '').trim();
-      if (/^wants[\s_-]*updates$/i.test(raw)) return 'Subscribe to updates';
+      if (/^wants[\s_-]*updates$/i.test(raw)) return 'Wants updates';
       if (raw.startsWith('Person - ')) return raw.substring(9).trim();
       return raw;
     }
@@ -13921,7 +13921,7 @@
             if (suffix.toLowerCase() === 'unable to reach') return 'Unable to reach';
             return suffix;
           }
-          if (/^wants[\s_-]*updates$/i.test(col)) return 'Subscribe to updates';
+          if (/^wants[\s_-]*updates$/i.test(col)) return 'Wants updates';
           if (/^age$/i.test(col)) return 'Approximate Age';
           if (lower === 'last contact date' || lower === 'last outreach attempt date') return 'Last Outreach Attempt';
           return col;
@@ -13929,7 +13929,7 @@
 
         // Omit colon for phone labels and person-tag checkboxes (Renter, Needs Follow-Up, Unable to reach)
         const formatLabelForDisplay = (label) => {
-          if (label === 'Renter' || label === 'Needs Follow-Up' || label === 'Unable to reach' || label === 'Subscribe to updates') return label;
+          if (label === 'Renter' || label === 'Needs Follow-Up' || label === 'Unable to reach' || label === 'Wants updates') return label;
           return label + ':';
         };
         

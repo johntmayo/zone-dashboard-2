@@ -2588,12 +2588,12 @@
       text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
 
-    /* People — first column, slightly tighter than before */
+    /* People — first column */
     .address-table th:nth-child(1),
     .address-table td:nth-child(1) {
-      width: 200px;
-      min-width: 160px;
-      max-width: 220px;
+      width: 300px;
+      min-width: 240px;
+      max-width: 330px;
     }
 
     .address-table th:nth-child(2),
@@ -2611,6 +2611,14 @@
 
     .address-table__address {
       white-space: nowrap;
+    }
+
+    .address-table__build {
+      white-space: normal;
+      line-height: 1.45;
+      word-break: break-word;
+      min-width: 9rem;
+      max-width: 14rem;
     }
 
     .address-table__phone,
