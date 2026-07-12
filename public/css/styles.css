@@ -3611,23 +3611,22 @@
     .godmode-hero {
       display: flex;
       justify-content: space-between;
-      gap: 24px;
-      align-items: flex-start;
-      margin-bottom: 24px;
-      padding: 28px;
-      background:
-        linear-gradient(135deg, rgba(49, 64, 89, 0.96), rgba(40, 54, 24, 0.94)),
-        var(--brand-primary-dark);
-      color: #FDFBF7;
-      border: var(--border-thickness) solid var(--text-primary);
-      box-shadow: var(--shadow-base);
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 16px;
+      padding: 16px 18px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: var(--border-thickness) solid var(--border-color);
+      box-shadow: 4px 4px 0 #D9DBDB;
     }
 
     .godmode-hero h2 {
       margin: 0;
-      font-size: clamp(2rem, 4vw, 4rem);
-      letter-spacing: -0.05em;
-      line-height: 0.95;
+      color: var(--brand-primary-dark);
+      font-size: clamp(1.45rem, 2.6vw, 2.2rem);
+      letter-spacing: -0.03em;
+      line-height: 1;
     }
 
     .godmode-kicker {
@@ -3642,17 +3641,17 @@
 
     .godmode-subtitle {
       max-width: 680px;
-      margin: 12px 0 0;
-      color: rgba(253, 251, 247, 0.82);
+      margin: 6px 0 0;
+      color: var(--text-secondary);
       line-height: 1.5;
     }
 
     .godmode-freshness {
       flex-shrink: 0;
       padding: 10px 12px;
-      background: rgba(253, 251, 247, 0.12);
-      border: 1px solid rgba(253, 251, 247, 0.35);
-      color: #FDFBF7;
+      background: #FFFDF5;
+      border: 1px solid rgba(31, 41, 55, 0.18);
+      color: var(--text-secondary);
       font-size: 0.78rem;
       font-weight: 700;
       text-align: right;
@@ -6570,6 +6569,7 @@
       grid-template-columns: minmax(360px, 0.9fr) minmax(420px, 1.1fr);
       gap: 20px;
       align-items: start;
+      margin-bottom: 20px;
     }
 
     .godmode-breakdown-grid {
@@ -6722,6 +6722,10 @@
     .godmode-profile-badges {
       margin-top: 14px;
       margin-bottom: 0;
+    }
+
+    .godmode-result-card .godmode-result-badges {
+      margin: 10px 0 0;
     }
 
     .godmode-pill {
