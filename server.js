@@ -98,9 +98,94 @@ let cachedAt = 0;
 const USERS_CACHE_TTL_MS = 60 * 1000;
 const ROLE_GRANT_PREFIX = 'role:';
 const LOT_WEEDING_ADMIN_ROLE = 'lot_weeding_admin';
+const ACCESS_SHEET_RANGE = 'Access!A1:Z10000';
+const ACCESS_COLUMN_ALIASES = {
+  loginEmail: ['login_email', 'login email', 'email'],
+  sheetUrl: ['sheet_url', 'sheet url'],
+  zoneName: ['zone_name', 'zone name'],
+  captainName: ['captain_display_name', 'captain display name', 'captain_name', 'captain name'],
+  contactEmail: ['contact_email', 'contact email'],
+  role: ['role'],
+  active: ['active'],
+  lastSeenAt: ['last_seen_at', 'last seen at'],
+  loginCount: ['login_count', 'login count']
+};
+const ACCESS_COLUMN_FALLBACKS = {
+  loginEmail: 0,
+  sheetUrl: 1,
+  zoneName: 2,
+  captainName: 3,
+  contactEmail: 4,
+  role: 5,
+  active: 6
+};
 
 function normalizeAccessRole(value, fallback = 'captain') {
   return String(value || fallback).trim().toLowerCase();
+}
+
+function normalizeAccessHeader(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function getAccessColumnIndex(headers, key) {
+  const aliases = ACCESS_COLUMN_ALIASES[key] || [];
+  const normalizedAliases = new Set(aliases.map(normalizeAccessHeader));
+  const headerIndex = headers.findIndex((header) => normalizedAliases.has(normalizeAccessHeader(header)));
+  if (headerIndex >= 0) return headerIndex;
+  return Object.prototype.hasOwnProperty.call(ACCESS_COLUMN_FALLBACKS, key)
+    ? ACCESS_COLUMN_FALLBACKS[key]
+    : -1;
+}
+
+function columnIndexToA1(index) {
+  let n = Number(index) + 1;
+  let label = '';
+  while (n > 0) {
+    const remainder = (n - 1) % 26;
+    label = String.fromCharCode(65 + remainder) + label;
+    n = Math.floor((n - 1) / 26);
+  }
+  return label;
+}
+
+function normalizeAccessSheetValues(values) {
+  const rows = Array.isArray(values) ? values : [];
+  const headers = (rows[0] || []).map((header) => String(header || '').trim());
+  const columns = Object.keys(ACCESS_COLUMN_ALIASES).reduce((acc, key) => {
+    acc[key] = getAccessColumnIndex(headers, key);
+    return acc;
+  }, {});
+  const records = rows.slice(1)
+    .map((row, index) => {
+      const valuesRow = Array.isArray(row) ? row : [];
+      return {
+        rowNumber: index + 2,
+        values: valuesRow,
+        get(key) {
+          const columnIndex = columns[key];
+          return columnIndex >= 0 ? valuesRow[columnIndex] : '';
+        }
+      };
+    })
+    .filter((record) => record.values.some((cell) => String(cell || '').trim()));
+
+  return { headers, columns, records };
+}
+
+async function readAccessSheet() {
+  const accessSheetId = (process.env.USER_ACCESS_SHEET_ID || '').trim();
+  if (!accessSheetId) return null;
+
+  const sheets = await getSheetsClient();
+  const result = await sheets.spreadsheets.values.get({
+    spreadsheetId: accessSheetId,
+    range: ACCESS_SHEET_RANGE
+  });
+  return {
+    spreadsheetId: accessSheetId,
+    ...normalizeAccessSheetValues(result.data && result.data.values)
+  };
 }
 
 function getRoleGrantFromSheetUrl(rawUrl, role) {
@@ -166,12 +251,8 @@ async function readUsersMap() {
   if (!accessSheetId) return readUsersMapLegacy();
 
   try {
-    const sheets = await getSheetsClient();
-    const result = await sheets.spreadsheets.values.get({
-      spreadsheetId: accessSheetId,
-      range: 'Access!A2:I10000'
-    });
-    const rows = result.data.values || [];
+    const accessSheet = await readAccessSheet();
+    const records = accessSheet ? accessSheet.records : [];
 
     const usersMap = {};
     const zoneByUrl = {};
@@ -179,16 +260,14 @@ async function readUsersMap() {
     const seenUrlsByEmail = {};
     const captainAssignmentCount = {};
 
-    for (const row of rows) {
-      const [
-        loginEmailRaw,
-        sheetUrlRaw,
-        zoneNameRaw,
-        captainNameRaw,
-        contactEmailRaw,
-        roleRaw,
-        activeRaw
-      ] = row;
+    for (const record of records) {
+      const loginEmailRaw = record.get('loginEmail');
+      const sheetUrlRaw = record.get('sheetUrl');
+      const zoneNameRaw = record.get('zoneName');
+      const captainNameRaw = record.get('captainName');
+      const contactEmailRaw = record.get('contactEmail');
+      const roleRaw = record.get('role');
+      const activeRaw = record.get('active');
 
       if (!loginEmailRaw || !sheetUrlRaw) continue;
       if (String(activeRaw || '').toUpperCase() !== 'TRUE') continue;
@@ -293,6 +372,91 @@ async function readUsersMap() {
   }
 }
 
+async function recordUserDashboardUse(email) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!normalizedEmail || String(process.env.USE_LEGACY_USERS || '').trim() === '1') {
+    return { updated: 0, skipped: true };
+  }
+
+  const accessSheet = await readAccessSheet();
+  if (!accessSheet) return { updated: 0, skipped: true };
+
+  const lastSeenColumn = accessSheet.columns.lastSeenAt;
+  const loginCountColumn = accessSheet.columns.loginCount;
+  if (lastSeenColumn < 0 || loginCountColumn < 0) {
+    console.warn('Access Sheet usage tracking skipped: missing last_seen_at or login_count column.');
+    return { updated: 0, skipped: true };
+  }
+
+  const timestamp = new Date().toISOString();
+  const updates = [];
+  for (const record of accessSheet.records) {
+    const rowEmail = String(record.get('loginEmail') || '').trim().toLowerCase();
+    const active = String(record.get('active') || '').trim().toUpperCase();
+    if (rowEmail !== normalizedEmail || active !== 'TRUE') continue;
+
+    const currentCount = Number.parseInt(String(record.get('loginCount') || '0').replace(/,/g, ''), 10);
+    const nextCount = Number.isFinite(currentCount) ? currentCount + 1 : 1;
+    updates.push(
+      {
+        range: `Access!${columnIndexToA1(lastSeenColumn)}${record.rowNumber}`,
+        values: [[timestamp]]
+      },
+      {
+        range: `Access!${columnIndexToA1(loginCountColumn)}${record.rowNumber}`,
+        values: [[String(nextCount)]]
+      }
+    );
+  }
+
+  if (!updates.length) return { updated: 0 };
+
+  const sheets = await getSheetsClient();
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: accessSheet.spreadsheetId,
+    requestBody: {
+      valueInputOption: 'RAW',
+      data: updates
+    }
+  });
+
+  return { updated: updates.length, last_seen_at: timestamp };
+}
+
+async function readUserActivityRows() {
+  if (String(process.env.USE_LEGACY_USERS || '').trim() === '1') {
+    return [];
+  }
+
+  const accessSheet = await readAccessSheet();
+  if (!accessSheet) return [];
+
+  return accessSheet.records
+    .map((record) => {
+      const email = String(record.get('loginEmail') || '').trim().toLowerCase();
+      const role = normalizeAccessRole(record.get('role'), '');
+      const active = String(record.get('active') || '').trim().toUpperCase() === 'TRUE';
+      const rawCount = Number.parseInt(String(record.get('loginCount') || '0').replace(/,/g, ''), 10);
+      return {
+        email,
+        zone: String(record.get('zoneName') || '').trim(),
+        captainName: String(record.get('captainName') || '').trim(),
+        role,
+        active,
+        last_seen_at: String(record.get('lastSeenAt') || '').trim(),
+        login_count: Number.isFinite(rawCount) ? rawCount : 0
+      };
+    })
+    .filter((row) => row.email)
+    .sort((a, b) => {
+      const aTime = Date.parse(a.last_seen_at || '');
+      const bTime = Date.parse(b.last_seen_at || '');
+      const aValue = Number.isFinite(aTime) ? aTime : 0;
+      const bValue = Number.isFinite(bTime) ? bTime : 0;
+      return bValue - aValue || b.login_count - a.login_count || a.email.localeCompare(b.email);
+    });
+}
+
 function extractGoogleSheetId(rawValue) {
   const value = String(rawValue || '').trim().replace(/^['"]|['"]$/g, '');
   if (!value) return null;
@@ -374,6 +538,11 @@ app.get('/api/user-sheets', async (req, res) => {
       if (!normalized) throw new Error(`invalid sheet at index ${index}`);
       return normalized;
     });
+    try {
+      await recordUserDashboardUse(emailParam);
+    } catch (activityErr) {
+      console.error('Failed to record dashboard usage:', activityErr.message);
+    }
     return res.status(200).json({ sheets, roles, capabilities });
   } catch (err) {
     const message = err && err.code === 'ENOENT'
@@ -427,6 +596,34 @@ app.get('/api/admin/export-users-json', async (req, res) => {
     });
   } catch (err) {
     return res.status(500).json({ error: 'export_failed', message: err.message });
+  }
+});
+
+app.get('/api/admin/user-activity', async (req, res) => {
+  const emailParam = (req.query.email || '').toString().trim().toLowerCase();
+  if (!emailParam) return res.status(401).json({ error: 'no_email' });
+
+  try {
+    if (!await isAdminEmail(emailParam)) return res.status(401).json({ error: 'not_admin' });
+
+    const rows = await readUserActivityRows();
+    const activeRows = rows.filter((row) => row.active);
+    const seenRows = activeRows.filter((row) => row.last_seen_at);
+    const totalLogins = activeRows.reduce((sum, row) => sum + (Number(row.login_count) || 0), 0);
+    res.set('Cache-Control', 'no-store');
+    return res.status(200).json({
+      rows,
+      summary: {
+        active_users: activeRows.length,
+        seen_users: seenRows.length,
+        total_logins: totalLogins,
+        last_seen_at: seenRows[0]?.last_seen_at || ''
+      },
+      lastFetchedAt: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('Error in /api/admin/user-activity:', err.message);
+    return res.status(500).json({ error: 'user_activity_failed', message: err.message });
   }
 });
 
