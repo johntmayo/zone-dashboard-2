@@ -60,10 +60,16 @@
 </head>
 
 <body>
-    <!-- Persistent Filter Bar -->
+    <!-- Persistent Filter Bar (shared by Map + Neighbors) -->
     <div class="filter-bar hidden" id="filterBar">
-      <div class="filter-bar-content" id="filterBarContent">
-        <!-- Filters will be inserted here -->
+      <div class="filter-bar-main">
+        <div class="filter-bar-content" id="filterBarContent">
+          <!-- Filters will be inserted here -->
+        </div>
+        <div class="filter-bar-actions" id="filterBarActions">
+          <button type="button" class="btn-print-export" id="btnAddRecord" style="display:none;" aria-hidden="true">➕ Add Record</button>
+          <button type="button" class="btn-print-export btn-print-export--secondary" id="btnExport">Export</button>
+        </div>
       </div>
     </div>
 
@@ -487,13 +493,6 @@
 
     <!-- Addresses & People View (Table) -->
     <div class="content-view hidden" id="peopleView">
-      <div class="people-view-header">
-        <h2 style="margin: 0; color: var(--primary-dark); font-size: 1.8rem; letter-spacing: 0.5px; font-family: 'Chivo', sans-serif;">Neighbors</h2>
-        <div class="people-view-actions">
-          <button class="btn-print-export" id="btnAddRecord" style="display:none;" aria-hidden="true">➕ Add Record</button>
-          <button class="btn-print-export" id="btnExport">Export</button>
-        </div>
-      </div>
       <div id="peopleTableView"></div>
     </div>
 
@@ -11415,6 +11414,7 @@
       const shouldShowFilters = (currentView === 'people' || currentView === 'map');
       if (shouldShowFilters) {
         filterBar.classList.remove('hidden');
+        setupPrintExportHandlers();
         // Recalculate content offset after filter bar is populated (height may change)
         // Use multiple timeouts to ensure filter bar has fully rendered and height is accurate
         setTimeout(() => {
@@ -11820,15 +11820,15 @@
           <table class="address-table">
             <thead>
               <tr>
-                <th class="sortable" data-sort="residents" title="Click to sort">Community Members ${tableSortColumn === 'residents' ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>
+                <th class="sortable" data-sort="residents" title="Click to sort">People ${tableSortColumn === 'residents' ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>
                 <th class="sortable" data-sort="address" title="Click to sort">Address ${tableSortColumn === 'address' ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>
                 ${damageCol ? `<th class="sortable" data-sort="${damageCol.toLowerCase()}" title="Click to sort">Damage ${tableSortColumn === damageCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${addressPlanCol ? `<th class="sortable" data-sort="${addressPlanCol.toLowerCase()}" title="Click to sort">Address Plan ${tableSortColumn === addressPlanCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${rebuildCol ? `<th class="sortable" data-sort="${rebuildCol.toLowerCase()}" title="Click to sort">Build Status ${tableSortColumn === rebuildCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${ageCol ? `<th class="sortable" data-sort="${ageCol.toLowerCase()}" title="Click to sort">Apprx Age ${tableSortColumn === ageCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
-                ${phoneCol ? `<th>Phone</th>` : ''}
-                ${emailCol ? `<th>Email</th>` : ''}
-                ${contactDateCol ? `<th class="sortable" data-sort="${contactDateCol.toLowerCase()}" title="Click to sort">Last Outreach Attempt ${tableSortColumn === contactDateCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
+                ${phoneCol ? `<th class="address-table__phone">Phone</th>` : ''}
+                ${emailCol ? `<th class="address-table__email">Email</th>` : ''}
+                ${contactDateCol ? `<th class="address-table__outreach sortable" data-sort="${contactDateCol.toLowerCase()}" title="Click to sort">Last Outreach Attempt ${tableSortColumn === contactDateCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
               </tr>
             </thead>
             <tbody>
@@ -11863,9 +11863,9 @@
                     ${addressPlanCol ? `<td>${addressPlan || '-'}</td>` : ''}
                     ${rebuildCol ? `<td>${rebuild || '-'}</td>` : ''}
                     ${ageCol ? `<td>${age || '-'}</td>` : ''}
-                    ${phoneCol ? `<td>${phone || '-'}</td>` : ''}
-                    ${emailCol ? `<td>${email || '-'}</td>` : ''}
-                    ${contactDateCol ? `<td>${contactDate || '-'}</td>` : ''}
+                    ${phoneCol ? `<td class="address-table__phone">${phone || '-'}</td>` : ''}
+                    ${emailCol ? `<td class="address-table__email">${email || '-'}</td>` : ''}
+                    ${contactDateCol ? `<td class="address-table__outreach">${contactDate || '-'}</td>` : ''}
                   </tr>
                 `;
               }).join('')}

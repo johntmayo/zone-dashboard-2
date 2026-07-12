@@ -823,11 +823,28 @@
       transition: top 0.3s ease;
     }
 
+    .filter-bar-main {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
     .filter-bar-content {
       display: flex;
       gap: 12px;
       flex-wrap: wrap;
       align-items: center;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .filter-bar-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-shrink: 0;
+      margin-left: auto;
     }
 
     .filter-bar .filters-label {
@@ -2490,17 +2507,9 @@
       -webkit-overflow-scrolling: touch;
     }
 
-    /* People View Header */
+    /* People View Header — removed; actions live in the shared filter bar */
     .people-view-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-      padding-bottom: 16px;
-      border-bottom: 2px solid var(--primary);
-      flex-wrap: wrap;
-      gap: 16px;
-      flex-shrink: 0;
+      display: none;
     }
 
     .people-view-actions {
@@ -2520,6 +2529,7 @@
       transition: all 0.2s ease;
       box-shadow: 0 2px 8px rgba(188, 108, 37, 0.3);
       font-family: 'Chivo', sans-serif;
+      white-space: nowrap;
     }
 
     .btn-print-export:hover {
@@ -2527,15 +2537,29 @@
       box-shadow: 0 4px 12px rgba(188, 108, 37, 0.4);
     }
 
+    /* Tertiary / export — outlined, not filled gold */
+    .btn-print-export--secondary {
+      background: var(--bg-card);
+      color: var(--brand-primary-dark);
+      border: 2px solid var(--brand-primary-dark);
+      box-shadow: 2px 2px 0 var(--text-primary);
+    }
+
+    .btn-print-export--secondary:hover {
+      background: rgba(49, 64, 89, 0.08);
+      box-shadow: 3px 3px 0 var(--text-primary);
+    }
+
     /* Address Table View - scroll is on #peopleTableView; container grows with table */
     .address-table-container {
       width: 100%;
       overflow-x: auto;
       overflow-y: visible;
+      -webkit-overflow-scrolling: touch;
     }
 
     .address-table {
-      width: auto;
+      width: max-content;
       min-width: 100%;
       /* Data scanning, not reading — structural contexts use Chivo */
       font-family: 'Chivo', sans-serif;
@@ -2564,17 +2588,18 @@
       text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
 
+    /* People — first column, slightly tighter than before */
     .address-table th:nth-child(1),
     .address-table td:nth-child(1) {
-      width: auto;
-      min-width: 180px;
-      max-width: none;
+      width: 200px;
+      min-width: 160px;
+      max-width: 220px;
     }
 
     .address-table th:nth-child(2),
     .address-table td:nth-child(2) {
       width: auto;
-      min-width: 120px;
+      min-width: 140px;
     }
 
     .address-table__residents {
@@ -2586,6 +2611,24 @@
 
     .address-table__address {
       white-space: nowrap;
+    }
+
+    .address-table__phone,
+    .address-table__email,
+    .address-table__outreach {
+      white-space: nowrap;
+    }
+
+    .address-table__phone {
+      min-width: 9.5rem;
+    }
+
+    .address-table__email {
+      min-width: 12rem;
+    }
+
+    .address-table__outreach {
+      min-width: 10rem;
     }
 
     .address-table td {
@@ -10191,7 +10234,12 @@
     overflow: hidden; /* clip the fade gradient */
   }
 
-  /* Scroll hint: right-edge fade gradient */
+  .filter-bar-main {
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* Scroll hint: right-edge fade gradient (over filter chips only) */
   .filter-bar::after {
     content: '';
     position: absolute;
@@ -10216,6 +10264,15 @@
 
   .filter-bar-content::-webkit-scrollbar {
     display: none; /* hide scrollbar on Chrome/Safari */
+  }
+
+  .filter-bar-actions {
+    gap: 6px;
+  }
+
+  .filter-bar-actions .btn-print-export {
+    padding: 7px 12px;
+    font-size: 0.82rem;
   }
 
   .filter-bar .filters-label {
@@ -10665,11 +10722,6 @@
   }
 
   /* ---- People view ---- */
-
-  .people-view-header {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
 
   .content-view#peopleView {
     padding-top: 12px !important;
