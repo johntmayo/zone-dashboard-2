@@ -688,6 +688,23 @@ function extractSpreadsheetId(value) {
   return match ? match[1] : clean;
 }
 
+// Gate mutating /api/sheets/* routes: valid Google Bearer token + sheet access.
+// Emergency bypass: set SHEETS_WRITE_AUTH=0 in the environment.
+const {
+  createRequireSheetsWriteAuth
+} = require('./sheets-write-auth');
+const sheetsWriteAuthEnabled = String(process.env.SHEETS_WRITE_AUTH || '1').trim() !== '0';
+const requireSheetsWriteAuth = createRequireSheetsWriteAuth({
+  enabled: sheetsWriteAuthEnabled,
+  getAccessRowsForEmail,
+  extractGoogleSheetId,
+  collectAccessRoles,
+  sharedWritableSheetIds: [NC_DIRECTORY_SHEET_ID].filter(Boolean)
+});
+if (!sheetsWriteAuthEnabled) {
+  console.warn('SHEETS_WRITE_AUTH=0 — sheet write endpoints are unauthenticated (emergency bypass).');
+}
+
 // Helper function to get sheet gid (grid ID) from sheet name for public sheets
 async function getSheetGid(sheetId, sheetName) {
   try {
@@ -1147,7 +1164,7 @@ app.post('/api/sheets/values', async (req, res) => {
 });
 
 // POST /api/sheets/append - append rows
-app.post('/api/sheets/append', async (req, res) => {
+app.post('/api/sheets/append', requireSheetsWriteAuth, async (req, res) => {
   const { sheetId, values, sheetName = 'Sheet1' } = req.body || {};
   if (!sheetId || !values || !Array.isArray(values)) {
     return res.status(400).json({ error: 'sheetId and values (array) required' });
@@ -1171,7 +1188,7 @@ app.post('/api/sheets/append', async (req, res) => {
 });
 
 // POST /api/sheets/append-record - append one row while inheriting validation/format
-app.post('/api/sheets/append-record', async (req, res) => {
+app.post('/api/sheets/append-record', requireSheetsWriteAuth, async (req, res) => {
   const { sheetId, values, sheetName = 'Sheet1' } = req.body || {};
   if (!sheetId || !Array.isArray(values)) {
     return res.status(400).json({ error: 'sheetId and values (row array) required' });
@@ -1237,7 +1254,7 @@ app.post('/api/sheets/append-record', async (req, res) => {
 });
 
 // POST /api/sheets/batch-update - batchUpdate
-app.post('/api/sheets/batch-update', async (req, res) => {
+app.post('/api/sheets/batch-update', requireSheetsWriteAuth, async (req, res) => {
   const { sheetId, valueInputOption = 'USER_ENTERED', data } = req.body || {};
   if (!sheetId || !data || !Array.isArray(data)) {
     return res.status(400).json({ error: 'sheetId and data (array of { range, values }) required' });
@@ -1281,7 +1298,7 @@ function isSheetsTextSafeColumn(column) {
 }
 
 // POST /api/sheets/batch-update-by-resident-id - resolve row by resident_id then batch update (sort-safe)
-app.post('/api/sheets/batch-update-by-resident-id', async (req, res) => {
+app.post('/api/sheets/batch-update-by-resident-id', requireSheetsWriteAuth, async (req, res) => {
   const { sheetId, sheetName = 'Sheet1', valueInputOption = 'USER_ENTERED', updates } = req.body || {};
   if (!sheetId || !updates || !Array.isArray(updates) || updates.length === 0) {
     return res.status(400).json({ error: 'sheetId and updates (array of { resident_id, column, value }) required' });

@@ -342,9 +342,12 @@
   async function batchUpdateResidentFields(updatesByResidentId) {
     if (!updatesByResidentId.length) return;
     if (!ctx.currentSheetId) throw new Error('No sheet loaded');
+    if (!ctx.accessToken) throw new Error('Not signed in');
+    var headers = { 'Content-Type': 'application/json' };
+    headers.Authorization = 'Bearer ' + ctx.accessToken;
     var res = await fetch('/api/sheets/batch-update-by-resident-id', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers,
       body: JSON.stringify({
         sheetId: ctx.currentSheetId,
         sheetName: 'Sheet1',
