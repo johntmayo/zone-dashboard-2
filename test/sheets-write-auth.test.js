@@ -155,6 +155,32 @@ test('requireSheetsWriteAuth: allows valid token with sheet access', async () =>
   assert.strictEqual(req.authUser.email, 'captain@example.com');
 });
 
+test('requireSheetsWriteAuth: accepts session identity without bearer', async () => {
+  const middleware = createRequireSheetsWriteAuth({
+    enabled: true,
+    resolveSessionIdentity: async () => ({ email: 'captain@example.com', sub: '1' }),
+    getAccessRowsForEmail: async () => ([
+      { url: 'https://docs.google.com/spreadsheets/d/zone-1/edit', role: 'captain' }
+    ]),
+    extractGoogleSheetId: () => 'zone-1',
+    collectAccessRoles: () => ['captain'],
+    sharedWritableSheetIds: []
+  });
+
+  let nextCalled = false;
+  const req = { get: () => '', body: { sheetId: 'zone-1' } };
+  await middleware(
+    req,
+    {
+      status() { throw new Error('should not fail'); },
+      json() { throw new Error('should not fail'); }
+    },
+    () => { nextCalled = true; }
+  );
+  assert.strictEqual(nextCalled, true);
+  assert.strictEqual(req.authUser.email, 'captain@example.com');
+});
+
 test('requireSheetsWriteAuth: can be disabled via enabled=false', async () => {
   const middleware = createRequireSheetsWriteAuth({
     enabled: false,

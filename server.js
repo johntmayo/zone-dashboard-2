@@ -691,19 +691,77 @@ function extractSpreadsheetId(value) {
 // Gate mutating /api/sheets/* routes: valid Google Bearer token + sheet access.
 // Emergency bypass: set SHEETS_WRITE_AUTH=0 in the environment.
 const {
-  createRequireSheetsWriteAuth
+  createRequireSheetsWriteAuth,
+  verifyGoogleAccessToken
 } = require('./sheets-write-auth');
+const { createSessionAuth } = require('./session-auth');
+
+const sessionAuth = createSessionAuth({
+  verifyGoogleAccessToken
+});
+
 const sheetsWriteAuthEnabled = String(process.env.SHEETS_WRITE_AUTH || '1').trim() !== '0';
 const requireSheetsWriteAuth = createRequireSheetsWriteAuth({
   enabled: sheetsWriteAuthEnabled,
   getAccessRowsForEmail,
   extractGoogleSheetId,
   collectAccessRoles,
-  sharedWritableSheetIds: [NC_DIRECTORY_SHEET_ID].filter(Boolean)
+  sharedWritableSheetIds: [NC_DIRECTORY_SHEET_ID].filter(Boolean),
+  resolveSessionIdentity(req, res) {
+    const session = sessionAuth.readSession(req);
+    if (!session) return null;
+    sessionAuth.maybeSlideSession(req, res, session);
+    return { email: session.email, sub: session.sub || '' };
+  }
 });
 if (!sheetsWriteAuthEnabled) {
   console.warn('SHEETS_WRITE_AUTH=0 — sheet write endpoints are unauthenticated (emergency bypass).');
 }
+
+// Durable app session (Phase C): exchange Google access token for httpOnly cookie.
+app.post('/api/auth/session', async (req, res) => {
+  try {
+    const session = await sessionAuth.createSessionFromGoogleToken(req, res);
+    return res.status(200).json({
+      ok: true,
+      email: session.email,
+      expiresAt: session.expiresAt
+    });
+  } catch (err) {
+    const code = err && err.code;
+    if (code === 'access_token_required') {
+      return res.status(400).json({ error: 'access_token_required', message: 'Google access token required.' });
+    }
+    if (code === 'invalid_token' || code === 'missing_token' || code === 'no_email') {
+      return res.status(401).json({ error: 'auth_invalid', message: 'Could not verify Google sign-in. Please try again.' });
+    }
+    console.error('Create session failed:', err.message);
+    return res.status(500).json({ error: 'session_create_failed', message: 'Could not create session.' });
+  }
+});
+
+app.get('/api/auth/me', (req, res) => {
+  const session = sessionAuth.readSession(req);
+  if (!session) {
+    return res.status(401).json({ error: 'auth_required', message: 'Not signed in.' });
+  }
+  const slid = sessionAuth.maybeSlideSession(req, res, session);
+  return res.status(200).json({
+    ok: true,
+    email: (slid && slid.email) || session.email,
+    expiresAt: (slid && slid.expiresAt) || session.exp
+  });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  sessionAuth.clearSession(res, req);
+  return res.status(200).json({ ok: true });
+});
+
+app.delete('/api/auth/session', (req, res) => {
+  sessionAuth.clearSession(res, req);
+  return res.status(200).json({ ok: true });
+});
 
 // Helper function to get sheet gid (grid ID) from sheet name for public sheets
 async function getSheetGid(sheetId, sheetName) {

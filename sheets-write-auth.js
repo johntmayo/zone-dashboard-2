@@ -134,30 +134,54 @@ function createRequireSheetsWriteAuth(deps) {
     extractGoogleSheetId,
     sharedWritableSheetIds = [],
     collectAccessRoles,
-    fetchImpl
+    fetchImpl,
+    // Optional Phase C hook: return { email, sub } from durable session cookie.
+    resolveSessionIdentity = null,
+    onSessionIdentity = null
   } = deps;
 
   return async function requireSheetsWriteAuth(req, res, next) {
     if (!enabled) return next();
 
+    let identity = null;
     const token = extractBearerToken(req);
-    if (!token) {
+
+    if (token) {
+      identity = tokenCache.get(token);
+      if (!identity) {
+        try {
+          identity = await verifyToken(token, { fetchImpl });
+          tokenCache.set(token, identity);
+        } catch (err) {
+          // Fall through to session cookie if Bearer is stale.
+          identity = null;
+        }
+      }
+    }
+
+    if (!identity && typeof resolveSessionIdentity === 'function') {
+      try {
+        identity = await resolveSessionIdentity(req, res);
+      } catch (err) {
+        console.error('Session identity resolve failed:', err.message);
+        identity = null;
+      }
+    }
+
+    if (!identity || !identity.email) {
       return res.status(401).json({
-        error: 'auth_required',
-        message: 'Sign in required to save changes.'
+        error: token ? 'auth_invalid' : 'auth_required',
+        message: token
+          ? 'Your session has expired. Please sign in again.'
+          : 'Sign in required to save changes.'
       });
     }
 
-    let identity = tokenCache.get(token);
-    if (!identity) {
+    if (typeof onSessionIdentity === 'function') {
       try {
-        identity = await verifyToken(token, { fetchImpl });
-        tokenCache.set(token, identity);
+        onSessionIdentity(req, res, identity);
       } catch (err) {
-        return res.status(401).json({
-          error: 'auth_invalid',
-          message: 'Your session has expired. Please sign in again.'
-        });
+        console.warn('onSessionIdentity hook failed:', err.message);
       }
     }
 

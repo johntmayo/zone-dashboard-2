@@ -30,6 +30,7 @@
   // Bridged from index.html (let/const there are not on window)
   var ctx = {
     accessToken: null,
+    isAuthenticated: false,
     currentUserEmail: null,
     currentZoneName: '',
     currentSheetId: null,
@@ -39,6 +40,7 @@
   function setContext(next) {
     if (!next || typeof next !== 'object') return;
     if (Object.prototype.hasOwnProperty.call(next, 'accessToken')) ctx.accessToken = next.accessToken || null;
+    if (Object.prototype.hasOwnProperty.call(next, 'isAuthenticated')) ctx.isAuthenticated = Boolean(next.isAuthenticated);
     if (Object.prototype.hasOwnProperty.call(next, 'currentUserEmail')) ctx.currentUserEmail = next.currentUserEmail || null;
     if (Object.prototype.hasOwnProperty.call(next, 'currentZoneName')) ctx.currentZoneName = next.currentZoneName || '';
     if (Object.prototype.hasOwnProperty.call(next, 'currentSheetId')) ctx.currentSheetId = next.currentSheetId || null;
@@ -342,11 +344,12 @@
   async function batchUpdateResidentFields(updatesByResidentId) {
     if (!updatesByResidentId.length) return;
     if (!ctx.currentSheetId) throw new Error('No sheet loaded');
-    if (!ctx.accessToken) throw new Error('Not signed in');
+    if (!ctx.isAuthenticated && !ctx.accessToken) throw new Error('Not signed in');
     var headers = { 'Content-Type': 'application/json' };
-    headers.Authorization = 'Bearer ' + ctx.accessToken;
+    if (ctx.accessToken) headers.Authorization = 'Bearer ' + ctx.accessToken;
     var res = await fetch('/api/sheets/batch-update-by-resident-id', {
       method: 'POST',
+      credentials: 'include',
       headers: headers,
       body: JSON.stringify({
         sheetId: ctx.currentSheetId,
@@ -724,7 +727,7 @@
     if (!mount) return;
     ensureDom();
 
-    if (!ctx.accessToken || !getCaptainId()) {
+    if ((!ctx.isAuthenticated && !ctx.accessToken) || !getCaptainId()) {
       mount.innerHTML = '<p class="cci-muted">Sign in to start Contact Check-In for your zone.</p>';
       return;
     }
@@ -892,7 +895,7 @@
   }
 
   function openWizard(skippedOnly) {
-    if (!ctx.accessToken) {
+    if (!ctx.isAuthenticated && !ctx.accessToken) {
       toast('Please sign in to use Contact Check-In.');
       return;
     }

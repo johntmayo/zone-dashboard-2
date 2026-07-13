@@ -1301,7 +1301,8 @@
     let sheetData = [];
     let selectedAddress = null; // Track currently selected address
     let savedScrollPosition = 0; // Track scroll position for refresh
-    let accessToken = null; // OAuth2 access token
+    let accessToken = null; // Ephemeral Google OAuth access token (optional Bearer for writes)
+    let isAuthenticated = false; // Canonical signed-in flag (durable server session)
     let currentUserEmail = null; // Signed-in Google account email (for NC Profile row match)
     let availableSheets = []; // Sheets returned by /api/user-sheets for zone selection
     let isCurrentUserAdmin = localStorage.getItem('godmodeAdmin') === 'true'; // UI convenience; server still enforces admin access.
@@ -1310,10 +1311,15 @@
     let oauthRefreshIntervalId = null;
     let preferSelectAccountOnce = false;
     let sessionExpiredNotice = false;
+    let authBootPromise = null;
     // Google OAuth token lifetime / refresh timing (used by early watchdog start).
     const OAUTH_EXPIRY_BUFFER_SEC = 120;
     const OAUTH_REFRESH_WHEN_REMAINING_MS = 5 * 60 * 1000;
     const OAUTH_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+
+    function isSignedIn() {
+      return Boolean(isAuthenticated);
+    }
 
     // Declared up here (not next to the nav helpers below) because updateNavigationState()
     // runs during initial synchronous load, before those later declarations are reached.
@@ -1781,34 +1787,26 @@
       }
     }
 
-    // Load OAuth token and user email from localStorage
+    // Prefetch saved Google token (short-lived helper for Bearer writes). Durable
+    // sign-in is restored asynchronously via /api/auth/me in bootAuthAndRestore().
     const savedToken = localStorage.getItem('googleOAuthToken');
     const savedTokenExpiry = localStorage.getItem('googleOAuthTokenExpiry');
     if (savedToken && savedTokenExpiry && Date.now() < parseInt(savedTokenExpiry)) {
       accessToken = savedToken;
       currentUserEmail = (localStorage.getItem('ncProfileUserEmail') || '').trim().toLowerCase() || null;
-      startOAuthRefreshWatchdog();
-      updateSignInUI();
+    } else {
+      localStorage.removeItem('googleOAuthToken');
+      localStorage.removeItem('googleOAuthTokenExpiry');
+      if (!currentUserEmail) {
+        currentUserEmail = (localStorage.getItem('ncProfileUserEmail') || '').trim().toLowerCase() || null;
+      }
     }
 
-    // Load saved sheet URL from localStorage
+    // Load saved sheet URL from localStorage (zone memory). Sheet load waits for auth boot.
     const savedSheetUrl = localStorage.getItem('savedSheetUrl');
     if (savedSheetUrl) {
       if (input) input.value = savedSheetUrl;
       currentSheetUrl = savedSheetUrl;
-      // Auto-load the sheet if user is signed in
-      if (accessToken) {
-        setTimeout(() => {
-          if (currentSheetUrl) {
-            window.trackAnalyticsEvent('sheet_loaded');
-            loadAddressData(currentSheetUrl);
-          }
-        }, 100);
-      }
-    } else if (accessToken && currentUserEmail) {
-      // Signed in with no saved sheet: resolve sheet access from server.
-      welcomeAuthState = 'loading';
-      resolveAuthorizedSheetsForCurrentUser();
     }
 
     // Initialize sheet link label, welcome message, header title, and navigation state
@@ -1979,7 +1977,7 @@
     }
 
     async function openAdminZoneSwitcher() {
-      if (!accessToken || !currentUserEmail) {
+      if (!isSignedIn() || !currentUserEmail) {
         welcomeAuthState = 'server_error';
         welcomeAuthMessage = 'Sign in with an admin account before switching zones.';
         switchView('home');
@@ -2068,15 +2066,61 @@
     }
 
     function handleSessionExpired(options = {}) {
-      const { switchToHome = true } = options;
+      const { switchToHome = true, clearServerSession = true } = options;
       accessToken = null;
+      isAuthenticated = false;
       sessionExpiredNotice = true;
       stopOAuthRefreshWatchdog();
       localStorage.removeItem('googleOAuthToken');
       localStorage.removeItem('googleOAuthTokenExpiry');
+      if (clearServerSession) {
+        fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+      }
       updateSignInUI();
       if (switchToHome) {
         switchView('home');
+      }
+    }
+
+    async function createServerSessionFromAccessToken(token) {
+      const access = String(token || accessToken || '').trim();
+      if (!access) {
+        throw new Error('access_token_required');
+      }
+      const res = await fetch('/api/auth/session', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken: access })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || err.error || 'session_create_failed');
+      }
+      const data = await res.json();
+      isAuthenticated = true;
+      sessionExpiredNotice = false;
+      if (data.email) {
+        currentUserEmail = String(data.email).trim().toLowerCase();
+        localStorage.setItem('ncProfileUserEmail', currentUserEmail);
+      }
+      return data;
+    }
+
+    async function restoreServerSession() {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!res.ok) return false;
+        const data = await res.json();
+        if (!data || !data.email) return false;
+        isAuthenticated = true;
+        sessionExpiredNotice = false;
+        currentUserEmail = String(data.email).trim().toLowerCase();
+        localStorage.setItem('ncProfileUserEmail', currentUserEmail);
+        return true;
+      } catch (error) {
+        console.warn('Could not restore server session:', error);
+        return false;
       }
     }
 
@@ -2109,6 +2153,17 @@
         welcomeAuthMessage = 'Could not verify your Google account email. Please try signing in again.';
         updateSignInUI();
         throw new Error('Could not verify email');
+      }
+
+      try {
+        await createServerSessionFromAccessToken(accessToken);
+      } catch (sessionError) {
+        console.error('Could not create durable server session:', sessionError);
+        welcomeAuthState = 'server_error';
+        welcomeAuthMessage = 'Signed in with Google, but we could not start your dashboard session. Please try again.';
+        isAuthenticated = false;
+        updateSignInUI();
+        throw new Error('Could not create session');
       }
 
       window.trackAnalyticsEvent('sign_in_completed');
@@ -2273,7 +2328,7 @@
         });
       } catch (error) {
         console.error('Sign in error:', error);
-        if (error.message !== 'Could not verify email') {
+        if (error.message !== 'Could not verify email' && error.message !== 'Could not create session') {
           alert('Sign in failed. Please try again.');
         }
       }
@@ -2292,6 +2347,8 @@
       }
       stopOAuthRefreshWatchdog();
       accessToken = null;
+      isAuthenticated = false;
+      sessionExpiredNotice = false;
       currentUserEmail = null;
       currentSheetUrl = '';
       availableSheets = [];
@@ -2318,6 +2375,7 @@
         localStorage.removeItem('savedSheetUrl');
         localStorage.removeItem('currentView');
       }
+      fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
       if (input) input.value = '';
       sheetData = [];
       currentSheetId = null;
@@ -2501,20 +2559,21 @@
       if (wizardEl) wizardEl.classList.add('hidden');
       if (formEl) formEl.classList.add('hidden');
 
-      if (!accessToken) {
+      if (!isSignedIn()) {
         if (signinEl) signinEl.classList.remove('hidden');
         return;
       }
-      try {
-        await ensureValidGoogleAccessToken();
-      } catch (e) {
-        accessToken = null;
-        localStorage.removeItem('googleOAuthToken');
-        localStorage.removeItem('googleOAuthTokenExpiry');
-        if (signinEl) signinEl.classList.remove('hidden');
-        return;
+      if (accessToken) {
+        try {
+          await ensureValidGoogleAccessToken();
+        } catch (e) {
+          accessToken = null;
+          localStorage.removeItem('googleOAuthToken');
+          localStorage.removeItem('googleOAuthTokenExpiry');
+          // Durable session can still load profile using currentUserEmail.
+        }
       }
-      if (!currentUserEmail) {
+      if (!currentUserEmail && accessToken) {
         try {
           const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { 'Authorization': 'Bearer ' + accessToken } });
           if (userRes.ok) {
@@ -2635,7 +2694,7 @@
     }
 
     async function saveNcProfile() {
-      if (!accessToken || ncProfileRowIndex == null || !ncProfileRowData) return;
+      if (!isSignedIn() || ncProfileRowIndex == null || !ncProfileRowData) return;
       const row = {};
       row['Name'] = (document.getElementById('ncName').value || '').trim();
       row['Zone'] = (document.getElementById('ncZone').value || '').trim();
@@ -2825,7 +2884,7 @@
       const nudge = document.getElementById('onboardingTourNudge');
       if (!nudge) return;
 
-      if (!accessToken || !currentSheetUrl || hasSeenOnboardingTour()) {
+      if (!isSignedIn() || !currentSheetUrl || hasSeenOnboardingTour()) {
         nudge.classList.add('hidden');
         return;
       }
@@ -2956,7 +3015,7 @@
         }
       }
       
-      if (accessToken) {
+      if (isSignedIn()) {
         signinPrompt.classList.add('hidden');
         if (homeSigninPrompt) homeSigninPrompt.classList.add('hidden');
         if (signOutBtn) signOutBtn.classList.remove('hidden');
@@ -3010,20 +3069,20 @@
       if (!welcomeOverlay) return;
 
       // Restore a remembered zone URL if memory was cleared but localStorage still has it.
-      if (accessToken && !currentSheetUrl) {
+      if (isSignedIn() && !currentSheetUrl) {
         const rememberedSheetUrl = localStorage.getItem('savedSheetUrl') || '';
         if (rememberedSheetUrl) currentSheetUrl = rememberedSheetUrl;
       }
 
       // Clear a stale "loading" flag once a zone is already linked — otherwise the
       // welcome overlay can trap signed-in users and block mobile tab switching.
-      if (accessToken && currentSheetUrl && welcomeAuthState === 'loading') {
+      if (isSignedIn() && currentSheetUrl && welcomeAuthState === 'loading') {
         welcomeAuthState = 'idle';
       }
       
       // Canonical signed-out login, or an explicit signed-in auth/onboarding state.
       // Do NOT trap signed-in users who already have a zone behind the Home welcome screen.
-      const signedOut = !accessToken;
+      const signedOut = !isSignedIn();
       const hasZone = Boolean(currentSheetUrl);
       const authBlockingState = welcomeAuthState === 'zone_picker'
         || welcomeAuthState === 'not_registered'
@@ -3054,7 +3113,7 @@
         }
         
         // Update step visibility based on sign-in state
-        if (accessToken) {
+        if (isSignedIn()) {
           // User is signed in - keep step 1 complete, then branch into auth-driven step 2 states.
           if (welcomeStep1) {
             const btnContainer = welcomeSignInBtn?.parentElement;
@@ -3317,7 +3376,7 @@
 
     function canOpenView(viewName) {
       // Signed-out users stay on the canonical Home login screen — no tab hopping.
-      if (!accessToken) return viewName === 'home';
+      if (!isSignedIn()) return viewName === 'home';
       if (currentSheetUrl || localStorage.getItem('savedSheetUrl')) {
         if (viewName === 'godmode') return isCurrentUserAdmin;
         if (viewName === 'lotWeedingAdmin') return canAccessLotWeedingAdminView();
@@ -3360,7 +3419,7 @@
       };
 
       // Signed out: lock navigation entirely (canonical welcome login only).
-      if (!accessToken) {
+      if (!isSignedIn()) {
         if (leftNav) leftNav.classList.add('disabled');
         navItems.forEach(applyNavItemState);
         mobileNavTabs.forEach(applyNavItemState);
@@ -4109,7 +4168,7 @@
     }
 
     async function loadGodmodeData(force = false) {
-      if (!accessToken || !currentUserEmail) {
+      if (!isSignedIn() || !currentUserEmail) {
         godmodeState.error = 'Sign in with an admin account to open Admin Mode.';
         godmodeState.loaded = false;
         renderGodmodeView();
@@ -5672,7 +5731,7 @@
     }
 
     async function loadLotWeedingAdminData(force = false) {
-      if (!accessToken || !currentUserEmail) {
+      if (!isSignedIn() || !currentUserEmail) {
         lotWeedingAdminState.error = 'Sign in with a Lot Weeding Command Center account to open this view.';
         lotWeedingAdminState.loaded = false;
         renderLotWeedingAdminView();
@@ -5764,7 +5823,7 @@
       if (lotWeedingAdminState.error) {
         // If the session has expired (no token), a plain reload can't recover — offer a
         // real sign-in instead so the user is never dead-ended in this view.
-        const needsSignIn = !accessToken || !currentUserEmail;
+        const needsSignIn = !isSignedIn() || !currentUserEmail;
         content.innerHTML = `
           <div class="lot-weeding-admin-empty">
             <h3>${needsSignIn ? 'Please sign in to continue' : 'Could not load requests'}</h3>
@@ -5773,7 +5832,7 @@
           </div>
         `;
         document.getElementById('lotWeedingAdminRetryBtn')?.addEventListener('click', () => {
-          if (!accessToken || !currentUserEmail) {
+          if (!isSignedIn() || !currentUserEmail) {
             signIn();
           } else {
             loadLotWeedingAdminData(true);
@@ -7966,7 +8025,7 @@
         freshness.textContent = godmodeState.loaded ? `Fetched ${fetched}` : 'Not loaded yet';
       }
 
-      if (!accessToken || !currentUserEmail) {
+      if (!isSignedIn() || !currentUserEmail) {
         content.innerHTML = `
           <div class="godmode-state-card">
             <h3>Admin sign-in required</h3>
@@ -8147,35 +8206,36 @@
       return headers;
     }
 
-    // Mutating sheet calls must send the Google access token so the server can
-    // verify identity + zone access (Phase B / roadmap 0.2).
+    // Mutating sheet calls must send credentials (session cookie) and optionally
+    // a Google Bearer token so the server can authorize writes.
     async function fetchSheetWrite(url, options = {}) {
-      if (!accessToken) {
+      if (!isSignedIn()) {
         throw new Error('Not signed in. Please sign in to save changes.');
       }
 
-      try {
-        await ensureValidGoogleAccessToken();
-      } catch (e) {
-        if (e && e.message === 'canceled') {
-          throw new Error('Not signed in. Please sign in to save changes.');
+      if (accessToken) {
+        try {
+          await ensureValidGoogleAccessToken();
+        } catch (e) {
+          if (e && e.message === 'canceled') {
+            // Continue with session cookie only.
+          } else {
+            const storedExpiry = localStorage.getItem('googleOAuthTokenExpiry');
+            const exp = storedExpiry ? parseInt(storedExpiry, 10) : 0;
+            if (!(exp && Date.now() < exp && accessToken)) {
+              accessToken = null;
+              localStorage.removeItem('googleOAuthToken');
+              localStorage.removeItem('googleOAuthTokenExpiry');
+            } else {
+              console.warn('Token refresh failed before write; continuing with current session.', e);
+            }
+          }
         }
-        const storedExpiry = localStorage.getItem('googleOAuthTokenExpiry');
-        const exp = storedExpiry ? parseInt(storedExpiry, 10) : 0;
-        if (!(exp && Date.now() < exp && accessToken)) {
-          handleSessionExpired();
-          throw new Error('Your session has expired. Please sign in again.');
-        }
-        console.warn('Token refresh failed before write; continuing with current session.', e);
-      }
-
-      if (!accessToken) {
-        handleSessionExpired();
-        throw new Error('Your session has expired. Please sign in again.');
       }
 
       const response = await fetch(url, Object.assign({}, options, {
         method: options.method || 'POST',
+        credentials: 'include',
         headers: getGoogleAuthHeaders(options.headers)
       }));
 
@@ -8190,31 +8250,28 @@
 
     // Fetch data via backend proxy (service account)
     async function fetchViaOAuth(sheetId, range = 'A1:ZZ1000', sheetName = null) {
-      if (!accessToken) {
+      if (!isSignedIn()) {
         throw new Error('Not signed in. Please sign in to view data.');
       }
-      try {
-        await ensureValidGoogleAccessToken();
-      } catch (e) {
-        if (e && e.message === 'canceled') {
-          throw new Error('Not signed in. Please sign in to view data.');
+      if (accessToken) {
+        try {
+          await ensureValidGoogleAccessToken();
+        } catch (e) {
+          const storedExpiry = localStorage.getItem('googleOAuthTokenExpiry');
+          const exp = storedExpiry ? parseInt(storedExpiry, 10) : 0;
+          if (exp && Date.now() < exp && accessToken) {
+            console.warn('Token refresh failed, but Google token is still valid. Continuing.', e);
+          } else {
+            accessToken = null;
+            localStorage.removeItem('googleOAuthToken');
+            localStorage.removeItem('googleOAuthTokenExpiry');
+            // Durable server session can still authorize the app; continue reads.
+          }
         }
-        const storedExpiry = localStorage.getItem('googleOAuthTokenExpiry');
-        const exp = storedExpiry ? parseInt(storedExpiry, 10) : 0;
-        if (exp && Date.now() < exp && accessToken) {
-          // Token is still within its lifetime — continue rather than signing the user out.
-          console.warn('Token refresh failed, but session is still valid. Continuing.', e);
-        } else {
-          handleSessionExpired();
-          throw new Error('Your session has expired. Please sign in again.');
-        }
-      }
-      if (!accessToken) {
-        handleSessionExpired();
-        throw new Error('Your session has expired. Please sign in again.');
       }
       const response = await fetch('/api/sheets/values', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sheetId, range, sheetName: sheetName || undefined })
       });
@@ -8232,7 +8289,7 @@
 
     // Fetch Zone Notes sheet (Zone Notes and KML URL)
     async function fetchMetadata(sheetId) {
-      if (!accessToken) {
+      if (!isSignedIn()) {
         return null;
       }
       
@@ -8334,8 +8391,8 @@
 
       addressPanelContent.innerHTML = '<div class="loading">Loading addresses...</div>';
 
-      // Require OAuth sign-in to read data
-      if (!accessToken) {
+      // Require sign-in to read data (durable server session)
+      if (!isSignedIn()) {
         addressPanelContent.innerHTML = '<div class="error">Please sign in with Google to view data.</div>';
         // Show sign-in prompt
         if (signinPrompt) signinPrompt.classList.remove('hidden');
@@ -10432,7 +10489,7 @@
 
     // Append rows to the main data sheet via Google Sheets API
     async function appendRowsToSheet(rows) {
-      if (!currentSheetId || !accessToken || !rows || rows.length === 0) {
+      if (!currentSheetId || !isSignedIn() || !rows || rows.length === 0) {
         throw new Error('Not signed in or no sheet loaded.');
       }
       // Append one physical row at a time and inherit validation/checkbox/dropdown rules.
@@ -10758,7 +10815,7 @@
         alert('Please load your zone data first.');
         return;
       }
-      if (!accessToken || !currentSheetId) {
+      if (!isSignedIn() || !currentSheetId) {
         alert('Please sign in with Google to add records.');
         return;
       }
@@ -13277,7 +13334,7 @@
       if (!sheetData || !sheetData.addressMap || !sheetData.addressMap.has(address)) return;
       const rows = sheetData.addressMap.get(address) || [];
       const headers = sheetData.headers || [];
-      const canEdit = Boolean(accessToken && currentSheetId);
+      const canEdit = Boolean(isSignedIn() && currentSheetId);
       const apnCol = headers.find(h => h.toLowerCase() === 'apn');
       const apnValue = apnCol && rows[0] ? String(rows[0][apnCol] || '').trim() : '';
       const apnDigits = normalizeApnDigits(apnValue);
@@ -13996,7 +14053,7 @@
         const isSoldSinceFireAddress = soldSinceFireCol ? isTruthySheetCheckbox(soldSinceFireVal) : false;
         const salesHistoryValue = salesHistoryCol && rows[0] ? String(rows[0][salesHistoryCol] || '').trim() : '';
         if (isSoldSinceFireAddress && salesHistoryCol) {
-          if (accessToken) {
+          if (isSignedIn()) {
             html += `<div class="details-field">
               <label class="details-field__label">Sales history</label>
               <textarea class="editable-notes"
@@ -14083,7 +14140,7 @@
         `;
 
         // Per-person outreach logging
-        if (accessToken) {
+        if (isSignedIn()) {
           const outreachLogValue = outreachLogCol ? (row[outreachLogCol] || '') : '';
           const hasOutreachLog = String(outreachLogValue).trim().length > 0;
           const outreachNotesId = `${outreachComposerId}-notes`;
@@ -14429,7 +14486,7 @@
           deferredNotesCols.forEach(col => {
             const value = row[col] || '';
             const displayLabel = formatColumnLabel(col);
-            if (accessToken) {
+            if (isSignedIn()) {
               html += `<div class="details-field">
                 <label class="details-field__label">${escapeHtml(displayLabel)}</label>
                 <textarea class="editable-notes"
@@ -14453,7 +14510,7 @@
       });
 
       // Add save button if signed in and there are editable fields
-      if (accessToken) {
+      if (isSignedIn()) {
         html += `
           <div class="details-footer-save">
             <button class="btn-save" id="saveChangesBtn">Save Changes</button>
@@ -14831,7 +14888,7 @@
           statusEl.textContent = 'No lat/lon columns found in this spreadsheet.';
           return;
         }
-        if (!accessToken) {
+        if (!isSignedIn()) {
           statusEl.textContent = 'Sign in to save changes.';
           return;
         }
@@ -14982,7 +15039,7 @@
           normalized.includes('postal');
         return isHouseField || isZipField;
       };
-      const canEdit = Boolean(accessToken && currentSheetId);
+      const canEdit = Boolean(isSignedIn() && currentSheetId);
       const disabledAttr = canEdit ? '' : ' disabled';
       const rowPosition = rows.indexOf(row);
       const displayName = getPersonDisplayName(row, rowPosition === -1 ? 0 : rowPosition, nameCol);
@@ -15273,7 +15330,7 @@
 
     async function savePersonDetailsModal(overlay) {
       if (!overlay) return;
-      if (!accessToken || !currentSheetId) {
+      if (!isSignedIn() || !currentSheetId) {
         alert('Please sign in to save changes.');
         return;
       }
@@ -15398,7 +15455,7 @@
     // Navigation System - Single Page Navigation
     function switchView(viewName) {
       // Signed-out users always stay on the canonical Home login screen.
-      if (!accessToken) {
+      if (!isSignedIn()) {
         viewName = 'home';
       }
       // Prevent switching to non-home views if no spreadsheet is linked
@@ -15625,21 +15682,73 @@
       });
     });
     
-    // Initialize with saved view or home view (default landing page)
+    // Initialize with saved view or home view after durable session restore.
     const savedView = localStorage.getItem('currentView');
     // Allow restoring any view if we have a saved sheet URL, or if it's home view
-    // Note: savedSheetUrl is already loaded above (line 2177), so we can check it directly
     const canRestoreSavedZoneView = savedSheetUrl && !isCurrentUserAdmin;
-    // A signed-out user (no valid token) must always land on the canonical Home
-    // login page — never on a remembered tab that could show an inconsistent or
-    // dead-ended signed-out state. Tab memory still works for signed-in reloads.
-    if (accessToken && savedView && (canOpenViewWithoutSheet(savedView) || canRestoreSavedZoneView)) {
-      currentView = savedView;
-      switchView(savedView);
-    } else {
+
+    async function bootAuthAndRestore() {
+      welcomeAuthState = 'loading';
+      updateWelcomeMessage();
+
+      let restored = await restoreServerSession();
+      if (!restored && accessToken) {
+        try {
+          await createServerSessionFromAccessToken(accessToken);
+          restored = true;
+        } catch (error) {
+          console.warn('Could not exchange Google token for durable session:', error);
+        }
+      }
+
+      if (restored) {
+        isAuthenticated = true;
+        if (accessToken) startOAuthRefreshWatchdog();
+        updateSignInUI();
+
+        if (savedSheetUrl) {
+          currentSheetUrl = savedSheetUrl;
+          if (input) input.value = savedSheetUrl;
+          setTimeout(() => {
+            if (currentSheetUrl && isSignedIn()) {
+              window.trackAnalyticsEvent('sheet_loaded');
+              loadAddressData(currentSheetUrl);
+            }
+          }, 100);
+        } else if (currentUserEmail) {
+          welcomeAuthState = 'loading';
+          await resolveAuthorizedSheetsForCurrentUser();
+        } else {
+          welcomeAuthState = 'idle';
+        }
+
+        if (savedView && (canOpenViewWithoutSheet(savedView) || (savedSheetUrl && !isCurrentUserAdmin))) {
+          currentView = savedView;
+          switchView(savedView);
+        } else {
+          currentView = 'home';
+          switchView('home');
+        }
+        updateSignInUI();
+        return;
+      }
+
+      // No durable session — land on Home login.
+      isAuthenticated = false;
+      welcomeAuthState = 'idle';
       currentView = 'home';
       switchView('home');
+      updateSignInUI();
     }
+
+    authBootPromise = bootAuthAndRestore().catch((error) => {
+      console.error('Auth boot failed:', error);
+      isAuthenticated = false;
+      welcomeAuthState = 'idle';
+      currentView = 'home';
+      switchView('home');
+      updateSignInUI();
+    });
     
     // Set up Open Map button
 
@@ -15673,32 +15782,27 @@
     }
 
     async function saveChanges(isAutoSave = false) {
-      if (!accessToken || !currentSheetId) {
+      if (!isSignedIn() || !currentSheetId) {
         if (!isAutoSave) {
           alert('Please sign in to save changes.');
         }
         return;
       }
 
-      try {
-        await ensureValidGoogleAccessToken();
-      } catch (e) {
-        if (e && e.message === 'canceled') {
-          if (!isAutoSave) alert('Please sign in to save changes.');
-          return;
-        }
-        const storedExpiry = localStorage.getItem('googleOAuthTokenExpiry');
-        const exp = storedExpiry ? parseInt(storedExpiry, 10) : 0;
-        if (!(exp && Date.now() < exp && accessToken)) {
-          handleSessionExpired();
-          if (!isAutoSave) {
-            alert('Your session has expired. Please sign in again.');
+      if (accessToken) {
+        try {
+          await ensureValidGoogleAccessToken();
+        } catch (e) {
+          const storedExpiry = localStorage.getItem('googleOAuthTokenExpiry');
+          const exp = storedExpiry ? parseInt(storedExpiry, 10) : 0;
+          if (!(exp && Date.now() < exp && accessToken)) {
+            accessToken = null;
+            localStorage.removeItem('googleOAuthToken');
+            localStorage.removeItem('googleOAuthTokenExpiry');
           } else {
-            console.warn('Auto-save skipped: session expired.');
+            console.warn('Token refresh failed before save; continuing with server session.', e);
           }
-          return;
         }
-        console.warn('Token refresh failed before save; continuing with current session.', e);
       }
 
       const saveBtn = document.getElementById('saveChangesBtn');
@@ -19796,7 +19900,7 @@
 
     // Log outreach attempt function
     window.markContact = async function(button, address, originalRowIndex, contactColumn) {
-      if (!accessToken) {
+      if (!isSignedIn()) {
         alert('Please sign in to log outreach attempts.');
         return;
       }
@@ -20580,6 +20684,7 @@
         if (!enabled || typeof refreshContactCheckIn !== 'function') return;
         return refreshContactCheckIn({
           accessToken: accessToken,
+          isAuthenticated: isSignedIn(),
           currentUserEmail: currentUserEmail,
           currentZoneName: currentZoneName,
           currentSheetId: currentSheetId,
@@ -21866,7 +21971,7 @@
         return;
       }
 
-      if (!accessToken || !currentSheetId) {
+      if (!isSignedIn() || !currentSheetId) {
         if (errEl) {
           errEl.textContent = 'Please sign in with Google to use Batch Tagging.';
           errEl.classList.remove('hidden');
@@ -25396,7 +25501,7 @@
       window.syncMobileNav = syncMobileNav;
 
       function tryMobileSwitchView(view) {
-        if (!accessToken) {
+        if (!isSignedIn()) {
           switchView('home');
           syncMobileNav('home');
           return false;
