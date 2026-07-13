@@ -3611,23 +3611,22 @@
     .godmode-hero {
       display: flex;
       justify-content: space-between;
-      gap: 24px;
-      align-items: flex-start;
-      margin-bottom: 24px;
-      padding: 28px;
-      background:
-        linear-gradient(135deg, rgba(49, 64, 89, 0.96), rgba(40, 54, 24, 0.94)),
-        var(--brand-primary-dark);
-      color: #FDFBF7;
-      border: var(--border-thickness) solid var(--text-primary);
-      box-shadow: var(--shadow-base);
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 16px;
+      padding: 16px 18px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: var(--border-thickness) solid var(--border-color);
+      box-shadow: 4px 4px 0 #D9DBDB;
     }
 
     .godmode-hero h2 {
       margin: 0;
-      font-size: clamp(2rem, 4vw, 4rem);
-      letter-spacing: -0.05em;
-      line-height: 0.95;
+      color: var(--brand-primary-dark);
+      font-size: clamp(1.45rem, 2.6vw, 2.2rem);
+      letter-spacing: -0.03em;
+      line-height: 1;
     }
 
     .godmode-kicker {
@@ -3642,17 +3641,17 @@
 
     .godmode-subtitle {
       max-width: 680px;
-      margin: 12px 0 0;
-      color: rgba(253, 251, 247, 0.82);
+      margin: 6px 0 0;
+      color: var(--text-secondary);
       line-height: 1.5;
     }
 
     .godmode-freshness {
       flex-shrink: 0;
       padding: 10px 12px;
-      background: rgba(253, 251, 247, 0.12);
-      border: 1px solid rgba(253, 251, 247, 0.35);
-      color: #FDFBF7;
+      background: #FFFDF5;
+      border: 1px solid rgba(31, 41, 55, 0.18);
+      color: var(--text-secondary);
       font-size: 0.78rem;
       font-weight: 700;
       text-align: right;
@@ -3718,6 +3717,120 @@
       color: var(--text-secondary);
       font-size: 0.78rem;
       line-height: 1.35;
+    }
+
+    .godmode-usage-card {
+      margin-bottom: 20px;
+      background: var(--bg-card);
+      border: var(--border-thickness) solid var(--border-color);
+      box-shadow: 4px 4px 0 #D9DBDB;
+      overflow: hidden;
+    }
+
+    .godmode-usage-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px;
+      background:
+        linear-gradient(135deg, rgba(96, 108, 56, 0.12), rgba(245, 158, 11, 0.12)),
+        #FFFDF5;
+      border-bottom: 2px solid rgba(31, 41, 55, 0.16);
+    }
+
+    .godmode-usage-heading h3 {
+      margin: 0;
+      color: var(--brand-primary-dark);
+      font-size: 1.2rem;
+      letter-spacing: -0.02em;
+    }
+
+    .godmode-usage-heading p:last-child {
+      margin: 6px 0 0;
+      color: var(--text-secondary);
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+
+    .godmode-usage-heading code {
+      padding: 1px 4px;
+      background: rgba(31, 41, 55, 0.08);
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 0.78rem;
+    }
+
+    .godmode-usage-heading > span {
+      flex-shrink: 0;
+      padding: 7px 9px;
+      background: var(--bg-card);
+      border: 1px solid rgba(31, 41, 55, 0.18);
+      color: var(--text-secondary);
+      font-size: 0.76rem;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .godmode-usage-stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      background: rgba(31, 41, 55, 0.14);
+      border-bottom: 1px solid rgba(31, 41, 55, 0.14);
+    }
+
+    .godmode-usage-stats div {
+      padding: 16px 18px;
+      background: var(--bg-card);
+    }
+
+    .godmode-usage-stats strong {
+      display: block;
+      color: var(--brand-primary-dark);
+      font-size: 1.4rem;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .godmode-usage-stats span,
+    .godmode-usage-row span {
+      display: block;
+      margin-top: 5px;
+      color: var(--text-secondary);
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .godmode-usage-list {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .godmode-usage-row {
+      display: grid;
+      grid-template-columns: minmax(220px, 1.5fr) minmax(160px, 1fr) minmax(150px, 0.9fr) minmax(80px, 0.4fr);
+      gap: 14px;
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(31, 41, 55, 0.12);
+    }
+
+    .godmode-usage-row:last-child {
+      border-bottom: 0;
+    }
+
+    .godmode-usage-row strong {
+      color: var(--text-primary);
+      overflow-wrap: anywhere;
+    }
+
+    .godmode-usage-error {
+      padding: 18px;
+      color: var(--accent-clay);
+      font-weight: 900;
     }
 
     .godmode-lot-weeding-planner {
@@ -6456,6 +6569,7 @@
       grid-template-columns: minmax(360px, 0.9fr) minmax(420px, 1.1fr);
       gap: 20px;
       align-items: start;
+      margin-bottom: 20px;
     }
 
     .godmode-breakdown-grid {
@@ -6608,6 +6722,10 @@
     .godmode-profile-badges {
       margin-top: 14px;
       margin-bottom: 0;
+    }
+
+    .godmode-result-card .godmode-result-badges {
+      margin: 10px 0 0;
     }
 
     .godmode-pill {
@@ -6851,6 +6969,18 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
+      .godmode-usage-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .godmode-usage-row {
+        grid-template-columns: minmax(220px, 1.4fr) minmax(150px, 1fr) minmax(120px, 0.8fr);
+      }
+
+      .godmode-usage-row > div:last-child {
+        grid-column: 1 / -1;
+      }
+
       .godmode-lot-weeding-stats,
       .godmode-lot-weeding-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6882,6 +7012,23 @@
 
       .godmode-summary-grid {
         grid-template-columns: 1fr;
+      }
+
+      .godmode-usage-heading {
+        flex-direction: column;
+      }
+
+      .godmode-usage-heading > span {
+        width: 100%;
+      }
+
+      .godmode-usage-stats,
+      .godmode-usage-row {
+        grid-template-columns: 1fr;
+      }
+
+      .godmode-usage-row > div:last-child {
+        grid-column: auto;
       }
 
       .godmode-lot-weeding-header {

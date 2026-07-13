@@ -503,7 +503,7 @@
           <div>
             <p class="godmode-kicker">Admin viewer</p>
             <h2>Admin Mode</h2>
-            <p class="godmode-subtitle">Read-only townwide search, profiles, and zone analysis from the master spreadsheet.</p>
+            <p class="godmode-subtitle">Townwide search and admin reference.</p>
           </div>
           <div class="godmode-freshness" id="godmodeFreshness">Not loaded yet</div>
         </section>
@@ -1331,6 +1331,14 @@
       range: '',
       query: '',
       selectedIndex: null,
+      userActivity: {
+        loading: false,
+        error: '',
+        rows: [],
+        summary: null,
+        lastFetchedAt: ''
+      },
+      searchTextCache: [],
       zoneSort: { key: 'zone', direction: 'asc' },
       captainSort: { key: 'captain', direction: 'asc' }
     };
@@ -3987,11 +3995,52 @@
       return Number(value || 0).toLocaleString();
     }
 
+    function formatGodmodeActivityTime(value) {
+      if (!value) return 'Never seen';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return date.toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    }
+
     function getGodmodeFilteredRows() {
       const query = godmodeState.query.trim().toLowerCase();
       return godmodeState.rows
         .map((row, index) => ({ row, index }))
-        .filter(({ row }) => !query || buildGodmodeSearchText(row).includes(query));
+        .filter(({ row, index }) => {
+          if (!query) return true;
+          if (!godmodeState.searchTextCache[index]) {
+            godmodeState.searchTextCache[index] = buildGodmodeSearchText(row);
+          }
+          return godmodeState.searchTextCache[index].includes(query);
+        });
+    }
+
+    async function loadGodmodeUserActivity() {
+      if (!currentUserEmail) return;
+      godmodeState.userActivity.loading = true;
+      godmodeState.userActivity.error = '';
+      try {
+        const res = await fetch(`/api/admin/user-activity?email=${encodeURIComponent(currentUserEmail)}`);
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(payload.message || payload.error || 'Could not load dashboard use.');
+        }
+        godmodeState.userActivity.rows = Array.isArray(payload.rows) ? payload.rows : [];
+        godmodeState.userActivity.summary = payload.summary || null;
+        godmodeState.userActivity.lastFetchedAt = payload.lastFetchedAt || '';
+      } catch (error) {
+        console.error('Godmode user activity load error:', error);
+        godmodeState.userActivity.error = error.message || 'Could not load dashboard use.';
+        godmodeState.userActivity.rows = [];
+        godmodeState.userActivity.summary = null;
+      } finally {
+        godmodeState.userActivity.loading = false;
+      }
     }
 
     async function loadGodmodeData(force = false) {
@@ -4013,7 +4062,7 @@
       try {
         const [res] = await Promise.all([
           fetch(`/api/admin/godmode-master?email=${encodeURIComponent(currentUserEmail)}`),
-          loadCentralLotWeedingData()
+          loadGodmodeUserActivity()
         ]);
         const payload = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -4031,6 +4080,7 @@
 
         godmodeState.headers = Array.isArray(payload.headers) ? payload.headers : [];
         godmodeState.rows = Array.isArray(payload.rows) ? payload.rows : [];
+        godmodeState.searchTextCache = godmodeState.rows.map((row) => buildGodmodeSearchText(row));
         godmodeState.lastFetchedAt = payload.lastFetchedAt || '';
         godmodeState.range = payload.range || '';
         godmodeState.loaded = true;
@@ -7264,6 +7314,86 @@
       `;
     }
 
+    function renderGodmodeUserActivity() {
+      const activity = godmodeState.userActivity || {};
+      const rows = Array.isArray(activity.rows) ? activity.rows : [];
+      const activeRows = rows.filter((row) => row.active !== false);
+      const recentRows = activeRows.slice(0, 8);
+      const summary = activity.summary || {};
+      const activeUsers = summary.active_users ?? activeRows.length;
+      const seenUsers = summary.seen_users ?? activeRows.filter((row) => row.last_seen_at).length;
+      const totalLogins = summary.total_logins ?? activeRows.reduce((sum, row) => sum + (Number(row.login_count) || 0), 0);
+      const mostRecent = summary.last_seen_at || recentRows.find((row) => row.last_seen_at)?.last_seen_at || '';
+
+      if (activity.loading) {
+        return `
+          <section class="godmode-usage-card">
+            <div class="godmode-usage-heading">
+              <div>
+                <p class="godmode-kicker">Dashboard Use</p>
+                <h3>Loading user activity...</h3>
+              </div>
+            </div>
+          </section>
+        `;
+      }
+
+      return `
+        <section class="godmode-usage-card">
+          <div class="godmode-usage-heading">
+            <div>
+              <p class="godmode-kicker">Dashboard Use</p>
+              <h3>Recent admin-visible logins</h3>
+              <p>Uses <code>last_seen_at</code> and <code>login_count</code> from the User Access Sheet.</p>
+            </div>
+            <span>${activity.lastFetchedAt ? `Checked ${escapeHtml(formatGodmodeActivityTime(activity.lastFetchedAt))}` : 'Live from Access Sheet'}</span>
+          </div>
+          ${activity.error ? `<div class="godmode-usage-error">${escapeHtml(activity.error)}</div>` : `
+            <div class="godmode-usage-stats">
+              <div>
+                <strong>${formatGodmodeCount(activeUsers)}</strong>
+                <span>Active users</span>
+              </div>
+              <div>
+                <strong>${formatGodmodeCount(seenUsers)}</strong>
+                <span>Seen at least once</span>
+              </div>
+              <div>
+                <strong>${formatGodmodeCount(totalLogins)}</strong>
+                <span>Total recorded logins</span>
+              </div>
+              <div>
+                <strong>${escapeHtml(formatGodmodeActivityTime(mostRecent))}</strong>
+                <span>Most recent use</span>
+              </div>
+            </div>
+            <div class="godmode-usage-list">
+              ${recentRows.map((row) => `
+                <article class="godmode-usage-row">
+                  <div>
+                    <strong>${escapeHtml(row.captainName || row.email || 'Unknown user')}</strong>
+                    <span>${escapeHtml(row.email || '')}</span>
+                  </div>
+                  <div>
+                    <strong>${escapeHtml(row.zone || row.role || 'No zone listed')}</strong>
+                    <span>${escapeHtml(row.role || 'captain')}</span>
+                  </div>
+                  <div>
+                    <strong>${escapeHtml(formatGodmodeActivityTime(row.last_seen_at))}</strong>
+                    <span>Last seen</span>
+                  </div>
+                  <div>
+                    <strong>${formatGodmodeCount(row.login_count || 0)}</strong>
+                    <span>Logins</span>
+                  </div>
+                </article>
+              `).join('') || '<p class="godmode-breakdown-empty">No dashboard usage has been recorded yet.</p>'}
+            </div>
+          `}
+        </section>
+      `;
+    }
+
     function renderGodmodeLotWeedingPlanner(rollups) {
       const requests = rollups.lotWeedingRequests || [];
       const demandZones = rollups.zones
@@ -7451,21 +7581,19 @@
             const zone = getGodmodeZone(row);
             const unzoned = isGodmodeUnzonedValue(zone);
             const captain = getGodmodeCaptainDisplay(row);
-            const coCaptains = getGodmodeCoCaptainList(row).join(', ');
             const apn = getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn);
             const addressPlan = getGodmodeValue(row, GODMODE_FIELD_ALIASES.addressPlan);
             const buildStage = getGodmodeValue(row, GODMODE_FIELD_ALIASES.rebuild);
             const selected = index === godmodeState.selectedIndex ? ' selected' : '';
             return `
               <button type="button" class="godmode-result-card${selected}" data-godmode-index="${index}">
-                <span class="godmode-result-badges">
-                  <span class="godmode-pill ${unzoned ? 'godmode-pill--gap' : ''}">${escapeHtml(unzoned ? 'Unzoned coverage gap' : zone)}</span>
-                  ${captain ? `<span class="godmode-pill">Captain: ${escapeHtml(captain)}</span>` : ''}
-                  ${coCaptains ? `<span class="godmode-pill">Co-captains: ${escapeHtml(coCaptains)}</span>` : ''}
-                </span>
                 <span class="godmode-result-name">${escapeHtml(name)}</span>
                 <span class="godmode-result-address">${escapeHtml(address)}</span>
                 <span class="godmode-result-meta">${apn ? `APN ${escapeHtml(apn)}` : 'No APN'}${addressPlan ? ` - ${escapeHtml(addressPlan)}` : ''}${buildStage ? ` - ${escapeHtml(buildStage)}` : ''}</span>
+                <span class="godmode-result-badges">
+                  <span class="godmode-pill ${unzoned ? 'godmode-pill--gap' : ''}">${escapeHtml(unzoned ? 'Unzoned coverage gap' : zone)}</span>
+                  ${captain ? `<span class="godmode-pill">Captain: ${escapeHtml(captain)}</span>` : ''}
+                </span>
               </button>
             `;
           }).join('')}
@@ -7488,12 +7616,6 @@
       const coCaptains = getGodmodeCoCaptainList(row).join(', ');
       const fields = [
         ['Resident ID', getGodmodeValue(row, GODMODE_FIELD_ALIASES.residentId)],
-        ['Coverage', unzoned ? 'Unzoned coverage gap' : 'Covered by zone/captain'],
-        ['Zone', unzoned ? 'Unzoned' : zone],
-        ['Captain', captain],
-        ['Co-captains', coCaptains],
-        ['Captain phone', getGodmodeValue(row, GODMODE_FIELD_ALIASES.captainPhone)],
-        ['Captain email', getGodmodeValue(row, GODMODE_FIELD_ALIASES.captainEmail)],
         ['APN', getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn)],
         ['Phone', getGodmodeValue(row, GODMODE_FIELD_ALIASES.phone)],
         ['Email', getGodmodeValue(row, GODMODE_FIELD_ALIASES.email)],
@@ -7504,6 +7626,12 @@
         ['Outreach log', getGodmodeValue(row, GODMODE_FIELD_ALIASES.outreachLog)],
         ['Sold since fire', getGodmodeValue(row, GODMODE_FIELD_ALIASES.soldSinceFire)],
         ['Sale date', getGodmodeValue(row, GODMODE_FIELD_ALIASES.saleDate)],
+        ['Coverage', unzoned ? 'Unzoned coverage gap' : 'Covered by zone/captain'],
+        ['Zone', unzoned ? 'Unzoned' : zone],
+        ['Captain', captain],
+        ['Co-captains', coCaptains],
+        ['Captain phone', getGodmodeValue(row, GODMODE_FIELD_ALIASES.captainPhone)],
+        ['Captain email', getGodmodeValue(row, GODMODE_FIELD_ALIASES.captainEmail)],
         ['Source sheet', getGodmodeValue(row, GODMODE_FIELD_ALIASES.sourceSheet)],
         ['Last synced', getGodmodeValue(row, GODMODE_FIELD_ALIASES.syncedAt)]
       ].filter(([, value]) => value);
@@ -7548,6 +7676,54 @@
       `;
     }
 
+    function renderGodmodeSearchMeta(filteredRows) {
+      return `${formatGodmodeCount(filteredRows.length)} matching rows from ${formatGodmodeCount(godmodeState.rows.length)} total. Range: ${escapeHtml(godmodeState.range || 'configured range')}`;
+    }
+
+    function renderGodmodeSearchWorkspace(filteredRows) {
+      return `
+        <section class="godmode-workspace">
+          <div class="godmode-search-panel">
+            <div class="godmode-search-row">
+              <label for="godmodeSearchInput">Search master index</label>
+              <button type="button" class="godmode-refresh-btn" id="godmodeRefreshBtn">Refresh</button>
+            </div>
+            <input id="godmodeSearchInput" class="godmode-search-input" type="search" value="${escapeHtml(godmodeState.query)}" placeholder="Resident name, address, APN, phone, email, zone..." autocomplete="off">
+            <p class="godmode-search-meta" id="godmodeSearchMeta">${renderGodmodeSearchMeta(filteredRows)}</p>
+            <div id="godmodeResultsMount">
+              ${renderGodmodeResults(filteredRows)}
+            </div>
+          </div>
+          <div class="godmode-profile-panel" id="godmodeProfileMount">
+            ${renderGodmodeProfile()}
+          </div>
+        </section>
+      `;
+    }
+
+    function attachGodmodeResultHandlers(root = document) {
+      root.querySelectorAll('[data-godmode-index]').forEach((button) => {
+        button.addEventListener('click', () => {
+          godmodeState.selectedIndex = Number(button.getAttribute('data-godmode-index'));
+          updateGodmodeSearchPanels(getGodmodeFilteredRows());
+        });
+      });
+    }
+
+    function updateGodmodeSearchPanels(filteredRows = getGodmodeFilteredRows()) {
+      const meta = document.getElementById('godmodeSearchMeta');
+      if (meta) meta.innerHTML = renderGodmodeSearchMeta(filteredRows);
+
+      const results = document.getElementById('godmodeResultsMount');
+      if (results) {
+        results.innerHTML = renderGodmodeResults(filteredRows);
+        attachGodmodeResultHandlers(results);
+      }
+
+      const profile = document.getElementById('godmodeProfileMount');
+      if (profile) profile.innerHTML = renderGodmodeProfile();
+    }
+
     function renderGodmodeTableCell(value) {
       return `<td>${escapeHtml(formatGodmodeValue(value))}</td>`;
     }
@@ -7586,7 +7762,6 @@
         addresses: (zone) => zone.addressKeys.size,
         unitAddresses: (zone) => zone.unitAddressKeys.size,
         unitBuildings: (zone) => zone.unitBuildingKeys.size,
-        lotWeedingRequests: (zone) => zone.lotWeedingRequests,
         outreach: (zone) => zone.addressKeys.size ? zone.outreachKeys.size / zone.addressKeys.size : 0,
         sold: (zone) => zone.soldKeys.size,
         addressPlan: (zone) => formatGodmodeBreakdown(zone.addressPlans),
@@ -7615,7 +7790,6 @@
                   ${renderGodmodeSortHeader('zone', 'addresses', 'Addresses', godmodeState.zoneSort)}
                   ${renderGodmodeSortHeader('zone', 'unitAddresses', 'Unit addresses', godmodeState.zoneSort)}
                   ${renderGodmodeSortHeader('zone', 'unitBuildings', 'Likely apartment buildings', godmodeState.zoneSort)}
-                  ${renderGodmodeSortHeader('zone', 'lotWeedingRequests', 'Number of lot weeding requests', godmodeState.zoneSort)}
                   ${renderGodmodeSortHeader('zone', 'outreach', 'Outreach', godmodeState.zoneSort)}
                   ${renderGodmodeSortHeader('zone', 'sold', 'Sold', godmodeState.zoneSort)}
                   ${renderGodmodeSortHeader('zone', 'addressPlan', 'Address Plan', godmodeState.zoneSort)}
@@ -7635,7 +7809,6 @@
                     ${renderGodmodeTableCell(zone.addressKeys.size)}
                     ${renderGodmodeTableCell(zone.unitAddressKeys.size)}
                     ${renderGodmodeTableCell(zone.unitBuildingKeys.size)}
-                    ${renderGodmodeTableCell(zone.lotWeedingRequests)}
                     ${renderGodmodeTableCell(`${zone.outreachKeys.size} (${formatGodmodePercent(zone.outreachKeys.size, zone.addressKeys.size)})`)}
                     ${renderGodmodeTableCell(zone.soldKeys.size)}
                     ${renderGodmodeTableCell(formatGodmodeBreakdown(zone.addressPlans))}
@@ -7770,44 +7943,29 @@
       }
 
       const filteredRows = getGodmodeFilteredRows();
-      const rollups = buildGodmodeRollups(filteredRows);
+      if (!filteredRows.some(({ index }) => index === godmodeState.selectedIndex)) {
+        godmodeState.selectedIndex = filteredRows[0]?.index ?? null;
+      }
+      const allRows = godmodeState.rows.map((row, index) => ({ row, index }));
+      const rollups = buildGodmodeRollups(allRows);
       content.innerHTML = `
+        ${renderGodmodeSearchWorkspace(filteredRows)}
         ${renderGodmodeSummary(rollups)}
-        ${renderGodmodeLotWeedingPlanner(rollups)}
-        ${renderGodmodeBreakdowns(filteredRows)}
+        ${renderGodmodeUserActivity()}
+        ${renderGodmodeBreakdowns(allRows)}
         ${renderGodmodeZoneDirectory(rollups)}
         ${renderGodmodeCaptainDirectory(rollups)}
-        <section class="godmode-workspace">
-          <div class="godmode-search-panel">
-            <div class="godmode-search-row">
-              <label for="godmodeSearchInput">Search master index</label>
-              <button type="button" class="godmode-refresh-btn" id="godmodeRefreshBtn">Refresh</button>
-            </div>
-            <input id="godmodeSearchInput" class="godmode-search-input" type="search" value="${escapeHtml(godmodeState.query)}" placeholder="Resident name, address, APN, phone, email, zone..." autocomplete="off">
-            <p class="godmode-search-meta">${formatGodmodeCount(filteredRows.length)} matching rows from ${formatGodmodeCount(godmodeState.rows.length)} total. Range: ${escapeHtml(godmodeState.range || 'configured range')}</p>
-            ${renderGodmodeResults(filteredRows)}
-          </div>
-          <div class="godmode-profile-panel">
-            ${renderGodmodeProfile()}
-          </div>
-        </section>
       `;
 
       document.getElementById('godmodeSearchInput')?.addEventListener('input', (event) => {
         godmodeState.query = event.target.value;
         const nextRows = getGodmodeFilteredRows();
-        godmodeState.selectedIndex = nextRows[0]?.index ?? null;
-        renderGodmodeView(true);
+        if (!nextRows.some(({ index }) => index === godmodeState.selectedIndex)) {
+          godmodeState.selectedIndex = nextRows[0]?.index ?? null;
+        }
+        updateGodmodeSearchPanels(nextRows);
       });
       document.getElementById('godmodeRefreshBtn')?.addEventListener('click', () => loadGodmodeData(true));
-      content.querySelectorAll('[data-godmode-planner-search]').forEach((button) => {
-        button.addEventListener('click', () => {
-          godmodeState.query = button.getAttribute('data-godmode-planner-search') || '';
-          const nextRows = getGodmodeFilteredRows();
-          godmodeState.selectedIndex = nextRows[0]?.index ?? null;
-          renderGodmodeView(true);
-        });
-      });
       content.querySelectorAll('[data-godmode-sort-table][data-godmode-sort-key]').forEach((button) => {
         button.addEventListener('click', () => {
           const table = button.getAttribute('data-godmode-sort-table');
@@ -7821,12 +7979,7 @@
           renderGodmodeView();
         });
       });
-      content.querySelectorAll('[data-godmode-index]').forEach((button) => {
-        button.addEventListener('click', () => {
-          godmodeState.selectedIndex = Number(button.getAttribute('data-godmode-index'));
-          renderGodmodeView();
-        });
-      });
+      attachGodmodeResultHandlers(content);
       if (preserveSearchFocus) {
         const input = document.getElementById('godmodeSearchInput');
         if (input) {
