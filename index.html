@@ -219,8 +219,8 @@
     <!-- Global sign-in prompt overlay (shown when spreadsheet linked but not signed in, on any tab) -->
     <div id="homeSigninPrompt" class="home-signin-prompt hidden">
       <div class="home-signin-content">
-        <h2 class="home-signin-title">Sign in to continue</h2>
-        <p>Sign in with your Google account to view and edit your zone.</p>
+        <h2 class="home-signin-title" id="homeSigninTitle">Sign in to continue</h2>
+        <p id="homeSigninMessage">Sign in with your Google account to view and edit your zone.</p>
         <button class="btn-signin welcome-signin-btn" id="homeSignInBtn">
           <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#fff" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill-rule="evenodd"/><path fill="#fff" d="M9 18c2.43 0 4.467-.806 5.96-2.184l-2.908-2.258c-.806.54-1.837.86-3.052.86-2.347 0-4.33-1.584-5.04-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill-rule="evenodd"/><path fill="#fff" d="M3.96 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.348 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.003-2.332z" fill-rule="evenodd"/><path fill="#fff" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.96 7.293C4.67 5.163 6.653 3.58 9 3.58z" fill-rule="evenodd"/></svg>
           Sign in with Google
@@ -1306,6 +1306,14 @@
     let availableSheets = []; // Sheets returned by /api/user-sheets for zone selection
     let isCurrentUserAdmin = localStorage.getItem('godmodeAdmin') === 'true'; // UI convenience; server still enforces admin access.
     let isCurrentUserLotWeedingAdmin = localStorage.getItem('lotWeedingAdmin') === 'true'; // UI convenience; server still enforces lot-weeding access.
+    // Session helpers referenced during early boot (token restore / welcome UI).
+    let oauthRefreshIntervalId = null;
+    let preferSelectAccountOnce = false;
+    let sessionExpiredNotice = false;
+    // Google OAuth token lifetime / refresh timing (used by early watchdog start).
+    const OAUTH_EXPIRY_BUFFER_SEC = 120;
+    const OAUTH_REFRESH_WHEN_REMAINING_MS = 5 * 60 * 1000;
+    const OAUTH_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 
     // Declared up here (not next to the nav helpers below) because updateNavigationState()
     // runs during initial synchronous load, before those later declarations are reached.
@@ -1779,6 +1787,7 @@
     if (savedToken && savedTokenExpiry && Date.now() < parseInt(savedTokenExpiry)) {
       accessToken = savedToken;
       currentUserEmail = (localStorage.getItem('ncProfileUserEmail') || '').trim().toLowerCase() || null;
+      startOAuthRefreshWatchdog();
       updateSignInUI();
     }
 
@@ -1787,14 +1796,14 @@
     if (savedSheetUrl) {
       if (input) input.value = savedSheetUrl;
       currentSheetUrl = savedSheetUrl;
-      // Auto-load the sheet if user is signed in (wait a bit for OAuth to initialize)
+      // Auto-load the sheet if user is signed in
       if (accessToken) {
         setTimeout(() => {
           if (currentSheetUrl) {
             window.trackAnalyticsEvent('sheet_loaded');
             loadAddressData(currentSheetUrl);
           }
-        }, 1000);
+        }, 100);
       }
     } else if (accessToken && currentUserEmail) {
       // Signed in with no saved sheet: resolve sheet access from server.
@@ -2032,8 +2041,6 @@
     }
 
     // Google OAuth: use real token lifetime (expires_in) and refresh silently before expiry.
-    const OAUTH_EXPIRY_BUFFER_SEC = 120;
-    const OAUTH_REFRESH_WHEN_REMAINING_MS = 5 * 60 * 1000;
 
     let googleOAuthTokenClient = null;
     let oauthPending = null;
@@ -2044,15 +2051,46 @@
       oauthRequestGeneration++;
     }
 
+    function startOAuthRefreshWatchdog() {
+      if (oauthRefreshIntervalId) return;
+      oauthRefreshIntervalId = setInterval(() => {
+        if (!accessToken) return;
+        ensureValidGoogleAccessToken().catch((error) => {
+          console.warn('Background Google token refresh failed:', error);
+        });
+      }, OAUTH_REFRESH_INTERVAL_MS);
+    }
+
+    function stopOAuthRefreshWatchdog() {
+      if (!oauthRefreshIntervalId) return;
+      clearInterval(oauthRefreshIntervalId);
+      oauthRefreshIntervalId = null;
+    }
+
+    function handleSessionExpired(options = {}) {
+      const { switchToHome = true } = options;
+      accessToken = null;
+      sessionExpiredNotice = true;
+      stopOAuthRefreshWatchdog();
+      localStorage.removeItem('googleOAuthToken');
+      localStorage.removeItem('googleOAuthTokenExpiry');
+      updateSignInUI();
+      if (switchToHome) {
+        switchView('home');
+      }
+    }
+
     function persistGoogleAccessToken(response) {
       if (!response || response.error || !response.access_token) return false;
       accessToken = response.access_token;
+      sessionExpiredNotice = false;
       const expiresInSec = Number(response.expires_in);
       const sec = Number.isFinite(expiresInSec) && expiresInSec > 0 ? expiresInSec : 3600;
       const effectiveSec = Math.max(60, sec - OAUTH_EXPIRY_BUFFER_SEC);
       const expiryMs = Date.now() + effectiveSec * 1000;
       localStorage.setItem('googleOAuthToken', accessToken);
       localStorage.setItem('googleOAuthTokenExpiry', String(expiryMs));
+      startOAuthRefreshWatchdog();
       return true;
     }
 
@@ -2208,7 +2246,7 @@
       }
     }
 
-    async function signIn() {
+    async function signIn(options = {}) {
       if (OAUTH_CLIENT_ID === 'YOUR_CLIENT_ID') {
         alert('OAuth Client ID not configured. Please set OAUTH_CLIENT_ID in the code.');
         return;
@@ -2222,10 +2260,16 @@
       }
       bumpOAuthRequestGeneration();
 
+      // Default: prompt '' (only show Google UI when needed). Use select_account
+      // when the user explicitly wants to switch Google accounts.
+      const selectAccount = options.selectAccount === true || preferSelectAccountOnce;
+      preferSelectAccountOnce = false;
+      const promptValue = selectAccount ? 'select_account' : '';
+
       try {
         await new Promise((resolve, reject) => {
           oauthPending = { kind: 'signin', resolve, reject, gen: oauthRequestGeneration };
-          getGoogleTokenClient().requestAccessToken({ prompt: 'consent' });
+          getGoogleTokenClient().requestAccessToken({ prompt: promptValue });
         });
       } catch (error) {
         console.error('Sign in error:', error);
@@ -2235,8 +2279,10 @@
       }
     }
 
-    // Sign Out
-    function signOut() {
+    // Sign Out. By default keep zone URL / tab memory so re-auth resumes quickly.
+    // Pass { clearZoneMemory: true } when switching accounts.
+    function signOut(options = {}) {
+      const clearZoneMemory = options.clearZoneMemory === true;
       bumpOAuthRequestGeneration();
       if (oauthPending) {
         try {
@@ -2244,6 +2290,7 @@
         } catch (e) { /* ignore */ }
         oauthPending = null;
       }
+      stopOAuthRefreshWatchdog();
       accessToken = null;
       currentUserEmail = null;
       currentSheetUrl = '';
@@ -2267,8 +2314,10 @@
       localStorage.removeItem('godmodeAdmin');
       localStorage.removeItem('lotWeedingAdmin');
       localStorage.removeItem('ncProfileExists');
-      localStorage.removeItem('savedSheetUrl');
-      localStorage.removeItem('currentView');
+      if (clearZoneMemory) {
+        localStorage.removeItem('savedSheetUrl');
+        localStorage.removeItem('currentView');
+      }
       if (input) input.value = '';
       sheetData = [];
       currentSheetId = null;
@@ -2277,6 +2326,12 @@
       updateNavigationState();
       updateSignInUI();
       switchView('home');
+    }
+
+    function switchAccount() {
+      preferSelectAccountOnce = true;
+      sessionExpiredNotice = false;
+      signOut({ clearZoneMemory: true });
     }
 
     // ---- NC Directory / My NC Profile ----
@@ -2476,8 +2531,9 @@
           signinEl.innerHTML = '<p><strong>Could not determine your Google email.</strong></p><p>Your sign-in may not include email access. Sign out and sign in again so we can link your account to your NC profile.</p><button type="button" class="btn-signin" id="profileSignOutAndInAgain" style="margin-top: 0.5rem;">Sign out and sign in again</button>';
           signinEl.classList.remove('hidden');
           document.getElementById('profileSignOutAndInAgain')?.addEventListener('click', () => {
-            signOut();
-            setTimeout(() => signIn(), 300);
+            preferSelectAccountOnce = true;
+            signOut({ clearZoneMemory: false });
+            setTimeout(() => signIn({ selectAccount: true }), 300);
           });
         }
         return;
@@ -2892,6 +2948,17 @@
     // Update sign-in UI
     function updateSignInUI() {
       const homeSigninPrompt = document.getElementById('homeSigninPrompt');
+      const homeSigninTitle = document.getElementById('homeSigninTitle');
+      const homeSigninMessage = document.getElementById('homeSigninMessage');
+      if (homeSigninTitle && homeSigninMessage) {
+        if (sessionExpiredNotice) {
+          homeSigninTitle.textContent = 'Session expired';
+          homeSigninMessage.textContent = 'Sign in again to continue where you left off.';
+        } else {
+          homeSigninTitle.textContent = 'Sign in to continue';
+          homeSigninMessage.textContent = 'Sign in with your Google account to view and edit your zone.';
+        }
+      }
       
       if (accessToken) {
         signinPrompt.classList.add('hidden');
@@ -2982,7 +3049,9 @@
         const welcomeSubtitle = welcomeOverlay.querySelector('.welcome-message > p');
         if (welcomeSubtitle) {
           welcomeSubtitle.textContent = signedOut
-            ? 'Sign in with your Google account to access your zone.'
+            ? (sessionExpiredNotice
+              ? 'Your session expired. Sign in again to continue where you left off.'
+              : 'Sign in with your Google account to access your zone.')
             : (welcomeAuthState === 'zone_picker'
               ? 'Choose which zone to open.'
               : 'Connecting you to your zone…');
@@ -3019,7 +3088,7 @@
                 <p class="welcome-step-description" style="margin-top:0.5rem;">Wrong account? <button type="button" id="welcomeSwitchAccountBtn" style="background:none;border:none;padding:0;color:inherit;text-decoration:underline;cursor:pointer;font-size:inherit;">Sign in with a different account</button></p>
               `;
               document.getElementById('welcomeSwitchAccountBtn')?.addEventListener('click', () => {
-                signOut();
+                switchAccount();
               });
             }
           } else if (welcomeAuthState === 'server_error') {
@@ -8014,6 +8083,26 @@
       welcomeSignInBtn.addEventListener('click', signIn);
     }
 
+    // Keep the Google access token alive across tab backgrounding and long sessions.
+    // Silent refresh is best-effort; ensureValidGoogleAccessToken already keeps a
+    // still-valid token if GIS cannot complete refresh (common on mobile standalone).
+    function refreshGoogleTokenIfNeeded(reason) {
+      if (!accessToken) return;
+      ensureValidGoogleAccessToken().catch((error) => {
+        console.warn(`Google token refresh on ${reason} failed:`, error);
+      });
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        refreshGoogleTokenIfNeeded('visibilitychange');
+      }
+    });
+
+    window.addEventListener('pageshow', () => {
+      refreshGoogleTokenIfNeeded('pageshow');
+    });
+
     // Extract sheet ID from any Google Sheets URL format
     function extractSheetId(sheetUrl) {
       // Handle published format: /spreadsheets/d/e/...
@@ -8071,19 +8160,12 @@
           // Token is still within its lifetime — continue rather than signing the user out.
           console.warn('Token refresh failed, but session is still valid. Continuing.', e);
         } else {
-          accessToken = null;
-          localStorage.removeItem('googleOAuthToken');
-          localStorage.removeItem('googleOAuthTokenExpiry');
-          updateSignInUI();
-          switchView('home');
+          handleSessionExpired();
           throw new Error('Your session has expired. Please sign in again.');
         }
       }
       if (!accessToken) {
-        localStorage.removeItem('googleOAuthToken');
-        localStorage.removeItem('googleOAuthTokenExpiry');
-        updateSignInUI();
-        switchView('home');
+        handleSessionExpired();
         throw new Error('Your session has expired. Please sign in again.');
       }
       const response = await fetch('/api/sheets/values', {
@@ -8094,11 +8176,7 @@
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         if (response.status === 401) {
-          accessToken = null;
-          localStorage.removeItem('googleOAuthToken');
-          localStorage.removeItem('googleOAuthTokenExpiry');
-          updateSignInUI();
-          switchView('home');
+          handleSessionExpired();
           throw new Error('Your session has expired. Please sign in again.');
         }
         throw new Error(err.message || err.error || 'Failed to fetch sheet values');
@@ -15563,6 +15641,27 @@
           alert('Please sign in to save changes.');
         }
         return;
+      }
+
+      try {
+        await ensureValidGoogleAccessToken();
+      } catch (e) {
+        if (e && e.message === 'canceled') {
+          if (!isAutoSave) alert('Please sign in to save changes.');
+          return;
+        }
+        const storedExpiry = localStorage.getItem('googleOAuthTokenExpiry');
+        const exp = storedExpiry ? parseInt(storedExpiry, 10) : 0;
+        if (!(exp && Date.now() < exp && accessToken)) {
+          handleSessionExpired();
+          if (!isAutoSave) {
+            alert('Your session has expired. Please sign in again.');
+          } else {
+            console.warn('Auto-save skipped: session expired.');
+          }
+          return;
+        }
+        console.warn('Token refresh failed before save; continuing with current session.', e);
       }
 
       const saveBtn = document.getElementById('saveChangesBtn');
