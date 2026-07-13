@@ -1477,6 +1477,20 @@ try {
   console.error('Failed to register Contact Check-In routes:', err.message);
 }
 
+// Explicit PWA shell files (avoid SPA fallback + keep SW update-friendly).
+app.get('/sw.js', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, max-age=0, must-revalidate');
+  res.setHeader('Service-Worker-Allowed', '/');
+  res.type('application/javascript');
+  res.sendFile(path.join(__dirname, 'sw.js'));
+});
+
+app.get('/manifest.webmanifest', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, max-age=0, must-revalidate');
+  res.type('application/manifest+json');
+  res.sendFile(path.join(__dirname, 'manifest.webmanifest'));
+});
+
 // Explicitly serve standalone HTML pages so they're not caught by the SPA fallback
 app.get('/flyer_tool.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'flyer_tool.html'));

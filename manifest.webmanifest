@@ -1,5 +1,6 @@
 {
-  "name": "Zone Dashboard",
+  "id": "/",
+  "name": "Altagether Zone Dashboard",
   "short_name": "Zone Dashboard",
   "description": "Altagether Zone Dashboard for neighborhood captains",
   "start_url": "/",
