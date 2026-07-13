@@ -688,6 +688,81 @@ function extractSpreadsheetId(value) {
   return match ? match[1] : clean;
 }
 
+// Gate mutating /api/sheets/* routes: valid Google Bearer token + sheet access.
+// Emergency bypass: set SHEETS_WRITE_AUTH=0 in the environment.
+const {
+  createRequireSheetsWriteAuth,
+  verifyGoogleAccessToken
+} = require('./sheets-write-auth');
+const { createSessionAuth } = require('./session-auth');
+
+const sessionAuth = createSessionAuth({
+  verifyGoogleAccessToken
+});
+
+const sheetsWriteAuthEnabled = String(process.env.SHEETS_WRITE_AUTH || '1').trim() !== '0';
+const requireSheetsWriteAuth = createRequireSheetsWriteAuth({
+  enabled: sheetsWriteAuthEnabled,
+  getAccessRowsForEmail,
+  extractGoogleSheetId,
+  collectAccessRoles,
+  sharedWritableSheetIds: [NC_DIRECTORY_SHEET_ID].filter(Boolean),
+  resolveSessionIdentity(req, res) {
+    const session = sessionAuth.readSession(req);
+    if (!session) return null;
+    sessionAuth.maybeSlideSession(req, res, session);
+    return { email: session.email, sub: session.sub || '' };
+  }
+});
+if (!sheetsWriteAuthEnabled) {
+  console.warn('SHEETS_WRITE_AUTH=0 — sheet write endpoints are unauthenticated (emergency bypass).');
+}
+
+// Durable app session (Phase C): exchange Google access token for httpOnly cookie.
+app.post('/api/auth/session', async (req, res) => {
+  try {
+    const session = await sessionAuth.createSessionFromGoogleToken(req, res);
+    return res.status(200).json({
+      ok: true,
+      email: session.email,
+      expiresAt: session.expiresAt
+    });
+  } catch (err) {
+    const code = err && err.code;
+    if (code === 'access_token_required') {
+      return res.status(400).json({ error: 'access_token_required', message: 'Google access token required.' });
+    }
+    if (code === 'invalid_token' || code === 'missing_token' || code === 'no_email') {
+      return res.status(401).json({ error: 'auth_invalid', message: 'Could not verify Google sign-in. Please try again.' });
+    }
+    console.error('Create session failed:', err.message);
+    return res.status(500).json({ error: 'session_create_failed', message: 'Could not create session.' });
+  }
+});
+
+app.get('/api/auth/me', (req, res) => {
+  const session = sessionAuth.readSession(req);
+  if (!session) {
+    return res.status(401).json({ error: 'auth_required', message: 'Not signed in.' });
+  }
+  const slid = sessionAuth.maybeSlideSession(req, res, session);
+  return res.status(200).json({
+    ok: true,
+    email: (slid && slid.email) || session.email,
+    expiresAt: (slid && slid.expiresAt) || session.exp
+  });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  sessionAuth.clearSession(res, req);
+  return res.status(200).json({ ok: true });
+});
+
+app.delete('/api/auth/session', (req, res) => {
+  sessionAuth.clearSession(res, req);
+  return res.status(200).json({ ok: true });
+});
+
 // Helper function to get sheet gid (grid ID) from sheet name for public sheets
 async function getSheetGid(sheetId, sheetName) {
   try {
@@ -1147,7 +1222,7 @@ app.post('/api/sheets/values', async (req, res) => {
 });
 
 // POST /api/sheets/append - append rows
-app.post('/api/sheets/append', async (req, res) => {
+app.post('/api/sheets/append', requireSheetsWriteAuth, async (req, res) => {
   const { sheetId, values, sheetName = 'Sheet1' } = req.body || {};
   if (!sheetId || !values || !Array.isArray(values)) {
     return res.status(400).json({ error: 'sheetId and values (array) required' });
@@ -1171,7 +1246,7 @@ app.post('/api/sheets/append', async (req, res) => {
 });
 
 // POST /api/sheets/append-record - append one row while inheriting validation/format
-app.post('/api/sheets/append-record', async (req, res) => {
+app.post('/api/sheets/append-record', requireSheetsWriteAuth, async (req, res) => {
   const { sheetId, values, sheetName = 'Sheet1' } = req.body || {};
   if (!sheetId || !Array.isArray(values)) {
     return res.status(400).json({ error: 'sheetId and values (row array) required' });
@@ -1237,7 +1312,7 @@ app.post('/api/sheets/append-record', async (req, res) => {
 });
 
 // POST /api/sheets/batch-update - batchUpdate
-app.post('/api/sheets/batch-update', async (req, res) => {
+app.post('/api/sheets/batch-update', requireSheetsWriteAuth, async (req, res) => {
   const { sheetId, valueInputOption = 'USER_ENTERED', data } = req.body || {};
   if (!sheetId || !data || !Array.isArray(data)) {
     return res.status(400).json({ error: 'sheetId and data (array of { range, values }) required' });
@@ -1281,7 +1356,7 @@ function isSheetsTextSafeColumn(column) {
 }
 
 // POST /api/sheets/batch-update-by-resident-id - resolve row by resident_id then batch update (sort-safe)
-app.post('/api/sheets/batch-update-by-resident-id', async (req, res) => {
+app.post('/api/sheets/batch-update-by-resident-id', requireSheetsWriteAuth, async (req, res) => {
   const { sheetId, sheetName = 'Sheet1', valueInputOption = 'USER_ENTERED', updates } = req.body || {};
   if (!sheetId || !updates || !Array.isArray(updates) || updates.length === 0) {
     return res.status(400).json({ error: 'sheetId and updates (array of { resident_id, column, value }) required' });
@@ -1401,6 +1476,20 @@ try {
 } catch (err) {
   console.error('Failed to register Contact Check-In routes:', err.message);
 }
+
+// Explicit PWA shell files (avoid SPA fallback + keep SW update-friendly).
+app.get('/sw.js', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, max-age=0, must-revalidate');
+  res.setHeader('Service-Worker-Allowed', '/');
+  res.type('application/javascript');
+  res.sendFile(path.join(__dirname, 'sw.js'));
+});
+
+app.get('/manifest.webmanifest', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, max-age=0, must-revalidate');
+  res.type('application/manifest+json');
+  res.sendFile(path.join(__dirname, 'manifest.webmanifest'));
+});
 
 // Explicitly serve standalone HTML pages so they're not caught by the SPA fallback
 app.get('/flyer_tool.html', (req, res) => {
