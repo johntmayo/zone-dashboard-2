@@ -10,7 +10,8 @@
     "test:epic": "node --test test/epic.test.js",
     "test:godmode": "node --test test/godmode.test.js",
     "test:address-id": "node --test test/address-id.test.js",
-    "test:contact-checkin": "node --test test/contact-checkin.test.js"
+    "test:contact-checkin": "node --test test/contact-checkin.test.js",
+    "test:sheets-write-auth": "node --test test/sheets-write-auth.test.js"
   },
   "keywords": [
     "dashboard",
