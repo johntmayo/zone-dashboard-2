@@ -100,7 +100,13 @@
 
   function truthySheetValue(value) {
     var v = String(value == null ? '' : value).trim().toLowerCase();
-    return v === 'true' || v === 'yes' || v === 'y' || v === '1' || v === 'checked' || v === 'x';
+    return v === 'true' ||
+      v === 'yes' ||
+      v === 'y' ||
+      v === '1' ||
+      v === 'checked' ||
+      v === 'x' ||
+      (v !== '' && v !== 'false' && v !== 'no');
   }
 
   function getCaptainId() {
@@ -119,6 +125,33 @@
     if (found) return found;
     if (typeof findColumn === 'function' && aliases) return findColumn(headers, aliases);
     return null;
+  }
+
+  function findZoneNameColumn(headers) {
+    if (!Array.isArray(headers)) return null;
+    var zoneCol = headers.find(function (h) { return /zone\s*name|zonename/i.test(String(h || '')); });
+    if (!zoneCol) {
+      zoneCol = headers.find(function (h) { return String(h || '').toLowerCase().includes('zone'); });
+    }
+    return zoneCol || null;
+  }
+
+  function getPersonOptionColumns(headers) {
+    return {
+      wantsUpdates: findHeader(headers, 'Wants_Updates', ['wants_updates', 'wants updates', 'newsletter subscriber']),
+      followUp: typeof findColumn === 'function'
+        ? findColumn(headers, ['needs', 'follow'])
+        : findHeader(headers, 'Person - Needs Follow-Up', ['needs follow-up', 'needs follow up']),
+      unable: typeof findColumn === 'function'
+        ? findColumn(headers, ['unable', 'reach'])
+        : findHeader(headers, 'Person - Unable to Reach', ['unable to reach']),
+      former: typeof findColumn === 'function'
+        ? findColumn(headers, ['former', 'resident'], ['note'])
+        : findHeader(headers, 'Former Resident', ['former resident']),
+      deceased: typeof findColumn === 'function'
+        ? findColumn(headers, 'deceased')
+        : findHeader(headers, 'Deceased', ['deceased'])
+    };
   }
 
   function getPersonName(row, headers) {
@@ -921,8 +954,12 @@
     loadCommunityFeed();
   }
 
-  function personRowHtml(resident) {
+  function personRowHtml(resident, optionColumns) {
     var id = escapeHtmlLocal(resident.id);
+    optionColumns = optionColumns || {};
+    function checkedAttr(col) {
+      return col && resident.row && truthySheetValue(resident.row[col]) ? ' checked' : '';
+    }
     return [
       '<div class="cci-person-row">',
       '  <input type="checkbox" class="cci-contact-check" value="' + id + '" id="cci_chk_' + id + '"' + (resident.contacted ? ' checked' : '') + '>',
@@ -934,11 +971,11 @@
       '    <button type="button" class="cci-options-toggle" data-cci-toggle="cci_opts_' + id + '">Options / notes</button>',
       '    <div class="cci-person-options" id="cci_opts_' + id + '">',
       '      <div class="cci-checks">',
-      '        <label><input type="checkbox" data-cci-field="wantsUpdates" data-cci-id="' + id + '"> Wants updates</label>',
-      '        <label><input type="checkbox" data-cci-field="followUp" data-cci-id="' + id + '"> Needs follow-up</label>',
-      '        <label><input type="checkbox" data-cci-field="unable" data-cci-id="' + id + '"> Unable to reach <span class="cci-tooltip" data-tip="Use only when you have tried multiple times and still have not been able to reach this person.">?</span></label>',
-      '        <label><input type="checkbox" data-cci-field="former" data-cci-id="' + id + '"> Former resident</label>',
-      '        <label><input type="checkbox" data-cci-field="deceased" data-cci-id="' + id + '"> Deceased</label>',
+      '        <label><input type="checkbox" data-cci-field="wantsUpdates" data-cci-id="' + id + '"' + checkedAttr(optionColumns.wantsUpdates) + '> Wants updates</label>',
+      '        <label><input type="checkbox" data-cci-field="followUp" data-cci-id="' + id + '"' + checkedAttr(optionColumns.followUp) + '> Needs follow-up</label>',
+      '        <label><input type="checkbox" data-cci-field="unable" data-cci-id="' + id + '"' + checkedAttr(optionColumns.unable) + '> Unable to reach <span class="cci-tooltip" data-tip="Use only when you have tried multiple times and still have not been able to reach this person.">?</span></label>',
+      '        <label><input type="checkbox" data-cci-field="former" data-cci-id="' + id + '"' + checkedAttr(optionColumns.former) + '> Former resident</label>',
+      '        <label><input type="checkbox" data-cci-field="deceased" data-cci-id="' + id + '"' + checkedAttr(optionColumns.deceased) + '> Deceased</label>',
       '      </div>',
       '      <textarea data-cci-note-id="' + id + '" placeholder="Person note optional"></textarea>',
       '    </div>',
@@ -963,9 +1000,11 @@
     }).join('');
   }
 
-  function unableCheckboxesHtml(address) {
+  function unableCheckboxesHtml(address, optionColumns) {
+    var unableCol = optionColumns && optionColumns.unable;
     return address.residents.map(function (r) {
-      return '<label><input type="checkbox" data-cci-unable-id="' + escapeHtmlLocal(r.id) + '"> ' + escapeHtmlLocal(r.name) + '</label>';
+      var checked = unableCol && r.row && truthySheetValue(r.row[unableCol]) ? ' checked' : '';
+      return '<label><input type="checkbox" data-cci-unable-id="' + escapeHtmlLocal(r.id) + '"' + checked + '> ' + escapeHtmlLocal(r.name) + '</label>';
     }).join('');
   }
 
@@ -990,7 +1029,11 @@
         (existing.review_status === 'skipped' ? 'Skipped for now' : 'Reviewed') + '</span>'
       : '';
 
-    var peopleHtml = address.residents.map(personRowHtml).join('');
+    var headers = (getSheetData() && getSheetData().headers) ? getSheetData().headers : [];
+    var optionColumns = getPersonOptionColumns(headers);
+    var peopleHtml = address.residents.map(function (resident) {
+      return personRowHtml(resident, optionColumns);
+    }).join('');
 
     card.innerHTML = [
       '<div class="cci-address-top">',
@@ -1076,7 +1119,7 @@
       '      </div>',
       '      <div class="cci-action-panel" id="cciNoUnableTool">',
       '        <h4>Mark unable to reach</h4>',
-      '        <div class="cci-check-list">' + unableCheckboxesHtml(address) + '</div>',
+      '        <div class="cci-check-list">' + unableCheckboxesHtml(address, optionColumns) + '</div>',
       '      </div>',
       '      <div class="cci-action-panel" id="cciNoPersonNoteTool">',
       '        <h4>Add person note</h4>',
@@ -1258,11 +1301,7 @@
 
   function collectOptionUpdates(address, headers) {
     var updates = [];
-    var wantsCol = findHeader(headers, 'Wants_Updates', ['wants_updates', 'wants updates', 'newsletter subscriber']);
-    var followCol = typeof findColumn === 'function' ? findColumn(headers, ['needs', 'follow']) : null;
-    var unableCol = typeof findColumn === 'function' ? findColumn(headers, ['unable', 'reach']) : null;
-    var formerCol = typeof findColumn === 'function' ? findColumn(headers, ['former', 'resident'], ['note']) : null;
-    var deceasedCol = typeof findColumn === 'function' ? findColumn(headers, 'deceased') : null;
+    var optionColumns = getPersonOptionColumns(headers);
     var notesCol = headers.find(function (h) { return String(h).toLowerCase().includes('person note'); });
 
     address.residents.forEach(function (resident) {
@@ -1270,11 +1309,11 @@
       Array.prototype.forEach.call(document.querySelectorAll('[data-cci-field][data-cci-id="' + resident.id + '"]'), function (inp) {
         var field = inp.getAttribute('data-cci-field');
         var col = null;
-        if (field === 'wantsUpdates') col = wantsCol;
-        if (field === 'followUp') col = followCol;
-        if (field === 'unable') col = unableCol;
-        if (field === 'former') col = formerCol;
-        if (field === 'deceased') col = deceasedCol;
+        if (field === 'wantsUpdates') col = optionColumns.wantsUpdates;
+        if (field === 'followUp') col = optionColumns.followUp;
+        if (field === 'unable') col = optionColumns.unable;
+        if (field === 'former') col = optionColumns.former;
+        if (field === 'deceased') col = optionColumns.deceased;
         if (!col) return;
 
         var wasChecked = truthySheetValue(resident.row[col]);
@@ -1329,7 +1368,7 @@
     }
 
     if (typeof applyAddRecordZoneDefaults === 'function' && typeof getAddRecordZoneDefaults === 'function') {
-      applyAddRecordZoneDefaults(valuesByColumn, getAddRecordZoneDefaults(headers));
+      applyAddRecordZoneDefaults(valuesByColumn, getAddRecordZoneDefaults(headers, findZoneNameColumn(headers)));
     }
 
     var fullName = [first, last].filter(Boolean).join(' ');
@@ -1476,20 +1515,23 @@
     setSaveBusy(true);
     try {
       var updates = [];
-      var unableCol = typeof findColumn === 'function' ? findColumn(headers, ['unable', 'reach']) : null;
+      var unableCol = getPersonOptionColumns(headers).unable;
       var notesCol = headers.find(function (h) { return String(h).toLowerCase().includes('person note'); });
       var outreachDateCol = typeof findOutreachDateColumn === 'function' ? findOutreachDateColumn(headers) : null;
       var outreachLogCol = typeof findOutreachLogColumn === 'function' ? findOutreachLogColumn(headers) : null;
       var todayLabel = typeof getTodayOutreachLabel === 'function' ? getTodayOutreachLabel() : new Date().toLocaleDateString();
 
       Array.prototype.forEach.call(document.querySelectorAll('[data-cci-unable-id]'), function (inp) {
-        if (!inp.checked || !unableCol) return;
+        if (!unableCol) return;
         var resident = address.residents.find(function (r) { return r.id === inp.getAttribute('data-cci-unable-id'); });
         if (!resident || !resident.residentId) return;
+        var wasChecked = truthySheetValue(resident.row[unableCol]);
+        var isChecked = Boolean(inp.checked);
+        if (isChecked === wasChecked) return;
         updates.push({
           resident_id: resident.residentId,
           column: unableCol,
-          value: 'TRUE'
+          value: isChecked ? 'TRUE' : ''
         });
       });
 
