@@ -1530,7 +1530,7 @@
         title: 'The Data Needs Your Judgment',
         body: [
           'This data is a starting point mostly from voter files and county/public sources. Expect some addresses and people to be missing.',
-          'Use <strong>ADD RECORD</strong> on the <strong>NEIGHBORS</strong> tab to add missing addresses or people.',
+          'Use <strong>ADD RECORD</strong> on <strong>MAP</strong> or <strong>NEIGHBORS</strong> to add missing addresses or people.',
           'For your zone, you and your co-captains are the source of truth.',
           'Access is limited to you and any co-captains you have, plus Altagether admins. We do not share your data without permission.'
         ]
@@ -15577,9 +15577,12 @@
         stopColorFilterWatchdog();
       }
       if (shouldShowFilters) {
-        // Show filter bar for people and map views
-        if (filterBar && sheetData && sheetData.addressMap) {
-          filterBar.classList.remove('hidden');
+        // Refresh the shared filters/actions when entering Map or Neighbors. The bar
+        // may have been populated while Home was active during auth/data restore.
+        if (sheetData && sheetData.addressMap) {
+          populateFilterBar();
+        } else if (filterBar) {
+          filterBar.classList.add('hidden');
         }
         // Adjust content views to account for filter bar height
         // Use a small delay to ensure filter bar has rendered and height is accurate
