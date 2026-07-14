@@ -138,6 +138,9 @@
 
   function getPersonOptionColumns(headers) {
     return {
+      renter: typeof findColumn === 'function'
+        ? findColumn(headers, 'renter')
+        : findHeader(headers, 'Person - Renter', ['renter']),
       wantsUpdates: findHeader(headers, 'Wants_Updates', ['wants_updates', 'wants updates', 'newsletter subscriber']),
       followUp: typeof findColumn === 'function'
         ? findColumn(headers, ['needs', 'follow'])
@@ -719,6 +722,7 @@
       '    <li>Eaton Fire Residents United + EF Surviving Structures</li>',
       '  </ul></div>',
       '  <p class="cci-serif">Altagether may share address-level contact coverage with Department of Angels and cohort partners: whether someone at each address has been successfully contacted. We will not share resident names, individual contact details, phone numbers, email addresses, notes, or outreach logs.</p>',
+      '  <p class="cci-serif">The ultimate goal of this collaboration is to make sure everyone affected by the fire has been contacted by somebody looking to help.</p>',
       '  <div class="cci-actionbar"><button type="button" class="cci-primary" data-cci-close-learn>Got it</button></div>',
       '</section>'
     ].join('');
@@ -971,6 +975,7 @@
       '    <button type="button" class="cci-options-toggle" data-cci-toggle="cci_opts_' + id + '">Options / notes</button>',
       '    <div class="cci-person-options" id="cci_opts_' + id + '">',
       '      <div class="cci-checks">',
+      '        <label><input type="checkbox" data-cci-field="renter" data-cci-id="' + id + '"' + checkedAttr(optionColumns.renter) + '> Renter</label>',
       '        <label><input type="checkbox" data-cci-field="wantsUpdates" data-cci-id="' + id + '"' + checkedAttr(optionColumns.wantsUpdates) + '> Wants updates</label>',
       '        <label><input type="checkbox" data-cci-field="followUp" data-cci-id="' + id + '"' + checkedAttr(optionColumns.followUp) + '> Needs follow-up</label>',
       '        <label><input type="checkbox" data-cci-field="unable" data-cci-id="' + id + '"' + checkedAttr(optionColumns.unable) + '> Unable to reach <span class="cci-tooltip" data-tip="Use only when you have tried multiple times and still have not been able to reach this person.">?</span></label>',
@@ -1309,6 +1314,7 @@
       Array.prototype.forEach.call(document.querySelectorAll('[data-cci-field][data-cci-id="' + resident.id + '"]'), function (inp) {
         var field = inp.getAttribute('data-cci-field');
         var col = null;
+        if (field === 'renter') col = optionColumns.renter;
         if (field === 'wantsUpdates') col = optionColumns.wantsUpdates;
         if (field === 'followUp') col = optionColumns.followUp;
         if (field === 'unable') col = optionColumns.unable;
