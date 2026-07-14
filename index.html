@@ -13761,14 +13761,14 @@
         <div class="details-toolbar">
           <div class="details-toolbar__row">
             <button class="btn-back" onclick="displayAddressList(Array.from(sheetData.addressMap.keys()).sort())">← Back to List</button>
-            ${accessToken ? `
+            ${isSignedIn() ? `
               <div class="details-toolbar__actions">
                 <button class="btn-save btn-save-small" id="saveChangesBtnTop">Save Changes</button>
                 <button class="btn-refresh-small" id="refreshBtnTop" title="Refresh addresses now">↻</button>
               </div>
             ` : ''}
           </div>
-          ${accessToken ? `
+          ${isSignedIn() ? `
             <div class="details-toolbar__status-slot" aria-live="polite">
               <span class="save-status save-status-top details-toolbar__status" id="saveStatusTop"></span>
             </div>
@@ -13857,7 +13857,7 @@
           const isSoilRemediated = lower.includes('soil remediated');
           const isRemediationStatus = lower.includes('remediation status');
           const isCaptainAssigned = lower.includes('captain assigned');
-          const isEditable = accessToken; // All fields editable when signed in
+          const isEditable = isSignedIn(); // Durable session (not Google accessToken) gates edit UI
           
           // Hide remediation fields for now
           if (isIndoorsRemediated || isSoilRemediated) {
@@ -14272,7 +14272,7 @@
           const isNotes = col.toLowerCase().includes('note');
           const isPersonCheckbox = col.startsWith('Person - ') || /^wants[\s_-]*updates$/i.test(col);
           const isEmail = isPersonEmailCol(col);
-          const isEditable = accessToken;
+          const isEditable = isSignedIn();
           const value = row[col] || '';
           const displayLabel = formatColumnLabel(col);
           const isContactJumpField = displayLabel === 'Home' || displayLabel === 'Cell' || isEmail;
@@ -14413,7 +14413,7 @@
           }
           const isPersonCheckbox = col.startsWith('Person - ');
           const isEmail = isPersonEmailCol(col);
-          const isEditable = accessToken;
+          const isEditable = isSignedIn();
           const displayLabel = formatColumnLabel(col);
           const value = row[col] || '';
           // Copy button HTML for email addresses
