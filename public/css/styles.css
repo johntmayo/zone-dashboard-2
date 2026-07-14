@@ -10737,9 +10737,9 @@
     min-height: auto;
   }
 
-  .home-panel--overview { order: 1; }
-  .home-panel--checkin { order: 2; }
-  .home-panel--feed { order: 3; }
+  .home-panel--checkin { order: 1; }
+  .home-panel--feed { order: 2; }
+  .home-panel--overview { order: 3; }
   .home-panel--altagether { order: 4; }
   .home-panel--actions { order: 5; }
   .home-panel--map { order: 6; }
