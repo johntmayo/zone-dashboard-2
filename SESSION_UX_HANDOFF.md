@@ -145,6 +145,7 @@ Reads:
 3. **GIS popup** can still flake on some iOS contexts for *first* login; redirect OAuth is the next auth UX upgrade if field reports say so.  
 4. **favicon.ico** is linked in `index.html` but may be missing from repo — cosmetic only.  
 5. Do **not** teach the SW to cache `/api/sheets/*` responses as authoritative offline data.
+6. **Details panel edit UI** must use `isSignedIn()`, never bare `accessToken` — leftover `isEditable = accessToken` caused read-only Details after session restore (fixed July 13, 2026).
 
 ---
 
