@@ -11,13 +11,14 @@
  *   CONTACT_CHECKIN_SHEET_ID (required for live use; default set for launch sheet)
  *   CONTACT_CHECKIN_SHEET_NAME (default: AddressReviews)
  *   CONTACT_CHECKIN_CHECK_IN_ID (default: contact_check_in_2026)
- *   CONTACT_CHECKIN_CACHE_TTL_MS (default: 15000)
+ *   CONTACT_CHECKIN_CACHE_TTL_MS (default: 60000)
  */
 
 const DEFAULT_SHEET_ID = '1sOWW-OWC4WY8ZMk75jcT9VXFn6LkTSO65EftqJpLOpc';
 const DEFAULT_SHEET_NAME = 'AddressReviews';
 const DEFAULT_CHECK_IN_ID = 'contact_check_in_2026';
-const DEFAULT_CACHE_TTL_MS = 15 * 1000;
+const DEFAULT_CACHE_TTL_MS = 60 * 1000;
+const SHEET_NAME_CACHE_TTL_MS = 10 * 60 * 1000;
 
 const REVIEW_HEADERS = [
   'review_key',
@@ -31,7 +32,8 @@ const REVIEW_HEADERS = [
   'updated_at'
 ];
 
-let cachedReviews = null; // { expiresAt, rows, headers }
+let cachedReviews = null; // { expiresAt, rows, headers, sheetName }
+let cachedSheetName = null; // { sheetId, name, expiresAt }
 
 function strEnv(name, fallback = '') {
   return String(process.env[name] || fallback).trim();
@@ -73,6 +75,10 @@ function indexToColumnLetter(index) {
   return letter;
 }
 
+function quoteSheetName(name) {
+  return `'${String(name || '').replace(/'/g, "''")}'`;
+}
+
 function normalizeHeader(value, index) {
   const text = String(value || '').trim();
   return text || `Column ${index + 1}`;
@@ -99,43 +105,95 @@ function invalidateReviewCache() {
   cachedReviews = null;
 }
 
+function isRetryableSheetsError(err) {
+  const msg = String((err && err.message) || err || '').toLowerCase();
+  const code = err && (err.code || (err.response && err.response.status));
+  if (code === 429 || code === 503 || code === 500) return true;
+  if (msg.includes('quota') || msg.includes('rate limit')) return true;
+  if (msg.includes('unable to parse range')) return true;
+  if (msg.includes('backend error') || msg.includes('internal error')) return true;
+  if (msg.includes('unavailable') || msg.includes('timeout')) return true;
+  return false;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withSheetsRetry(fn, { attempts = 4, baseDelayMs = 700 } = {}) {
+  let lastErr;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (i >= attempts - 1 || !isRetryableSheetsError(err)) throw err;
+      const delay = baseDelayMs * (2 ** i) + Math.floor(Math.random() * 250);
+      console.warn(
+        `Contact Check-In: Sheets call failed (attempt ${i + 1}/${attempts}), retrying in ${delay}ms:`,
+        err.message || err
+      );
+      await sleep(delay);
+    }
+  }
+  throw lastErr;
+}
+
 async function resolveSheetName(sheetsClient, config) {
   const preferred = String(config.sheetName || '').trim();
+  const now = Date.now();
+  if (
+    cachedSheetName &&
+    cachedSheetName.sheetId === config.sheetId &&
+    cachedSheetName.expiresAt > now &&
+    cachedSheetName.name
+  ) {
+    return cachedSheetName.name;
+  }
+
   const candidates = [];
   if (preferred) candidates.push(preferred);
   ['AddressReviews', 'Sheet1'].forEach((name) => {
     if (!candidates.includes(name)) candidates.push(name);
   });
 
+  let resolved = preferred || 'AddressReviews';
   try {
-    const meta = await sheetsClient.spreadsheets.get({
+    const meta = await withSheetsRetry(() => sheetsClient.spreadsheets.get({
       spreadsheetId: config.sheetId,
       fields: 'sheets.properties.title'
-    });
+    }));
     const titles = (meta.data.sheets || [])
       .map((s) => s.properties && s.properties.title)
       .filter(Boolean);
     const matched = candidates.find((name) => titles.includes(name));
-    if (matched) return matched;
-    if (titles.length) return titles[0];
+    if (matched) resolved = matched;
+    else if (titles.length) resolved = titles[0];
   } catch (err) {
     console.warn('Contact Check-In: could not list sheet tabs:', err.message || err);
   }
-  return preferred || 'AddressReviews';
+
+  cachedSheetName = {
+    sheetId: config.sheetId,
+    name: resolved,
+    expiresAt: now + SHEET_NAME_CACHE_TTL_MS
+  };
+  return resolved;
 }
 
-async function loadReviewRows(sheetsClient, config) {
+async function loadReviewRows(sheetsClient, config, options = {}) {
+  const forceRefresh = Boolean(options.forceRefresh);
   const now = Date.now();
-  if (cachedReviews && cachedReviews.expiresAt > now) {
+  if (!forceRefresh && cachedReviews && cachedReviews.expiresAt > now) {
     return cachedReviews;
   }
 
   const sheetName = await resolveSheetName(sheetsClient, config);
-  const range = `${sheetName}!A1:I`;
-  const result = await sheetsClient.spreadsheets.values.get({
+  const range = `${quoteSheetName(sheetName)}!A1:I`;
+  const result = await withSheetsRetry(() => sheetsClient.spreadsheets.values.get({
     spreadsheetId: config.sheetId,
     range
-  });
+  }));
   const values = (result.data && result.data.values) ? result.data.values : [];
   const headers = (values[0] || REVIEW_HEADERS).map(normalizeHeader);
   const rows = values.slice(1).map((row) => rowToObject(headers, row));
@@ -147,6 +205,37 @@ async function loadReviewRows(sheetsClient, config) {
     sheetName
   };
   return cachedReviews;
+}
+
+function patchReviewCache(record, existingIndex, headers, sheetName, cacheTtlMs) {
+  if (!record) return;
+  const now = Date.now();
+  const ttl = Number.isFinite(cacheTtlMs) ? cacheTtlMs : DEFAULT_CACHE_TTL_MS;
+  if (!cachedReviews) {
+    cachedReviews = {
+      expiresAt: now + ttl,
+      headers: (headers && headers.length) ? headers.slice() : REVIEW_HEADERS.slice(),
+      rows: [Object.assign({}, record)],
+      sheetName
+    };
+    return;
+  }
+
+  const rows = cachedReviews.rows.slice();
+  if (existingIndex >= 0 && existingIndex < rows.length) {
+    rows[existingIndex] = Object.assign({}, rows[existingIndex], record);
+  } else {
+    const key = String(record.review_key || '').trim();
+    const found = rows.findIndex((row) => String(row.review_key || '').trim() === key);
+    if (found >= 0) rows[found] = Object.assign({}, rows[found], record);
+    else rows.push(Object.assign({}, record));
+  }
+  cachedReviews = {
+    expiresAt: now + ttl,
+    headers: cachedReviews.headers.length ? cachedReviews.headers : ((headers && headers.length) ? headers.slice() : REVIEW_HEADERS.slice()),
+    rows,
+    sheetName: sheetName || cachedReviews.sheetName
+  };
 }
 
 function filterReviews(rows, { checkInId, zoneId, captainId } = {}) {
@@ -281,15 +370,13 @@ async function upsertReview(sheetsClient, config, payload) {
     err.status = 400;
     throw err;
   }
-  if (reviewStatus === 'skipped' && answer) {
-    // Skipped rows keep answer blank
-  }
 
   const reviewKey = buildReviewKey(checkInId, zoneId, captainId, addressId);
   const nowIso = new Date().toISOString();
 
-  invalidateReviewCache();
-  const loaded = await loadReviewRows(sheetsClient, config);
+  // Fresh read for write correctness across serverless instances; do not wipe the
+  // shared GET cache first (that caused a full re-read storm after every save).
+  const loaded = await loadReviewRows(sheetsClient, config, { forceRefresh: true });
   const headers = loaded.headers.length ? loaded.headers : REVIEW_HEADERS.slice();
 
   const keyCol = headers.findIndex((h) => String(h).trim().toLowerCase() === 'review_key');
@@ -323,33 +410,34 @@ async function upsertReview(sheetsClient, config, payload) {
   const values = headers.map((header) => {
     const key = String(header || '').trim().toLowerCase();
     if (Object.prototype.hasOwnProperty.call(record, key)) return record[key];
-    // Exact header match for mixed-case sheets
     if (Object.prototype.hasOwnProperty.call(record, header)) return record[header];
     return existing && existing[header] != null ? existing[header] : '';
   });
 
   const sheetName = loaded.sheetName || await resolveSheetName(sheetsClient, config);
+  const quoted = quoteSheetName(sheetName);
 
   if (existingIndex >= 0) {
     const rowNumber = existingIndex + 2; // header is row 1
     const endCol = indexToColumnLetter(Math.max(headers.length - 1, 0));
-    await sheetsClient.spreadsheets.values.update({
+    await withSheetsRetry(() => sheetsClient.spreadsheets.values.update({
       spreadsheetId: config.sheetId,
-      range: `${sheetName}!A${rowNumber}:${endCol}${rowNumber}`,
+      range: `${quoted}!A${rowNumber}:${endCol}${rowNumber}`,
       valueInputOption: 'RAW',
       requestBody: { values: [values] }
-    });
+    }));
   } else {
-    await sheetsClient.spreadsheets.values.append({
+    await withSheetsRetry(() => sheetsClient.spreadsheets.values.append({
       spreadsheetId: config.sheetId,
-      range: `${sheetName}!A1`,
+      range: `${quoted}!A1`,
       valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
       requestBody: { values: [values] }
-    });
+    }));
   }
 
-  invalidateReviewCache();
+  // Keep homepage / community reads warm without another Google round-trip.
+  patchReviewCache(record, existingIndex, headers, sheetName, config.cacheTtlMs);
   return record;
 }
 
@@ -440,7 +528,7 @@ function registerContactCheckinRoutes(app, deps) {
       const record = await upsertReview(sheets, config, body);
       res.json({ success: true, review: record });
     } catch (err) {
-      const status = err.status || 500;
+      const status = err.status || (isRetryableSheetsError(err) ? 503 : 500);
       console.error('Contact Check-In upsert error:', err.message || err);
       res.status(status).json({
         error: status === 400 ? err.message : 'Failed to save Contact Check-In review',
