@@ -11401,7 +11401,8 @@
       }
     }
 
-    // Debounced resize: keep content/map aligned with filter bar when window is resized
+    // Debounced resize: keep content/map aligned with filter bar when window is resized.
+    // Also listen to visualViewport (Safari URL bar show/hide) so Leaflet maps reflow.
     (function initResizeListener() {
       var resizeTimer = null;
       var resizeDelay = 120;
@@ -11410,9 +11411,18 @@
         resizeTimer = setTimeout(function() {
           resizeTimer = null;
           adjustContentViewsForFilterBar();
+          if (typeof zoneMap !== 'undefined' && zoneMap && currentView === 'map') {
+            zoneMap.invalidateSize();
+          }
+          if (typeof homeMap !== 'undefined' && homeMap) {
+            homeMap.invalidateSize();
+          }
         }, resizeDelay);
       }
       window.addEventListener('resize', onResize);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', onResize);
+      }
     })();
     
     function resetEpicPresenceState() {
@@ -14642,14 +14652,15 @@
         });
       });
 
-      // Add save button handlers (both top and bottom buttons)
+      // Add save button handlers (both top and bottom buttons).
+      // Wrap so the click Event is never passed as isAutoSave (truthy Event → silent failures).
       const saveBtn = document.getElementById('saveChangesBtn');
       if (saveBtn) {
-        saveBtn.addEventListener('click', saveChanges);
+        saveBtn.addEventListener('click', () => saveChanges(false));
       }
       const saveBtnTop = document.getElementById('saveChangesBtnTop');
       if (saveBtnTop) {
-        saveBtnTop.addEventListener('click', saveChanges);
+        saveBtnTop.addEventListener('click', () => saveChanges(false));
       }
       const refreshBtnTop = document.getElementById('refreshBtnTop');
       if (refreshBtnTop) {
@@ -15785,6 +15796,11 @@
     }
 
     async function saveChanges(isAutoSave = false) {
+      // Guard: click handlers must not pass a MouseEvent as isAutoSave.
+      if (typeof isAutoSave !== 'boolean') {
+        isAutoSave = false;
+      }
+
       if (!isSignedIn() || !currentSheetId) {
         if (!isAutoSave) {
           alert('Please sign in to save changes.');

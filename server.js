@@ -1168,10 +1168,103 @@ app.get('/api/nc-directory', async (req, res) => {
 // --- Sheets proxy (service account) ---
 function sheetsErrorStatus(err) {
   const code = err.code || (err.response && err.response.status);
+  if (code === 429) return 429;
   if (code === 403) return 403;
   if (code === 404) return 404;
   if (code === 400) return 400;
+  if (code === 503) return 503;
   return 500;
+}
+
+function isRetryableSheetsApiError(err) {
+  const msg = String((err && err.message) || err || '').toLowerCase();
+  const code = err && (err.code || (err.response && err.response.status));
+  if (code === 429 || code === 503 || code === 500) return true;
+  if (msg.includes('quota') || msg.includes('rate limit')) return true;
+  if (msg.includes('unable to parse range')) return true;
+  if (msg.includes('backend error') || msg.includes('internal error')) return true;
+  if (msg.includes('unavailable') || msg.includes('timeout')) return true;
+  return false;
+}
+
+function sleepMs(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withSheetsApiRetry(fn, { attempts = 4, baseDelayMs = 700 } = {}) {
+  let lastErr;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (i >= attempts - 1 || !isRetryableSheetsApiError(err)) throw err;
+      const delay = baseDelayMs * (2 ** i) + Math.floor(Math.random() * 250);
+      console.warn(`Sheets API retry ${i + 1}/${attempts} in ${delay}ms:`, err.message || err);
+      await sleepMs(delay);
+    }
+  }
+  throw lastErr;
+}
+
+// Short-lived resident_id → row map so Check-In / batch edits don't re-download
+// the whole zone sheet on every Save (row numbers stay stable for append-only edits).
+const RESIDENT_ROW_CACHE_TTL_MS = 45 * 1000;
+const residentRowLookupCache = new Map(); // key: sheetId|sheetName
+
+function residentRowCacheKey(sheetId, sheetName) {
+  return `${String(sheetId || '').trim()}|${String(sheetName || 'Sheet1').trim()}`;
+}
+
+function invalidateResidentRowLookupCache(sheetId, sheetName) {
+  if (!sheetId) {
+    residentRowLookupCache.clear();
+    return;
+  }
+  if (sheetName) {
+    residentRowLookupCache.delete(residentRowCacheKey(sheetId, sheetName));
+    return;
+  }
+  const prefix = `${String(sheetId).trim()}|`;
+  for (const key of residentRowLookupCache.keys()) {
+    if (key.startsWith(prefix)) residentRowLookupCache.delete(key);
+  }
+}
+
+async function getResidentRowLookup(sheets, sheetId, sheetName = 'Sheet1') {
+  const key = residentRowCacheKey(sheetId, sheetName);
+  const now = Date.now();
+  const hit = residentRowLookupCache.get(key);
+  if (hit && hit.expiresAt > now) return hit;
+
+  // One range read (headers + data) instead of two parallel reads.
+  const dataRes = await withSheetsApiRetry(() => sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${sheetName}!A1:ZZ`
+  }));
+  const values = (dataRes.data && dataRes.data.values) ? dataRes.data.values : [];
+  const headers = values[0] || [];
+  const rows = values.slice(1);
+  const residentIdColIndex = headers.findIndex((h) => String(h || '').trim().toLowerCase() === 'resident_id');
+  if (residentIdColIndex === -1) {
+    const err = new Error('Sheet has no resident_id column');
+    err.status = 400;
+    throw err;
+  }
+
+  const residentIdToRowNumber = new Map();
+  rows.forEach((row, i) => {
+    const rid = row[residentIdColIndex] != null ? String(row[residentIdColIndex]).trim() : '';
+    if (rid) residentIdToRowNumber.set(rid, i + 2);
+  });
+
+  const entry = {
+    expiresAt: now + RESIDENT_ROW_CACHE_TTL_MS,
+    headers,
+    residentIdToRowNumber
+  };
+  residentRowLookupCache.set(key, entry);
+  return entry;
 }
 
 // GET/POST /api/sheets/values - read range
@@ -1230,12 +1323,13 @@ app.post('/api/sheets/append', requireSheetsWriteAuth, async (req, res) => {
   try {
     const sheets = await getSheetsClient();
     const range = `${sheetName}!A1:ZZ`;
-    await sheets.spreadsheets.values.append({
+    await withSheetsApiRetry(() => sheets.spreadsheets.values.append({
       spreadsheetId: sheetId,
       range,
       valueInputOption: 'USER_ENTERED',
       requestBody: { values }
-    });
+    }));
+    invalidateResidentRowLookupCache(sheetId, sheetName);
     res.json({ success: true });
   } catch (err) {
     const status = sheetsErrorStatus(err);
@@ -1302,6 +1396,7 @@ app.post('/api/sheets/append-record', requireSheetsWriteAuth, async (req, res) =
       requestBody: { values: [values] }
     });
 
+    invalidateResidentRowLookupCache(sheetId, sheetName);
     res.json({ success: true, rowNumber: insertAtRowNumber });
   } catch (err) {
     const status = sheetsErrorStatus(err);
@@ -1363,25 +1458,17 @@ app.post('/api/sheets/batch-update-by-resident-id', requireSheetsWriteAuth, asyn
   }
   try {
     const sheets = await getSheetsClient();
-    const residentIdCol = 'resident_id';
-
-    const [headerRes, dataRes] = await Promise.all([
-      sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${sheetName}!1:1` }),
-      sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${sheetName}!A2:ZZ` })
-    ]);
-    const headers = (headerRes.data.values && headerRes.data.values[0]) ? headerRes.data.values[0] : [];
-    const rows = (dataRes.data.values) ? dataRes.data.values : [];
-
-    const residentIdColIndex = headers.findIndex(h => String(h || '').trim().toLowerCase() === residentIdCol);
-    if (residentIdColIndex === -1) {
-      return res.status(400).json({ error: 'Sheet has no resident_id column' });
+    let lookup;
+    try {
+      lookup = await getResidentRowLookup(sheets, sheetId, sheetName);
+    } catch (lookupErr) {
+      if (lookupErr && lookupErr.status === 400) {
+        return res.status(400).json({ error: lookupErr.message });
+      }
+      throw lookupErr;
     }
-
-    const residentIdToRowNumber = new Map();
-    rows.forEach((row, i) => {
-      const rid = row[residentIdColIndex] != null ? String(row[residentIdColIndex]).trim() : '';
-      if (rid) residentIdToRowNumber.set(rid, i + 2);
-    });
+    const headers = lookup.headers;
+    const residentIdToRowNumber = lookup.residentIdToRowNumber;
 
     const rawData = [];
     const enteredData = [];
@@ -1404,24 +1491,44 @@ app.post('/api/sheets/batch-update-by-resident-id', requireSheetsWriteAuth, asyn
     }
 
     if (rawData.length === 0 && enteredData.length === 0) {
+      // Cache may be stale after a recent append — refresh once and retry lookup.
+      invalidateResidentRowLookupCache(sheetId, sheetName);
+      lookup = await getResidentRowLookup(sheets, sheetId, sheetName);
+      for (const u of updates) {
+        const resident_id = u.resident_id != null ? String(u.resident_id).trim() : '';
+        const column = u.column;
+        const value = u.value;
+        if (!resident_id || column === undefined) continue;
+        const rowNum = lookup.residentIdToRowNumber.get(resident_id);
+        if (rowNum == null) continue;
+        const colIndex = lookup.headers.findIndex(h => String(h || '').trim() === String(column).trim());
+        if (colIndex === -1) continue;
+        const colLetter = indexToColumnLetter(colIndex);
+        const cell = { range: `${sheetName}!${colLetter}${rowNum}`, values: [[value]] };
+        if (isSheetsTextSafeColumn(column)) rawData.push(cell);
+        else enteredData.push(cell);
+      }
+    }
+
+    if (rawData.length === 0 && enteredData.length === 0) {
       return res.status(400).json({ error: 'No valid updates after resolving resident_id' });
     }
 
     if (rawData.length) {
-      await sheets.spreadsheets.values.batchUpdate({
+      await withSheetsApiRetry(() => sheets.spreadsheets.values.batchUpdate({
         spreadsheetId: sheetId,
         requestBody: { valueInputOption: 'RAW', data: rawData }
-      });
+      }));
     }
     if (enteredData.length) {
-      await sheets.spreadsheets.values.batchUpdate({
+      await withSheetsApiRetry(() => sheets.spreadsheets.values.batchUpdate({
         spreadsheetId: sheetId,
         requestBody: { valueInputOption, data: enteredData }
-      });
+      }));
     }
     res.json({ success: true });
   } catch (err) {
-    const status = sheetsErrorStatus(err);
+    const status = err.status || (isRetryableSheetsApiError(err) ? 503 : sheetsErrorStatus(err));
     const message = err.message || (err.response && err.response.data && err.response.data.error && err.response.data.error.message) || 'Sheets API error';
     console.error('Sheets batch-update-by-resident-id error:', message);
     res.status(status).json({ error: 'Failed to batch update by resident_id', message });

@@ -63,7 +63,79 @@
   }
 
   function showCciError(message) {
-    showCciNudge({ title: 'Couldn\u2019t save', message: message, tone: 'error', duration: 5000 });
+    showCciNudge({ title: 'Couldn\u2019t save', message: captainFriendlyError(message), tone: 'error', duration: 5500 });
+  }
+
+  function sleep(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
+
+  function isTransientSaveError(message, status) {
+    var m = String(message || '').toLowerCase();
+    if (status === 429 || status === 503 || status === 502) return true;
+    if (m.indexOf('quota') !== -1 || m.indexOf('rate limit') !== -1) return true;
+    if (m.indexOf('unable to parse range') !== -1) return true;
+    if (m.indexOf('unavailable') !== -1 || m.indexOf('timeout') !== -1) return true;
+    if (m.indexOf('backend error') !== -1 || m.indexOf('internal error') !== -1) return true;
+    if (m.indexOf('failed to fetch') !== -1 || m.indexOf('networkerror') !== -1) return true;
+    if (m.indexOf('load failed') !== -1 || m.indexOf('network error') !== -1) return true;
+    return false;
+  }
+
+  function captainFriendlyError(message) {
+    var m = String(message || '').toLowerCase();
+    if (m.indexOf('quota') !== -1 || m.indexOf('rate limit') !== -1) {
+      return 'Google is busy right now. Please wait a moment and tap Save again.';
+    }
+    if (m.indexOf('unable to parse range') !== -1) {
+      return 'Google hiccuped while saving progress. Please wait a moment and tap Save again.';
+    }
+    if (m.indexOf('not signed in') !== -1) {
+      return 'Please sign in again, then tap Save.';
+    }
+    if (m.indexOf('no sheet') !== -1) {
+      return 'Your zone sheet is not loaded. Refresh the page and try again.';
+    }
+    return message || 'Something went wrong while saving. Please try again.';
+  }
+
+  async function fetchJsonWithRetry(url, options, retryOpts) {
+    retryOpts = retryOpts || {};
+    var attempts = retryOpts.attempts || 4;
+    var label = retryOpts.label || 'save';
+    var lastMessage = '';
+    var lastStatus = 0;
+
+    for (var i = 0; i < attempts; i++) {
+      try {
+        var res = await fetch(url, options);
+        if (res.ok) {
+          return await res.json().catch(function () { return {}; });
+        }
+        var errBody = await res.json().catch(function () { return {}; });
+        lastStatus = res.status;
+        lastMessage = errBody.message || errBody.error || ('Request failed (' + res.status + ')');
+      } catch (err) {
+        lastMessage = (err && err.message) ? err.message : String(err || 'Network error');
+        lastStatus = 0;
+      }
+
+      var canRetry = i < attempts - 1 && isTransientSaveError(lastMessage, lastStatus);
+      if (!canRetry) break;
+
+      if (i === 0) {
+        showCciNudge({
+          title: 'Saving\u2026',
+          message: lastStatus
+            ? 'Google is busy \u2014 retrying automatically.'
+            : 'Connection blip \u2014 retrying ' + label + '.',
+          duration: 2800
+        });
+      }
+      await sleep(700 * Math.pow(2, i) + Math.floor(Math.random() * 200));
+    }
+
+    throw new Error(lastMessage || ('Failed to ' + label));
   }
 
   // Light confirmation — same family as milestone cards, no confetti.
@@ -354,7 +426,7 @@
   }
 
   async function saveReviewRecord(addressId, reviewStatus, answer) {
-    var res = await fetch('/api/contact-checkin/review', {
+    var data = await fetchJsonWithRetry('/api/contact-checkin/review', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -365,12 +437,7 @@
         review_status: reviewStatus,
         answer: answer || ''
       })
-    });
-    if (!res.ok) {
-      var err = await res.json().catch(function () { return {}; });
-      throw new Error(err.message || err.error || 'Failed to save review');
-    }
-    var data = await res.json();
+    }, { label: 'save progress' });
     if (data.review) {
       state.reviewsByAddressId[addressId] = data.review;
     }
@@ -383,7 +450,7 @@
     if (!ctx.isAuthenticated && !ctx.accessToken) throw new Error('Not signed in');
     var headers = { 'Content-Type': 'application/json' };
     if (ctx.accessToken) headers.Authorization = 'Bearer ' + ctx.accessToken;
-    var res = await fetch('/api/sheets/batch-update-by-resident-id', {
+    await fetchJsonWithRetry('/api/sheets/batch-update-by-resident-id', {
       method: 'POST',
       credentials: 'include',
       headers: headers,
@@ -393,11 +460,7 @@
         valueInputOption: 'USER_ENTERED',
         updates: updatesByResidentId
       })
-    });
-    if (!res.ok) {
-      var err = await res.json().catch(function () { return {}; });
-      throw new Error(err.message || err.error || 'Failed to update resident fields');
-    }
+    }, { label: 'save person fields' });
   }
 
   // Mirror saved values onto the in-memory sheet rows so the rest of the app
