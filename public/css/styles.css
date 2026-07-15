@@ -1003,6 +1003,7 @@
       background: var(--bg-paper);
       z-index: 150;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch; /* momentum scroll on iOS Safari */
       padding: 32px;
       backdrop-filter: blur(10px);
     }
@@ -3370,6 +3371,7 @@
     .address-panel-content {
       flex: 1;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch; /* momentum scroll on iOS Safari */
       padding: 12px;
       padding-left: calc(12px + var(--panel-toggle-gutter));
       padding-right: 16px;
@@ -10457,6 +10459,7 @@
     right: 0 !important;
     width: 100% !important;
     height: 60vh;
+    height: 60dvh; /* stable with Safari dynamic browser chrome */
     border-left: none;
     border-top: 2px solid var(--text-primary);
     transform: translateY(110%);
