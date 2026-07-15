@@ -809,6 +809,8 @@
     }
 
     /* Persistent Filter Bar */
+    /* Filter bar: keep map usable on laptop widths (esp. Safari select sizing).
+       Cap height (~2 dense rows); overflow scrolls instead of eating the map. */
     .filter-bar {
       position: fixed;
       top: 0;
@@ -817,64 +819,83 @@
       background: var(--bg-paper);
       border-bottom: 2px solid var(--primary);
       z-index: 175;
-      padding: 16px 32px;
+      padding: 8px 16px;
       box-shadow: 0 2px 8px rgba(40, 54, 24, 0.1);
       backdrop-filter: blur(10px);
       transition: top 0.3s ease;
+      max-height: min(112px, 28vh);
+      overflow: hidden;
     }
 
     .filter-bar-main {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      gap: 16px;
+      gap: 12px;
+      max-height: 100%;
     }
 
     .filter-bar-content {
       display: flex;
-      gap: 12px;
+      gap: 8px;
       flex-wrap: wrap;
       align-items: center;
+      align-content: flex-start;
       flex: 1 1 auto;
       min-width: 0;
+      max-height: 96px;
+      overflow-x: auto;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
     }
 
     .filter-bar-actions {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       align-items: center;
       flex-shrink: 0;
       margin-left: auto;
+      padding-top: 2px;
     }
 
     .filter-bar .filters-label {
       font-family: 'Chivo', sans-serif;
       font-weight: 900;
-      font-size: 1rem;
+      font-size: 0.85rem;
       color: var(--primary-dark);
       letter-spacing: 0.5px;
-      margin-right: 4px;
+      margin-right: 2px;
+      flex-shrink: 0;
     }
 
     .filter-bar select {
-      padding: 10px 14px;
+      padding: 6px 10px;
       border: 2px solid rgba(96, 108, 56, 0.3);
       border-radius: 8px;
-      font-size: 0.9rem;
+      font-size: 0.82rem;
       background: rgba(255, 255, 255, 0.9);
-      transition: all 0.3s ease;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      /* Explicit width beats Safari's "size to longest option" blowout */
+      width: 9.75rem;
+      max-width: 9.75rem;
+      min-width: 0;
+      flex: 0 0 auto;
     }
 
     .filter-bar input[type="text"] {
-      padding: 10px 14px;
+      padding: 6px 10px;
       border: 2px solid rgba(96, 108, 56, 0.3);
       border-radius: 8px;
-      font-size: 0.9rem;
+      font-size: 0.82rem;
       background: rgba(255, 255, 255, 0.9);
-      transition: all 0.3s ease;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-      min-width: 170px;
+      width: 11rem;
+      max-width: 11rem;
+      min-width: 0;
+      flex: 0 0 auto;
     }
 
     .filter-bar select:focus {
@@ -905,26 +926,30 @@
 
     .filter-bar .contact-filter-group {
       display: flex;
-      gap: 16px;
+      gap: 10px;
       align-items: center;
-      margin-left: 8px;
+      margin-left: 4px;
+      flex: 0 0 auto;
+      flex-wrap: nowrap;
     }
 
     .filter-bar .contact-filter-checkbox {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       cursor: pointer;
-      font-size: 0.9rem;
+      font-size: 0.78rem;
       color: var(--primary-dark);
       user-select: none;
+      white-space: nowrap;
     }
 
     .filter-bar .contact-filter-checkbox input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
+      width: 16px;
+      height: 16px;
       cursor: pointer;
       accent-color: var(--primary);
+      flex-shrink: 0;
     }
 
     .filter-bar .contact-filter-checkbox span {
@@ -10389,6 +10414,7 @@
     right: 0;
     padding: 8px 12px;
     overflow: hidden; /* clip the fade gradient */
+    max-height: none; /* mobile uses single-row horizontal scroll */
   }
 
   .filter-bar-main {
@@ -10412,7 +10438,9 @@
   .filter-bar-content {
     gap: 6px;
     flex-wrap: nowrap;
+    max-height: none;
     overflow-x: auto;
+    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     /* ensure content scrolls behind the fade */
     padding-right: 24px;
@@ -10440,6 +10468,8 @@
   .filter-bar input[type="text"] {
     font-size: 0.82rem;
     padding: 7px 9px;
+    width: auto;
+    max-width: 11rem;
     min-width: 0;
     flex-shrink: 0;
   }
