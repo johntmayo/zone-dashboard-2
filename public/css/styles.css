@@ -808,7 +808,7 @@
       box-shadow: 0 6px 16px rgba(40, 54, 24, 0.4), 0 4px 6px rgba(40, 54, 24, 0.3);
     }
 
-    /* Filter bar v2: compact primary row + optional More panel + active chips */
+    /* Filter bar: one locked primary row; More panel + chips below; Actions floats over map */
     .filter-bar {
       position: fixed;
       top: 0;
@@ -817,155 +817,153 @@
       background: var(--bg-paper);
       border-bottom: 2px solid var(--primary);
       z-index: 175;
-      padding: 8px 16px;
+      padding: 8px 12px;
       box-shadow: 0 2px 8px rgba(40, 54, 24, 0.1);
-      backdrop-filter: blur(10px);
-      transition: top 0.3s ease;
-      max-height: min(46vh, 420px);
-      overflow-x: hidden;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
+      /* visible so Actions dropdown can float over the map */
+      overflow: visible;
     }
 
     .filter-bar-main {
       display: flex;
+      flex-wrap: nowrap;
       align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
-
-    .filter-bar-content {
-      display: flex;
-      flex: 1 1 auto;
+      gap: 8px;
       min-width: 0;
     }
 
-    /* Leading can compress; trailing (search + More) never scrolls away */
+    .filter-bar-content {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+    }
+
     .filter-bar-primary {
       display: flex;
       flex-wrap: nowrap;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       width: 100%;
       min-width: 0;
-      overflow: visible;
-    }
-
-    .filter-bar-primary-leading {
-      display: flex;
-      flex-wrap: nowrap;
-      align-items: center;
-      gap: 8px;
-      min-width: 0;
-      flex: 1 1 auto;
-    }
-
-    .filter-bar-primary-trailing {
-      display: flex;
-      flex-wrap: nowrap;
-      align-items: center;
-      gap: 8px;
-      flex: 0 0 auto;
     }
 
     .filter-bar-actions {
+      flex: 0 0 auto;
       display: flex;
-      gap: 8px;
       align-items: center;
-      flex-shrink: 0;
     }
 
     .filter-bar .filters-label {
       font-family: 'Chivo', sans-serif;
       font-weight: 900;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: var(--primary-dark);
-      letter-spacing: 0.5px;
-      margin-right: 2px;
-      flex-shrink: 0;
+      letter-spacing: 0.4px;
+      flex: 0 0 auto;
     }
 
-    .filter-bar select,
-    .filter-bar-more-panel select {
-      padding: 6px 10px;
+    .filter-bar-primary > select {
+      padding: 6px 8px;
       border: 2px solid rgba(96, 108, 56, 0.3);
       border-radius: 8px;
-      font-size: 0.82rem;
-      background: rgba(255, 255, 255, 0.9);
-      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-      width: 9.5rem;
-      max-width: 100%;
+      font-size: 0.8rem;
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: none;
+      width: 8.25rem;
+      max-width: 8.25rem;
       min-width: 0;
+      flex: 0 1 8.25rem;
+    }
+
+    .filter-bar-search {
+      padding: 6px 8px;
+      border: 2px solid rgba(96, 108, 56, 0.3);
+      border-radius: 8px;
+      font-size: 0.8rem;
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: none;
       flex: 1 1 7rem;
+      min-width: 5.5rem;
+      max-width: 12rem;
+      width: auto;
     }
 
     .filter-bar-more-panel select {
-      flex: 0 0 auto;
-      width: 10.5rem;
-      max-width: 10.5rem;
-    }
-
-    .filter-bar input[type="text"] {
-      padding: 6px 10px;
+      padding: 6px 8px;
       border: 2px solid rgba(96, 108, 56, 0.3);
       border-radius: 8px;
-      font-size: 0.82rem;
-      background: rgba(255, 255, 255, 0.9);
-      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-      width: 11.5rem;
-      max-width: 11.5rem;
-      min-width: 8rem;
+      font-size: 0.8rem;
+      background: rgba(255, 255, 255, 0.95);
+      width: 10rem;
+      max-width: 10rem;
       flex: 0 0 auto;
     }
 
-    .filter-bar select:focus,
-    .filter-bar-more-panel select:focus,
-    .filter-bar input[type="text"]:focus {
+    .filter-bar-primary > select:focus,
+    .filter-bar-search:focus,
+    .filter-bar-more-panel select:focus {
       outline: none;
       border-color: var(--primary);
-      background-color: rgba(255, 255, 255, 1);
-      box-shadow: 0 4px 8px rgba(96, 108, 56, 0.2), 0 0 0 3px rgba(96, 108, 56, 0.1);
+      box-shadow: 0 0 0 3px rgba(96, 108, 56, 0.12);
     }
 
-    .filter-bar select.filter-active,
-    .filter-bar-more-panel select.filter-active,
-    .filter-bar input[type="text"].filter-active {
+    .filter-bar-primary > select.filter-active,
+    .filter-bar-search.filter-active,
+    .filter-bar-more-panel select.filter-active {
       border-color: var(--accent);
       background-color: rgba(221, 161, 94, 0.15);
-      box-shadow: 0 2px 6px rgba(188, 108, 37, 0.2);
     }
 
-    /* Match Export / Actions sizing in the filter strip */
-    .filter-bar .btn-filter-bar {
+    /* Quiet text control — not a second CTA style */
+    .btn-more-filters {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      flex-shrink: 0;
-      padding: 6px 12px;
-      font-size: 0.82rem;
+      gap: 4px;
+      flex: 0 0 auto;
+      margin: 0;
+      padding: 6px 8px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--brand-primary-dark);
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      text-decoration: underline;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
     }
 
-    .filter-bar .btn-filter-bar.is-open,
-    .filter-bar .btn-filter-bar.has-active-filters {
-      background: rgba(221, 161, 94, 0.18);
-      border-color: var(--accent-clay, #BC5838);
+    .btn-more-filters:hover {
+      background: rgba(49, 64, 89, 0.06);
+    }
+
+    .btn-more-filters.is-open,
+    .btn-more-filters.has-active-filters {
+      background: rgba(221, 161, 94, 0.16);
+      text-decoration: none;
+    }
+
+    .btn-more-filters-caret {
+      font-size: 0.7rem;
+      opacity: 0.75;
     }
 
     .filter-more-badge {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 1.25rem;
-      height: 1.25rem;
-      padding: 0 5px;
+      min-width: 1.15rem;
+      height: 1.15rem;
+      padding: 0 4px;
       border-radius: 999px;
       background: var(--accent-clay, #BC5838);
       color: #fff;
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       font-weight: 800;
       line-height: 1;
+      text-decoration: none;
     }
 
     .filter-more-badge.hidden,
@@ -978,14 +976,19 @@
       flex-shrink: 0;
     }
 
+    .filter-actions-toggle {
+      padding: 6px 12px !important;
+      font-size: 0.8rem !important;
+    }
+
     .filter-actions-dropdown {
       position: absolute;
-      top: calc(100% + 6px);
+      top: calc(100% + 4px);
       right: 0;
-      z-index: 180;
-      min-width: 10.5rem;
+      z-index: 400;
+      min-width: 11rem;
       padding: 6px;
-      background: var(--bg-card, #fff);
+      background: #fff;
       border: 2px solid var(--brand-primary-dark);
       box-shadow: 3px 3px 0 var(--text-primary);
     }
@@ -999,7 +1002,7 @@
       display: block;
       width: 100%;
       text-align: left;
-      padding: 8px 10px;
+      padding: 9px 10px;
       border: none;
       border-radius: 4px;
       background: transparent;
@@ -1073,15 +1076,14 @@
     }
 
     .filter-bar-more-panel {
-      margin-top: 10px;
-      padding: 12px;
-      border: 2px solid rgba(49, 64, 89, 0.2);
+      margin-top: 8px;
+      padding: 10px;
+      border: 1px solid rgba(49, 64, 89, 0.18);
       background: rgba(255, 253, 247, 0.98);
-      box-shadow: 3px 3px 0 rgba(49, 64, 89, 0.12);
     }
 
     .filter-bar-more-panel.hidden {
-      display: none;
+      display: none !important;
     }
 
     .filter-more-grid {
@@ -10591,54 +10593,44 @@
   .filter-bar {
     left: 0;
     right: 0;
-    padding: 8px 12px;
-    max-height: min(50vh, 360px);
+    padding: 8px 10px;
+    overflow: visible;
   }
 
   .filter-bar-main {
-    gap: 8px;
-    align-items: center;
+    gap: 6px;
   }
 
   .filter-bar-primary {
-    gap: 6px;
-  }
-
-  .filter-bar-primary-leading,
-  .filter-bar-primary-trailing {
-    gap: 6px;
-  }
-
-  .filter-bar-actions {
-    gap: 6px;
-  }
-
-  .filter-bar .btn-filter-bar {
-    padding: 7px 10px;
-    font-size: 0.78rem;
+    gap: 5px;
   }
 
   .filter-bar .filters-label {
     display: none;
   }
 
-  .filter-bar select,
-  .filter-bar input[type="text"],
-  .filter-bar-more-panel select {
-    font-size: 0.82rem;
-    padding: 7px 9px;
+  .filter-bar-primary > select {
+    width: 7rem;
+    max-width: 7rem;
+    flex: 0 1 7rem;
+    font-size: 0.78rem;
+    padding: 6px 7px;
   }
 
-  .filter-bar-primary-leading select {
-    flex: 1 1 5.5rem;
-    width: auto;
-    min-width: 0;
+  .filter-bar-search {
+    min-width: 5rem;
+    max-width: 9rem;
+    font-size: 0.78rem;
   }
 
-  .filter-bar input[type="text"] {
-    width: 8.5rem;
-    max-width: 8.5rem;
-    min-width: 6.5rem;
+  .filter-actions-toggle {
+    padding: 6px 10px !important;
+    font-size: 0.78rem !important;
+  }
+
+  .btn-more-filters {
+    font-size: 0.76rem;
+    padding: 6px 6px;
   }
 
   .filter-bar-more-panel {

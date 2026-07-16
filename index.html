@@ -68,7 +68,7 @@
         </div>
         <div class="filter-bar-actions" id="filterBarActions">
           <div class="filter-actions-menu" id="filterActionsMenu">
-            <button type="button" class="btn-print-export btn-print-export--secondary btn-filter-bar" id="filterActionsToggle" aria-expanded="false" aria-haspopup="true" aria-controls="filterActionsDropdown">
+            <button type="button" class="btn-print-export btn-print-export--secondary filter-actions-toggle" id="filterActionsToggle" aria-expanded="false" aria-haspopup="true" aria-controls="filterActionsDropdown">
               Actions ▾
             </button>
             <div class="filter-actions-dropdown hidden" id="filterActionsDropdown" role="menu" hidden>
@@ -11895,25 +11895,21 @@
 
       const primaryHtml = `
         <div class="filter-bar-primary">
-          <div class="filter-bar-primary-leading">
-            <span class="filters-label">Filters</span>
-            <select id="persistentStreetFilter" class="${currentStreetFilter !== 'all' ? 'filter-active' : ''}" title="Filter by street">
-              <option value="all" ${currentStreetFilter === 'all' ? 'selected' : ''}>All streets</option>
-              ${streets.map(street => `<option value="${street.replace(/"/g, '&quot;')}" ${currentStreetFilter === street ? 'selected' : ''}>${street}</option>`).join('')}
-            </select>
-            <select id="persistentDamageFilter" class="${currentDamageFilter !== 'all' ? 'filter-active' : ''}" title="The highest level of damage to any structure on this property (e.g., mark 'Partial' if a garage or ADU was lost but the house stands).">
-              <option value="all" ${currentDamageFilter === 'all' ? 'selected' : ''}>All damage</option>
-              <option value="" ${currentDamageFilter === '' ? 'selected' : ''}>(not set)</option>
-              ${damages.map(damage => `<option value="${damage.replace(/"/g, '&quot;')}" ${currentDamageFilter === damage ? 'selected' : ''}>${damage}</option>`).join('')}
-            </select>
-          </div>
-          <div class="filter-bar-primary-trailing">
-            <input type="text" id="persistentPersonSearch" placeholder="Search names &amp; notes" value="${escapeHtml(currentPersonSearch)}" class="${currentPersonSearch.trim() ? 'filter-active' : ''}" title="Filter addresses by resident name, notes, outreach log, email, or phone (partial match).">
-            <button type="button" class="btn-print-export btn-print-export--secondary btn-filter-bar" id="filterMoreToggle" aria-expanded="${filterMorePanelOpen ? 'true' : 'false'}" aria-controls="filterBarMorePanel">
-              More filters
-              <span class="filter-more-badge hidden" id="filterMoreBadge" hidden></span>
-            </button>
-          </div>
+          <span class="filters-label">Filters</span>
+          <select id="persistentStreetFilter" class="${currentStreetFilter !== 'all' ? 'filter-active' : ''}" title="Filter by street">
+            <option value="all" ${currentStreetFilter === 'all' ? 'selected' : ''}>All streets</option>
+            ${streets.map(street => `<option value="${street.replace(/"/g, '&quot;')}" ${currentStreetFilter === street ? 'selected' : ''}>${street}</option>`).join('')}
+          </select>
+          <select id="persistentDamageFilter" class="${currentDamageFilter !== 'all' ? 'filter-active' : ''}" title="The highest level of damage to any structure on this property (e.g., mark 'Partial' if a garage or ADU was lost but the house stands).">
+            <option value="all" ${currentDamageFilter === 'all' ? 'selected' : ''}>All damage</option>
+            <option value="" ${currentDamageFilter === '' ? 'selected' : ''}>(not set)</option>
+            ${damages.map(damage => `<option value="${damage.replace(/"/g, '&quot;')}" ${currentDamageFilter === damage ? 'selected' : ''}>${damage}</option>`).join('')}
+          </select>
+          <input type="text" id="persistentPersonSearch" class="filter-bar-search${currentPersonSearch.trim() ? ' filter-active' : ''}" placeholder="Search names &amp; notes" value="${escapeHtml(currentPersonSearch)}" title="Filter addresses by resident name, notes, outreach log, email, or phone (partial match).">
+          <button type="button" class="btn-more-filters" id="filterMoreToggle" aria-expanded="${filterMorePanelOpen ? 'true' : 'false'}" aria-controls="filterBarMorePanel">
+            More filters<span class="btn-more-filters-caret" aria-hidden="true">&#9662;</span>
+            <span class="filter-more-badge hidden" id="filterMoreBadge" hidden></span>
+          </button>
         </div>
       `;
 
