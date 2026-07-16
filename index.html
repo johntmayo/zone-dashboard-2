@@ -67,15 +67,7 @@
           <!-- Primary filters inserted here -->
         </div>
         <div class="filter-bar-actions" id="filterBarActions">
-          <div class="filter-actions-menu" id="filterActionsMenu">
-            <button type="button" class="btn-print-export btn-print-export--secondary filter-actions-toggle" id="filterActionsToggle" aria-expanded="false" aria-haspopup="true" aria-controls="filterActionsDropdown">
-              Actions ▾
-            </button>
-            <div class="filter-actions-dropdown hidden" id="filterActionsDropdown" role="menu" hidden>
-              <button type="button" class="filter-actions-item filter-actions-item--accent" id="btnAddRecord" role="menuitem" style="display:none;" aria-hidden="true">Add Record</button>
-              <button type="button" class="filter-actions-item" id="btnExport" role="menuitem">Export</button>
-            </div>
-          </div>
+          <button type="button" class="btn-filter-chrome" id="btnExport">Export</button>
         </div>
       </div>
       <div class="filter-bar-chips hidden" id="filterBarChips" aria-live="polite"></div>
@@ -10809,7 +10801,7 @@
     }
 
     // Show Add Record modal (v2: flexible flow, geocode + minimap, no "spreadsheet" copy)
-    function showAddRecordModal() {
+    function showAddRecordModal(preselectType) {
       if (!ENABLE_ADD_RECORD) {
         alert('Add Record is temporarily disabled while we stabilize data integrity.');
         return;
@@ -11139,6 +11131,10 @@
         mapSection.classList.add('hidden');
       }
       overlay.querySelectorAll('input[name="addRecordType"]').forEach(r => r.addEventListener('change', toggleByType));
+      if (preselectType === 'person' || preselectType === 'address') {
+        const preselectRadio = overlay.querySelector(`input[name="addRecordType"][value="${preselectType}"]`);
+        if (preselectRadio) preselectRadio.checked = true;
+      }
       toggleByType();
 
       streetSelect.addEventListener('change', () => { streetOtherWrap.classList.toggle('hidden', streetSelect.value !== '__other__'); });
@@ -12100,7 +12096,6 @@
       if (moreToggle) {
         moreToggle.addEventListener('click', (e) => {
           e.stopPropagation();
-          setFilterActionsMenuOpen(false);
           setFilterMorePanelOpen(!filterMorePanelOpen);
         });
       }
@@ -12119,7 +12114,6 @@
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         if (filterMorePanelOpen) setFilterMorePanelOpen(false);
-        setFilterActionsMenuOpen(false);
       }
     });
 
@@ -12365,69 +12359,17 @@
       setupPrintExportHandlers();
     }
     
-    // Setup print/export and add-record button handlers
-    function setFilterActionsMenuOpen(open) {
-      const toggle = document.getElementById('filterActionsToggle');
-      const dropdown = document.getElementById('filterActionsDropdown');
-      if (!toggle || !dropdown) return;
-      const isOpen = !!open;
-      toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-      dropdown.classList.toggle('hidden', !isOpen);
-      if (isOpen) dropdown.removeAttribute('hidden');
-      else dropdown.setAttribute('hidden', '');
-    }
-
+    // Setup export button handler (Add Record now lives on contextual buttons in Details)
     function setupPrintExportHandlers() {
       const exportBtn = document.getElementById('btnExport');
-      const addRecordBtn = document.getElementById('btnAddRecord');
-      const actionsToggle = document.getElementById('filterActionsToggle');
-      const actionsMenu = document.getElementById('filterActionsMenu');
 
-      if (addRecordBtn) {
-        if (!ENABLE_ADD_RECORD) {
-          addRecordBtn.style.display = 'none';
-          addRecordBtn.setAttribute('aria-hidden', 'true');
-        } else {
-          addRecordBtn.style.display = '';
-          addRecordBtn.removeAttribute('aria-hidden');
-        }
-      }
-
-      if (actionsToggle && !actionsToggle.hasAttribute('data-handler-attached')) {
-        actionsToggle.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const open = actionsToggle.getAttribute('aria-expanded') === 'true';
-          setFilterActionsMenuOpen(!open);
-          if (!open) setFilterMorePanelOpen(false);
-        });
-        actionsToggle.setAttribute('data-handler-attached', 'true');
-      }
-      
       if (exportBtn && !exportBtn.hasAttribute('data-handler-attached')) {
         exportBtn.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          setFilterActionsMenuOpen(false);
           showExportModal();
         });
         exportBtn.setAttribute('data-handler-attached', 'true');
-      }
-      if (ENABLE_ADD_RECORD && addRecordBtn && !addRecordBtn.hasAttribute('data-handler-attached')) {
-        addRecordBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setFilterActionsMenuOpen(false);
-          showAddRecordModal();
-        });
-        addRecordBtn.setAttribute('data-handler-attached', 'true');
-      }
-
-      if (actionsMenu && !actionsMenu.hasAttribute('data-outside-close-attached')) {
-        document.addEventListener('click', (e) => {
-          if (!actionsMenu.contains(e.target)) setFilterActionsMenuOpen(false);
-        });
-        actionsMenu.setAttribute('data-outside-close-attached', 'true');
       }
     }
     
@@ -13245,6 +13187,7 @@
         return true;
       });
 
+      const showAddAddressBtn = ENABLE_ADD_RECORD && isSignedIn();
       const html = `
         <ul class="address-list">
           ${filteredAddresses.map(addr => `
@@ -13253,9 +13196,19 @@
             </li>
           `).join('')}
         </ul>
+        ${showAddAddressBtn ? `
+          <div class="add-record-cta-row">
+            <button type="button" class="btn-add-record-cta" id="btnAddMissingAddress">+ Add a missing address</button>
+          </div>
+        ` : ''}
       `;
       
       addressPanelContent.innerHTML = html;
+
+      const addMissingAddressBtn = document.getElementById('btnAddMissingAddress');
+      if (addMissingAddressBtn) {
+        addMissingAddressBtn.addEventListener('click', () => showAddRecordModal('address'));
+      }
 
       // Add click handlers
       document.querySelectorAll('.address-item').forEach(item => {
@@ -13625,7 +13578,7 @@
             saveStatus.className = 'save-status saving';
           }
           await saveChanges(false);
-          const panelSaveStatus = document.getElementById('saveStatus');
+          const panelSaveStatus = document.getElementById('saveStatusTop');
           const saveErrored = panelSaveStatus && panelSaveStatus.classList.contains('error');
           if (saveErrored) {
             if (saveStatus) {
@@ -14664,12 +14617,11 @@
         html += '</div>';
       });
 
-      // Add save button if signed in and there are editable fields
-      if (isSignedIn()) {
+      // Contextual "Add a missing person" CTA at the bottom of the people list
+      if (ENABLE_ADD_RECORD && isSignedIn()) {
         html += `
-          <div class="details-footer-save">
-            <button class="btn-save" id="saveChangesBtn">Save Changes</button>
-            <span class="save-status" id="saveStatus"></span>
+          <div class="add-record-cta-row">
+            <button type="button" class="btn-add-record-cta" id="btnAddMissingPerson">+ Add a missing person</button>
           </div>
         `;
       }
@@ -14797,12 +14749,14 @@
         });
       });
 
-      // Add save button handlers (both top and bottom buttons).
-      // Wrap so the click Event is never passed as isAutoSave (truthy Event → silent failures).
-      const saveBtn = document.getElementById('saveChangesBtn');
-      if (saveBtn) {
-        saveBtn.addEventListener('click', () => saveChanges(false));
+      // Contextual "Add a missing person" opens the shared add-record modal, person pre-selected
+      const addMissingPersonBtn = document.getElementById('btnAddMissingPerson');
+      if (addMissingPersonBtn) {
+        addMissingPersonBtn.addEventListener('click', () => showAddRecordModal('person'));
       }
+
+      // Add save button handler for the top button.
+      // Wrap so the click Event is never passed as isAutoSave (truthy Event → silent failures).
       const saveBtnTop = document.getElementById('saveChangesBtnTop');
       if (saveBtnTop) {
         saveBtnTop.addEventListener('click', () => saveChanges(false));
@@ -15966,8 +15920,9 @@
         }
       }
 
-      const saveBtn = document.getElementById('saveChangesBtn');
-      const saveStatus = document.getElementById('saveStatus');
+      // Bottom Save button/status were removed; fall back to the top toolbar controls.
+      const saveBtn = document.getElementById('saveChangesBtn') || document.getElementById('saveChangesBtnTop');
+      const saveStatus = document.getElementById('saveStatus') || document.getElementById('saveStatusTop');
       const saveStatusTop = document.getElementById('saveStatusTop');
       // Get all editable elements: Notes fields (textareas), inline fields, dropdowns, checkboxes, text inputs (e.g. APN)
       const editableFields = document.querySelectorAll('.editable-field[contenteditable="true"], .editable-inline[contenteditable="true"], .editable-notes, .apn-input');

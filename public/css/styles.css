@@ -913,41 +913,45 @@
       background-color: rgba(221, 161, 94, 0.15);
     }
 
-    /* Quiet text control — not a second CTA style */
-    .btn-more-filters {
+    /* Dark-navy filter-bar chrome — matches the "← Back to List" (.btn-back) family.
+       Shared by "More filters" and the standalone "Export" button. */
+    .btn-more-filters,
+    .btn-filter-chrome {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
       flex: 0 0 auto;
       margin: 0;
-      padding: 6px 8px;
-      border: none;
-      border-radius: 6px;
-      background: transparent;
-      color: var(--brand-primary-dark);
+      padding: 7px 14px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--brand-primary-dark);
+      color: var(--bg-paper);
       font-family: 'Chivo', sans-serif;
-      font-size: 0.8rem;
-      font-weight: 700;
+      font-size: 0.82rem;
+      font-weight: 900;
+      letter-spacing: 0.02em;
       cursor: pointer;
       white-space: nowrap;
-      text-decoration: underline;
-      text-decoration-thickness: 1px;
-      text-underline-offset: 3px;
+      box-shadow: 0 1px 3px rgba(40, 54, 24, 0.25);
+      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    .btn-more-filters:hover {
-      background: rgba(49, 64, 89, 0.06);
+    .btn-more-filters:hover,
+    .btn-filter-chrome:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 3px 8px rgba(40, 54, 24, 0.35);
     }
 
     .btn-more-filters.is-open,
     .btn-more-filters.has-active-filters {
-      background: rgba(221, 161, 94, 0.16);
-      text-decoration: none;
+      background: var(--brand-primary-dark);
+      box-shadow: 0 0 0 2px var(--accent-gold);
     }
 
     .btn-more-filters-caret {
       font-size: 0.7rem;
-      opacity: 0.75;
+      opacity: 0.8;
     }
 
     .filter-more-badge {
@@ -969,56 +973,6 @@
     .filter-more-badge.hidden,
     .filter-more-badge[hidden] {
       display: none !important;
-    }
-
-    .filter-actions-menu {
-      position: relative;
-      flex-shrink: 0;
-    }
-
-    .filter-actions-toggle {
-      padding: 6px 12px !important;
-      font-size: 0.8rem !important;
-    }
-
-    .filter-actions-dropdown {
-      position: absolute;
-      top: calc(100% + 4px);
-      right: 0;
-      z-index: 400;
-      min-width: 11rem;
-      padding: 6px;
-      background: #fff;
-      border: 2px solid var(--brand-primary-dark);
-      box-shadow: 3px 3px 0 var(--text-primary);
-    }
-
-    .filter-actions-dropdown.hidden,
-    .filter-actions-dropdown[hidden] {
-      display: none !important;
-    }
-
-    .filter-actions-item {
-      display: block;
-      width: 100%;
-      text-align: left;
-      padding: 9px 10px;
-      border: none;
-      border-radius: 4px;
-      background: transparent;
-      color: var(--brand-primary-dark);
-      font-family: 'Chivo', sans-serif;
-      font-size: 0.85rem;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    .filter-actions-item:hover {
-      background: rgba(49, 64, 89, 0.08);
-    }
-
-    .filter-actions-item--accent {
-      color: #8a4b12;
     }
 
     .filter-bar-chips {
@@ -9281,6 +9235,37 @@
       transform: none;
     }
 
+    /* Contextual "Add a missing address / person" CTAs (marigold, same family as Save Changes) */
+    .add-record-cta-row {
+      display: flex;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(31, 41, 55, 0.1);
+    }
+
+    .btn-add-record-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 18px;
+      background: var(--accent-gold);
+      color: var(--text-primary);
+      border: 0;
+      border-radius: 10px;
+      cursor: pointer;
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 900;
+      letter-spacing: 0.3px;
+      box-shadow: 0 4px 12px rgba(188, 108, 37, 0.4);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn-add-record-cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(188, 108, 37, 0.5);
+    }
+
     .signin-prompt {
       background: rgba(255, 255, 255, 0.8);
       padding: 16px;
@@ -10623,14 +10608,10 @@
     font-size: 0.78rem;
   }
 
-  .filter-actions-toggle {
-    padding: 6px 10px !important;
-    font-size: 0.78rem !important;
-  }
-
-  .btn-more-filters {
-    font-size: 0.76rem;
-    padding: 6px 6px;
+  .btn-more-filters,
+  .btn-filter-chrome {
+    font-size: 0.78rem;
+    padding: 6px 10px;
   }
 
   .filter-bar-more-panel {
