@@ -4,7 +4,7 @@
  */
 'use strict';
 
-const SW_VERSION = 'zd-shell-v1';
+const SW_VERSION = 'zd-shell-v2';
 const SHELL_CACHE = `shell-${SW_VERSION}`;
 
 // Same-origin assets safe to precache. Keep this list small and deploy-bump SW_VERSION when it changes.
