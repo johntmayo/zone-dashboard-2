@@ -11776,24 +11776,10 @@
 
     function updateFilterChipsAndBadge() {
       const chipsEl = document.getElementById('filterBarChips');
-      const badge = document.getElementById('filterMoreBadge');
       const toggle = document.getElementById('filterMoreToggle');
       const chips = getActiveFilterDescriptors();
-      const moreCount = countMorePanelActiveFilters();
 
-      if (badge) {
-        if (moreCount > 0) {
-          badge.textContent = String(moreCount);
-          badge.hidden = false;
-          badge.classList.remove('hidden');
-        } else {
-          badge.textContent = '';
-          badge.hidden = true;
-          badge.classList.add('hidden');
-        }
-      }
       if (toggle) {
-        toggle.classList.toggle('has-active-filters', moreCount > 0);
         toggle.setAttribute('aria-expanded', filterMorePanelOpen ? 'true' : 'false');
       }
 
@@ -11904,7 +11890,6 @@
           <input type="text" id="persistentPersonSearch" class="filter-bar-search${currentPersonSearch.trim() ? ' filter-active' : ''}" placeholder="Search names &amp; notes" value="${escapeHtml(currentPersonSearch)}" title="Filter addresses by resident name, notes, outreach log, email, or phone (partial match).">
           <button type="button" class="btn-more-filters" id="filterMoreToggle" aria-expanded="${filterMorePanelOpen ? 'true' : 'false'}" aria-controls="filterBarMorePanel">
             More filters<span class="btn-more-filters-caret" aria-hidden="true">&#9662;</span>
-            <span class="filter-more-badge hidden" id="filterMoreBadge" hidden></span>
           </button>
         </div>
       `;
@@ -12401,6 +12386,9 @@
       }
       if (currentRemediationFilter !== 'all') {
         parts.push('Remediation Status: ' + (currentRemediationFilter === '' ? '(not set)' : currentRemediationFilter));
+      }
+      if (currentEpicFilter !== 'all') {
+        parts.push('EPIC: ' + formatFilterChipValue(currentEpicFilter));
       }
       if (currentCaptainFilter !== 'all') {
         parts.push('Captain: ' + (currentCaptainFilter === '' ? '(not specified)' : currentCaptainFilter));

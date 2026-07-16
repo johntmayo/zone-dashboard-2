@@ -914,7 +914,7 @@
     }
 
     /* Dark-navy filter-bar chrome — matches the "← Back to List" (.btn-back) family.
-       Shared by "More filters" and the standalone "Export" button. */
+       Shared by "More filters" and the standalone "Export" button. No active state. */
     .btn-more-filters,
     .btn-filter-chrome {
       display: inline-flex;
@@ -929,7 +929,7 @@
       color: var(--bg-paper);
       font-family: 'Chivo', sans-serif;
       font-size: 0.82rem;
-      font-weight: 900;
+      font-weight: 700;
       letter-spacing: 0.02em;
       cursor: pointer;
       white-space: nowrap;
@@ -943,36 +943,9 @@
       box-shadow: 0 3px 8px rgba(40, 54, 24, 0.35);
     }
 
-    .btn-more-filters.is-open,
-    .btn-more-filters.has-active-filters {
-      background: var(--brand-primary-dark);
-      box-shadow: 0 0 0 2px var(--accent-gold);
-    }
-
     .btn-more-filters-caret {
       font-size: 0.7rem;
       opacity: 0.8;
-    }
-
-    .filter-more-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 1.15rem;
-      height: 1.15rem;
-      padding: 0 4px;
-      border-radius: 999px;
-      background: var(--accent-clay, #BC5838);
-      color: #fff;
-      font-size: 0.68rem;
-      font-weight: 800;
-      line-height: 1;
-      text-decoration: none;
-    }
-
-    .filter-more-badge.hidden,
-    .filter-more-badge[hidden] {
-      display: none !important;
     }
 
     .filter-bar-chips {
@@ -7262,8 +7235,9 @@
       border: 0;
       border-radius: 8px;
       cursor: pointer;
+      font-family: 'Chivo', sans-serif;
       font-size: 0.9rem;
-      font-weight: 900;
+      font-weight: 700;
       margin: 0;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       box-shadow: 0 4px 8px rgba(40, 54, 24, 0.3);
