@@ -4,14 +4,14 @@
  */
 'use strict';
 
-const SW_VERSION = 'zd-shell-v1';
+const SW_VERSION = 'zd-shell-v3';
 const SHELL_CACHE = `shell-${SW_VERSION}`;
 
 // Same-origin assets safe to precache. Keep this list small and deploy-bump SW_VERSION when it changes.
 const PRECACHE_URLS = [
   '/',
   '/manifest.webmanifest',
-  '/public/css/styles.css',
+  '/public/css/styles.css?v=2',
   '/public/js/utils.js',
   '/public/js/address-id.js',
   '/public/js/contact-checkin.js',
@@ -84,11 +84,49 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Same-origin static assets: cache-first with network fallback.
+  // Same-origin static assets.
   if (isStaticAsset(url)) {
-    event.respondWith(cacheFirstStatic(request));
+    // CSS/JS change on every deploy — serve them network-first so a new deploy always wins
+    // when online, falling back to cache only when offline. Images/fonts stay cache-first for speed.
+    if (/\.(?:css|js)$/i.test(url.pathname)) {
+      event.respondWith(networkFirstStatic(request));
+    } else {
+      event.respondWith(cacheFirstStatic(request));
+    }
   }
 });
+
+// Network-first with a short timeout: a new deploy wins when online, but a slow/hung
+// connection falls back to the saved copy quickly instead of blocking the load.
+const STATIC_NETWORK_TIMEOUT_MS = 3000;
+
+async function networkFirstStatic(request) {
+  const cachedPromise = caches.match(request);
+
+  try {
+    const fresh = await fetchWithTimeout(request, STATIC_NETWORK_TIMEOUT_MS);
+    if (fresh && fresh.ok) {
+      const cache = await caches.open(SHELL_CACHE);
+      cache.put(request, fresh.clone()).catch(() => {});
+    }
+    return fresh;
+  } catch (err) {
+    // Network failed or was too slow — use the saved copy if we have one.
+    const cached = await cachedPromise;
+    if (cached) return cached;
+    throw err;
+  }
+}
+
+function fetchWithTimeout(request, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('sw-network-timeout')), timeoutMs);
+    fetch(request).then(
+      (response) => { clearTimeout(timer); resolve(response); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
 
 async function networkFirstNavigation(request) {
   try {

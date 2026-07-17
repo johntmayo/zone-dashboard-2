@@ -31,7 +31,7 @@
   <script src="https://unpkg.com/leaflet-kml@1.0.0/dist/leaflet-kml.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <link rel="stylesheet" href="public/css/styles.css">
+  <link rel="stylesheet" href="public/css/styles.css?v=2">
   <script src="public/js/utils.js"></script>
   <script src="public/js/address-id.js"></script>
   <script src="public/js/contact-checkin.js"></script>
@@ -64,13 +64,14 @@
     <div class="filter-bar hidden" id="filterBar">
       <div class="filter-bar-main">
         <div class="filter-bar-content" id="filterBarContent">
-          <!-- Filters will be inserted here -->
+          <!-- Primary filters inserted here -->
         </div>
         <div class="filter-bar-actions" id="filterBarActions">
-          <button type="button" class="btn-print-export" id="btnAddRecord" style="display:none;" aria-hidden="true">➕ Add Record</button>
-          <button type="button" class="btn-print-export btn-print-export--secondary" id="btnExport">Export</button>
+          <button type="button" class="btn-filter-chrome" id="btnExport">Export</button>
         </div>
       </div>
+      <div class="filter-bar-chips hidden" id="filterBarChips" aria-live="polite"></div>
+      <div class="filter-bar-more-panel hidden" id="filterBarMorePanel" role="region" aria-label="More filters"></div>
     </div>
 
     <!-- Welcome Message Overlay (shown when spreadsheet not linked) -->
@@ -1375,6 +1376,7 @@
     let showContactedAddresses = true; // Show addresses with contacted people
     let showUncontactedAddresses = true; // Show addresses with uncontacted people
     let showSoldSinceJan25Tags = false; // Show SOLD labels next to sold-since-fire map dots
+    let filterMorePanelOpen = false; // Persist More filters panel across bar rebuilds
     const epicPresenceState = {
       loading: false,
       ready: false,
@@ -1512,6 +1514,7 @@
     let zoneKmlUrl = ''; // Zone KML URL from metadata
     let metadataSheetId = null; // Sheet ID for metadata sheet
     let autoSaveTimer = null; // Timer for debounced auto-save
+    let mapLayoutResyncTimer = null; // Debounce filter-bar → map layout resync
     let currentZoneName = ''; // Current zone name from spreadsheet
     let homeKmlLoading = false; // Prevent duplicate KML loads causing transparency issues
     const panelCollapseToggle = document.getElementById('panelCollapseToggle');
@@ -1568,15 +1571,7 @@
       // Panel width changes can reflow the filter bar; resync map/content top offsets
       // immediately and once more after the panel transition completes.
       if (currentView === 'map' || currentView === 'people') {
-        requestAnimationFrame(() => {
-          adjustContentViewsForFilterBar();
-        });
-        setTimeout(() => {
-          adjustContentViewsForFilterBar();
-          if (zoneMap && currentView === 'map') {
-            zoneMap.invalidateSize();
-          }
-        }, 230);
+        resyncMapLayoutAfterFilterBar({ immediate: true, followUpMs: 230 });
       }
     }
 
@@ -10806,7 +10801,7 @@
     }
 
     // Show Add Record modal (v2: flexible flow, geocode + minimap, no "spreadsheet" copy)
-    function showAddRecordModal() {
+    function showAddRecordModal(preselectType, preselectAddress) {
       if (!ENABLE_ADD_RECORD) {
         alert('Add Record is temporarily disabled while we stabilize data integrity.');
         return;
@@ -11136,6 +11131,10 @@
         mapSection.classList.add('hidden');
       }
       overlay.querySelectorAll('input[name="addRecordType"]').forEach(r => r.addEventListener('change', toggleByType));
+      if (preselectType === 'person' || preselectType === 'address') {
+        const preselectRadio = overlay.querySelector(`input[name="addRecordType"][value="${preselectType}"]`);
+        if (preselectRadio) preselectRadio.checked = true;
+      }
       toggleByType();
 
       streetSelect.addEventListener('change', () => { streetOtherWrap.classList.toggle('hidden', streetSelect.value !== '__other__'); });
@@ -11155,6 +11154,17 @@
       }
       if (personAddressType) personAddressType.addEventListener('change', togglePersonAddressBlocks);
       togglePersonAddressBlocks();
+      // When opened contextually from a specific address, pre-select that address in the
+      // person flow. Only assign when an option actually matches so a string mismatch
+      // falls back to "-- Select an address --" rather than forcing the wrong address.
+      if (preselectType === 'person' && typeof preselectAddress === 'string' && preselectAddress) {
+        const existingSel = document.getElementById('addRecordExistingAddress');
+        if (existingSel && Array.from(existingSel.options).some(o => o.value === preselectAddress)) {
+          if (personAddressType) personAddressType.value = 'existing';
+          existingSel.value = preselectAddress;
+          togglePersonAddressBlocks();
+        }
+      }
       if (personStreetSelect) personStreetSelect.addEventListener('change', () => { if (personStreetOtherWrap) personStreetOtherWrap.classList.toggle('hidden', personStreetSelect.value !== '__other__'); });
       if (personStreetSelect && personStreetSelect.value === '__other__' && personStreetOtherWrap) personStreetOtherWrap.classList.remove('hidden');
 
@@ -11358,7 +11368,19 @@
     }
 
     // Display list of addresses
-    // Helper function to adjust content views for filter bar
+    // Helper: push map/content below the filter bar, then resync Leaflet after layout settles.
+    // Safari select layout and filter wrap commonly race invalidateSize → map tearing.
+    function invalidateZoneMapSizeSoon() {
+      if (typeof zoneMap === 'undefined' || !zoneMap || currentView !== 'map') return;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (zoneMap && currentView === 'map') {
+            zoneMap.invalidateSize({ pan: false });
+          }
+        });
+      });
+    }
+
     function adjustContentViewsForFilterBar() {
       const filterBar = document.getElementById('filterBar');
       const shouldShowFilters = (currentView === 'people' || currentView === 'map');
@@ -11374,7 +11396,10 @@
         // Both filter bar and app-container start at top of viewport
         // Filter bar is fixed, content views are absolute within app-container
         // Since shell starts at top=0, bottom gives the exact required inset.
-        const offset = Math.ceil(filterBarRect.bottom) + 1;
+        // Cap so the map never shrinks below ~45% of the viewport (laptop / Safari).
+        const rawOffset = Math.ceil(filterBarRect.bottom) + 1;
+        const maxOffset = Math.max(72, Math.floor(window.innerHeight * 0.55));
+        const offset = Math.min(rawOffset, maxOffset);
         
         document.querySelectorAll('.content-view').forEach(view => {
           if (view.id === 'peopleView' || view.id === 'mapView') {
@@ -11401,7 +11426,23 @@
       }
     }
 
-    // Debounced resize: keep content/map aligned with filter bar when window is resized
+    function resyncMapLayoutAfterFilterBar(options = {}) {
+      const immediate = options.immediate !== false;
+      const followUpMs = options.followUpMs != null ? options.followUpMs : 120;
+      if (immediate) {
+        adjustContentViewsForFilterBar();
+        invalidateZoneMapSizeSoon();
+      }
+      if (mapLayoutResyncTimer) clearTimeout(mapLayoutResyncTimer);
+      mapLayoutResyncTimer = setTimeout(() => {
+        mapLayoutResyncTimer = null;
+        adjustContentViewsForFilterBar();
+        invalidateZoneMapSizeSoon();
+      }, followUpMs);
+    }
+
+    // Debounced resize: keep content/map aligned with filter bar when window is resized.
+    // Also listen to visualViewport (Safari URL bar show/hide) so Leaflet maps reflow.
     (function initResizeListener() {
       var resizeTimer = null;
       var resizeDelay = 120;
@@ -11409,10 +11450,16 @@
         if (resizeTimer) clearTimeout(resizeTimer);
         resizeTimer = setTimeout(function() {
           resizeTimer = null;
-          adjustContentViewsForFilterBar();
+          resyncMapLayoutAfterFilterBar({ immediate: true, followUpMs: 80 });
+          if (typeof homeMap !== 'undefined' && homeMap) {
+            homeMap.invalidateSize({ pan: false });
+          }
         }, resizeDelay);
       }
       window.addEventListener('resize', onResize);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', onResize);
+      }
     })();
     
     function resetEpicPresenceState() {
@@ -11611,7 +11658,186 @@
       return true;
     }
 
-    // Populate persistent filter bar
+    function refreshFilteredViews() {
+      if (!sheetData || !sheetData.addressMap) return;
+      displayAddressTable();
+      displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
+      updateMapMarkers();
+    }
+
+    function formatFilterChipValue(value) {
+      if (value === '') return '(not set)';
+      if (value === '__known__') return 'Has known build status';
+      if (value === 'sold_since_fire') return 'Sold since fire';
+      if (value === 'pending') return 'Pending requests';
+      if (value === 'completed') return 'Cleaned requests';
+      if (value === 'all_requests') return 'All requests';
+      if (value === 'has_epic') return 'Has permitting records';
+      if (value === 'epic_application_or_plans') return 'Application / plans';
+      if (value === 'epic_permit_issued') return 'Permit issued';
+      if (value === 'epic_construction_underway') return 'Construction underway';
+      if (value === 'epic_construction_completed') return 'Construction completed';
+      if (value === 'epic_temp_housing') return 'Temporary housing';
+      return String(value);
+    }
+
+    function getActiveFilterDescriptors() {
+      const chips = [];
+      if (currentStreetFilter !== 'all') {
+        chips.push({ key: 'street', label: `Street: ${formatFilterChipValue(currentStreetFilter)}` });
+      }
+      if (currentDamageFilter !== 'all') {
+        chips.push({ key: 'damage', label: `Damage: ${formatFilterChipValue(currentDamageFilter)}` });
+      }
+      if (currentPersonSearch.trim()) {
+        chips.push({ key: 'search', label: `Search: ${currentPersonSearch.trim()}` });
+      }
+      if (currentSalesFilter !== 'all') {
+        chips.push({ key: 'sales', label: `Sales: ${formatFilterChipValue(currentSalesFilter)}` });
+      }
+      if (currentLotWeedingFilter !== 'all') {
+        chips.push({ key: 'weeding', label: `Weeding: ${formatFilterChipValue(currentLotWeedingFilter)}` });
+      }
+      if (currentAddressPlanFilter !== 'all') {
+        chips.push({ key: 'plan', label: `Address plan: ${formatFilterChipValue(currentAddressPlanFilter)}` });
+      }
+      if (currentRebuildFilter !== 'all') {
+        chips.push({ key: 'rebuild', label: `Build: ${formatFilterChipValue(currentRebuildFilter)}` });
+      }
+      if (currentRemediationFilter !== 'all') {
+        chips.push({ key: 'remediation', label: `Remediation: ${formatFilterChipValue(currentRemediationFilter)}` });
+      }
+      if (currentEpicFilter !== 'all') {
+        chips.push({ key: 'epic', label: `EPIC: ${formatFilterChipValue(currentEpicFilter)}` });
+      }
+      if (currentCaptainFilter !== 'all') {
+        chips.push({ key: 'captain', label: `Captain: ${formatFilterChipValue(currentCaptainFilter)}` });
+      }
+      // Default for outreach visibility is both on; chip only when restricted
+      if (!showContactedAddresses) {
+        chips.push({ key: 'hide_contacted', label: 'Hiding: outreach tried' });
+      }
+      if (!showUncontactedAddresses) {
+        chips.push({ key: 'hide_uncontacted', label: 'Hiding: no outreach yet' });
+      }
+      if (showSoldSinceJan25Tags) {
+        chips.push({ key: 'sold_tags', label: 'Sold labels on' });
+      }
+      return chips;
+    }
+
+    function countMorePanelActiveFilters() {
+      let n = 0;
+      if (currentSalesFilter !== 'all') n++;
+      if (currentLotWeedingFilter !== 'all') n++;
+      if (currentAddressPlanFilter !== 'all') n++;
+      if (currentRebuildFilter !== 'all') n++;
+      if (currentRemediationFilter !== 'all') n++;
+      if (currentEpicFilter !== 'all') n++;
+      if (currentCaptainFilter !== 'all') n++;
+      if (!showContactedAddresses) n++;
+      if (!showUncontactedAddresses) n++;
+      if (showSoldSinceJan25Tags) n++;
+      return n;
+    }
+
+    function clearFilterByKey(key) {
+      if (key === 'street') currentStreetFilter = 'all';
+      else if (key === 'damage') currentDamageFilter = 'all';
+      else if (key === 'search') currentPersonSearch = '';
+      else if (key === 'sales') currentSalesFilter = 'all';
+      else if (key === 'weeding') currentLotWeedingFilter = 'all';
+      else if (key === 'plan') currentAddressPlanFilter = 'all';
+      else if (key === 'rebuild') currentRebuildFilter = 'all';
+      else if (key === 'remediation') currentRemediationFilter = 'all';
+      else if (key === 'epic') currentEpicFilter = 'all';
+      else if (key === 'captain') currentCaptainFilter = 'all';
+      else if (key === 'hide_contacted') showContactedAddresses = true;
+      else if (key === 'hide_uncontacted') showUncontactedAddresses = true;
+      else if (key === 'sold_tags') showSoldSinceJan25Tags = false;
+      else return;
+
+      if (key === 'sold_tags') {
+        scheduleSoldTagVisibilityUpdate(0);
+      }
+      populateFilterBar();
+      refreshFilteredViews();
+    }
+
+    function clearAllActiveFilters() {
+      currentStreetFilter = 'all';
+      currentDamageFilter = 'all';
+      currentSalesFilter = 'all';
+      currentLotWeedingFilter = 'all';
+      currentAddressPlanFilter = 'all';
+      currentRebuildFilter = 'all';
+      currentRemediationFilter = 'all';
+      currentEpicFilter = 'all';
+      currentCaptainFilter = 'all';
+      currentPersonSearch = '';
+      showContactedAddresses = true;
+      showUncontactedAddresses = true;
+      if (showSoldSinceJan25Tags) {
+        showSoldSinceJan25Tags = false;
+        scheduleSoldTagVisibilityUpdate(0);
+      }
+      populateFilterBar();
+      refreshFilteredViews();
+    }
+
+    function updateFilterChipsAndBadge() {
+      const chipsEl = document.getElementById('filterBarChips');
+      const toggle = document.getElementById('filterMoreToggle');
+      const chips = getActiveFilterDescriptors();
+
+      if (toggle) {
+        toggle.setAttribute('aria-expanded', filterMorePanelOpen ? 'true' : 'false');
+      }
+
+      if (!chipsEl) return;
+      if (chips.length === 0) {
+        chipsEl.innerHTML = '';
+        chipsEl.classList.add('hidden');
+        return;
+      }
+
+      chipsEl.classList.remove('hidden');
+      chipsEl.innerHTML = `
+        ${chips.map(chip => `
+          <button type="button" class="filter-chip" data-filter-chip="${escapeHtml(chip.key)}" title="Clear this filter">
+            <span class="filter-chip-label">${escapeHtml(chip.label)}</span>
+            <span class="filter-chip-remove" aria-hidden="true">×</span>
+          </button>
+        `).join('')}
+        <button type="button" class="filter-chip filter-chip--clear-all" data-filter-chip="__clear_all__" title="Clear all filters">Clear all</button>
+      `;
+      chipsEl.querySelectorAll('[data-filter-chip]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const key = btn.getAttribute('data-filter-chip');
+          if (key === '__clear_all__') clearAllActiveFilters();
+          else clearFilterByKey(key);
+        });
+      });
+    }
+
+    function setFilterMorePanelOpen(open) {
+      filterMorePanelOpen = !!open;
+      const panel = document.getElementById('filterBarMorePanel');
+      const toggle = document.getElementById('filterMoreToggle');
+      if (panel) panel.classList.toggle('hidden', !filterMorePanelOpen);
+      if (toggle) {
+        toggle.setAttribute('aria-expanded', filterMorePanelOpen ? 'true' : 'false');
+        toggle.classList.toggle('is-open', filterMorePanelOpen);
+      }
+      resyncMapLayoutAfterFilterBar({ immediate: true, followUpMs: 120 });
+    }
+
+    function markSelectActive(el, isActive) {
+      if (!el) return;
+      el.classList.toggle('filter-active', !!isActive);
+    }
+
+    // Populate persistent filter bar (primary row + More panel + active chips)
     function populateFilterBar() {
       if (!sheetData || !sheetData.addressMap) {
         const filterBar = document.getElementById('filterBar');
@@ -11621,11 +11847,11 @@
 
       const filterBar = document.getElementById('filterBar');
       const filterBarContent = document.getElementById('filterBarContent');
-      if (!filterBar || !filterBarContent) return;
+      const morePanel = document.getElementById('filterBarMorePanel');
+      if (!filterBar || !filterBarContent || !morePanel) return;
 
       const addresses = Array.from(sheetData.addressMap.keys());
       const headers = sheetData.headers;
-      const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const remediationStatusCol = findColumn(headers, ['remediation', 'status'], ['note']);
@@ -11640,15 +11866,14 @@
       const addressPlans = addressPlanCol ? getFullAddressPlanOptions() : [];
       const rebuildStatusesArray = rebuildCol ? getFullRebuildStatusOptions() : [];
       const remediationStatuses = remediationStatusCol ? getFullRemediationStatusOptions() : [];
-      
-      // Check if zone has multiple captains and get captain names for filter
+
       const ncNameCol = findColumn(headers, 'nc name');
       const ncPhoneCol = findColumn(headers, 'nc phone');
       const ncEmailCol = findColumn(headers, 'nc email');
       const captainAssignedCol = findColumn(headers, 'captain assigned');
       let hasMultipleCaptains = false;
       let captainNames = [];
-      
+
       if (ncNameCol && sheetData.data && sheetData.data.length > 0 && captainAssignedCol) {
         const firstRow = sheetData.data[0];
         const ncName = firstRow[ncNameCol] ? (firstRow[ncNameCol] || '').trim() : '';
@@ -11661,346 +11886,232 @@
         }
       }
 
-      const html = `
-        <span class="filters-label">Filters:</span>
-        <select id="persistentStreetFilter" class="${currentStreetFilter !== 'all' ? 'filter-active' : ''}">
-          <option value="all" ${currentStreetFilter === 'all' ? 'selected' : ''}>All Streets</option>
-          ${streets.map(street => `<option value="${street.replace(/"/g, '&quot;')}" ${currentStreetFilter === street ? 'selected' : ''}>${street}</option>`).join('')}
-        </select>
-        <select id="persistentDamageFilter" class="${currentDamageFilter !== 'all' ? 'filter-active' : ''}" title="The highest level of damage to any structure on this property (e.g., mark 'Partial' if a garage or ADU was lost but the house stands).">
-          <option value="all" ${currentDamageFilter === 'all' ? 'selected' : ''}>All Damage Status</option>
-          <option value="" ${currentDamageFilter === '' ? 'selected' : ''}>(not set)</option>
-          ${damages.map(damage => `<option value="${damage.replace(/"/g, '&quot;')}" ${currentDamageFilter === damage ? 'selected' : ''}>${damage}</option>`).join('')}
-        </select>
-        <select id="persistentSalesFilter" class="${currentSalesFilter !== 'all' ? 'filter-active' : ''}" title="Filter addresses by whether they have sold since the fire.">
-          <option value="all" ${currentSalesFilter === 'all' ? 'selected' : ''}>Sales: All Addresses</option>
-          <option value="sold_since_fire" ${currentSalesFilter === 'sold_since_fire' ? 'selected' : ''}>Sales: Sold Since Fire</option>
-        </select>
-        ${hasLotWeedingRequestData ? `<select id="persistentLotWeedingFilter" class="${currentLotWeedingFilter !== 'all' ? 'filter-active' : ''}" title="Filter lots by lot weeding request status.">
-          <option value="all" ${currentLotWeedingFilter === 'all' ? 'selected' : ''}>Weeding: No filter</option>
-          <option value="pending" ${currentLotWeedingFilter === 'pending' ? 'selected' : ''}>Weeding: Pending requests</option>
-          <option value="completed" ${currentLotWeedingFilter === 'completed' ? 'selected' : ''}>Weeding: Cleaned requests</option>
-          <option value="all_requests" ${currentLotWeedingFilter === 'all_requests' ? 'selected' : ''}>Weeding: All requests</option>
-        </select>` : ''}
-        ${addressPlanCol ? `<select id="persistentAddressPlanFilter" class="${currentAddressPlanFilter !== 'all' ? 'filter-active' : ''}" title="The owner's current intent for the property—whether they plan to rebuild, sell, or are still deciding.">
-          <option value="all" ${currentAddressPlanFilter === 'all' ? 'selected' : ''}>All Address Plan</option>
-          <option value="" ${currentAddressPlanFilter === '' ? 'selected' : ''}>(not set)</option>
-          ${addressPlans.map(ap => `<option value="${ap.replace(/"/g, '&quot;')}" ${currentAddressPlanFilter === ap ? 'selected' : ''}>${ap}</option>`).join('')}
-        </select>` : ''}
-        ${rebuildCol ? `<select id="persistentRebuildFilter" class="${currentRebuildFilter !== 'all' ? 'filter-active' : ''}" title="For properties in recovery, this tracks the physical progress of construction.">
-          <option value="all" ${currentRebuildFilter === 'all' ? 'selected' : ''}>All Build Status</option>
-          <option value="__known__" ${currentRebuildFilter === '__known__' ? 'selected' : ''}>Has known build status</option>
-          ${rebuildStatusesArray.map(status => `<option value="${status.replace(/"/g, '&quot;')}" ${currentRebuildFilter === status ? 'selected' : ''}>${status}</option>`).join('')}
-        </select>` : ''}
-        ${remediationStatusCol ? `<select id="persistentRemediationFilter" class="${currentRemediationFilter !== 'all' ? 'filter-active' : ''}" title="Tracks environmental remediation progress for this address (e.g. soil/debris cleanup).">
-          <option value="all" ${currentRemediationFilter === 'all' ? 'selected' : ''}>All Remediation Status</option>
-          <option value="" ${currentRemediationFilter === '' ? 'selected' : ''}>(not set)</option>
-          ${remediationStatuses.map(status => `<option value="${status.replace(/"/g, '&quot;')}" ${currentRemediationFilter === status ? 'selected' : ''}>${status}</option>`).join('')}
-        </select>` : ''}
-        <select id="persistentEpicFilter" class="${currentEpicFilter !== 'all' ? 'filter-active' : ''}" title="Filter addresses by EPIC-LA permitting records.">
-          <option value="all" ${currentEpicFilter === 'all' ? 'selected' : ''}>EPIC: All addresses</option>
-          <option value="has_epic" ${currentEpicFilter === 'has_epic' ? 'selected' : ''}>EPIC: Has permitting records</option>
-          <option value="epic_application_or_plans" ${currentEpicFilter === 'epic_application_or_plans' ? 'selected' : ''}>EPIC: Application / plans under review</option>
-          <option value="epic_permit_issued" ${currentEpicFilter === 'epic_permit_issued' ? 'selected' : ''}>EPIC: Permit issued</option>
-          <option value="epic_construction_underway" ${currentEpicFilter === 'epic_construction_underway' ? 'selected' : ''}>EPIC: Construction underway</option>
-          <option value="epic_construction_completed" ${currentEpicFilter === 'epic_construction_completed' ? 'selected' : ''}>EPIC: Construction completed</option>
-          <option value="epic_temp_housing" ${currentEpicFilter === 'epic_temp_housing' ? 'selected' : ''}>EPIC: Temporary housing</option>
-        </select>
-        <span id="persistentEpicFilterStatus" class="filters-label" style="font-size:0.75rem; opacity:0.85;">
-          ${epicPresenceState.error
-            ? 'EPIC filter unavailable'
-            : (currentEpicFilter !== 'all' && epicPresenceState.loading ? 'Loading EPIC filter...' : '')}
-        </span>
-        ${hasMultipleCaptains && captainAssignedCol ? `<select id="persistentCaptainFilter" class="${currentCaptainFilter !== 'all' ? 'filter-active' : ''}" title="Filter to see addresses assigned to a specific Neighborhood Captain.">
-          <option value="all" ${currentCaptainFilter === 'all' ? 'selected' : ''}>Any Captain</option>
-          <option value="" ${currentCaptainFilter === '' ? 'selected' : ''}>(not specified)</option>
-          ${captainNames.map(name => `<option value="${escapeHtml(name).replace(/"/g, '&quot;')}" ${currentCaptainFilter === name ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}
-        </select>` : ''}
-        <input type="text" id="persistentPersonSearch" placeholder="Search names &amp; notes" value="${escapeHtml(currentPersonSearch)}" class="${currentPersonSearch.trim() ? 'filter-active' : ''}" title="Filter addresses by resident name, notes, outreach log, email, or phone (partial match).">
-        ${(contactDateCol || soldSinceFireCol) ? `
-        <div class="contact-filter-group">
-          ${contactDateCol ? `
-          <label class="contact-filter-checkbox" title="View only addresses where at least one outreach attempt has been logged.">
-            <input type="checkbox" id="persistentShowContactedCheckbox" ${showContactedAddresses ? 'checked' : ''}>
-            <span>Show outreach-attempted addresses</span>
-          </label>
-          <label class="contact-filter-checkbox" title="View addresses where no outreach attempt has been logged yet.">
-            <input type="checkbox" id="persistentShowUncontactedCheckbox" ${showUncontactedAddresses ? 'checked' : ''}>
-            <span>Show no-outreach-yet addresses</span>
-          </label>
-          ` : ''}
-          ${soldSinceFireCol ? `
-          <label class="contact-filter-checkbox" title="Label addresses marked as sold since January 2025 with a SOLD tag on the map.">
-            <input type="checkbox" id="persistentShowSoldTagsCheckbox" ${showSoldSinceJan25Tags ? 'checked' : ''}>
-            <span>Label sold since Jan '25</span>
-          </label>
-          ` : ''}
+      const primaryHtml = `
+        <div class="filter-bar-primary">
+          <span class="filters-label">Filters</span>
+          <select id="persistentStreetFilter" class="${currentStreetFilter !== 'all' ? 'filter-active' : ''}" title="Filter by street">
+            <option value="all" ${currentStreetFilter === 'all' ? 'selected' : ''}>All streets</option>
+            ${streets.map(street => `<option value="${street.replace(/"/g, '&quot;')}" ${currentStreetFilter === street ? 'selected' : ''}>${street}</option>`).join('')}
+          </select>
+          <select id="persistentDamageFilter" class="${currentDamageFilter !== 'all' ? 'filter-active' : ''}" title="The highest level of damage to any structure on this property (e.g., mark 'Partial' if a garage or ADU was lost but the house stands).">
+            <option value="all" ${currentDamageFilter === 'all' ? 'selected' : ''}>All damage</option>
+            <option value="" ${currentDamageFilter === '' ? 'selected' : ''}>(not set)</option>
+            ${damages.map(damage => `<option value="${damage.replace(/"/g, '&quot;')}" ${currentDamageFilter === damage ? 'selected' : ''}>${damage}</option>`).join('')}
+          </select>
+          <input type="text" id="persistentPersonSearch" class="filter-bar-search${currentPersonSearch.trim() ? ' filter-active' : ''}" placeholder="Search names &amp; notes" value="${escapeHtml(currentPersonSearch)}" title="Filter addresses by resident name, notes, outreach log, email, or phone (partial match).">
+          <button type="button" class="btn-more-filters" id="filterMoreToggle" aria-expanded="${filterMorePanelOpen ? 'true' : 'false'}" aria-controls="filterBarMorePanel">
+            More filters<span class="btn-more-filters-caret" aria-hidden="true">&#9662;</span>
+          </button>
         </div>
-        ` : ''}
       `;
 
-      filterBarContent.innerHTML = html;
-      
-      // Only show filter bar if we're on map or people view
+      const moreHtml = `
+        <div class="filter-more-grid">
+          <select id="persistentSalesFilter" class="${currentSalesFilter !== 'all' ? 'filter-active' : ''}" title="Filter addresses by whether they have sold since the fire.">
+            <option value="all" ${currentSalesFilter === 'all' ? 'selected' : ''}>All sales</option>
+            <option value="sold_since_fire" ${currentSalesFilter === 'sold_since_fire' ? 'selected' : ''}>Sold since fire</option>
+          </select>
+          ${hasLotWeedingRequestData ? `<select id="persistentLotWeedingFilter" class="${currentLotWeedingFilter !== 'all' ? 'filter-active' : ''}" title="Filter lots by lot weeding request status.">
+            <option value="all" ${currentLotWeedingFilter === 'all' ? 'selected' : ''}>All weeding</option>
+            <option value="pending" ${currentLotWeedingFilter === 'pending' ? 'selected' : ''}>Pending requests</option>
+            <option value="completed" ${currentLotWeedingFilter === 'completed' ? 'selected' : ''}>Cleaned requests</option>
+            <option value="all_requests" ${currentLotWeedingFilter === 'all_requests' ? 'selected' : ''}>All requests</option>
+          </select>` : ''}
+          ${addressPlanCol ? `<select id="persistentAddressPlanFilter" class="${currentAddressPlanFilter !== 'all' ? 'filter-active' : ''}" title="The owner's current intent for the property—whether they plan to rebuild, sell, or are still deciding.">
+            <option value="all" ${currentAddressPlanFilter === 'all' ? 'selected' : ''}>All address plans</option>
+            <option value="" ${currentAddressPlanFilter === '' ? 'selected' : ''}>(not set)</option>
+            ${addressPlans.map(ap => `<option value="${ap.replace(/"/g, '&quot;')}" ${currentAddressPlanFilter === ap ? 'selected' : ''}>${ap}</option>`).join('')}
+          </select>` : ''}
+          ${rebuildCol ? `<select id="persistentRebuildFilter" class="${currentRebuildFilter !== 'all' ? 'filter-active' : ''}" title="For properties in recovery, this tracks the physical progress of construction.">
+            <option value="all" ${currentRebuildFilter === 'all' ? 'selected' : ''}>All build statuses</option>
+            <option value="__known__" ${currentRebuildFilter === '__known__' ? 'selected' : ''}>Has known build status</option>
+            ${rebuildStatusesArray.map(status => `<option value="${status.replace(/"/g, '&quot;')}" ${currentRebuildFilter === status ? 'selected' : ''}>${status}</option>`).join('')}
+          </select>` : ''}
+          ${remediationStatusCol ? `<select id="persistentRemediationFilter" class="${currentRemediationFilter !== 'all' ? 'filter-active' : ''}" title="Tracks environmental remediation progress for this address (e.g. soil/debris cleanup).">
+            <option value="all" ${currentRemediationFilter === 'all' ? 'selected' : ''}>All remediation</option>
+            <option value="" ${currentRemediationFilter === '' ? 'selected' : ''}>(not set)</option>
+            ${remediationStatuses.map(status => `<option value="${status.replace(/"/g, '&quot;')}" ${currentRemediationFilter === status ? 'selected' : ''}>${status}</option>`).join('')}
+          </select>` : ''}
+          <select id="persistentEpicFilter" class="${currentEpicFilter !== 'all' ? 'filter-active' : ''}" title="Filter addresses by EPIC-LA permitting records.">
+            <option value="all" ${currentEpicFilter === 'all' ? 'selected' : ''}>All EPIC</option>
+            <option value="has_epic" ${currentEpicFilter === 'has_epic' ? 'selected' : ''}>Has permitting records</option>
+            <option value="epic_application_or_plans" ${currentEpicFilter === 'epic_application_or_plans' ? 'selected' : ''}>Application / plans under review</option>
+            <option value="epic_permit_issued" ${currentEpicFilter === 'epic_permit_issued' ? 'selected' : ''}>Permit issued</option>
+            <option value="epic_construction_underway" ${currentEpicFilter === 'epic_construction_underway' ? 'selected' : ''}>Construction underway</option>
+            <option value="epic_construction_completed" ${currentEpicFilter === 'epic_construction_completed' ? 'selected' : ''}>Construction completed</option>
+            <option value="epic_temp_housing" ${currentEpicFilter === 'epic_temp_housing' ? 'selected' : ''}>Temporary housing</option>
+          </select>
+          <span id="persistentEpicFilterStatus" class="filter-more-status">
+            ${epicPresenceState.error
+              ? 'EPIC filter unavailable'
+              : (currentEpicFilter !== 'all' && epicPresenceState.loading ? 'Loading EPIC…' : '')}
+          </span>
+          ${hasMultipleCaptains && captainAssignedCol ? `<select id="persistentCaptainFilter" class="${currentCaptainFilter !== 'all' ? 'filter-active' : ''}" title="Filter to see addresses assigned to a specific Neighborhood Captain.">
+            <option value="all" ${currentCaptainFilter === 'all' ? 'selected' : ''}>Any captain</option>
+            <option value="" ${currentCaptainFilter === '' ? 'selected' : ''}>(not specified)</option>
+            ${captainNames.map(name => `<option value="${escapeHtml(name).replace(/"/g, '&quot;')}" ${currentCaptainFilter === name ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}
+          </select>` : ''}
+          ${(contactDateCol || soldSinceFireCol) ? `
+          <div class="contact-filter-group filter-more-checkboxes">
+            ${contactDateCol ? `
+            <label class="contact-filter-checkbox" title="View only addresses where at least one outreach attempt has been logged.">
+              <input type="checkbox" id="persistentShowContactedCheckbox" ${showContactedAddresses ? 'checked' : ''}>
+              <span>Show outreach-tried addresses</span>
+            </label>
+            <label class="contact-filter-checkbox" title="View addresses where no outreach attempt has been logged yet.">
+              <input type="checkbox" id="persistentShowUncontactedCheckbox" ${showUncontactedAddresses ? 'checked' : ''}>
+              <span>Show no-outreach-yet addresses</span>
+            </label>
+            ` : ''}
+            ${soldSinceFireCol ? `
+            <label class="contact-filter-checkbox" title="Label addresses marked as sold since January 2025 with a SOLD tag on the map.">
+              <input type="checkbox" id="persistentShowSoldTagsCheckbox" ${showSoldSinceJan25Tags ? 'checked' : ''}>
+              <span>Label sold since Jan '25</span>
+            </label>
+            ` : ''}
+          </div>
+          ` : ''}
+        </div>
+      `;
+
+      filterBarContent.innerHTML = primaryHtml;
+      morePanel.innerHTML = moreHtml;
+      morePanel.classList.toggle('hidden', !filterMorePanelOpen);
+
       const shouldShowFilters = (currentView === 'people' || currentView === 'map');
       if (shouldShowFilters) {
         filterBar.classList.remove('hidden');
         setupPrintExportHandlers();
-        // Recalculate content offset after filter bar is populated (height may change)
-        // Use multiple timeouts to ensure filter bar has fully rendered and height is accurate
-        setTimeout(() => {
-          adjustContentViewsForFilterBar();
-          // Recalculate again after a bit more time to catch any delayed rendering
-          setTimeout(() => {
-            adjustContentViewsForFilterBar();
-          }, 100);
-        }, 50);
+        resyncMapLayoutAfterFilterBar({ immediate: true, followUpMs: 150 });
       } else {
         filterBar.classList.add('hidden');
       }
 
-      // Add event handlers (remove old ones first to avoid duplicates)
-      const oldStreetFilter = document.getElementById('persistentStreetFilter');
-      if (oldStreetFilter) {
-        oldStreetFilter.replaceWith(oldStreetFilter.cloneNode(true));
-      }
-      const oldDamageFilter = document.getElementById('persistentDamageFilter');
-      if (oldDamageFilter) {
-        oldDamageFilter.replaceWith(oldDamageFilter.cloneNode(true));
-      }
-      const oldSalesFilter = document.getElementById('persistentSalesFilter');
-      if (oldSalesFilter) {
-        oldSalesFilter.replaceWith(oldSalesFilter.cloneNode(true));
-      }
-      const oldLotWeedingFilter = document.getElementById('persistentLotWeedingFilter');
-      if (oldLotWeedingFilter) {
-        oldLotWeedingFilter.replaceWith(oldLotWeedingFilter.cloneNode(true));
-      }
-      const oldAddressPlanFilter = document.getElementById('persistentAddressPlanFilter');
-      if (oldAddressPlanFilter) {
-        oldAddressPlanFilter.replaceWith(oldAddressPlanFilter.cloneNode(true));
-      }
-      const oldRebuildFilter = document.getElementById('persistentRebuildFilter');
-      if (oldRebuildFilter) {
-        oldRebuildFilter.replaceWith(oldRebuildFilter.cloneNode(true));
-      }
-      const oldRemediationFilter = document.getElementById('persistentRemediationFilter');
-      if (oldRemediationFilter) {
-        oldRemediationFilter.replaceWith(oldRemediationFilter.cloneNode(true));
-      }
-      const oldEpicFilter = document.getElementById('persistentEpicFilter');
-      if (oldEpicFilter) {
-        oldEpicFilter.replaceWith(oldEpicFilter.cloneNode(true));
-      }
-      const oldContactedCheckbox = document.getElementById('persistentShowContactedCheckbox');
-      if (oldContactedCheckbox) {
-        oldContactedCheckbox.replaceWith(oldContactedCheckbox.cloneNode(true));
-      }
-      const oldUncontactedCheckbox = document.getElementById('persistentShowUncontactedCheckbox');
-      if (oldUncontactedCheckbox) {
-        oldUncontactedCheckbox.replaceWith(oldUncontactedCheckbox.cloneNode(true));
-      }
-      const oldSoldTagsCheckbox = document.getElementById('persistentShowSoldTagsCheckbox');
-      if (oldSoldTagsCheckbox) {
-        oldSoldTagsCheckbox.replaceWith(oldSoldTagsCheckbox.cloneNode(true));
-      }
-      const oldCaptainFilter = document.getElementById('persistentCaptainFilter');
-      if (oldCaptainFilter) {
-        oldCaptainFilter.replaceWith(oldCaptainFilter.cloneNode(true));
-      }
-      const oldPersonSearch = document.getElementById('persistentPersonSearch');
-      if (oldPersonSearch) {
-        oldPersonSearch.replaceWith(oldPersonSearch.cloneNode(true));
-      }
-      // Add event handlers
-      const streetFilter = document.getElementById('persistentStreetFilter');
-      if (streetFilter) {
-        streetFilter.addEventListener('change', (e) => {
-          currentStreetFilter = e.target.value;
-          if (currentStreetFilter !== 'all') {
-            streetFilter.classList.add('filter-active');
-          } else {
-            streetFilter.classList.remove('filter-active');
-          }
-          displayAddressTable();
-          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
-          updateMapMarkers();
+      const wireSelect = (id, onChange) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('change', async (e) => {
+          await onChange(e);
+          updateFilterChipsAndBadge();
+          resyncMapLayoutAfterFilterBar({ immediate: true, followUpMs: 80 });
         });
-      }
+      };
 
-      const damageFilter = document.getElementById('persistentDamageFilter');
-      if (damageFilter) {
-        damageFilter.addEventListener('change', (e) => {
-          currentDamageFilter = e.target.value;
-          if (currentDamageFilter !== 'all') {
-            damageFilter.classList.add('filter-active');
-          } else {
-            damageFilter.classList.remove('filter-active');
+      wireSelect('persistentStreetFilter', (e) => {
+        currentStreetFilter = e.target.value;
+        markSelectActive(e.target, currentStreetFilter !== 'all');
+        refreshFilteredViews();
+      });
+      wireSelect('persistentDamageFilter', (e) => {
+        currentDamageFilter = e.target.value;
+        markSelectActive(e.target, currentDamageFilter !== 'all');
+        refreshFilteredViews();
+      });
+      wireSelect('persistentSalesFilter', (e) => {
+        currentSalesFilter = e.target.value;
+        markSelectActive(e.target, currentSalesFilter !== 'all');
+        refreshFilteredViews();
+      });
+      wireSelect('persistentLotWeedingFilter', (e) => {
+        currentLotWeedingFilter = e.target.value;
+        markSelectActive(e.target, currentLotWeedingFilter !== 'all');
+        refreshFilteredViews();
+      });
+      wireSelect('persistentAddressPlanFilter', (e) => {
+        currentAddressPlanFilter = e.target.value;
+        markSelectActive(e.target, currentAddressPlanFilter !== 'all');
+        refreshFilteredViews();
+      });
+      wireSelect('persistentRebuildFilter', (e) => {
+        currentRebuildFilter = e.target.value;
+        markSelectActive(e.target, currentRebuildFilter !== 'all');
+        refreshFilteredViews();
+      });
+      wireSelect('persistentRemediationFilter', (e) => {
+        currentRemediationFilter = e.target.value;
+        markSelectActive(e.target, currentRemediationFilter !== 'all');
+        refreshFilteredViews();
+      });
+      wireSelect('persistentCaptainFilter', (e) => {
+        currentCaptainFilter = e.target.value;
+        markSelectActive(e.target, currentCaptainFilter !== 'all');
+        refreshFilteredViews();
+      });
+      wireSelect('persistentEpicFilter', async (e) => {
+        currentEpicFilter = e.target.value;
+        if (currentEpicFilter !== 'all') {
+          markSelectActive(e.target, true);
+          await ensureEpicPresenceMapLoaded();
+          if (epicPresenceState.error) {
+            currentEpicFilter = 'all';
           }
-          displayAddressTable();
-          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
-          updateMapMarkers();
-        });
-      }
-
-      const salesFilter = document.getElementById('persistentSalesFilter');
-      if (salesFilter) {
-        salesFilter.addEventListener('change', (e) => {
-          currentSalesFilter = e.target.value;
-          if (currentSalesFilter !== 'all') {
-            salesFilter.classList.add('filter-active');
-          } else {
-            salesFilter.classList.remove('filter-active');
-          }
-          displayAddressTable();
-          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
-          updateMapMarkers();
-        });
-      }
-
-      const lotWeedingFilter = document.getElementById('persistentLotWeedingFilter');
-      if (lotWeedingFilter) {
-        lotWeedingFilter.addEventListener('change', (e) => {
-          currentLotWeedingFilter = e.target.value;
-          if (currentLotWeedingFilter !== 'all') {
-            lotWeedingFilter.classList.add('filter-active');
-          } else {
-            lotWeedingFilter.classList.remove('filter-active');
-          }
-          displayAddressTable();
-          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
-          updateMapMarkers();
-        });
-      }
-
-      const addressPlanFilter = document.getElementById('persistentAddressPlanFilter');
-      if (addressPlanFilter) {
-        addressPlanFilter.addEventListener('change', (e) => {
-          currentAddressPlanFilter = e.target.value;
-          if (currentAddressPlanFilter !== 'all') {
-            addressPlanFilter.classList.add('filter-active');
-          } else {
-            addressPlanFilter.classList.remove('filter-active');
-          }
-          displayAddressTable();
-          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
-          updateMapMarkers();
-        });
-      }
-
-      const rebuildFilter = document.getElementById('persistentRebuildFilter');
-      if (rebuildFilter) {
-        rebuildFilter.addEventListener('change', (e) => {
-          currentRebuildFilter = e.target.value;
-          if (currentRebuildFilter !== 'all') {
-            rebuildFilter.classList.add('filter-active');
-          } else {
-            rebuildFilter.classList.remove('filter-active');
-          }
-          displayAddressTable();
-          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
-          updateMapMarkers();
-        });
-      }
-
-      const remediationFilter = document.getElementById('persistentRemediationFilter');
-      if (remediationFilter) {
-        remediationFilter.addEventListener('change', (e) => {
-          currentRemediationFilter = e.target.value;
-          if (currentRemediationFilter !== 'all') {
-            remediationFilter.classList.add('filter-active');
-          } else {
-            remediationFilter.classList.remove('filter-active');
-          }
-          displayAddressTable();
-          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
-          updateMapMarkers();
-        });
-      }
-
-      const epicFilter = document.getElementById('persistentEpicFilter');
-      if (epicFilter) {
-        epicFilter.addEventListener('change', async (e) => {
-          currentEpicFilter = e.target.value;
-          if (currentEpicFilter !== 'all') {
-            epicFilter.classList.add('filter-active');
-            await ensureEpicPresenceMapLoaded();
-            if (epicPresenceState.error) {
-              currentEpicFilter = 'all';
-            }
-          } else {
-            epicFilter.classList.remove('filter-active');
-          }
-          populateFilterBar();
-          displayAddressTable();
-          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
-          updateMapMarkers();
-        });
-      }
-
-      const captainFilter = document.getElementById('persistentCaptainFilter');
-      if (captainFilter) {
-        captainFilter.addEventListener('change', (e) => {
-          currentCaptainFilter = e.target.value;
-          if (currentCaptainFilter !== 'all') {
-            captainFilter.classList.add('filter-active');
-          } else {
-            captainFilter.classList.remove('filter-active');
-          }
-          displayAddressTable();
-          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
-          updateMapMarkers();
-        });
-      }
+        } else {
+          markSelectActive(e.target, false);
+        }
+        populateFilterBar();
+        refreshFilteredViews();
+      });
 
       const showContactedCheckbox = document.getElementById('persistentShowContactedCheckbox');
       if (showContactedCheckbox) {
         showContactedCheckbox.addEventListener('change', (e) => {
           showContactedAddresses = e.target.checked;
-          displayAddressTable();
-          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
-          updateMapMarkers();
+          updateFilterChipsAndBadge();
+          refreshFilteredViews();
         });
       }
-
       const showUncontactedCheckbox = document.getElementById('persistentShowUncontactedCheckbox');
       if (showUncontactedCheckbox) {
         showUncontactedCheckbox.addEventListener('change', (e) => {
           showUncontactedAddresses = e.target.checked;
-          displayAddressTable();
-          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
-          updateMapMarkers();
+          updateFilterChipsAndBadge();
+          refreshFilteredViews();
         });
       }
-
       const showSoldTagsCheckbox = document.getElementById('persistentShowSoldTagsCheckbox');
       if (showSoldTagsCheckbox) {
         showSoldTagsCheckbox.addEventListener('change', (e) => {
           showSoldSinceJan25Tags = e.target.checked;
+          updateFilterChipsAndBadge();
           scheduleSoldTagVisibilityUpdate(0);
         });
       }
 
       const personSearchInput = document.getElementById('persistentPersonSearch');
       if (personSearchInput) {
-        const applyPersonSearchFilter = () => {
-          displayAddressTable();
-          displayAddressList(Array.from(sheetData.addressMap.keys()).sort());
-          updateMapMarkers();
-        };
         personSearchInput.addEventListener('input', (e) => {
           currentPersonSearch = (e.target.value || '').trim();
-          if (currentPersonSearch) {
-            personSearchInput.classList.add('filter-active');
-          } else {
-            personSearchInput.classList.remove('filter-active');
-          }
+          markSelectActive(personSearchInput, !!currentPersonSearch);
+          updateFilterChipsAndBadge();
           if (personSearchDebounceTimer) clearTimeout(personSearchDebounceTimer);
-          personSearchDebounceTimer = setTimeout(applyPersonSearchFilter, 200);
+          personSearchDebounceTimer = setTimeout(refreshFilteredViews, 200);
         });
       }
 
+      const moreToggle = document.getElementById('filterMoreToggle');
+      if (moreToggle) {
+        moreToggle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          setFilterMorePanelOpen(!filterMorePanelOpen);
+        });
+      }
+
+      updateFilterChipsAndBadge();
     }
+
+    // Close More filters when clicking outside the filter bar
+    document.addEventListener('click', (e) => {
+      if (!filterMorePanelOpen) return;
+      const filterBar = document.getElementById('filterBar');
+      if (filterBar && !filterBar.contains(e.target)) {
+        setFilterMorePanelOpen(false);
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (filterMorePanelOpen) setFilterMorePanelOpen(false);
+      }
+    });
 
     // Display address table view for Addresses & People page
     function displayAddressTable() {
@@ -12244,20 +12355,10 @@
       setupPrintExportHandlers();
     }
     
-    // Setup print/export and add-record button handlers
+    // Setup export button handler (Add Record now lives on contextual buttons in Details)
     function setupPrintExportHandlers() {
       const exportBtn = document.getElementById('btnExport');
-      const addRecordBtn = document.getElementById('btnAddRecord');
-      if (addRecordBtn) {
-        if (!ENABLE_ADD_RECORD) {
-          addRecordBtn.style.display = 'none';
-          addRecordBtn.setAttribute('aria-hidden', 'true');
-        } else {
-          addRecordBtn.style.display = '';
-          addRecordBtn.removeAttribute('aria-hidden');
-        }
-      }
-      
+
       if (exportBtn && !exportBtn.hasAttribute('data-handler-attached')) {
         exportBtn.addEventListener('click', (e) => {
           e.preventDefault();
@@ -12265,14 +12366,6 @@
           showExportModal();
         });
         exportBtn.setAttribute('data-handler-attached', 'true');
-      }
-      if (ENABLE_ADD_RECORD && addRecordBtn && !addRecordBtn.hasAttribute('data-handler-attached')) {
-        addRecordBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          showAddRecordModal();
-        });
-        addRecordBtn.setAttribute('data-handler-attached', 'true');
       }
     }
     
@@ -12304,6 +12397,9 @@
       }
       if (currentRemediationFilter !== 'all') {
         parts.push('Remediation Status: ' + (currentRemediationFilter === '' ? '(not set)' : currentRemediationFilter));
+      }
+      if (currentEpicFilter !== 'all') {
+        parts.push('EPIC: ' + formatFilterChipValue(currentEpicFilter));
       }
       if (currentCaptainFilter !== 'all') {
         parts.push('Captain: ' + (currentCaptainFilter === '' ? '(not specified)' : currentCaptainFilter));
@@ -13090,6 +13186,7 @@
         return true;
       });
 
+      const showAddAddressBtn = ENABLE_ADD_RECORD && isSignedIn();
       const html = `
         <ul class="address-list">
           ${filteredAddresses.map(addr => `
@@ -13098,9 +13195,19 @@
             </li>
           `).join('')}
         </ul>
+        ${showAddAddressBtn ? `
+          <div class="add-record-cta-row">
+            <button type="button" class="btn-add-record-cta" id="btnAddMissingAddress">+ Add a missing address</button>
+          </div>
+        ` : ''}
       `;
       
       addressPanelContent.innerHTML = html;
+
+      const addMissingAddressBtn = document.getElementById('btnAddMissingAddress');
+      if (addMissingAddressBtn) {
+        addMissingAddressBtn.addEventListener('click', () => showAddRecordModal('address'));
+      }
 
       // Add click handlers
       document.querySelectorAll('.address-item').forEach(item => {
@@ -13470,7 +13577,7 @@
             saveStatus.className = 'save-status saving';
           }
           await saveChanges(false);
-          const panelSaveStatus = document.getElementById('saveStatus');
+          const panelSaveStatus = document.getElementById('saveStatusTop');
           const saveErrored = panelSaveStatus && panelSaveStatus.classList.contains('error');
           if (saveErrored) {
             if (saveStatus) {
@@ -14509,12 +14616,11 @@
         html += '</div>';
       });
 
-      // Add save button if signed in and there are editable fields
-      if (isSignedIn()) {
+      // Contextual "Add a missing person" CTA at the bottom of the people list
+      if (ENABLE_ADD_RECORD && isSignedIn()) {
         html += `
-          <div class="details-footer-save">
-            <button class="btn-save" id="saveChangesBtn">Save Changes</button>
-            <span class="save-status" id="saveStatus"></span>
+          <div class="add-record-cta-row">
+            <button type="button" class="btn-add-record-cta" id="btnAddMissingPerson">+ Add a person</button>
           </div>
         `;
       }
@@ -14642,14 +14748,17 @@
         });
       });
 
-      // Add save button handlers (both top and bottom buttons)
-      const saveBtn = document.getElementById('saveChangesBtn');
-      if (saveBtn) {
-        saveBtn.addEventListener('click', saveChanges);
+      // Contextual "Add a missing person" opens the shared add-record modal, person pre-selected
+      const addMissingPersonBtn = document.getElementById('btnAddMissingPerson');
+      if (addMissingPersonBtn) {
+        addMissingPersonBtn.addEventListener('click', () => showAddRecordModal('person', selectedAddress));
       }
+
+      // Add save button handler for the top button.
+      // Wrap so the click Event is never passed as isAutoSave (truthy Event → silent failures).
       const saveBtnTop = document.getElementById('saveChangesBtnTop');
       if (saveBtnTop) {
-        saveBtnTop.addEventListener('click', saveChanges);
+        saveBtnTop.addEventListener('click', () => saveChanges(false));
       }
       const refreshBtnTop = document.getElementById('refreshBtnTop');
       if (refreshBtnTop) {
@@ -15546,7 +15655,7 @@
         // Wait for container to be visible, then invalidate size and update markers
         setTimeout(() => {
           if (zoneMap) {
-            zoneMap.invalidateSize();
+            resyncMapLayoutAfterFilterBar({ immediate: true, followUpMs: 100 });
             // Ensure control still exists after invalidation
             ensureColorFilterControl();
             // Update markers after map is properly sized
@@ -15563,6 +15672,7 @@
               setTimeout(() => {
                 if (currentView === 'map' && zoneMap) {
                   ensureColorFilterControl();
+                  invalidateZoneMapSizeSoon();
                 }
               }, 500);
             }, 100);
@@ -15584,11 +15694,8 @@
         } else if (filterBar) {
           filterBar.classList.add('hidden');
         }
-        // Adjust content views to account for filter bar height
-        // Use a small delay to ensure filter bar has rendered and height is accurate
-        setTimeout(() => {
-          adjustContentViewsForFilterBar();
-        }, 50);
+        // populateFilterBar already resyncs; keep a light follow-up for late layout
+        resyncMapLayoutAfterFilterBar({ immediate: false, followUpMs: 80 });
       } else {
         // Hide filter bar for other views
         if (filterBar) filterBar.classList.add('hidden');
@@ -15596,7 +15703,6 @@
         document.querySelectorAll('.content-view').forEach(view => {
           view.style.top = '0';
         });
-        const mapContainer = document.querySelector('.map-container');
         if (mapContainer) {
           mapContainer.style.top = '0';
         }
@@ -15785,6 +15891,11 @@
     }
 
     async function saveChanges(isAutoSave = false) {
+      // Guard: click handlers must not pass a MouseEvent as isAutoSave.
+      if (typeof isAutoSave !== 'boolean') {
+        isAutoSave = false;
+      }
+
       if (!isSignedIn() || !currentSheetId) {
         if (!isAutoSave) {
           alert('Please sign in to save changes.');
@@ -15808,8 +15919,9 @@
         }
       }
 
-      const saveBtn = document.getElementById('saveChangesBtn');
-      const saveStatus = document.getElementById('saveStatus');
+      // Bottom Save button/status were removed; fall back to the top toolbar controls.
+      const saveBtn = document.getElementById('saveChangesBtn') || document.getElementById('saveChangesBtnTop');
+      const saveStatus = document.getElementById('saveStatus') || document.getElementById('saveStatusTop');
       const saveStatusTop = document.getElementById('saveStatusTop');
       // Get all editable elements: Notes fields (textareas), inline fields, dropdowns, checkboxes, text inputs (e.g. APN)
       const editableFields = document.querySelectorAll('.editable-field[contenteditable="true"], .editable-inline[contenteditable="true"], .editable-notes, .apn-input');
