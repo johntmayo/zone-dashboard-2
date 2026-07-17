@@ -10801,7 +10801,7 @@
     }
 
     // Show Add Record modal (v2: flexible flow, geocode + minimap, no "spreadsheet" copy)
-    function showAddRecordModal(preselectType) {
+    function showAddRecordModal(preselectType, preselectAddress) {
       if (!ENABLE_ADD_RECORD) {
         alert('Add Record is temporarily disabled while we stabilize data integrity.');
         return;
@@ -11154,6 +11154,17 @@
       }
       if (personAddressType) personAddressType.addEventListener('change', togglePersonAddressBlocks);
       togglePersonAddressBlocks();
+      // When opened contextually from a specific address, pre-select that address in the
+      // person flow. Only assign when an option actually matches so a string mismatch
+      // falls back to "-- Select an address --" rather than forcing the wrong address.
+      if (preselectType === 'person' && typeof preselectAddress === 'string' && preselectAddress) {
+        const existingSel = document.getElementById('addRecordExistingAddress');
+        if (existingSel && Array.from(existingSel.options).some(o => o.value === preselectAddress)) {
+          if (personAddressType) personAddressType.value = 'existing';
+          existingSel.value = preselectAddress;
+          togglePersonAddressBlocks();
+        }
+      }
       if (personStreetSelect) personStreetSelect.addEventListener('change', () => { if (personStreetOtherWrap) personStreetOtherWrap.classList.toggle('hidden', personStreetSelect.value !== '__other__'); });
       if (personStreetSelect && personStreetSelect.value === '__other__' && personStreetOtherWrap) personStreetOtherWrap.classList.remove('hidden');
 
@@ -14740,7 +14751,7 @@
       // Contextual "Add a missing person" opens the shared add-record modal, person pre-selected
       const addMissingPersonBtn = document.getElementById('btnAddMissingPerson');
       if (addMissingPersonBtn) {
-        addMissingPersonBtn.addEventListener('click', () => showAddRecordModal('person'));
+        addMissingPersonBtn.addEventListener('click', () => showAddRecordModal('person', selectedAddress));
       }
 
       // Add save button handler for the top button.
