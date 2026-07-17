@@ -11,6 +11,7 @@
   var state = {
     checkInId: CHECKIN_DEFAULT_ID,
     reviewsByAddressId: {},
+    teammate: null,
     queue: [],
     currentIndex: 0,
     activeBranch: null,
@@ -390,6 +391,7 @@
     var zoneId = getZoneId();
     if (!captainId || !zoneId) {
       state.reviewsByAddressId = {};
+      state.teammate = null;
       state.loaded = false;
       return;
     }
@@ -415,10 +417,12 @@
         if (aid) map[aid] = row;
       });
       state.reviewsByAddressId = map;
+      state.teammate = data.teammate || null;
       state.loaded = true;
     } catch (err) {
       console.warn('Contact Check-In: could not load reviews', err);
       state.reviewsByAddressId = {};
+      state.teammate = null;
       state.loaded = false;
     } finally {
       state.loading = false;
@@ -837,18 +841,38 @@
     }
 
     var summary = computeLocalSummary();
-    var startLabel = summary.reviewed > 0 ? 'Continue Contact Check-In' : 'Start Contact Check-In';
+    var teammate = state.teammate || {};
+    var teammateReviewed = Number(teammate.addressesReviewedByOthers) || 0;
+    var otherCaptainCount = Number(teammate.otherCaptainCount) || 0;
+    var hasTeammateActivity = teammateReviewed > 0;
+    var startLabel = summary.reviewed > 0
+      ? 'Continue Contact Check-In'
+      : (hasTeammateActivity ? 'Review addresses for your zone' : 'Start Contact Check-In');
+
+    var teammateNoteHtml = '';
+    if (hasTeammateActivity) {
+      var teammateWord = otherCaptainCount > 1 ? 'Your teammates have' : 'Your teammate has';
+      var addressWord = teammateReviewed === 1 ? 'address' : 'addresses';
+      teammateNoteHtml = [
+        '<div class="cci-teammate-note">',
+        '  <strong>' + teammateWord + ' already reviewed ' + teammateReviewed + ' ' + addressWord + '.</strong>',
+        '  <span>Go through them yourself in case you have anyone to add.</span>',
+        '</div>'
+      ].join('');
+    }
+
     mount.innerHTML = [
       '<p class="cci-tagline">Help Altagether understand which households in your zone have been reached—and which may still need help connecting. <a href="#" class="announcement-link" id="cciLearnMoreBtn">Learn more</a></p>',
+      teammateNoteHtml,
       '<div class="cci-progress-row">',
       '  <div class="cci-bar"><div class="cci-bar-fill" style="width:' + summary.percentReviewed + '%"></div></div>',
       '  <strong>' + summary.reviewed + ' of ' + summary.total + '</strong>',
       '</div>',
       '<div class="cci-mini-stats">',
-      '  <div class="cci-mini-stat"><strong>' + summary.reviewed + '</strong><span>Reviewed</span></div>',
-      '  <div class="cci-mini-stat"><strong>' + summary.remaining + '</strong><span>Remaining</span></div>',
-      '  <div class="cci-mini-stat"><strong>' + summary.reached + '</strong><span>Reached</span></div>',
-      '  <div class="cci-mini-stat"><strong>' + summary.skipped + '</strong><span>Skipped</span></div>',
+      '  <div class="cci-mini-stat"><strong>' + summary.reviewed + '</strong><span>You’ve reviewed</span></div>',
+      '  <div class="cci-mini-stat"><strong>' + summary.remaining + '</strong><span>Still on your list</span></div>',
+      '  <div class="cci-mini-stat"><strong>' + summary.reached + '</strong><span>Reached in your zone</span></div>',
+      '  <div class="cci-mini-stat"><strong>' + summary.skipped + '</strong><span>You skipped</span></div>',
       '</div>',
       '<div class="cci-home-actions">',
       '  <button type="button" class="cci-primary" id="cciStartBtn">' + escapeHtmlLocal(startLabel) + '</button>',
@@ -1103,6 +1127,11 @@
       return personRowHtml(resident, optionColumns);
     }).join('');
 
+    var alreadyReached = (address.residents || []).some(function (r) { return r.contacted; });
+    var alreadyReachedHtml = alreadyReached
+      ? '<div class="cci-already-reached">Someone here is already marked reached — add anyone else you know.</div>'
+      : '';
+
     card.innerHTML = [
       '<div class="cci-address-top">',
       '  <div>',
@@ -1124,6 +1153,7 @@
           '</div>';
       }).join(''),
       '</div>',
+      alreadyReachedHtml,
       '<div class="cci-question">Have you successfully contacted anyone at this address?</div>',
       '<div class="cci-definition">Successful contact means they replied, answered, spoke with you, asked a question, or otherwise confirmed they received your message.</div>',
       '<div class="cci-choice-row">',
@@ -1714,9 +1744,9 @@
       '<h2 class="cci-address-title">Nice work — you\'re caught up.</h2>',
       '<p class="cci-serif">You can close this and come back anytime. Skipped addresses stay available to review.</p>',
       '<div class="cci-mini-stats">',
-      '  <div class="cci-mini-stat"><strong>' + summary.reviewed + '</strong><span>Reviewed</span></div>',
-      '  <div class="cci-mini-stat"><strong>' + summary.reached + '</strong><span>Reached</span></div>',
-      '  <div class="cci-mini-stat"><strong>' + summary.skipped + '</strong><span>Skipped</span></div>',
+      '  <div class="cci-mini-stat"><strong>' + summary.reviewed + '</strong><span>You’ve reviewed</span></div>',
+      '  <div class="cci-mini-stat"><strong>' + summary.reached + '</strong><span>Reached in your zone</span></div>',
+      '  <div class="cci-mini-stat"><strong>' + summary.skipped + '</strong><span>You skipped</span></div>',
       '  <div class="cci-mini-stat"><strong>' + summary.total + '</strong><span>Addresses</span></div>',
       '</div>',
       '<div class="cci-actionbar">',

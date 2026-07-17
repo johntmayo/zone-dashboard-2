@@ -269,6 +269,31 @@ function summarizeReviews(rows, totalAddresses) {
   };
 }
 
+/**
+ * Zone-wide teammate progress for the captain home card (no PII).
+ * Counts unique addresses reviewed by OTHER captains in the same zone so a
+ * captain who just signed in can see their co-captain has already been working.
+ */
+function summarizeZoneTeammates(rows, { checkInId, zoneId, captainId } = {}) {
+  const zoneRows = filterReviews(rows, { checkInId, zoneId });
+  const me = String(captainId || '').trim().toLowerCase();
+  const otherCaptains = new Set();
+  const addressesReviewedByOthers = new Set();
+  zoneRows.forEach((r) => {
+    const cap = String(r.captain_id || '').trim().toLowerCase();
+    if (!cap || cap === me) return;
+    otherCaptains.add(cap);
+    if (String(r.review_status || '').trim() === 'reviewed') {
+      const aid = String(r.address_id || '').trim();
+      if (aid) addressesReviewedByOthers.add(aid);
+    }
+  });
+  return {
+    otherCaptainCount: otherCaptains.size,
+    addressesReviewedByOthers: addressesReviewedByOthers.size
+  };
+}
+
 function parseReviewTimestamp(row) {
   const raw = String((row && (row.reviewed_at || row.updated_at)) || '').trim();
   if (!raw) return NaN;
@@ -502,13 +527,15 @@ function registerContactCheckinRoutes(app, deps) {
       const loaded = await loadReviewRows(sheets, config);
       const rows = filterReviews(loaded.rows, { checkInId, zoneId, captainId });
       const summary = summarizeReviews(rows, Number.isFinite(totalAddresses) ? totalAddresses : undefined);
+      const teammate = summarizeZoneTeammates(loaded.rows, { checkInId, zoneId, captainId });
 
       res.json({
         checkInId,
         zoneId,
         captainId,
         reviews: rows,
-        summary
+        summary,
+        teammate
       });
     } catch (err) {
       console.error('Contact Check-In reviews error:', err.message || err);
@@ -543,6 +570,7 @@ module.exports = {
   getContactCheckinConfig,
   buildReviewKey,
   summarizeReviews,
+  summarizeZoneTeammates,
   buildCommunitySummary,
   REVIEW_HEADERS,
   DEFAULT_CHECK_IN_ID
