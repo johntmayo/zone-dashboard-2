@@ -1577,7 +1577,7 @@ try {
 // --- Contact Check-In (AddressReview progress store) ---
 try {
   const { registerContactCheckinRoutes, getContactCheckinConfig } = require('./contact-checkin/routes');
-  registerContactCheckinRoutes(app, { getSheetsClient });
+  registerContactCheckinRoutes(app, { getSheetsClient, isAdminEmail });
   const checkinConfig = getContactCheckinConfig();
   console.log(`Contact Check-In routes registered (sheet: ${checkinConfig.sheetId || 'not configured'}).`);
 } catch (err) {
