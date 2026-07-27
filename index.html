@@ -1357,6 +1357,22 @@
       zoneSort: { key: 'zone', direction: 'asc' },
       captainSort: { key: 'captain', direction: 'asc' }
     };
+
+    // Admin Mode Contact Check-In campaign report (aggregated AddressReviews).
+    const contactCheckinAdminState = {
+      loading: false,
+      loaded: false,
+      error: '',
+      checkInId: '',
+      generatedAt: '',
+      community: null,
+      zones: [],
+      captains: [],
+      contactedAddresses: [],
+      view: 'zones' // 'zones' | 'captains' | 'addresses'
+    };
+    // Last computed successfully-contacted address rows, kept for CSV export.
+    let contactCheckinAdminExportRows = [];
     // Emergency kill switch for Add Record while stabilization/testing is in progress.
     const ENABLE_ADD_RECORD = true;
     // Temporarily disable the homepage "zone data needs a few things" panel.
@@ -4162,6 +4178,40 @@
       }
     }
 
+    async function loadContactCheckinAdminData(force = false) {
+      if (!currentUserEmail) return;
+      if (contactCheckinAdminState.loading) return;
+      if (contactCheckinAdminState.loaded && !force) return;
+      contactCheckinAdminState.loading = true;
+      contactCheckinAdminState.error = '';
+      try {
+        const res = await fetch(`/api/contact-checkin/admin?email=${encodeURIComponent(currentUserEmail)}${force ? '&force=1' : ''}`);
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          if (payload.error === 'contact_checkin_not_configured') {
+            throw new Error('The Contact Check-In progress sheet is not configured yet (set CONTACT_CHECKIN_SHEET_ID).');
+          }
+          if (payload.error === 'not_admin') {
+            throw new Error('This account is not marked as an admin in the Access Sheet.');
+          }
+          throw new Error(payload.message || payload.error || 'Could not load the Contact Check-In report.');
+        }
+        contactCheckinAdminState.checkInId = payload.checkInId || '';
+        contactCheckinAdminState.generatedAt = payload.generatedAt || '';
+        contactCheckinAdminState.community = payload.community || null;
+        contactCheckinAdminState.zones = Array.isArray(payload.zones) ? payload.zones : [];
+        contactCheckinAdminState.captains = Array.isArray(payload.captains) ? payload.captains : [];
+        contactCheckinAdminState.contactedAddresses = Array.isArray(payload.contactedAddresses) ? payload.contactedAddresses : [];
+        contactCheckinAdminState.loaded = true;
+      } catch (error) {
+        console.error('Contact Check-In admin load error:', error);
+        contactCheckinAdminState.error = error.message || 'Could not load the Contact Check-In report.';
+        contactCheckinAdminState.loaded = false;
+      } finally {
+        contactCheckinAdminState.loading = false;
+      }
+    }
+
     async function loadGodmodeData(force = false) {
       if (!isSignedIn() || !currentUserEmail) {
         godmodeState.error = 'Sign in with an admin account to open Admin Mode.';
@@ -4181,7 +4231,8 @@
       try {
         const [res] = await Promise.all([
           fetch(`/api/admin/godmode-master?email=${encodeURIComponent(currentUserEmail)}`),
-          loadGodmodeUserActivity()
+          loadGodmodeUserActivity(),
+          loadContactCheckinAdminData(force)
         ]);
         const payload = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -7433,6 +7484,344 @@
       `;
     }
 
+    // Join the aggregated AddressReview report with the master sheet so we can
+    // show total addresses per zone (for completion %) and human-readable
+    // street addresses for the successfully-contacted export.
+    function buildContactCheckinReport() {
+      const masterByAddressId = new Map();
+      const zoneTotals = new Map();   // normalized zone -> Set(address_id)
+      const zoneDisplay = new Map();  // normalized zone -> display zone name
+
+      (godmodeState.rows || []).forEach((row) => {
+        const addressId = getGodmodeValue(row, GODMODE_FIELD_ALIASES.addressId);
+        const zone = getGodmodeZone(row);
+        if (addressId && !masterByAddressId.has(addressId)) {
+          masterByAddressId.set(addressId, {
+            address: getGodmodeAddress(row),
+            apn: getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn),
+            zone,
+            captains: getGodmodeCaptainList(row)
+          });
+        }
+        if (addressId && !isGodmodeUnzonedValue(zone)) {
+          const zk = normalizeGodmodeKey(zone);
+          if (!zoneTotals.has(zk)) {
+            zoneTotals.set(zk, new Set());
+            zoneDisplay.set(zk, zone);
+          }
+          zoneTotals.get(zk).add(addressId);
+        }
+      });
+
+      // Merge review-based zone rollups (from server) with master zone list so
+      // zones that have not started the campaign still appear as "Not started".
+      const zoneMap = new Map();
+      const ensureZone = (zoneName) => {
+        const zk = normalizeGodmodeKey(zoneName);
+        if (!zoneMap.has(zk)) {
+          zoneMap.set(zk, {
+            zone: zoneDisplay.get(zk) || zoneName || 'Unknown zone',
+            totalAddresses: zoneTotals.has(zk) ? zoneTotals.get(zk).size : 0,
+            reviewedAddresses: 0,
+            reachedAddresses: 0,
+            noContactAddresses: 0,
+            skippedAddresses: 0,
+            captains: new Set(),
+            lastActivityAt: ''
+          });
+        }
+        return zoneMap.get(zk);
+      };
+
+      zoneTotals.forEach((set, zk) => ensureZone(zoneDisplay.get(zk)));
+
+      (contactCheckinAdminState.zones || []).forEach((z) => {
+        const entry = ensureZone(z.zoneId);
+        entry.reviewedAddresses = z.reviewedAddresses || 0;
+        entry.reachedAddresses = z.reachedAddresses || 0;
+        entry.noContactAddresses = z.noContactAddresses || 0;
+        entry.skippedAddresses = z.skippedAddresses || 0;
+        (z.captains || []).forEach((cap) => entry.captains.add(cap));
+        entry.lastActivityAt = z.lastActivityAt || '';
+      });
+
+      const zones = Array.from(zoneMap.values()).map((z) => {
+        const total = z.totalAddresses || 0;
+        const reviewed = z.reviewedAddresses || 0;
+        const started = reviewed > 0 || z.skippedAddresses > 0 || z.captains.size > 0;
+        const completed = total > 0 && reviewed >= total;
+        let status = 'not_started';
+        if (completed) status = 'completed';
+        else if (started) status = 'in_progress';
+        return {
+          zone: z.zone,
+          totalAddresses: total,
+          reviewedAddresses: reviewed,
+          reachedAddresses: z.reachedAddresses || 0,
+          noContactAddresses: z.noContactAddresses || 0,
+          skippedAddresses: z.skippedAddresses || 0,
+          captains: Array.from(z.captains),
+          lastActivityAt: z.lastActivityAt,
+          percentReviewed: total > 0 ? Math.round((reviewed / total) * 100) : null,
+          started,
+          completed,
+          status
+        };
+      }).sort((a, b) => {
+        const rank = { in_progress: 0, completed: 1, not_started: 2 };
+        if (rank[a.status] !== rank[b.status]) return rank[a.status] - rank[b.status];
+        return String(a.zone).localeCompare(String(b.zone), undefined, { numeric: true, sensitivity: 'base' });
+      });
+
+      const captains = (contactCheckinAdminState.captains || []).map((c) => ({
+        captain: c.captainId,
+        zones: c.zones || [],
+        reviewedAddresses: c.reviewedAddresses || 0,
+        reachedAddresses: c.reachedAddresses || 0,
+        noContactAddresses: c.noContactAddresses || 0,
+        lastActivityAt: c.lastActivityAt || ''
+      })).sort((a, b) => (b.reachedAddresses - a.reachedAddresses) || (b.reviewedAddresses - a.reviewedAddresses) || a.captain.localeCompare(b.captain));
+
+      const contactedAddresses = (contactCheckinAdminState.contactedAddresses || []).map((entry) => {
+        const master = masterByAddressId.get(entry.addressId) || {};
+        return {
+          address: master.address || '',
+          apn: master.apn || '',
+          zone: entry.zoneId || master.zone || '',
+          addressId: entry.addressId,
+          captains: (entry.captains || []).join(', '),
+          contactedAt: entry.contactedAt || ''
+        };
+      }).sort((a, b) => (
+        String(a.zone).localeCompare(String(b.zone), undefined, { numeric: true, sensitivity: 'base' }) ||
+        String(a.address).localeCompare(String(b.address), undefined, { numeric: true, sensitivity: 'base' })
+      ));
+
+      const totalMappedAddresses = zones.reduce((sum, z) => sum + (z.totalAddresses || 0), 0);
+      const totalReviewed = zones.reduce((sum, z) => sum + (z.reviewedAddresses || 0), 0);
+
+      return {
+        zones,
+        captains,
+        contactedAddresses,
+        headline: {
+          totalZones: zones.length,
+          zonesStarted: zones.filter((z) => z.started).length,
+          zonesCompleted: zones.filter((z) => z.completed).length,
+          zonesNotStarted: zones.filter((z) => !z.started).length,
+          captainsParticipating: captains.length,
+          addressesContacted: contactedAddresses.length,
+          addressesReviewed: totalReviewed,
+          totalMappedAddresses,
+          percentTownReviewed: totalMappedAddresses > 0 ? Math.round((totalReviewed / totalMappedAddresses) * 100) : null
+        }
+      };
+    }
+
+    function formatGodmodePercentLabel(value) {
+      return value == null ? '—' : `${value}%`;
+    }
+
+    function renderCheckinStatusBadge(status) {
+      const map = {
+        completed: ['checkin-badge--done', 'Completed'],
+        in_progress: ['checkin-badge--active', 'In progress'],
+        not_started: ['checkin-badge--idle', 'Not started']
+      };
+      const [cls, label] = map[status] || map.not_started;
+      return `<span class="checkin-badge ${cls}">${label}</span>`;
+    }
+
+    function renderGodmodeContactCheckin() {
+      const checkInLabel = contactCheckinAdminState.checkInId || 'contact_check_in_2026';
+      const headingBlock = `
+        <div class="godmode-usage-heading">
+          <div>
+            <p class="godmode-kicker">Campaign</p>
+            <h3>Contact Check-In</h3>
+            <p>Campaign <code>${escapeHtml(checkInLabel)}</code> — progress across every zone and captain.</p>
+          </div>
+          <div class="checkin-admin-actions">
+            ${contactCheckinAdminState.generatedAt ? `<span>Updated ${escapeHtml(formatGodmodeActivityTime(contactCheckinAdminState.generatedAt))}</span>` : ''}
+            <button type="button" class="godmode-refresh-btn" id="checkinAdminRefreshBtn">Refresh</button>
+          </div>
+        </div>`;
+
+      if (contactCheckinAdminState.loading && !contactCheckinAdminState.loaded) {
+        return `<section class="godmode-usage-card checkin-admin-card">${headingBlock}<div class="loading">Loading Contact Check-In report...</div></section>`;
+      }
+
+      if (contactCheckinAdminState.error) {
+        return `
+          <section class="godmode-usage-card checkin-admin-card">
+            ${headingBlock}
+            <div class="godmode-usage-error">${escapeHtml(contactCheckinAdminState.error)}</div>
+            <button type="button" class="btn-save" id="checkinAdminRetryBtn">Try again</button>
+          </section>`;
+      }
+
+      if (!contactCheckinAdminState.loaded) {
+        return `
+          <section class="godmode-usage-card checkin-admin-card">
+            ${headingBlock}
+            <button type="button" class="btn-save" id="checkinAdminRetryBtn">Load Contact Check-In report</button>
+          </section>`;
+      }
+
+      const report = buildContactCheckinReport();
+      contactCheckinAdminExportRows = report.contactedAddresses;
+      const h = report.headline;
+      const view = contactCheckinAdminState.view || 'zones';
+
+      const statCards = [
+        ['Addresses successfully contacted', h.addressesContacted, 'Unique addresses reached'],
+        ['Zones started', h.zonesStarted, `of ${formatGodmodeCount(h.totalZones)} zones`],
+        ['Zones completed', h.zonesCompleted, 'All mapped addresses reviewed'],
+        ['Zones not started', h.zonesNotStarted, 'No activity yet'],
+        ['Captains participating', h.captainsParticipating, 'Have logged activity'],
+        ['Addresses reviewed', h.addressesReviewed, `${formatGodmodePercentLabel(h.percentTownReviewed)} of ${formatGodmodeCount(h.totalMappedAddresses)} mapped`]
+      ];
+
+      const statGrid = `
+        <div class="godmode-summary-grid checkin-stat-grid">
+          ${statCards.map(([label, value, detail]) => `
+            <div class="godmode-stat-card">
+              <span class="godmode-stat-value">${typeof value === 'number' ? formatGodmodeCount(value) : escapeHtml(String(value))}</span>
+              <span class="godmode-stat-label">${escapeHtml(label)}</span>
+              <span class="godmode-stat-detail">${escapeHtml(detail || '')}</span>
+            </div>
+          `).join('')}
+        </div>`;
+
+      const tabs = `
+        <div class="checkin-admin-tabs">
+          <button type="button" class="checkin-tab ${view === 'zones' ? 'is-active' : ''}" data-checkin-view="zones">By zone (${formatGodmodeCount(report.zones.length)})</button>
+          <button type="button" class="checkin-tab ${view === 'captains' ? 'is-active' : ''}" data-checkin-view="captains">By captain (${formatGodmodeCount(report.captains.length)})</button>
+          <button type="button" class="checkin-tab ${view === 'addresses' ? 'is-active' : ''}" data-checkin-view="addresses">Contacted addresses (${formatGodmodeCount(report.contactedAddresses.length)})</button>
+        </div>`;
+
+      let tableBlock = '';
+      if (view === 'zones') {
+        tableBlock = `
+          <div class="godmode-table-wrap">
+            <table class="godmode-table checkin-table">
+              <thead>
+                <tr>
+                  <th>Zone</th><th>Status</th><th>Captain(s)</th>
+                  <th>Reviewed</th><th>Mapped</th><th>%</th>
+                  <th>Contacted</th><th>No contact</th><th>Skipped</th><th>Last activity</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${report.zones.map((z) => `
+                  <tr>
+                    <td>${escapeHtml(z.zone)}</td>
+                    <td>${renderCheckinStatusBadge(z.status)}</td>
+                    <td>${z.captains.length ? escapeHtml(z.captains.join(', ')) : '<span class="checkin-muted">—</span>'}</td>
+                    <td>${formatGodmodeCount(z.reviewedAddresses)}</td>
+                    <td>${z.totalAddresses ? formatGodmodeCount(z.totalAddresses) : '<span class="checkin-muted">—</span>'}</td>
+                    <td>${formatGodmodePercentLabel(z.percentReviewed)}</td>
+                    <td>${formatGodmodeCount(z.reachedAddresses)}</td>
+                    <td>${formatGodmodeCount(z.noContactAddresses)}</td>
+                    <td>${formatGodmodeCount(z.skippedAddresses)}</td>
+                    <td>${z.lastActivityAt ? escapeHtml(formatGodmodeActivityTime(z.lastActivityAt)) : '<span class="checkin-muted">—</span>'}</td>
+                  </tr>
+                `).join('') || '<tr><td colspan="10" class="godmode-breakdown-empty">No zones found.</td></tr>'}
+              </tbody>
+            </table>
+          </div>`;
+      } else if (view === 'captains') {
+        tableBlock = `
+          <div class="godmode-table-wrap">
+            <table class="godmode-table checkin-table">
+              <thead>
+                <tr>
+                  <th>Captain</th><th>Zone(s)</th><th>Addresses reviewed</th>
+                  <th>Successfully contacted</th><th>No contact</th><th>Last activity</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${report.captains.map((c) => `
+                  <tr>
+                    <td>${escapeHtml(c.captain)}</td>
+                    <td>${c.zones.length ? escapeHtml(c.zones.join(', ')) : '<span class="checkin-muted">—</span>'}</td>
+                    <td>${formatGodmodeCount(c.reviewedAddresses)}</td>
+                    <td>${formatGodmodeCount(c.reachedAddresses)}</td>
+                    <td>${formatGodmodeCount(c.noContactAddresses)}</td>
+                    <td>${c.lastActivityAt ? escapeHtml(formatGodmodeActivityTime(c.lastActivityAt)) : '<span class="checkin-muted">—</span>'}</td>
+                  </tr>
+                `).join('') || '<tr><td colspan="6" class="godmode-breakdown-empty">No captains have logged activity yet.</td></tr>'}
+              </tbody>
+            </table>
+          </div>`;
+      } else {
+        const addressRows = report.contactedAddresses;
+        tableBlock = `
+          <div class="checkin-export-bar">
+            <p>${formatGodmodeCount(addressRows.length)} unique addresses have been successfully contacted.</p>
+            <button type="button" class="btn-save" id="checkinAdminExportBtn" ${addressRows.length ? '' : 'disabled'}>Export CSV</button>
+          </div>
+          <div class="godmode-table-wrap">
+            <table class="godmode-table checkin-table">
+              <thead>
+                <tr><th>Address</th><th>APN</th><th>Zone</th><th>Contacted by</th><th>Contacted on</th></tr>
+              </thead>
+              <tbody>
+                ${addressRows.slice(0, 500).map((r) => `
+                  <tr>
+                    <td>${r.address ? escapeHtml(r.address) : `<span class="checkin-muted">${escapeHtml(r.addressId)}</span>`}</td>
+                    <td>${r.apn ? escapeHtml(r.apn) : '<span class="checkin-muted">—</span>'}</td>
+                    <td>${r.zone ? escapeHtml(r.zone) : '<span class="checkin-muted">—</span>'}</td>
+                    <td>${r.captains ? escapeHtml(r.captains) : '<span class="checkin-muted">—</span>'}</td>
+                    <td>${r.contactedAt ? escapeHtml(formatGodmodeActivityTime(r.contactedAt)) : '<span class="checkin-muted">—</span>'}</td>
+                  </tr>
+                `).join('') || '<tr><td colspan="5" class="godmode-breakdown-empty">No addresses have been successfully contacted yet.</td></tr>'}
+              </tbody>
+            </table>
+            ${addressRows.length > 500 ? `<p class="checkin-muted checkin-table-note">Showing first 500 of ${formatGodmodeCount(addressRows.length)}. Export CSV for the full list.</p>` : ''}
+          </div>`;
+      }
+
+      return `
+        <section class="godmode-usage-card checkin-admin-card">
+          ${headingBlock}
+          ${statGrid}
+          ${tabs}
+          ${tableBlock}
+        </section>`;
+    }
+
+    function exportContactCheckinCSV() {
+      const rows = contactCheckinAdminExportRows || [];
+      if (!rows.length) {
+        alert('No successfully contacted addresses to export yet.');
+        return;
+      }
+      const escapeCSV = (cell) => {
+        const str = String(cell == null ? '' : cell);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+      const csvHeaders = ['Address', 'APN', 'Zone', 'Contacted By', 'Successfully Contacted On', 'Address ID'];
+      const csvRows = rows.map((r) => [r.address, r.apn, r.zone, r.captains, r.contactedAt, r.addressId]);
+      const csv = [
+        csvHeaders.map(escapeCSV).join(','),
+        ...csvRows.map((row) => row.map(escapeCSV).join(','))
+      ].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `contact-check-in-successfully-contacted-${new Date().toISOString().slice(0, 10)}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
     function renderGodmodeUserActivity() {
       const activity = godmodeState.userActivity || {};
       const rows = Array.isArray(activity.rows) ? activity.rows : [];
@@ -8070,6 +8459,7 @@
       content.innerHTML = `
         ${renderGodmodeSearchWorkspace(filteredRows)}
         ${renderGodmodeSummary(rollups)}
+        ${renderGodmodeContactCheckin()}
         ${renderGodmodeUserActivity()}
         ${renderGodmodeBreakdowns(allRows)}
         ${renderGodmodeZoneDirectory(rollups)}
@@ -8085,6 +8475,19 @@
         updateGodmodeSearchPanels(nextRows);
       });
       document.getElementById('godmodeRefreshBtn')?.addEventListener('click', () => loadGodmodeData(true));
+      document.getElementById('checkinAdminRefreshBtn')?.addEventListener('click', () => {
+        loadContactCheckinAdminData(true).then(() => renderGodmodeView());
+      });
+      document.getElementById('checkinAdminRetryBtn')?.addEventListener('click', () => {
+        loadContactCheckinAdminData(true).then(() => renderGodmodeView());
+      });
+      document.getElementById('checkinAdminExportBtn')?.addEventListener('click', exportContactCheckinCSV);
+      content.querySelectorAll('[data-checkin-view]').forEach((button) => {
+        button.addEventListener('click', () => {
+          contactCheckinAdminState.view = button.getAttribute('data-checkin-view') || 'zones';
+          renderGodmodeView();
+        });
+      });
       content.querySelectorAll('[data-godmode-sort-table][data-godmode-sort-key]').forEach((button) => {
         button.addEventListener('click', () => {
           const table = button.getAttribute('data-godmode-sort-table');

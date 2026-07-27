@@ -466,8 +466,148 @@ async function upsertReview(sheetsClient, config, payload) {
   return record;
 }
 
+/**
+ * Admin report aggregation across every zone/captain for a check-in campaign.
+ * Groups raw AddressReview rows into per-zone and per-captain rollups and a
+ * de-duplicated list of successfully contacted addresses (for CSV export).
+ * Human-readable street addresses are not stored here — the client enriches
+ * them by joining address_id against the Godmode master sheet.
+ */
+function buildAdminReport(rows, { checkInId } = {}) {
+  const checkIn = String(checkInId || '').trim();
+  const filtered = (rows || []).filter((row) => {
+    if (!checkIn) return true;
+    return String(row.check_in_id || '').trim() === checkIn;
+  });
+
+  const zones = new Map();
+  const captains = new Map();
+  const contactedAddresses = new Map(); // address_id -> aggregate
+
+  const ensureZone = (zoneId) => {
+    const key = zoneId || 'unknown_zone';
+    if (!zones.has(key)) {
+      zones.set(key, {
+        zoneId: key,
+        reviewedAddressIds: new Set(),
+        skippedAddressIds: new Set(),
+        reachedAddressIds: new Set(),
+        noContactAddressIds: new Set(),
+        captains: new Set(),
+        reviewRows: 0,
+        lastActivityMs: 0
+      });
+    }
+    return zones.get(key);
+  };
+
+  const ensureCaptain = (captainId) => {
+    if (!captains.has(captainId)) {
+      captains.set(captainId, {
+        captainId,
+        zones: new Set(),
+        reviewedAddressIds: new Set(),
+        reachedAddressIds: new Set(),
+        noContactAddressIds: new Set(),
+        reviewRows: 0,
+        lastActivityMs: 0
+      });
+    }
+    return captains.get(captainId);
+  };
+
+  filtered.forEach((row) => {
+    const zoneId = String(row.zone_id || '').trim();
+    const captainId = String(row.captain_id || '').trim().toLowerCase();
+    const addressId = String(row.address_id || '').trim();
+    const status = String(row.review_status || '').trim();
+    const answer = String(row.answer || '').trim();
+    const ts = parseReviewTimestamp(row);
+    const tsMs = Number.isFinite(ts) ? ts : 0;
+
+    const zone = ensureZone(zoneId);
+    zone.reviewRows += 1;
+    if (captainId) zone.captains.add(captainId);
+    if (tsMs > zone.lastActivityMs) zone.lastActivityMs = tsMs;
+    if (addressId) {
+      if (status === 'reviewed') zone.reviewedAddressIds.add(addressId);
+      if (status === 'skipped') zone.skippedAddressIds.add(addressId);
+      if (answer === 'yes_successful_contact') zone.reachedAddressIds.add(addressId);
+      if (answer === 'no_successful_contact') zone.noContactAddressIds.add(addressId);
+    }
+
+    if (captainId) {
+      const captain = ensureCaptain(captainId);
+      captain.reviewRows += 1;
+      if (zoneId) captain.zones.add(zoneId);
+      if (tsMs > captain.lastActivityMs) captain.lastActivityMs = tsMs;
+      if (addressId) {
+        if (status === 'reviewed') captain.reviewedAddressIds.add(addressId);
+        if (answer === 'yes_successful_contact') captain.reachedAddressIds.add(addressId);
+        if (answer === 'no_successful_contact') captain.noContactAddressIds.add(addressId);
+      }
+    }
+
+    if (addressId && answer === 'yes_successful_contact') {
+      const existing = contactedAddresses.get(addressId);
+      const isoTs = String(row.reviewed_at || row.updated_at || '').trim();
+      if (!existing) {
+        contactedAddresses.set(addressId, {
+          addressId,
+          zoneId,
+          captains: new Set(captainId ? [captainId] : []),
+          firstContactedAt: isoTs,
+          firstContactedMs: tsMs
+        });
+      } else {
+        if (captainId) existing.captains.add(captainId);
+        if (!existing.zoneId && zoneId) existing.zoneId = zoneId;
+        if (tsMs && (!existing.firstContactedMs || tsMs < existing.firstContactedMs)) {
+          existing.firstContactedMs = tsMs;
+          existing.firstContactedAt = isoTs;
+        }
+      }
+    }
+  });
+
+  const zoneList = Array.from(zones.values()).map((zone) => ({
+    zoneId: zone.zoneId,
+    reviewedAddresses: zone.reviewedAddressIds.size,
+    skippedAddresses: zone.skippedAddressIds.size,
+    reachedAddresses: zone.reachedAddressIds.size,
+    noContactAddresses: zone.noContactAddressIds.size,
+    captains: Array.from(zone.captains),
+    reviewRows: zone.reviewRows,
+    lastActivityAt: zone.lastActivityMs ? new Date(zone.lastActivityMs).toISOString() : ''
+  }));
+
+  const captainList = Array.from(captains.values()).map((captain) => ({
+    captainId: captain.captainId,
+    zones: Array.from(captain.zones),
+    reviewedAddresses: captain.reviewedAddressIds.size,
+    reachedAddresses: captain.reachedAddressIds.size,
+    noContactAddresses: captain.noContactAddressIds.size,
+    reviewRows: captain.reviewRows,
+    lastActivityAt: captain.lastActivityMs ? new Date(captain.lastActivityMs).toISOString() : ''
+  }));
+
+  const contactedList = Array.from(contactedAddresses.values()).map((entry) => ({
+    addressId: entry.addressId,
+    zoneId: entry.zoneId,
+    captains: Array.from(entry.captains),
+    contactedAt: entry.firstContactedAt
+  }));
+
+  return {
+    zones: zoneList,
+    captains: captainList,
+    contactedAddresses: contactedList
+  };
+}
+
 function registerContactCheckinRoutes(app, deps) {
   const getSheetsClient = deps && deps.getSheetsClient;
+  const isAdminEmail = deps && deps.isAdminEmail;
   if (typeof getSheetsClient !== 'function') {
     throw new Error('registerContactCheckinRoutes requires getSheetsClient');
   }
@@ -502,6 +642,44 @@ function registerContactCheckinRoutes(app, deps) {
       console.error('Contact Check-In community error:', err.message || err);
       res.status(500).json({
         error: 'Failed to load Contact Check-In community summary',
+        message: err.message || String(err)
+      });
+    }
+  });
+
+  app.get('/api/contact-checkin/admin', async (req, res) => {
+    try {
+      const emailParam = String((req.query && req.query.email) || '').trim().toLowerCase();
+      if (!emailParam) return res.status(401).json({ error: 'no_email' });
+
+      const adminAllowed = Boolean(typeof isAdminEmail === 'function' && await isAdminEmail(emailParam));
+      if (!adminAllowed) return res.status(401).json({ error: 'not_admin' });
+
+      const config = getContactCheckinConfig();
+      if (!config.sheetId) {
+        return res.status(503).json({ error: 'contact_checkin_not_configured', message: 'CONTACT_CHECKIN_SHEET_ID not configured' });
+      }
+
+      const checkInId = String(req.query.check_in_id || config.checkInId).trim();
+      const forceRefresh = String(req.query.force || '').trim() === '1';
+      const sheets = await getSheetsClient();
+      const loaded = await loadReviewRows(sheets, config, { forceRefresh });
+      const report = buildAdminReport(loaded.rows, { checkInId });
+      const community = buildCommunitySummary(loaded.rows, { checkInId });
+
+      res.set('Cache-Control', 'no-store');
+      res.json({
+        checkInId,
+        generatedAt: new Date().toISOString(),
+        community,
+        zones: report.zones,
+        captains: report.captains,
+        contactedAddresses: report.contactedAddresses
+      });
+    } catch (err) {
+      console.error('Contact Check-In admin report error:', err.message || err);
+      res.status(500).json({
+        error: 'Failed to load Contact Check-In admin report',
         message: err.message || String(err)
       });
     }
@@ -572,6 +750,7 @@ module.exports = {
   summarizeReviews,
   summarizeZoneTeammates,
   buildCommunitySummary,
+  buildAdminReport,
   REVIEW_HEADERS,
   DEFAULT_CHECK_IN_ID
 };

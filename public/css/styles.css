@@ -7099,6 +7099,108 @@
       text-underline-offset: 2px;
     }
 
+    /* Contact Check-In admin module */
+    .checkin-admin-card {
+      border-left: 4px solid var(--accent-clay);
+    }
+
+    .checkin-admin-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .checkin-stat-grid {
+      margin-top: 16px;
+    }
+
+    .checkin-admin-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 18px 0 12px;
+    }
+
+    .checkin-tab {
+      padding: 8px 14px;
+      border: 1px solid rgba(31, 41, 55, 0.18);
+      border-radius: 999px;
+      background: #FFFDF5;
+      color: var(--brand-primary-dark);
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .checkin-tab:hover {
+      border-color: var(--accent-clay);
+    }
+
+    .checkin-tab.is-active {
+      background: var(--accent-clay);
+      border-color: var(--accent-clay);
+      color: #fff;
+    }
+
+    .checkin-table {
+      min-width: 720px;
+    }
+
+    .checkin-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .checkin-badge--done {
+      background: rgba(16, 185, 129, 0.16);
+      color: #047857;
+    }
+
+    .checkin-badge--active {
+      background: rgba(245, 158, 11, 0.18);
+      color: #b45309;
+    }
+
+    .checkin-badge--idle {
+      background: rgba(31, 41, 55, 0.1);
+      color: #4b5563;
+    }
+
+    .checkin-muted {
+      color: rgba(31, 41, 55, 0.45);
+    }
+
+    .checkin-export-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin: 4px 0 14px;
+    }
+
+    .checkin-export-bar p {
+      margin: 0;
+      font-family: 'Chivo', sans-serif;
+      font-size: 0.85rem;
+      color: var(--text-primary);
+      font-weight: 700;
+    }
+
+    .checkin-table-note {
+      margin: 10px 2px 0;
+      font-size: 0.78rem;
+    }
+
     @media (max-width: 1100px) {
       .godmode-summary-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
