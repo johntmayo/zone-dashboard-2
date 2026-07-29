@@ -9912,6 +9912,53 @@
       text-align: right;
     }
 
+    #zoneMap .sce-lines-notice-control {
+      max-width: 320px;
+      margin: 0 0 16px 10px;
+      padding: 12px 14px;
+      border: 1px solid rgba(163, 91, 0, 0.34);
+      border-radius: 12px;
+      background: rgba(255, 251, 235, 0.96);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
+      color: #25301f;
+      font-family: 'Chivo', sans-serif;
+      line-height: 1.35;
+    }
+
+    #zoneMap .sce-lines-notice-title {
+      margin-bottom: 4px;
+      color: #7c3f00;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+
+    #zoneMap .sce-lines-notice-body {
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    #zoneMap .sce-lines-notice-body a {
+      color: #0f4f8a;
+      font-weight: 900;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    @media (max-width: 767px) {
+      #zoneMap .sce-lines-notice-control {
+        max-width: min(300px, calc(100vw - 28px));
+        margin: 0 0 84px 8px;
+        padding: 10px 12px;
+      }
+
+      #zoneMap .sce-lines-notice-title,
+      #zoneMap .sce-lines-notice-body {
+        font-size: 11px;
+      }
+    }
+
     /* Dropdown for Damage and Address Plan */
     .editable-dropdown {
       display: inline-block;

@@ -1499,6 +1499,7 @@
     let additionalMapboxZoomHandler = null; // Zoom listener for label visibility
     let sceLinesLayer = null; // Optional SCE undergrounding project lines overlay
     let sceLinesLabelLayer = null; // Project name/date labels for the SCE lines overlay
+    let sceLinesNoticeControl = null; // Unofficial-source notice shown with the SCE overlay
     let sceLinesLoading = false; // Prevent duplicate GeoJSON fetches
     let sceLinesVisible = false; // Current visibility state for SCE lines overlay
     let cachedSceLinesFeatureCollection = null; // Cached SCE GeoJSON, preserving all source metadata
@@ -1649,6 +1650,7 @@
     const SCE_LINES_OVERLAY_CONFIG = {
       displayName: 'SCE Undergrounding Projects',
       geojsonUrl: 'public/data/sce_lines.geojson',
+      officialUrl: 'https://www.sce.com/outages-safety/wildfire-safety/targeted-undergrounding',
       labelMinZoom: 15,
       defaultVisible: false,
       styleByProjectName: {
@@ -18614,6 +18616,42 @@
       }
     }
 
+    function ensureSceLinesNoticeControl() {
+      if (!zoneMap) return null;
+      if (sceLinesNoticeControl) return sceLinesNoticeControl;
+      const NoticeControl = L.Control.extend({
+        onAdd: function() {
+          const container = L.DomUtil.create('div', 'sce-lines-notice-control map-control-card');
+          container.innerHTML = `
+            <div class="sce-lines-notice-title">Unofficial SCE Project Map</div>
+            <div class="sce-lines-notice-body">
+              This map is unofficial and was produced by volunteers. For the latest, most accurate information, visit
+              <a href="${escapeOverlayHtml(SCE_LINES_OVERLAY_CONFIG.officialUrl)}" target="_blank" rel="noopener noreferrer">SCE's website</a>.
+            </div>
+          `;
+          L.DomEvent.disableClickPropagation(container);
+          L.DomEvent.disableScrollPropagation(container);
+          return container;
+        }
+      });
+      sceLinesNoticeControl = new NoticeControl({ position: 'bottomleft' });
+      return sceLinesNoticeControl;
+    }
+
+    function setSceLinesNoticeVisible(isVisible) {
+      if (!zoneMap) return;
+      const noticeControl = ensureSceLinesNoticeControl();
+      if (!noticeControl) return;
+      const noticeEl = noticeControl.getContainer && noticeControl.getContainer();
+      const mapEl = zoneMap.getContainer && zoneMap.getContainer();
+      const isOnMap = !!(noticeEl && mapEl && mapEl.contains(noticeEl));
+      if (isVisible && !isOnMap) {
+        noticeControl.addTo(zoneMap);
+      } else if (!isVisible && isOnMap) {
+        zoneMap.removeControl(noticeControl);
+      }
+    }
+
     function updateSceLinesToggleButton() {
       const button = document.getElementById('sceLinesLayerToggleBtn');
       if (!button) return;
@@ -18630,6 +18668,7 @@
       if (!sceLinesVisible) {
         if (sceLinesLayer && zoneMap.hasLayer(sceLinesLayer)) zoneMap.removeLayer(sceLinesLayer);
         if (sceLinesLabelLayer && zoneMap.hasLayer(sceLinesLabelLayer)) zoneMap.removeLayer(sceLinesLabelLayer);
+        setSceLinesNoticeVisible(false);
         updateSceLinesToggleButton();
         return;
       }
@@ -18641,9 +18680,11 @@
         }
         if (sceLinesLayer && !zoneMap.hasLayer(sceLinesLayer)) sceLinesLayer.addTo(zoneMap);
         syncSceLineLabelVisibility();
+        setSceLinesNoticeVisible(true);
       } catch (error) {
         console.warn('SCE lines overlay failed to load:', error);
         sceLinesVisible = false;
+        setSceLinesNoticeVisible(false);
       } finally {
         sceLinesLoading = false;
         updateSceLinesToggleButton();
