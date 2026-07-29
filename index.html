@@ -173,6 +173,7 @@
           <button class="mobile-map-layer-row" id="mobileLayerCensus">Census Tracts</button>
           <button class="mobile-map-layer-row" id="mobileLayerFire">Eaton Fire Perimeter</button>
           <button class="mobile-map-layer-row" id="mobileLayerWaterDistricts">Altadena Water Districts</button>
+          <button class="mobile-map-layer-row" id="mobileLayerSceLines">SCE Undergrounding Projects</button>
         </div>
 
         <div class="mobile-map-sheet-section">
@@ -1496,6 +1497,11 @@
     let additionalMapboxLayerVisible = false; // Current visibility state for optional overlay layer
     let cachedAdditionalMapboxFeatureCollection = null; // Cached feature collection for optional overlay
     let additionalMapboxZoomHandler = null; // Zoom listener for label visibility
+    let sceLinesLayer = null; // Optional SCE undergrounding project lines overlay
+    let sceLinesLabelLayer = null; // Project name/date labels for the SCE lines overlay
+    let sceLinesLoading = false; // Prevent duplicate GeoJSON fetches
+    let sceLinesVisible = false; // Current visibility state for SCE lines overlay
+    let cachedSceLinesFeatureCollection = null; // Cached SCE GeoJSON, preserving all source metadata
     const datasetOverlayLayers = {}; // Rendered Leaflet layer instances by overlay key
     const datasetOverlayVisibility = {}; // Visibility state by overlay key
     const datasetOverlayLabelLayers = {}; // Label/card layers by overlay key
@@ -1640,6 +1646,39 @@
     function isAdditionalMapboxLayerEnabled() {
       return !!(MAPBOX_CONFIG.accessToken && MAPBOX_ADDITIONAL_LAYER_CONFIG.tilesetId);
     }
+    const SCE_LINES_OVERLAY_CONFIG = {
+      displayName: 'SCE Undergrounding Projects',
+      geojsonUrl: 'public/data/sce_lines.geojson',
+      labelMinZoom: 15,
+      defaultVisible: false,
+      styleByProjectName: {
+        'Rosebud 1': '#F28C00',
+        'Rosebud 3': '#F28C00',
+        'Rosebud 10': '#F28C00',
+        'Rosebud 11': '#F28C00',
+        'Rosebud 12': '#F28C00',
+        Dabney: '#F28C00',
+        'Rosebud 2': '#39D353',
+        Palm: '#39D353',
+        Bunny: '#F5E642',
+        Oaks: '#D7191C',
+        Homewood: '#D7191C'
+      },
+      // Hand-placed label anchors keep the layer close to the provided reference image.
+      labelPlacements: {
+        'Rosebud 10': { lat: 34.20395, lng: -118.15405 },
+        Dabney: { lat: 34.20045, lng: -118.15125 },
+        'Rosebud 1': { lat: 34.20515, lng: -118.14515 },
+        'Rosebud 12': { lat: 34.20575, lng: -118.13200 },
+        'Rosebud 11': { lat: 34.20335, lng: -118.13055 },
+        'Rosebud 3': { lat: 34.20155, lng: -118.12535 },
+        'Rosebud 2': { lat: 34.19585, lng: -118.12690 },
+        Palm: { lat: 34.19330, lng: -118.13020 },
+        Oaks: { lat: 34.19185, lng: -118.15160 },
+        Bunny: { lat: 34.19295, lng: -118.12255 },
+        Homewood: { lat: 34.18920, lng: -118.11620 }
+      }
+    };
     const MAPBOX_DATASET_OVERLAY_CONFIG = {
       censusTracts: {
         displayName: 'Census Tracts',
@@ -18392,6 +18431,225 @@
         .replace(/'/g, '&#39;');
     }
 
+    function getSceProjectName(featureOrProps) {
+      const props = featureOrProps?.properties || featureOrProps || {};
+      return String(props.Name || props.name || props.Project || props.project || 'SCE Project').trim();
+    }
+
+    function getSceProjectDate(featureOrProps) {
+      const props = featureOrProps?.properties || featureOrProps || {};
+      return String(props.Date || props.date || props.Status || props.status || '').trim();
+    }
+
+    function getSceProjectColor(featureOrProps) {
+      const name = getSceProjectName(featureOrProps);
+      return SCE_LINES_OVERLAY_CONFIG.styleByProjectName[name] || '#F28C00';
+    }
+
+    function getSceLineStyle(feature) {
+      return {
+        color: getSceProjectColor(feature),
+        weight: 5,
+        opacity: 0.95,
+        lineCap: 'round',
+        lineJoin: 'round'
+      };
+    }
+
+    function getSceLineHoverStyle(feature) {
+      return {
+        ...getSceLineStyle(feature),
+        weight: 8,
+        opacity: 1
+      };
+    }
+
+    function getSceLinesPaneName() {
+      return 'sce-lines-pane';
+    }
+
+    function getSceLinesLabelPaneName() {
+      return 'sce-lines-label-pane';
+    }
+
+    function ensureSceLinesPanes() {
+      if (!zoneMap) return;
+      const linePaneName = getSceLinesPaneName();
+      const labelPaneName = getSceLinesLabelPaneName();
+      if (!zoneMap.getPane(linePaneName)) zoneMap.createPane(linePaneName);
+      if (!zoneMap.getPane(labelPaneName)) zoneMap.createPane(labelPaneName);
+      zoneMap.getPane(linePaneName).style.zIndex = '555';
+      zoneMap.getPane(labelPaneName).style.zIndex = '695';
+      zoneMap.getPane(labelPaneName).style.pointerEvents = 'none';
+    }
+
+    function formatSceLineValue(key, value) {
+      if (value === null || value === undefined) return '';
+      const text = String(value).trim();
+      if (!text) return '';
+      if (/shape_leng/i.test(key)) {
+        const number = Number(value);
+        return Number.isFinite(number) ? number.toLocaleString(undefined, { maximumFractionDigits: 1 }) : text;
+      }
+      return text;
+    }
+
+    function buildSceLinePopupHtml(props) {
+      const safeProps = (props && typeof props === 'object') ? props : {};
+      const name = getSceProjectName(safeProps);
+      const date = getSceProjectDate(safeProps);
+      const entries = Object.entries(safeProps)
+        .filter(([key, value]) => key && value !== null && value !== undefined && String(value).trim() !== '')
+        .sort((a, b) => {
+          const order = ['Name', 'Date', 'FID', 'Shape_Leng'];
+          const aIdx = order.findIndex((key) => key.toLowerCase() === String(a[0]).toLowerCase());
+          const bIdx = order.findIndex((key) => key.toLowerCase() === String(b[0]).toLowerCase());
+          const aRank = aIdx === -1 ? 999 : aIdx;
+          const bRank = bIdx === -1 ? 999 : bIdx;
+          if (aRank !== bRank) return aRank - bRank;
+          return String(a[0]).localeCompare(String(b[0]));
+        });
+      return `
+        <div class="sce-lines-popup">
+          <div class="sce-lines-popup-title">${escapeOverlayHtml(name)}</div>
+          ${date ? `<div class="sce-lines-popup-date">${escapeOverlayHtml(date)}</div>` : ''}
+          <div class="sce-lines-popup-meta">
+            ${entries.map(([key, value]) => `
+              <div class="sce-lines-popup-row">
+                <span>${escapeOverlayHtml(toOverlayDisplayLabel(key))}</span>
+                <strong>${escapeOverlayHtml(formatSceLineValue(key, value))}</strong>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    async function fetchSceLinesFeatureCollection() {
+      if (cachedSceLinesFeatureCollection) return cachedSceLinesFeatureCollection;
+      const response = await fetch(SCE_LINES_OVERLAY_CONFIG.geojsonUrl, { cache: 'no-cache' });
+      if (!response.ok) {
+        throw new Error(`SCE lines GeoJSON failed to load (${response.status})`);
+      }
+      const featureCollection = await response.json();
+      cachedSceLinesFeatureCollection = featureCollection;
+      return featureCollection;
+    }
+
+    function buildSceLinesLabelLayer(featureCollection) {
+      if (!zoneMap || !featureCollection || !Array.isArray(featureCollection.features)) return null;
+      ensureSceLinesPanes();
+      const firstFeatureByName = new Map();
+      const boundsByName = new Map();
+      featureCollection.features.forEach((feature) => {
+        const name = getSceProjectName(feature);
+        if (!name) return;
+        if (!firstFeatureByName.has(name)) firstFeatureByName.set(name, feature);
+        const layer = L.geoJSON(feature);
+        const bounds = layer.getBounds && layer.getBounds();
+        if (!bounds || !bounds.isValid()) return;
+        if (boundsByName.has(name)) boundsByName.get(name).extend(bounds);
+        else boundsByName.set(name, bounds);
+      });
+
+      const markers = Array.from(firstFeatureByName.entries()).map(([name, feature]) => {
+        const placement = SCE_LINES_OVERLAY_CONFIG.labelPlacements[name];
+        const boundsCenter = boundsByName.get(name)?.getCenter();
+        const lat = Number(placement?.lat ?? boundsCenter?.lat);
+        const lng = Number(placement?.lng ?? boundsCenter?.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        const date = getSceProjectDate(feature);
+        const color = getSceProjectColor(feature);
+        return L.marker([lat, lng], {
+          pane: getSceLinesLabelPaneName(),
+          icon: L.divIcon({
+            className: 'sce-lines-label-wrapper',
+            html: `
+              <div class="sce-lines-label" style="border-color:${escapeOverlayHtml(color)};">
+                <div class="sce-lines-label-title">${escapeOverlayHtml(name)}</div>
+                ${date ? `<div class="sce-lines-label-date">${escapeOverlayHtml(date)}</div>` : ''}
+              </div>
+            `,
+            iconSize: null
+          }),
+          interactive: false,
+          keyboard: false
+        });
+      }).filter(Boolean);
+      return L.layerGroup(markers);
+    }
+
+    async function buildSceLinesLayer() {
+      if (!zoneMap) return null;
+      ensureSceLinesPanes();
+      const featureCollection = await fetchSceLinesFeatureCollection();
+      const layer = L.geoJSON(featureCollection, {
+        pane: getSceLinesPaneName(),
+        style: getSceLineStyle,
+        onEachFeature: (feature, featureLayer) => {
+          featureLayer.bindPopup(buildSceLinePopupHtml(feature?.properties || {}), { maxWidth: 340 });
+          featureLayer.on('mouseover', () => {
+            featureLayer.setStyle(getSceLineHoverStyle(feature));
+            if (featureLayer.bringToFront) featureLayer.bringToFront();
+          });
+          featureLayer.on('mouseout', () => {
+            featureLayer.setStyle(getSceLineStyle(feature));
+          });
+        }
+      });
+      sceLinesLabelLayer = buildSceLinesLabelLayer(featureCollection);
+      return layer;
+    }
+
+    function shouldShowSceLineLabels() {
+      return !!(zoneMap && sceLinesVisible && zoneMap.getZoom() >= SCE_LINES_OVERLAY_CONFIG.labelMinZoom);
+    }
+
+    function syncSceLineLabelVisibility() {
+      if (!zoneMap || !sceLinesLabelLayer) return;
+      if (shouldShowSceLineLabels()) {
+        if (!zoneMap.hasLayer(sceLinesLabelLayer)) sceLinesLabelLayer.addTo(zoneMap);
+      } else if (zoneMap.hasLayer(sceLinesLabelLayer)) {
+        zoneMap.removeLayer(sceLinesLabelLayer);
+      }
+    }
+
+    function updateSceLinesToggleButton() {
+      const button = document.getElementById('sceLinesLayerToggleBtn');
+      if (!button) return;
+      button.classList.toggle('active', !!sceLinesVisible);
+      button.title = sceLinesVisible
+        ? `Hide ${SCE_LINES_OVERLAY_CONFIG.displayName}`
+        : `Show ${SCE_LINES_OVERLAY_CONFIG.displayName}`;
+      button.setAttribute('aria-pressed', sceLinesVisible ? 'true' : 'false');
+    }
+
+    async function setSceLinesVisible(isVisible) {
+      if (!zoneMap) return;
+      sceLinesVisible = !!isVisible;
+      if (!sceLinesVisible) {
+        if (sceLinesLayer && zoneMap.hasLayer(sceLinesLayer)) zoneMap.removeLayer(sceLinesLayer);
+        if (sceLinesLabelLayer && zoneMap.hasLayer(sceLinesLabelLayer)) zoneMap.removeLayer(sceLinesLabelLayer);
+        updateSceLinesToggleButton();
+        return;
+      }
+      if (sceLinesLoading) return;
+      try {
+        sceLinesLoading = true;
+        if (!sceLinesLayer) {
+          sceLinesLayer = await buildSceLinesLayer();
+        }
+        if (sceLinesLayer && !zoneMap.hasLayer(sceLinesLayer)) sceLinesLayer.addTo(zoneMap);
+        syncSceLineLabelVisibility();
+      } catch (error) {
+        console.warn('SCE lines overlay failed to load:', error);
+        sceLinesVisible = false;
+      } finally {
+        sceLinesLoading = false;
+        updateSceLinesToggleButton();
+      }
+    }
+
     function getFirstOverlayProperty(props, keys) {
       for (const key of keys || []) {
         const value = props?.[key];
@@ -19631,6 +19889,7 @@
         }
         syncDatasetOverlayLabelVisibility(overlayKey);
       });
+      syncSceLineLabelVisibility();
     }
 
     async function setDatasetOverlayVisible(overlayKey, isVisible) {
@@ -19831,6 +20090,12 @@
             datasetOverlayButtons[overlayKey] = overlayBtn;
           });
 
+          const sceLinesBtn = L.DomUtil.create('a', 'map-layer-item-btn', panel);
+          sceLinesBtn.id = 'sceLinesLayerToggleBtn';
+          sceLinesBtn.href = '#';
+          sceLinesBtn.innerHTML = SCE_LINES_OVERLAY_CONFIG.displayName;
+          sceLinesBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
+
           L.DomEvent.disableClickPropagation(container);
           L.DomEvent.on(expandBtn, 'click', L.DomEvent.stop);
           L.DomEvent.on(expandBtn, 'click', () => {
@@ -19854,6 +20119,11 @@
             await setAdditionalMapboxLayerVisible(!additionalMapboxLayerVisible);
           });
 
+          L.DomEvent.on(sceLinesBtn, 'click', L.DomEvent.stop);
+          L.DomEvent.on(sceLinesBtn, 'click', async () => {
+            await setSceLinesVisible(!sceLinesVisible);
+          });
+
           Object.entries(datasetOverlayButtons).forEach(([overlayKey, overlayBtn]) => {
             L.DomEvent.on(overlayBtn, 'click', L.DomEvent.stop);
             L.DomEvent.on(overlayBtn, 'click', async () => {
@@ -19867,6 +20137,7 @@
           MAPBOX_DATASET_OVERLAY_ORDER.forEach((overlayKey) => {
             updateDatasetOverlayToggleButton(overlayKey, !!datasetOverlayVisibility[overlayKey]);
           });
+          updateSceLinesToggleButton();
           return container;
         }
       });
@@ -19878,6 +20149,7 @@
       if (MAPBOX_ADDITIONAL_LAYER_CONFIG.defaultVisible && isAdditionalMapboxLayerEnabled()) {
         setAdditionalMapboxLayerVisible(true);
       }
+      setSceLinesVisible(!!SCE_LINES_OVERLAY_CONFIG.defaultVisible);
     }
 
     const ZONE_BOUNDARY_STYLE = {
@@ -25934,6 +26206,8 @@
       isSatellite: function() { return isSatelliteMode; },
       toggleLayer: setAdditionalMapboxLayerVisible,
       isLayerVisible: function() { return additionalMapboxLayerVisible; },
+      toggleSceLinesLayer: setSceLinesVisible,
+      isSceLinesVisible: function() { return !!sceLinesVisible; },
       toggleDatasetLayer: setDatasetOverlayVisible,
       isDatasetVisible: function(key) { return !!datasetOverlayVisibility[key]; }
     };
@@ -26228,6 +26502,8 @@
         // Altagether Zones overlay (additionalMapbox layer)
         var zonesBtn = document.getElementById('mobileLayerZones');
         if (zonesBtn) zonesBtn.classList.toggle('active', window._mapControls.isLayerVisible());
+        var sceLinesBtn = document.getElementById('mobileLayerSceLines');
+        if (sceLinesBtn) sceLinesBtn.classList.toggle('active', window._mapControls.isSceLinesVisible());
         // Dataset overlays
         var dsMap = {
           mobileLayerCensus: 'censusTracts',
@@ -26298,6 +26574,17 @@
         layerZonesBtn.addEventListener('click', function() {
           if (window._mapControls) {
             window._mapControls.toggleLayer(!window._mapControls.isLayerVisible());
+          }
+          syncMapSheetState();
+        });
+      }
+
+      // Overlay: SCE undergrounding projects
+      var layerSceLinesBtn = document.getElementById('mobileLayerSceLines');
+      if (layerSceLinesBtn) {
+        layerSceLinesBtn.addEventListener('click', function() {
+          if (window._mapControls) {
+            window._mapControls.toggleSceLinesLayer(!window._mapControls.isSceLinesVisible());
           }
           syncMapSheetState();
         });
