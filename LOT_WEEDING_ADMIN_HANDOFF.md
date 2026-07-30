@@ -1,6 +1,12 @@
 # Lot Weeding Admin Handoff
 
-**Status:** Lot Weeding Command Center is feature-complete for the confirmed console design (June 2026). Staging validation completed on a copied intake sheet with revised columns and service-account Editor access. Recent work is **operator-driven UX polish**, **Planner** tab (in-panel calendar behind `LOT_WEEDING_PLANNER_CALENDAR_ENABLED`), and live-demo hardening for the revised intake sheet. Production env cutover must keep pointing at the revised source sheet; deeper write-flow tests remain future work.
+**Status:** The captain-facing lot-weeding program is paused as of July 2026, but the **Lot Weeding Command Center remains feature-complete and untouched**. Staging validation completed on a copied intake sheet with revised columns and service-account Editor access. Captain-facing promotional/status surfaces are hidden behind `LOT_WEEDING_CAPTAIN_SURFACES_ENABLED`; the map filter, data reads, APIs, and admin console remain available. Production env cutover must keep pointing at the revised source sheet; deeper write-flow tests remain future work.
+
+**Latest pass (captain-facing program pause, July 2026):**
+- **One reversible switch** — `LOT_WEEDING_CAPTAIN_SURFACES_ENABLED = false` near the top of `index.html` hides the captain-facing lot-weeding UI without deleting its renderers, handlers, styles, data access, or modal implementation.
+- **Hidden while paused** — the Home **Quick Actions** lot-weeding item, its duplicate **Actions page** card, the **Lot weeding requests and statuses** modal (also guarded at function entry), and the address Details **Lot weeding status** notice.
+- **Intentionally unchanged** — the **Lot Weeding Command Center/admin tab**, all admin functionality and access controls, `GET /api/lot-weeding/values`, central request matching, and the map's **All weeding / Pending requests / Cleaned requests / All requests** filter dropdown.
+- **How to re-enable** — change only `LOT_WEEDING_CAPTAIN_SURFACES_ENABLED` from `false` to `true` in `index.html`. Do not remove the guards or rebuild the hidden markup. Verify Home Quick Actions, the full Actions page, modal opening/closing, address Details, and the map filter after re-enabling.
 
 **Latest pass (status vs Date Scheduled save fix, July 2026):**
 - **Requested / Schedule Next clear Date Scheduled** — single-lot Save and batch **Mark Schedule Next** now write `scheduledDate: ''` when status is Requested or Schedule Next. Fixes the bug where a lot with an existing Date Scheduled could not be moved to Schedule Next (save silently rewrote status back to Scheduled). Status dropdown change also clears the date picker immediately for operator visibility.
@@ -165,6 +171,7 @@ Key pieces:
   - `GET /api/lot-weeding-admin/requests`
   - `PATCH /api/lot-weeding-admin/request-row`
 - Captain-facing lot-weeding reads still use `GET /api/lot-weeding/values`.
+- Captain-facing promotion/status UI is currently paused by `LOT_WEEDING_CAPTAIN_SURFACES_ENABLED = false`; the underlying reads and map filter remain active.
 - Normalization layer maps messy spreadsheet headers into stable request fields (revised intake columns + mirror-era aliases).
 
 ### Tabbed operations console
@@ -552,6 +559,7 @@ Continue the Lot Weeding Admin work. Read LOT_WEEDING_ADMIN_HANDOFF.md (Purpose,
 Context: Lot Weeding Command Center — **Planner** / Calendar / Follow-ups / Stats / Help over shared lotWeedingAdminState. Staging validation done (copied intake sheet, revised columns, service-account Editor); production/demo launch happened after final hardening. Core features shipped: batch schedule/clean/attention, Follow-up Mark notified / Mark ROE returned, NC zone overlay, draw-to-select, local post-save refresh.
 
 Recent UX (do not regress):
+- Captain-facing lot-weeding promotion/status surfaces are intentionally paused behind `LOT_WEEDING_CAPTAIN_SURFACES_ENABLED = false` in `index.html`. This hides Home Quick Actions, the duplicate Actions-page card, the request-status modal, and the address Details notice. The map filter remains visible, and the Lot Weeding Command Center/admin tab is untouched. To restore everything, flip this one flag to `true` and test all four hidden entry/display points.
 - Five tabs incl. **Help** ("How to Use This Tool" + spreadsheet link `LOT_WEEDING_SPREADSHEET_URL`). Note: that link points at the Altadena-Talks original, NOT the revised-header copy the tool actually reads — verify before relying on it.
 - Planner tab: **Show** dropdown + helper text (not filter chips). **Search** input + **Search** button + **Refresh** (helper copy distinguishes filter vs reload). Status colors reuse the main app palette: Requested #fdba77, Schedule Next #f9d6d3, Scheduled #81bdc3, Cleaned #afc892, Needs Attention #bc455a, Cancelled #e5e5e5. Pins use the main app's SVG style (offset charcoal shadow + charcoal stroke, grow-on-emphasis); badges echo the hues with darker legible text. In-panel **[ Details ] [ Calendar ]** when `LOT_WEEDING_PLANNER_CALENDAR_ENABLED` (default true).
 - Multi-select side panel = one Action picker (Schedule for a date / Mark Schedule Next / Mark Cleaned / Mark Needs Attention) → single form → summary → collapsible preview → one Apply button + per-lot results. **Resets to Schedule for a date** after apply or new group. Header "N lots selected" + Clear.
