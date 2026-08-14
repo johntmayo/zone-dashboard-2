@@ -1611,6 +1611,9 @@ app.get('/help.html', (req, res) => {
 app.get('/discord-help.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'discord-help.html'));
 });
+app.get('/whatsapp-community.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'whatsapp-community.html'));
+});
 
 // Serve index.html for all other routes (SPA fallback)
 app.get('*', (req, res) => {
