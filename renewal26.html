@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Review the 2026 Neighborhood Captain expectations, renew your participation, sign the Altagether Community Agreements, and find captain resources.">
+  <title>Neighborhood Captain Renewal - 2026 | Altagether</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Lora:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    :root {
+      --deep-space-blue: #304059;
+      --deep-space-dark: #263448;
+      --golden-orange: #f59e09;
+      --porcelain: #fdfbf8;
+      --floral-white: #fffdf5;
+      --floral-white-warm: #fdf8ec;
+      --rosy-copper: #bc5839;
+      --muted-olive: #afc892;
+      --olive-deep: #6d844f;
+      --surface-white: #ffffff;
+      --text-primary: #1f2937;
+      --text-secondary: #4b5563;
+      --border-color: #e5e5e5;
+      --font-ui: "Chivo", sans-serif;
+      --font-reading: "Lora", serif;
+      --radius-small: 4px;
+      --radius-medium: 8px;
+      --shadow: 4px 4px 0 var(--border-color);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text-primary);
+      background:
+        radial-gradient(circle at 8% 19%, rgba(175, 200, 146, 0.16), transparent 24rem),
+        radial-gradient(circle at 94% 45%, rgba(245, 158, 9, 0.10), transparent 23rem),
+        var(--porcelain);
+      font-family: var(--font-ui);
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    button, input { font: inherit; }
+    a { color: inherit; }
+
+    :focus-visible {
+      outline: 3px solid var(--golden-orange);
+      outline-offset: 3px;
+    }
+
+    .skip-link {
+      position: fixed;
+      z-index: 20;
+      top: 0.75rem;
+      left: 0.75rem;
+      padding: 0.7rem 1rem;
+      color: #fff;
+      background: var(--deep-space-dark);
+      border-radius: var(--radius-small);
+      transform: translateY(-160%);
+      transition: transform 160ms ease;
+    }
+    .skip-link:focus { transform: translateY(0); }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 2.7rem 1.25rem 2.35rem;
+      color: #fff;
+      text-align: center;
+      background: var(--deep-space-blue);
+      border-bottom: 3px solid var(--text-primary);
+    }
+
+    .hero::before,
+    .hero::after {
+      position: absolute;
+      content: "";
+      border: 2px solid rgba(255, 255, 255, 0.08);
+      border-radius: 50%;
+    }
+    .hero::before { width: 290px; height: 290px; top: -210px; left: -50px; }
+    .hero::after { width: 220px; height: 220px; right: -85px; bottom: -160px; }
+
+    .eyebrow,
+    .section-kicker {
+      margin: 0 0 0.65rem;
+      color: var(--golden-orange);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      position: relative;
+      max-width: 760px;
+      margin: 0 auto 0.75rem;
+      font-size: clamp(2rem, 6vw, 3.6rem);
+      font-weight: 900;
+      letter-spacing: -0.035em;
+      line-height: 1.06;
+    }
+
+    .hero-copy {
+      position: relative;
+      max-width: 580px;
+      margin: 0 auto;
+      color: rgba(255, 255, 255, 0.8);
+      font-family: var(--font-reading);
+      font-size: 0.98rem;
+      line-height: 1.7;
+    }
+
+    .progress-shell {
+      position: sticky;
+      z-index: 8;
+      top: 0;
+      color: #fff;
+      background: var(--deep-space-blue);
+      box-shadow: 0 4px 12px rgba(31, 41, 55, 0.14);
+    }
+
+    .progress-inner {
+      display: grid;
+      grid-template-columns: auto minmax(120px, 1fr) auto;
+      gap: 0.9rem;
+      align-items: center;
+      width: min(760px, calc(100% - 2rem));
+      min-height: 52px;
+      margin: 0 auto;
+    }
+
+    .progress-label,
+    .progress-count {
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.035em;
+    }
+    .progress-count { color: rgba(255, 255, 255, 0.66); }
+
+    .progress-track {
+      height: 8px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
+    }
+
+    .progress-fill {
+      width: 0;
+      height: 100%;
+      background: var(--golden-orange);
+      border-radius: inherit;
+      transition: width 300ms ease;
+    }
+
+    main {
+      width: min(760px, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 2rem 0 4.5rem;
+    }
+
+    .welcome {
+      margin-bottom: 1.6rem;
+      padding: 1.25rem 1.4rem;
+      font-family: var(--font-reading);
+      font-size: 0.93rem;
+      line-height: 1.7;
+      background: var(--floral-white-warm);
+      border: 2px solid var(--golden-orange);
+      border-radius: var(--radius-medium);
+    }
+    .welcome strong { color: var(--deep-space-blue); }
+
+    .journey {
+      display: grid;
+      gap: 1.2rem;
+    }
+
+    .action-card {
+      overflow: hidden;
+      background: var(--surface-white);
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-medium);
+      box-shadow: var(--shadow);
+    }
+
+    .action-card[data-complete="true"] {
+      border-color: var(--muted-olive);
+      box-shadow: 4px 4px 0 rgba(175, 200, 146, 0.45);
+    }
+
+    .card-heading {
+      display: grid;
+      grid-template-columns: 46px minmax(0, 1fr);
+      gap: 1rem;
+      align-items: center;
+      padding: 1.25rem 1.35rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .step-number {
+      display: grid;
+      width: 46px;
+      height: 46px;
+      place-items: center;
+      color: var(--deep-space-blue);
+      background: var(--golden-orange);
+      border: 2px solid var(--deep-space-blue);
+      border-radius: 50%;
+      font-size: 0.9rem;
+      font-weight: 900;
+    }
+
+    [data-complete="true"] .step-number {
+      font-size: 0;
+      background: var(--muted-olive);
+    }
+    [data-complete="true"] .step-number::after {
+      content: "✓";
+      font-size: 1rem;
+    }
+
+    .card-heading h2 {
+      margin: 0 0 0.2rem;
+      color: var(--deep-space-blue);
+      font-size: clamp(1.2rem, 3vw, 1.5rem);
+      line-height: 1.25;
+    }
+    .card-heading p {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+    }
+
+    .card-body { padding: 1.4rem; }
+
+    .reading-copy,
+    .card-body > p {
+      margin: 0 0 1rem;
+      color: var(--text-secondary);
+      font-family: var(--font-reading);
+      font-size: 0.92rem;
+      line-height: 1.72;
+    }
+    .reading-copy strong,
+    .card-body > p strong { color: var(--text-primary); }
+
+    .expectations-intro {
+      display: grid;
+      gap: 0.75rem;
+      margin: 1.2rem 0;
+    }
+
+    .expectations-section-label {
+      margin: 0.55rem 0 -0.1rem;
+      color: var(--deep-space-blue);
+      font-size: 0.75rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    details.expectation {
+      overflow: hidden;
+      background: var(--floral-white);
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-small);
+    }
+
+    details.expectation[open] { border-color: #c8ced6; }
+
+    details.expectation summary {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 1rem;
+      align-items: center;
+      min-height: 56px;
+      padding: 0.85rem 1rem;
+      color: var(--deep-space-blue);
+      cursor: pointer;
+      font-size: 0.92rem;
+      font-weight: 700;
+      list-style: none;
+    }
+    details.expectation summary::-webkit-details-marker { display: none; }
+    details.expectation summary::after {
+      content: "+";
+      color: var(--golden-orange);
+      font-size: 1.35rem;
+      line-height: 1;
+    }
+    details.expectation[open] summary::after { content: "−"; }
+
+    .expectation-content {
+      padding: 0 1rem 1.1rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .expectation-content h3 {
+      margin: 1rem 0 0.45rem;
+      color: var(--deep-space-blue);
+      font-size: 0.78rem;
+      letter-spacing: 0.055em;
+      text-transform: uppercase;
+    }
+
+    .expectation-content p,
+    .expectation-content li {
+      color: var(--text-secondary);
+      font-family: var(--font-reading);
+      font-size: 0.86rem;
+      line-height: 1.65;
+    }
+    .expectation-content p { margin: 0.5rem 0; }
+    .expectation-content ul { margin: 0.5rem 0 0; padding-left: 1.2rem; }
+    .expectation-content li + li { margin-top: 0.38rem; }
+
+    .time-note {
+      display: flex;
+      gap: 0.8rem;
+      align-items: flex-start;
+      margin: 1rem 0 1.2rem;
+      padding: 0.9rem 1rem;
+      color: var(--deep-space-blue);
+      background: rgba(175, 200, 146, 0.24);
+      border-left: 5px solid var(--olive-deep);
+      border-radius: var(--radius-small);
+      font-family: var(--font-reading);
+      font-size: 0.86rem;
+      line-height: 1.55;
+    }
+
+    .response-preview {
+      margin: 1.25rem 0;
+      padding: 1rem;
+      background: #f7f8fa;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-small);
+    }
+
+    .response-preview h3 {
+      margin: 0 0 0.75rem;
+      color: var(--deep-space-blue);
+      font-size: 0.88rem;
+    }
+
+    .choice-list { display: grid; gap: 0.55rem; }
+    .choice {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      gap: 0.65rem;
+      align-items: start;
+      color: var(--text-secondary);
+      font-family: var(--font-reading);
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+    .choice-letter {
+      display: grid;
+      width: 26px;
+      height: 26px;
+      place-items: center;
+      color: var(--deep-space-blue);
+      background: var(--surface-white);
+      border: 1px solid #ccd1d8;
+      border-radius: 50%;
+      font-family: var(--font-ui);
+      font-size: 0.72rem;
+      font-weight: 900;
+    }
+
+    .follow-up-note {
+      margin: 0.9rem 0 0;
+      color: var(--text-secondary);
+      font-family: var(--font-reading);
+      font-size: 0.8rem;
+      font-style: italic;
+      line-height: 1.55;
+    }
+
+    .agreements-list {
+      margin: 1.2rem 0;
+      padding: 0;
+      list-style: none;
+      counter-reset: agreements;
+    }
+
+    .agreements-list li {
+      position: relative;
+      min-height: 42px;
+      margin: 0;
+      padding: 0.55rem 0 0.65rem 2.35rem;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-color);
+      counter-increment: agreements;
+      font-family: var(--font-reading);
+      font-size: 0.86rem;
+      line-height: 1.58;
+    }
+    .agreements-list li:last-child { border-bottom: 0; }
+    .agreements-list li::before {
+      position: absolute;
+      top: 0.55rem;
+      left: 0;
+      display: grid;
+      width: 25px;
+      height: 25px;
+      place-items: center;
+      content: counter(agreements);
+      color: var(--deep-space-blue);
+      background: var(--muted-olive);
+      border-radius: 50%;
+      font-family: var(--font-ui);
+      font-size: 0.68rem;
+      font-weight: 900;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.7rem;
+      align-items: center;
+      margin-top: 1.1rem;
+    }
+
+    .primary-button,
+    .secondary-button,
+    .done-button {
+      display: inline-flex;
+      min-height: 46px;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      padding: 0.65rem 1rem;
+      border-radius: var(--radius-small);
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: transform 150ms ease, background 150ms ease, border-color 150ms ease;
+    }
+
+    .primary-button {
+      color: #fff;
+      background: var(--deep-space-blue);
+      border: 2px solid var(--deep-space-blue);
+    }
+    .primary-button:hover { background: var(--text-primary); border-color: var(--text-primary); transform: translateY(-1px); }
+    .primary-button[aria-disabled="true"] {
+      color: #6b7280;
+      background: #eef0f2;
+      border-color: #d5d9de;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .done-button {
+      color: var(--deep-space-blue);
+      background: var(--golden-orange);
+      border: 2px solid var(--deep-space-blue);
+      cursor: pointer;
+    }
+    .done-button:hover { background: #ffb326; transform: translateY(-1px); }
+    [data-complete="true"] .done-button { background: var(--muted-olive); }
+
+    .button-help {
+      flex-basis: 100%;
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 0.73rem;
+      line-height: 1.45;
+    }
+
+    .resources {
+      margin-top: 2.6rem;
+      padding-top: 0.5rem;
+    }
+
+    .section-kicker { margin-bottom: 0.45rem; }
+    .resources h2 {
+      margin: 0 0 0.45rem;
+      color: var(--deep-space-blue);
+      font-size: clamp(1.45rem, 4vw, 2rem);
+      line-height: 1.2;
+    }
+    .resources-lead {
+      margin: 0 0 1.2rem;
+      color: var(--text-secondary);
+      font-family: var(--font-reading);
+      font-size: 0.9rem;
+      line-height: 1.65;
+    }
+
+    .resource-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .resource-card {
+      display: flex;
+      min-height: 190px;
+      flex-direction: column;
+      padding: 1.2rem;
+      background: var(--surface-white);
+      border: 2px solid var(--border-color);
+      border-top: 6px solid var(--muted-olive);
+      border-radius: var(--radius-medium);
+      box-shadow: var(--shadow);
+      text-decoration: none;
+      transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    }
+    .resource-card:first-child { border-top-color: #159b8f; }
+    .resource-card--directory { border-top-color: var(--rosy-copper); }
+    .resource-card:hover {
+      border-color: #c8ced6;
+      box-shadow: 6px 6px 0 var(--border-color);
+      transform: translate(-2px, -2px);
+    }
+    .resource-icon { margin-bottom: 0.8rem; font-size: 1.75rem; }
+    .resource-card h3 { margin: 0 0 0.45rem; color: var(--deep-space-blue); font-size: 1rem; }
+    .resource-card p {
+      margin: 0 0 1rem;
+      color: var(--text-secondary);
+      font-family: var(--font-reading);
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+    .resource-link {
+      margin-top: auto;
+      color: var(--deep-space-blue);
+      font-size: 0.76rem;
+      font-weight: 700;
+    }
+
+    .completion {
+      display: none;
+      margin-top: 1.5rem;
+      padding: 1.6rem;
+      text-align: center;
+      background: var(--floral-white-warm);
+      border: 2px solid var(--golden-orange);
+      border-radius: var(--radius-medium);
+      box-shadow: var(--shadow);
+    }
+    .completion.visible { display: block; animation: rise 280ms ease; }
+    .completion span { font-size: 2rem; }
+    .completion h2 { margin: 0.35rem 0; color: var(--deep-space-blue); font-size: 1.35rem; }
+    .completion p {
+      margin: 0;
+      color: var(--text-secondary);
+      font-family: var(--font-reading);
+      font-size: 0.86rem;
+      line-height: 1.6;
+    }
+
+    footer {
+      padding: 2rem 1rem;
+      color: var(--text-secondary);
+      text-align: center;
+      font-size: 0.78rem;
+    }
+    footer a { color: var(--deep-space-blue); font-weight: 700; text-underline-offset: 2px; }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(7px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 620px) {
+      .hero { padding-top: 2.3rem; }
+      .progress-inner { grid-template-columns: minmax(0, 1fr) auto; }
+      .progress-label { display: none; }
+      .card-heading, .card-body { padding-left: 1rem; padding-right: 1rem; }
+      .card-heading { grid-template-columns: 40px minmax(0, 1fr); gap: 0.75rem; }
+      .step-number { width: 40px; height: 40px; }
+      .resource-grid { grid-template-columns: 1fr; }
+      .resource-card { min-height: 0; }
+      .primary-button, .done-button { width: 100%; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to renewal steps</a>
+
+  <header class="hero">
+    <p class="eyebrow">Altagether · Neighborhood Captain Program</p>
+    <h1>Neighborhood Captain Renewal - 2026</h1>
+    <p class="hero-copy">Thank you for helping neighbors stay connected, informed, and supported. Please review the updated expectations and renew your participation below.</p>
+  </header>
+
+  <div class="progress-shell" aria-label="Renewal progress">
+    <div class="progress-inner">
+      <span class="progress-label">Your renewal progress</span>
+      <div class="progress-track" aria-hidden="true"><div class="progress-fill" id="progressFill"></div></div>
+      <span class="progress-count" id="progressCount" aria-live="polite">0 of 2 complete</span>
+    </div>
+  </div>
+
+  <main id="main">
+    <aside class="welcome">
+      <strong>Hello, Captain!</strong> There are two required actions below: respond to the updated Network Expectations and sign our Community Agreements. Plan for about 10–15 minutes. If you have questions, email <strong>info@altagether.org</strong>.
+    </aside>
+
+    <div class="journey">
+      <section class="action-card" id="expectationsCard" data-step="expectations" data-complete="false" aria-labelledby="expectationsTitle">
+        <div class="card-heading">
+          <div class="step-number" aria-hidden="true">1</div>
+          <div>
+            <h2 id="expectationsTitle">Review the Network Expectations</h2>
+            <p>Read what Altagether expects of captains—and what captains can expect from Altagether.</p>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="expectations-intro">
+            <details class="expectation">
+              <summary>Overview</summary>
+              <div class="expectation-content">
+                <h3>The Spirit of These Expectations</h3>
+                <p>These expectations are intended to set a baseline for how we operate as an organization. They are grounded in what Altagether believes is needed to keep neighbors connected, build community, share information and resources, and help people in their recovery.</p>
+                <p><strong>They are intended to create a flexible shared understanding, not a rigid rubric.</strong> If a captain is fulfilling most of these expectations and meeting them in spirit, that is enough to be a successful Neighborhood Captain.</p>
+                <h3>Sharing Responsibility</h3>
+                <p><strong>Captains don’t have to do everything alone.</strong> To meet these expectations, we encourage collaboration and delegation to other people in your zone—whether they are official co-captains or neighbors who care. We also encourage captains across different zones to share the load in creative ways that work for them.</p>
+                <p>While Neighborhood Captains are ultimately responsible for making sure these expectations are met in their zones, your neighbors, fellow captains, and Altagether organizers can help. We estimate that captains will spend between 10-20 hours per month fulfilling these responsibilities (lower with delegation and collaboration!).</p>
+                <h3>What Altagether Provides</h3>
+                <p>Altagether gives Neighborhood Captains the tools, resources, and connections they need to support their neighbors and stay informed about Altadena’s recovery. <strong>In addition to the detailed supports outlined later in this document, Altagether provides captains with the following:</strong></p>
+                <ul>
+                  <li>Access to a network of local leaders and wildfire survivors who share knowledge, resources, and support.</li>
+                  <li>Exclusive gatherings and special opportunities for Neighborhood Captains.</li>
+                  <li>A recognized leadership role in Altadena’s recovery and rebuilding efforts.</li>
+                  <li>Perks not available to individuals such as grants from partner organizations, tax deductible status for material donations, or special deals.</li>
+                  <li>Direct access to information and decision-makers, including opportunities to interface with government officials and recovery leaders.</li>
+                </ul>
+              </div>
+            </details>
+
+            <div class="expectations-section-label">The Expectations</div>
+
+            <details class="expectation">
+              <summary>Outreach to neighbors</summary>
+              <div class="expectation-content">
+                <p>We recognize that reaching out to everyone in the zone can be challenging—but it is the heart of the Neighborhood Captain role.</p>
+                <h3>Expectations of Neighborhood Captains</h3>
+                <ul>
+                  <li>Captains are expected to try to make contact with every address in their zone in a timely manner upon joining the program.</li>
+                  <li>Captains are expected to periodically continue outreach to addresses they’ve been unable to reach, using a variety of methods, and not giving up unless a neighbor has asked to be left alone.</li>
+                  <li>For addresses for which Altagether has not provided accurate contact info, captains will make a good faith effort to make contact themselves.</li>
+                  <li>Captains are asked to record their efforts in the Zone Dashboard.</li>
+                </ul>
+                <h3>Expectations of Altagether</h3>
+                <p>Altagether provides:</p>
+                <ul>
+                  <li>Access to a Zone Dashboard containing neighborhood data, contact information, maps, and tools for tracking outreach and recovery.</li>
+                  <li>Tools and templates to ease outreach including call scripts, planning templates, and examples from other captains.</li>
+                  <li>Reimbursement for printing and mailings.</li>
+                  <li>Suggested methods for finding missing contact info.</li>
+                  <li>Quarterly convenings for captains to do outreach to their zones in a group setting.</li>
+                  <li>Working relationships with other community organizations to fill gaps and support outreach.</li>
+                </ul>
+              </div>
+            </details>
+
+            <details class="expectation">
+              <summary>Supporting neighbors</summary>
+              <div class="expectation-content">
+                <h3>Expectations of Neighborhood Captains</h3>
+                <ul>
+                  <li>Captains are expected to make themselves accessible and approachable to their neighbors: share your contact information and make it clear that you’re available for questions, guidance, and support.</li>
+                  <li>Captains are expected to support their neighbors by fielding questions and helping them connect with recovery resources, including case management options when needed.</li>
+                  <li>Captains are NOT expected to be case managers themselves, to know the answer to every question, or to know about every available resource.</li>
+                  <li>When they don’t know how to help, captains are expected to bring questions to the broader captain network and to Altagether organizers.</li>
+                </ul>
+                <h3>Expectations of Altagether</h3>
+                <ul>
+                  <li>Greater visibility in your neighborhood through Altagether’s public map, which helps residents find and connect with their captain.</li>
+                  <li>A commitment to acknowledge and follow up on issues raised by captains in a timely way with the captain directly and the entire network if pertinent.</li>
+                  <li>A dedicated Quick Questions WhatsApp group where captains can seek and give support to each other.</li>
+                  <li>Dedicated time during Neighborhood Captain meetings for crowd-sourcing answers, if necessary.</li>
+                  <li>An online Neighborhood Captain Directory that makes it easy to find captains with specific expertise or experience.</li>
+                </ul>
+              </div>
+            </details>
+
+            <details class="expectation">
+              <summary>Hosting events</summary>
+              <div class="expectation-content">
+                <p>Creating opportunities for neighbors to connect socially, face-to-face, is crucial for the recovery of our community.</p>
+                <h3>Expectations of Neighborhood Captains</h3>
+                <p>Captains are expected to help organize at least two events per year in their zone.</p>
+                <p>Events can take many forms and don’t have to be overly ambitious. The sole qualifier is that an invitation is extended to everyone in your zone.</p>
+                <p>Examples include:</p>
+                <ul>
+                  <li><strong>Light Lift:</strong> An invitation to join in on a community event you are attending.</li>
+                  <li><strong>Medium Lift:</strong> Framing party, a casual coffee or happy hour meetup.</li>
+                  <li><strong>Heavy Lift:</strong> Block party, holiday gathering.</li>
+                </ul>
+                <p>Events can be co-hosted with other captains, or in concert with neighbors who are not captains.</p>
+                <h3>Expectations of Altagether</h3>
+                <p>Altagether provides:</p>
+                <ul>
+                  <li>Event planning templates and ideas.</li>
+                  <li>Reimbursement for food and supplies.</li>
+                  <li>Visibility into what other zones have done so captains can seek advice, inspiration, or support.</li>
+                  <li>Potential broader support for ambitious events (organizing help, additional money, community connections, etc.).</li>
+                </ul>
+              </div>
+            </details>
+
+            <details class="expectation">
+              <summary>Sharing information with neighbors</summary>
+              <div class="expectation-content">
+                <p>Even if your communication feels one-way, trust that consistent communication is valued by your neighbors and keeps people informed and connected.</p>
+                <h3>Expectations of Neighborhood Captains</h3>
+                <p>Captains are expected to maintain an active communication channel with their zone, selecting a core format that works for them but remembering that different people communicate differently and it will sometimes be necessary to go outside one’s comfort zone to reach all neighbors. (For example, calling a neighbor who doesn’t have a smart phone).</p>
+                <p>Options include:</p>
+                <ul>
+                  <li>Maintaining a Facebook group, WhatsApp channel, or active email list.</li>
+                  <li>Forwarding the Altagether newsletter.</li>
+                  <li>Sending their own newsletter.</li>
+                  <li>Hosting regular meetings or calls.</li>
+                </ul>
+                <h3>Expectations of Altagether</h3>
+                <p>Altagether provides:</p>
+                <ul>
+                  <li>A Newsletter published every two weeks containing recovery updates, events, opportunities, and more.</li>
+                  <li>An optional Newsletter Builder tool captains can use to create a custom newsletter with zone-specific updates.</li>
+                  <li>A shared Zoom account which can be used to host zone meetings.</li>
+                </ul>
+              </div>
+            </details>
+
+            <details class="expectation">
+              <summary>Staying informed of Altagether’s twice-monthly meetings</summary>
+              <div class="expectation-content">
+                <h3>Expectations of Neighborhood Captains</h3>
+                <p>Captains are expected to stay informed of what happens in our meetings, either by attending them, reading the recap email, or watching the recording.</p>
+                <h3>Expectations of Altagether</h3>
+                <p>Altagether provides:</p>
+                <ul>
+                  <li>Two 60-minute virtual meetings each month.</li>
+                  <li>A written recap and video recording for every meeting, shared the following day.</li>
+                  <li>A meeting calendar with advance notice of all meeting dates, plus day-of reminders to attend.</li>
+                </ul>
+              </div>
+            </details>
+          </div>
+
+          <div class="response-preview">
+            <h3>After reviewing, you’ll choose one response:</h3>
+            <div class="choice-list">
+              <div class="choice"><span class="choice-letter">A</span><span>I’m comfortable with these expectations and would like to continue as a Neighborhood Captain.</span></div>
+              <div class="choice"><span class="choice-letter">B</span><span>I’m unsure about these expectations and would like to have a conversation.</span></div>
+              <div class="choice"><span class="choice-letter">C</span><span>I’m not comfortable with these expectations and no longer want to be a Neighborhood Captain.</span></div>
+            </div>
+            <p class="follow-up-note">No follow-up is needed for response A. If you select B or C, Stef or John will call you for a conversation.</p>
+          </div>
+
+          <div class="button-row">
+            <a class="primary-button" id="expectationsFormLink" data-form-url="https://forms.gle/3LhTBRVDdALucaWH9" href="#" aria-disabled="true">Open response form ↗</a>
+            <button class="done-button" type="button" data-mark-complete="expectations">✓ I submitted my response</button>
+            <p class="button-help" id="expectationsFormHelp">The expectations response form link will be added before publication.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="action-card" id="agreementsCard" data-step="agreements" data-complete="false" aria-labelledby="agreementsTitle">
+        <div class="card-heading">
+          <div class="step-number" aria-hidden="true">2</div>
+          <div>
+            <h2 id="agreementsTitle">Read &amp; sign the Community Agreements</h2>
+            <p>Common-sense commitments for how we show up for one another</p>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <p>Every Neighborhood Captain is asked to abide by these shared commitments within Altagether and the captain role.</p>
+          <ol class="agreements-list">
+            <li>Treat everyone with respect and compassion.</li>
+            <li>Share information and resources openly with your neighbors unless they’ve directly asked you not to.</li>
+            <li>Be there for all your neighbors, even if you disagree on specific issues or topics.</li>
+            <li>Make a good faith effort to represent your whole neighborhood, not just your personal views or preferred outcomes.</li>
+            <li>Share accurate, timely information and avoid spreading rumors or unverified claims. Do the due diligence to be able to stand behind what you share.</li>
+            <li>Speak for yourself. Don’t speak on behalf of Altagether or other Neighborhood Captains without explicit permission—whether to the press, online, or out in the community.</li>
+            <li>When disagreements arise, model patience and respectfulness.</li>
+            <li>Acknowledge and respect different recovery paths. Whether someone chooses to rebuild, relocate, or sell, treat their decisions with grace, understanding, and without judgment.</li>
+          </ol>
+
+          <div class="button-row">
+            <a class="primary-button" href="https://docs.google.com/forms/d/e/1FAIpQLSfI1sg7Xpk5KK5qrKxlBwz5gpA5ao7fXzRNEpjeN2LB1cJ-vQ/viewform?usp=dialog" target="_blank" rel="noopener">Type your name to sign ↗</a>
+            <button class="done-button" type="button" data-mark-complete="agreements">✓ I signed the agreements</button>
+            <p class="button-help">The signature form opens in a new tab. Return here after submitting it.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="completion" id="completion" role="status">
+      <span aria-hidden="true">🌿</span>
+      <h2>Your renewal steps are complete</h2>
+      <p>Thank you for continuing to show up for your neighbors and for Altadena.<br>— John, Stef &amp; the Altagether team</p>
+    </div>
+
+    <section class="resources" aria-labelledby="resourcesTitle">
+      <p class="section-kicker">Keep these handy</p>
+      <h2 id="resourcesTitle">Support for captains</h2>
+      <p class="resources-lead">Practical tools, instructions, and connections to make the work a little easier.</p>
+
+      <div class="resource-grid">
+        <a class="resource-card" href="https://dashboard.altagether.org/whatsapp-community.html" target="_blank" rel="noopener">
+          <span class="resource-icon" aria-hidden="true">💬</span>
+          <h3>WhatsApp Community</h3>
+          <p>See what’s inside the community, watch the walkthrough, and follow the steps to join.</p>
+          <span class="resource-link">View instructions →</span>
+        </a>
+
+        <a class="resource-card" href="outreach-helper.html" target="_blank" rel="noopener">
+          <span class="resource-icon" aria-hidden="true">☎️</span>
+          <h3>Outreach Helper</h3>
+          <p>Get suggested language for phone calls, text messages, emails, and other neighbor outreach.</p>
+          <span class="resource-link">Open the helper →</span>
+        </a>
+
+        <a class="resource-card resource-card--directory" href="https://directory.altagether.org/" target="_blank" rel="noopener">
+          <span class="resource-icon" aria-hidden="true">👥</span>
+          <h3>Neighborhood Captain Directory</h3>
+          <p>Find and connect with volunteer neighborhood captains across Altadena zones.</p>
+          <span class="resource-link">Open Captain Directory →</span>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer>Altagether · Neighbors helping neighbors · <a href="mailto:info@altagether.org">info@altagether.org</a></footer>
+
+  <script>
+    (() => {
+      const STORAGE_KEY = "altagether_renewal_2026";
+      const steps = ["expectations", "agreements"];
+      const progressFill = document.getElementById("progressFill");
+      const progressCount = document.getElementById("progressCount");
+      const completion = document.getElementById("completion");
+      const expectationsLink = document.getElementById("expectationsFormLink");
+      const expectationsHelp = document.getElementById("expectationsFormHelp");
+
+      function readState() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+        } catch (error) {
+          return {};
+        }
+      }
+
+      function writeState(state) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (error) {
+          // The page still works if browser storage is unavailable.
+        }
+      }
+
+      function render() {
+        const state = readState();
+        let completeCount = 0;
+
+        steps.forEach((step) => {
+          const isComplete = Boolean(state[step]);
+          const card = document.querySelector(`[data-step="${step}"]`);
+          const button = document.querySelector(`[data-mark-complete="${step}"]`);
+          card.dataset.complete = String(isComplete);
+          button.textContent = isComplete ? "↩ Mark as not complete" : step === "expectations" ? "✓ I submitted my response" : "✓ I signed the agreements";
+          if (isComplete) completeCount += 1;
+        });
+
+        const percent = Math.round((completeCount / steps.length) * 100);
+        progressFill.style.width = `${percent}%`;
+        progressCount.textContent = `${completeCount} of ${steps.length} complete`;
+        completion.classList.toggle("visible", completeCount === steps.length);
+      }
+
+      document.querySelectorAll("[data-mark-complete]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const step = button.dataset.markComplete;
+          const state = readState();
+          state[step] = !state[step];
+          writeState(state);
+          render();
+
+          if (state[step]) {
+            const currentIndex = steps.indexOf(step);
+            const nextCard = document.querySelector(`[data-step="${steps[currentIndex + 1]}"]`);
+            if (nextCard) nextCard.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        });
+      });
+
+      const formUrl = expectationsLink.dataset.formUrl.trim();
+      if (formUrl) {
+        expectationsLink.href = formUrl;
+        expectationsLink.target = "_blank";
+        expectationsLink.rel = "noopener";
+        expectationsLink.removeAttribute("aria-disabled");
+        expectationsHelp.textContent = "The response form opens in a new tab. Return here after submitting it.";
+      } else {
+        expectationsLink.addEventListener("click", (event) => event.preventDefault());
+      }
+
+      render();
+    })();
+  </script>
+</body>
+</html>
