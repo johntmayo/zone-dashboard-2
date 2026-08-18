@@ -13468,7 +13468,17 @@
         const lower = h.toLowerCase();
         return lower.includes('resident name') || (lower.includes('name') && !lower.includes('first') && !lower.includes('last') && !lower.includes('nc'));
       });
-      const phoneCol = findColumn(headers, 'phone', ['nc']);
+      const homePhoneCol = headers.find(h => {
+        const lower = h.toLowerCase();
+        return (lower.includes('home phone') || lower.includes('homephone') ||
+                (lower.includes('phone') && lower.includes('home'))) &&
+               !lower.includes('cell') && !lower.includes('mobile');
+      });
+      const cellPhoneCol = headers.find(h => {
+        const lower = h.toLowerCase();
+        return (lower.includes('cell') || lower.includes('mobile')) &&
+               (lower.includes('phone') || lower.includes('cell') || lower.includes('mobile'));
+      });
       const emailCol = findColumn(headers, 'email');
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
@@ -13478,7 +13488,8 @@
       
       // Build CSV headers
       const csvHeaders = ['Address', 'Name'];
-      if (phoneCol) csvHeaders.push('Phone');
+      if (homePhoneCol) csvHeaders.push('Home Phone');
+      if (cellPhoneCol) csvHeaders.push('Cell Phone');
       if (emailCol) csvHeaders.push('Email');
       if (damageCol) csvHeaders.push('Damage Status');
       if (addressPlanCol) csvHeaders.push('Address Plan');
@@ -13493,7 +13504,8 @@
         if (!rows || rows.length === 0) {
           // Address with no people
           const row = [addr, ''];
-          if (phoneCol) row.push('');
+          if (homePhoneCol) row.push('');
+          if (cellPhoneCol) row.push('');
           if (emailCol) row.push('');
           if (damageCol) row.push('');
           if (addressPlanCol) row.push('');
@@ -13510,7 +13522,8 @@
           // Only include row if person has a name
           if (personName || index === 0) {
             const csvRow = [addr, personName];
-            if (phoneCol) csvRow.push(row[phoneCol] || '');
+            if (homePhoneCol) csvRow.push(row[homePhoneCol] || '');
+            if (cellPhoneCol) csvRow.push(row[cellPhoneCol] || '');
             if (emailCol) csvRow.push(row[emailCol] || '');
             if (damageCol) csvRow.push(index === 0 ? (rows[0][damageCol] || '') : '');
             if (addressPlanCol) csvRow.push(index === 0 ? (rows[0][addressPlanCol] || '') : '');
