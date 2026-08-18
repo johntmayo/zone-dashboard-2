@@ -68,12 +68,13 @@
 
     .site-header img {
       display: block;
-      width: auto;
-      height: 46px;
+      width: 50px;
+      height: 50px;
+      object-fit: contain;
     }
 
     .site-header span {
-      font-size: 1.15rem;
+      font-size: 1.5rem;
       font-weight: 700;
     }
 
@@ -194,8 +195,6 @@
 
     @media (max-width: 560px) {
       .site-header { min-height: 66px; padding: 0.8rem 1rem; }
-      .site-header img { height: 38px; }
-      .site-header span { font-size: 1rem; }
       main { width: min(100% - 28px, 760px); padding-top: 2.25rem; }
       .example-header { align-items: flex-start; }
     }
