@@ -34,11 +34,12 @@ app.use(express.static(staticRoot, {
   }
 })); // index.html, flyer_tool.html, nc-directory.html, etc.
 
-// Expose Mapbox public token to browser at runtime (from environment, never hardcoded in source).
+// Expose Mapbox public token (and optional CARTO basemap key) to the browser at runtime.
 app.get('/api/mapbox-token', (req, res) => {
   const token = (process.env.MAPBOX_PUBLIC_TOKEN || process.env.MAPBOX_ACCESS_TOKEN || '').trim();
+  const cartoKey = (process.env.CARTO_API_KEY || process.env.CARTO_BASEMAP_KEY || '').trim();
   res.set('Cache-Control', 'no-store');
-  res.json({ token });
+  res.json({ token, cartoKey });
 });
 
 // Expose Google Analytics Measurement ID when set (optional; no tracking if unset).
