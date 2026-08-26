@@ -1658,6 +1658,9 @@
       datasetId: 'cm64fisju135z1qqmifs0zty5',  // Dataset ID containing zone polygons (ZoneName, Status, ContactEmail, etc.)
       accessToken: '' // Set from environment/runtime; keep blank in source to avoid secret scanning blocks
     };
+    // Optional CARTO raster basemap key (from /api/mapbox-token). Without it, Carto tiles
+    // render an "API KEY REQUIRED" watermark; we fall back to Mapbox streets instead.
+    let cartoBasemapKey = '';
     function isMapboxEnabled() {
       return !!(MAPBOX_CONFIG.accessToken && MAPBOX_CONFIG.username && MAPBOX_CONFIG.datasetId);
     }
@@ -1865,6 +1868,8 @@
         if (!response.ok) return;
         const payload = await response.json();
         const token = (payload?.token || '').trim();
+        const nextCartoKey = (payload?.cartoKey || '').trim();
+        if (nextCartoKey) cartoBasemapKey = nextCartoKey;
         if (!token) return;
         MAPBOX_CONFIG.accessToken = token;
 
@@ -5479,10 +5484,7 @@
       const initialCenter = lotWeedingAdminState.lastMapView ? lotWeedingAdminState.lastMapView.center : defaultCenter;
       const initialZoom = lotWeedingAdminState.lastMapView ? lotWeedingAdminState.lastMapView.zoom : 12;
       const map = L.map(mapEl, { attributionControl: false, maxZoom: 22 }).setView(initialCenter, initialZoom);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '© OpenStreetMap contributors, © CARTO',
-        maxZoom: 22
-      }).addTo(map);
+      createStreetBasemap({ maxZoom: 22 }).addTo(map);
       installLotWeedingMapControls(map);
       attachLotWeedingAdminDrawHandlers(map);
       map.on('zoomend', updateLotWeedingZoneLabelVisibility);
@@ -11586,7 +11588,7 @@
           const center = (lat != null && lon != null) ? [lat, lon] : defaultCenter;
           const zoom = (lat != null && lon != null) ? 16 : 11;
           addRecordMinimap = L.map(minimapDiv, { attributionControl: false }).setView(center, zoom);
-          L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(addRecordMinimap);
+          createStreetBasemap({ maxZoom: 19 }).addTo(addRecordMinimap);
           addRecordMarker = L.marker(center, { draggable: true }).addTo(addRecordMinimap);
           addRecordMarker.on('dragend', () => {
             const pos = addRecordMarker.getLatLng();
@@ -15456,7 +15458,7 @@
       let mpMap = null, mpMarker = null;
       if (typeof L !== 'undefined') {
         mpMap = L.map('movePinMap', { attributionControl: false }).setView(center, hasCoords ? 17 : 12);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(mpMap);
+        createStreetBasemap({ maxZoom: 20 }).addTo(mpMap);
         if (hasCoords) {
           mpMarker = L.marker(center, { draggable: true }).addTo(mpMap);
           mpMarker.on('dragend', () => {
@@ -17772,12 +17774,7 @@
           zoneMap = L.map('zoneMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 16);
           ensureSoldTagPane();
           
-          // Add CartoDB Voyager tiles (warm, colorful with labels)
-          currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
-            maxZoom: 22,
-            subdomains: 'abcd'
-          }).addTo(zoneMap);
+          currentTileLayer = createStreetBasemap({ maxZoom: 22 }).addTo(zoneMap);
           
           // Add expandable Layers control (Satellite + Zones toggle)
           ensureAdditionalMapboxLayerControl();
@@ -17872,12 +17869,7 @@
           // Default center (Altadena, CA - adjust as needed)
           homeMap = L.map('homeMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 15);
           
-          // Add CartoDB Voyager tiles (warm, colorful with labels)
-          homeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
-            maxZoom: 22,
-            subdomains: 'abcd'
-          }).addTo(homeMap);
+          homeTileLayer = createStreetBasemap({ maxZoom: 22 }).addTo(homeMap);
           
           // Create satellite toggle control for home map
           const HomeSatelliteToggleControl = L.Control.extend({
@@ -17901,12 +17893,7 @@
                 
                 // Toggle between street and satellite
                 if (isHomeSatelliteMode) {
-                  // Switch to street map (CartoDB Voyager)
-                  homeTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
-                    maxZoom: 22,
-                    subdomains: 'abcd'
-                  }).addTo(homeMap);
+                  homeTileLayer = createStreetBasemap({ maxZoom: 22 }).addTo(homeMap);
                   button.innerHTML = '🛰️';
                   button.title = 'Switch to satellite view';
                   isHomeSatelliteMode = false;
@@ -20052,6 +20039,41 @@
       toggleBtn.title = expanded ? 'Collapse layers' : 'Expand layers';
     }
 
+    /** Street basemap: CARTO Voyager when a key is configured, else Mapbox streets, else Esri streets. */
+    function createStreetBasemap(options) {
+      const maxZoom = (options && options.maxZoom) || 22;
+      const cartoKey = (cartoBasemapKey || '').trim();
+      if (cartoKey) {
+        return L.tileLayer(
+          'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=' + encodeURIComponent(cartoKey),
+          {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
+            maxZoom,
+            subdomains: 'abcd'
+          }
+        );
+      }
+      const mapboxToken = (MAPBOX_CONFIG.accessToken || '').trim();
+      if (mapboxToken) {
+        return L.tileLayer(
+          'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}@2x?access_token=' + encodeURIComponent(mapboxToken),
+          {
+            attribution: '© <a href="https://www.mapbox.com/about/maps/" rel="noopener noreferrer" target="_blank">Mapbox</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            tileSize: 512,
+            zoomOffset: -1,
+            maxZoom
+          }
+        );
+      }
+      return L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+        {
+          attribution: 'Tiles © <a href="https://www.esri.com/" rel="noopener noreferrer" target="_blank">Esri</a> — Esri, HERE, Garmin, FAO, NOAA, USGS, © OpenStreetMap contributors, and the GIS User Community.',
+          maxZoom
+        }
+      );
+    }
+
     /** Esri World Imagery + reference layers (same idea as ArcGIS “Imagery Hybrid”: aerials plus roads and place names). */
     function createEsriSatelliteHybridBasemap() {
       const maxZ = 22;
@@ -20085,11 +20107,7 @@
         zoneMap.removeLayer(currentTileLayer);
       }
       if (!wantSatellite) {
-        currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
-          maxZoom: 22,
-          subdomains: 'abcd'
-        }).addTo(zoneMap);
+        currentTileLayer = createStreetBasemap({ maxZoom: 22 }).addTo(zoneMap);
         isSatelliteMode = false;
       } else {
         currentTileLayer = createEsriSatelliteHybridBasemap().addTo(zoneMap);
@@ -23516,11 +23534,7 @@
           ? bounds.reduce((acc, point) => [acc[0] + point[0], acc[1] + point[1]], [0, 0]).map((value) => value / bounds.length)
           : defaultCenter;
         const map = L.map(mapContainer, { attributionControl: false }).setView(center, bounds.length ? 15 : 11);
-        let batchTaggingTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
-          maxZoom: 22,
-          subdomains: 'abcd'
-        }).addTo(map);
+        let batchTaggingTileLayer = createStreetBasemap({ maxZoom: 22 }).addTo(map);
         let isBatchTaggingSatellite = false;
         const SatelliteToggleControl = L.Control.extend({
           onAdd: function() {
@@ -23537,11 +23551,7 @@
               L.DomEvent.stopPropagation(event);
               map.removeLayer(batchTaggingTileLayer);
               if (isBatchTaggingSatellite) {
-                batchTaggingTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
-                  maxZoom: 22,
-                  subdomains: 'abcd'
-                });
+                batchTaggingTileLayer = createStreetBasemap({ maxZoom: 22 });
                 button.title = 'Switch to satellite view';
                 isBatchTaggingSatellite = false;
               } else {
