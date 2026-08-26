@@ -49,10 +49,8 @@ The app has three distinct map contexts:
 
 All map contexts use two base map modes:
 
-- **Street**: Carto Voyager
-  - `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png`
-- **Satellite**: Google satellite tiles
-  - `https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}`
+- **Street**: CARTO Voyager when `CARTO_API_KEY` / `CARTO_BASEMAP_KEY` is set; otherwise Mapbox Streets (`streets-v12`) using the existing Mapbox token; Esri World Street Map as a last resort. CARTO raster tiles without a key show an "API KEY REQUIRED" watermark.
+- **Satellite**: Esri World Imagery hybrid (imagery + place names + roads)
 
 ### Where base map toggles exist
 
@@ -172,8 +170,8 @@ The Tools “Draw on map” flow in `initializeBatchTagging()`:
 ## 1) Runtime backend endpoints
 
 - `GET /api/mapbox-token`
-  - Source: server environment (`MAPBOX_PUBLIC_TOKEN` or `MAPBOX_ACCESS_TOKEN`).
-  - Used by `initializeMapboxAccessToken()` to enable Mapbox-backed map features.
+  - Source: server environment (`MAPBOX_PUBLIC_TOKEN` or `MAPBOX_ACCESS_TOKEN`, plus optional `CARTO_API_KEY` / `CARTO_BASEMAP_KEY`).
+  - Used by `initializeMapboxAccessToken()` to enable Mapbox-backed map features and to choose the street basemap.
 - `POST /api/sheets/values`
   - Used by `fetchViaOAuth(...)` to read `Sheet1` and `Zone Notes`.
 
