@@ -4,12 +4,12 @@
  */
 'use strict';
 
-const SW_VERSION = 'zd-shell-v3';
+const SW_VERSION = 'zd-shell-v4';
 const SHELL_CACHE = `shell-${SW_VERSION}`;
 
-// Same-origin assets safe to precache. Keep this list small and deploy-bump SW_VERSION when it changes.
+// Same-origin assets safe to precache. Do NOT precache `/` (the dashboard HTML) —
+// a cached copy of index.html is what kept users on a stale map after deploys.
 const PRECACHE_URLS = [
-  '/',
   '/manifest.webmanifest',
   '/public/css/styles.css?v=2',
   '/public/js/utils.js',
@@ -61,6 +61,12 @@ self.addEventListener('activate', (event) => {
       )
     ).then(() => self.clients.claim())
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('fetch', (event) => {
@@ -130,14 +136,12 @@ function fetchWithTimeout(request, timeoutMs) {
 
 async function networkFirstNavigation(request) {
   try {
-    const fresh = await fetch(request);
-    if (fresh && fresh.ok) {
-      const cache = await caches.open(SHELL_CACHE);
-      cache.put('/', fresh.clone()).catch(() => {});
-    }
+    // Never serve a cached copy of the dashboard HTML while online — map/tile
+    // logic lives inline in index.html, so a stale shell looks like a "broken map".
+    const fresh = await fetch(request, { cache: 'no-store' });
     return fresh;
   } catch (err) {
-    const cached = await caches.match('/') || await caches.match(request);
+    const cached = await caches.match(request);
     if (cached) return cached;
     throw err;
   }
