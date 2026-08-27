@@ -2,6 +2,8 @@
 
 This document explains all map-related behavior in the app: where maps live, how they are initialized, what layers/controls exist, where map data comes from, and how users interact with map features.
 
+**Future basemap / lot-line work:** see `MAP_BASEMAP_ROADMAP.md`. The live street map is Esri and is considered good enough until that plan is picked up.
+
 ## Map stack and dependencies
 
 - Rendering engine: **Leaflet** (`leaflet.css` + `leaflet.js` loaded from CDN).
