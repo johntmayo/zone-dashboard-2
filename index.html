@@ -9,6 +9,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <!-- Deploy marker: if View Source does not show this comment, you are not on the latest index.html. -->
   <!-- map-overlays-v2: altadenaWaterDistricts (combined water tileset) -->
+  <!-- street-basemap-esri-v1: Esri World Street Map (no API key); auto-fallback on tile error -->
   <meta name="application-name" content="Altagether" />
   <meta name="apple-mobile-web-app-title" content="Altagether" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -20039,39 +20040,62 @@
       toggleBtn.title = expanded ? 'Collapse layers' : 'Expand layers';
     }
 
-    /** Street basemap: CARTO Voyager when a key is configured, else Mapbox streets, else Esri streets. */
+    /**
+     * Street basemap that does not depend on CARTO or Mapbox raster tiles.
+     * Satellite already uses Esri successfully; street view uses the same host.
+     * If a provider fails, swap to the next source without dropping markers.
+     */
     function createStreetBasemap(options) {
       const maxZoom = (options && options.maxZoom) || 22;
-      const cartoKey = (cartoBasemapKey || '').trim();
-      if (cartoKey) {
-        return L.tileLayer(
-          'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=' + encodeURIComponent(cartoKey),
-          {
-            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
-            maxZoom,
-            subdomains: 'abcd'
-          }
-        );
-      }
-      const mapboxToken = (MAPBOX_CONFIG.accessToken || '').trim();
-      if (mapboxToken) {
-        return L.tileLayer(
-          'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}@2x?access_token=' + encodeURIComponent(mapboxToken),
-          {
-            attribution: '© <a href="https://www.mapbox.com/about/maps/" rel="noopener noreferrer" target="_blank">Mapbox</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-            tileSize: 512,
-            zoomOffset: -1,
-            maxZoom
-          }
-        );
-      }
-      return L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+      const esriAttribution =
+        'Tiles © <a href="https://www.esri.com/" rel="noopener noreferrer" target="_blank">Esri</a> — Esri, HERE, Garmin, FAO, NOAA, USGS, © OpenStreetMap contributors, and the GIS User Community.';
+      const sources = [
         {
-          attribution: 'Tiles © <a href="https://www.esri.com/" rel="noopener noreferrer" target="_blank">Esri</a> — Esri, HERE, Garmin, FAO, NOAA, USGS, © OpenStreetMap contributors, and the GIS User Community.',
-          maxZoom
+          url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+          options: { attribution: esriAttribution, maxNativeZoom: 19 }
+        },
+        {
+          url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+          options: { attribution: esriAttribution, maxNativeZoom: 19 }
+        },
+        {
+          url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+          options: { attribution: esriAttribution, maxNativeZoom: 19 }
+        },
+        {
+          url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          options: {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            subdomains: 'abc',
+            maxNativeZoom: 19
+          }
         }
-      );
+      ];
+
+      const group = L.layerGroup();
+      let currentLayer = null;
+      let errorCount = 0;
+
+      function attachSource(index) {
+        if (currentLayer) {
+          group.removeLayer(currentLayer);
+        }
+        const source = sources[index];
+        currentLayer = L.tileLayer(source.url, Object.assign({ maxZoom }, source.options));
+        currentLayer.on('tileload', function () {
+          errorCount = 0;
+        });
+        currentLayer.on('tileerror', function () {
+          errorCount += 1;
+          if (errorCount < 4 || index >= sources.length - 1) return;
+          errorCount = 0;
+          attachSource(index + 1);
+        });
+        group.addLayer(currentLayer);
+      }
+
+      attachSource(0);
+      return group;
     }
 
     /** Esri World Imagery + reference layers (same idea as ArcGIS “Imagery Hybrid”: aerials plus roads and place names). */
@@ -26762,8 +26786,41 @@
       } catch (e) { /* ignore */ }
 
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function (err) {
+        // Drop stale shell caches from older SW versions (they used to store `/`,
+        // i.e. a full copy of index.html) so this deploy is not stuck behind them.
+        if (window.caches && caches.keys) {
+          caches.keys().then(function (keys) {
+            keys.forEach(function (key) {
+              if (key.indexOf('shell-') === 0 && key !== 'shell-zd-shell-v4') {
+                caches.delete(key);
+              }
+            });
+          }).catch(function () {});
+        }
+
+        navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function (reg) {
+          function skipWaiting(worker) {
+            if (worker) worker.postMessage({ type: 'SKIP_WAITING' });
+          }
+          if (reg.waiting) skipWaiting(reg.waiting);
+          reg.addEventListener('updatefound', function () {
+            var installing = reg.installing;
+            if (!installing) return;
+            installing.addEventListener('statechange', function () {
+              if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+                skipWaiting(installing);
+              }
+            });
+          });
+        }).catch(function (err) {
           console.warn('Service worker registration failed:', err);
+        });
+
+        var refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+          if (refreshing) return;
+          refreshing = true;
+          window.location.reload();
         });
       });
     })();

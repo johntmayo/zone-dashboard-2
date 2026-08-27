@@ -49,7 +49,7 @@ The app has three distinct map contexts:
 
 All map contexts use two base map modes:
 
-- **Street**: CARTO Voyager when `CARTO_API_KEY` / `CARTO_BASEMAP_KEY` is set; otherwise Mapbox Streets (`streets-v12`) using the existing Mapbox token; Esri World Street Map as a last resort. CARTO raster tiles without a key show an "API KEY REQUIRED" watermark.
+- **Street**: Esri World Street Map (same host as satellite; no API key). If those tiles fail, the map automatically tries a second Esri host, Esri World Topo, then OpenStreetMap. CARTO and Mapbox raster streets are not used for the basemap.
 - **Satellite**: Esri World Imagery hybrid (imagery + place names + roads)
 
 ### Where base map toggles exist
