@@ -52,7 +52,7 @@
         ]
       ],
       "paint": {
-        "fill-color": "#DEE6D6",
+        "fill-color": "#C7D8B3",
         "fill-opacity": 1
       },
       "layout": {}
@@ -75,7 +75,7 @@
         "visibility": "visible"
       },
       "paint": {
-        "fill-color": "#DCE7D5",
+        "fill-color": "#C7D8B3",
         "fill-opacity": 1,
         "fill-translate-anchor": "map"
       }
@@ -98,7 +98,7 @@
         "visibility": "visible"
       },
       "paint": {
-        "fill-color": "#DCE7D5",
+        "fill-color": "#C7D8B3",
         "fill-antialias": true,
         "fill-opacity": {
           "stops": [
@@ -174,7 +174,7 @@
       "source": "carto",
       "source-layer": "waterway",
       "paint": {
-        "line-color": "#B8CFCC",
+        "line-color": "#B8CCCC",
         "line-width": {
           "stops": [
             [
@@ -332,7 +332,7 @@
         "visibility": "visible"
       },
       "paint": {
-        "fill-color": "#D8E6E4",
+        "fill-color": "#DDE8E8",
         "fill-antialias": true,
         "fill-translate-anchor": "map",
         "fill-opacity": 1
@@ -356,7 +356,7 @@
         "visibility": "visible"
       },
       "paint": {
-        "fill-color": "#C8D9D7",
+        "fill-color": "#C8D8D8",
         "fill-antialias": true,
         "fill-translate-anchor": "map",
         "fill-opacity": 1,
@@ -766,7 +766,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#D4CCC0"
+        "line-color": "#E2CFAB"
       }
     },
     {
@@ -855,7 +855,7 @@
             ]
           ]
         },
-        "line-color": "#D4CCC0"
+        "line-color": "#D7B77F"
       }
     },
     {
@@ -945,7 +945,7 @@
             ]
           ]
         },
-        "line-color": "#D4CCC0"
+        "line-color": "#D7B77F"
       }
     },
     {
@@ -1038,7 +1038,7 @@
             ]
           ]
         },
-        "line-color": "#D4CCC0"
+        "line-color": "#D7B77F"
       }
     },
     {
@@ -1261,7 +1261,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#FFFDF8"
+        "line-color": "#FBE9C8"
       }
     },
     {
@@ -1327,7 +1327,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#FFFDF8"
+        "line-color": "#F6CF98"
       }
     },
     {
@@ -1394,7 +1394,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#FFFDF8"
+        "line-color": "#F6CF98"
       }
     },
     {
@@ -1464,7 +1464,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#FFFDF8"
+        "line-color": "#F6CF98"
       }
     },
     {
@@ -1756,7 +1756,7 @@
             ]
           ]
         },
-        "line-color": "#D4CCC0"
+        "line-color": "#D7B77F"
       }
     },
     {
@@ -1813,7 +1813,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#D4CCC0"
+        "line-color": "#D7B77F"
       }
     },
     {
@@ -1870,7 +1870,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#D4CCC0"
+        "line-color": "#D7B77F"
       }
     },
     {
@@ -1935,7 +1935,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#D4CCC0"
+        "line-color": "#E2CFAB"
       }
     },
     {
@@ -2023,7 +2023,7 @@
             ]
           ]
         },
-        "line-color": "#D4CCC0"
+        "line-color": "#D7B77F"
       }
     },
     {
@@ -2111,7 +2111,7 @@
             ]
           ]
         },
-        "line-color": "#D4CCC0"
+        "line-color": "#D7B77F"
       }
     },
     {
@@ -2203,7 +2203,7 @@
             ]
           ]
         },
-        "line-color": "#D4CCC0"
+        "line-color": "#D7B77F"
       }
     },
     {
@@ -2419,7 +2419,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#FFFDF8"
+        "line-color": "#F6CF98"
       }
     },
     {
@@ -2476,7 +2476,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#FFFDF8"
+        "line-color": "#F6CF98"
       }
     },
     {
@@ -2533,7 +2533,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#FFFDF8"
+        "line-color": "#F6CF98"
       }
     },
     {
@@ -2594,7 +2594,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#FFFDF8"
+        "line-color": "#FBE9C8"
       }
     },
     {
@@ -2659,7 +2659,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#FFFDF8"
+        "line-color": "#F6CF98"
       }
     },
     {
@@ -2724,7 +2724,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#FFFDF8"
+        "line-color": "#F6CF98"
       }
     },
     {
@@ -2793,7 +2793,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#FFFDF8"
+        "line-color": "#F6CF98"
       }
     },
     {
@@ -3083,7 +3083,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#D4CCC0"
+        "line-color": "#E2CFAB"
       }
     },
     {
@@ -3172,7 +3172,7 @@
             ]
           ]
         },
-        "line-color": "#D4CCC0"
+        "line-color": "#D7B77F"
       }
     },
     {
@@ -3262,7 +3262,7 @@
             ]
           ]
         },
-        "line-color": "#D4CCC0"
+        "line-color": "#D7B77F"
       }
     },
     {
@@ -3355,7 +3355,7 @@
             ]
           ]
         },
-        "line-color": "#D4CCC0"
+        "line-color": "#D7B77F"
       }
     },
     {
@@ -3578,7 +3578,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#FFFDF8"
+        "line-color": "#FBE9C8"
       }
     },
     {
@@ -3644,7 +3644,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#FFFDF8"
+        "line-color": "#F6CF98"
       }
     },
     {
@@ -3711,7 +3711,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#FFFDF8"
+        "line-color": "#F6CF98"
       }
     },
     {
@@ -3781,7 +3781,7 @@
           ]
         },
         "line-opacity": 1,
-        "line-color": "#FFFDF8"
+        "line-color": "#F6CF98"
       }
     },
     {
@@ -5487,7 +5487,7 @@
         "text-halo-color": "#FFFDF8",
         "text-color": "#6F6A61",
         "text-halo-width": 1,
-        "text-opacity": 0.82
+        "text-opacity": 1
       }
     }
   ],

@@ -547,6 +547,7 @@ test('local MapLibre style preserves required civic-map invariants', () => {
   assert.equal(house.layout['symbol-avoid-edges'], true);
   assert.equal(house.paint['text-color'], '#6F6A61');
   assert.equal(house.paint['text-halo-color'], '#FFFDF8');
+  assert.equal(house.paint['text-opacity'], 1);
 
   const symbolColors = style.layers
     .filter((layer) => layer.type === 'symbol' && layer.paint)
@@ -557,6 +558,75 @@ test('local MapLibre style preserves required civic-map invariants', () => {
     .filter((layer) => /road|water/.test(layer.id))
     .map((layer) => JSON.stringify(layer.paint || {}));
   assert.equal(roadAndWaterPaint.some((paint) => paint.includes('#347072')), false);
+
+  const byId = (id) => style.layers.find((layer) => layer.id === id);
+  const majorFills = [
+    'tunnel_pri_fill', 'tunnel_trunk_fill', 'tunnel_mot_fill',
+    'road_pri_fill_ramp', 'road_trunk_fill_ramp', 'road_mot_fill_ramp',
+    'road_pri_fill_noramp', 'road_trunk_fill_noramp', 'road_mot_fill_noramp',
+    'bridge_pri_fill', 'bridge_trunk_fill', 'bridge_mot_fill'
+  ];
+  const secondaryFills = [
+    'tunnel_sec_fill', 'road_sec_fill_noramp', 'bridge_sec_fill'
+  ];
+  const majorCases = [
+    'tunnel_pri_case', 'tunnel_trunk_case', 'tunnel_mot_case',
+    'road_pri_case_ramp', 'road_trunk_case_ramp', 'road_mot_case_ramp',
+    'road_pri_case_noramp', 'road_trunk_case_noramp', 'road_mot_case_noramp',
+    'bridge_pri_case', 'bridge_trunk_case', 'bridge_mot_case'
+  ];
+  const secondaryCases = [
+    'tunnel_sec_case', 'road_sec_case_noramp', 'bridge_sec_case'
+  ];
+  assert.ok(majorFills.every((id) => byId(id).paint['line-color'] === '#F6CF98'));
+  assert.ok(secondaryFills.every((id) => byId(id).paint['line-color'] === '#FBE9C8'));
+  assert.ok(majorCases.every((id) => byId(id).paint['line-color'] === '#D7B77F'));
+  assert.ok(secondaryCases.every((id) => byId(id).paint['line-color'] === '#E2CFAB'));
+
+  const neutralStreetFills = [
+    'tunnel_path', 'tunnel_service_fill', 'tunnel_minor_fill',
+    'road_path', 'road_service_fill', 'road_minor_fill',
+    'bridge_path', 'bridge_service_fill', 'bridge_minor_fill'
+  ];
+  assert.ok(neutralStreetFills.every((id) => byId(id).paint['line-color'] === '#FFFDF8'));
+  assert.equal(byId('rail').paint['line-color'], '#dddddd');
+  assert.equal(byId('rail_dash').paint['line-color'], '#ffffff');
+
+  assert.equal(byId('landcover').paint['fill-color'], '#C7D8B3');
+  assert.equal(byId('park_national_park').paint['fill-color'], '#C7D8B3');
+  assert.equal(byId('park_nature_reserve').paint['fill-color'], '#C7D8B3');
+  assert.equal(byId('landuse_residential').paint['fill-color'], '#F4EEE4');
+  assert.equal(byId('landuse').paint['fill-color'], '#EEE8DC');
+  assert.equal(byId('water').paint['fill-color'], '#DDE8E8');
+  assert.equal(byId('water_shadow').paint['fill-color'], '#C8D8D8');
+  assert.equal(byId('waterway').paint['line-color'], '#B8CCCC');
+});
+
+test('warmer map branding preserves SOLD semantics and main-map scope', () => {
+  const root = path.join(__dirname, '..');
+  const css = fs.readFileSync(path.join(root, 'public', 'css', 'styles.css'), 'utf8');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const badgeMatch = css.match(
+    /\.address-sale-badge,\s*\.central-sales-section__badge\s*\{([\s\S]*?)\}/
+  );
+  assert.ok(badgeMatch);
+  assert.match(badgeMatch[1], /background:\s*#fff7d6/i);
+  assert.match(badgeMatch[1], /color:\s*#7c2d12/i);
+  assert.match(badgeMatch[1], /border:\s*1px solid rgba\(146,\s*64,\s*14,\s*0\.45\)/i);
+  assert.match(badgeMatch[1], /border-radius:\s*999px/i);
+  assert.match(badgeMatch[1], /font-weight:\s*900/);
+  assert.doesNotMatch(badgeMatch[1], /background:\s*#9f3a27|color:\s*#fff(?:\s*;|\s*$)/i);
+
+  assert.match(html, /const MAPBOX_ADDITIONAL_LAYER_CONFIG = \{[\s\S]*?style: \{\s*color: '#314059',\s*weight: 2,\s*opacity: 0\.78,\s*fillColor: '#D6C58F',\s*fillOpacity: 0\.11\s*\},\s*hoverStyle: \{\s*color: '#314059',\s*weight: 3,\s*opacity: 0\.9,\s*fillColor: '#D6C58F',\s*fillOpacity: 0\.18\s*\}/);
+  assert.match(html, /const ZONE_BOUNDARY_STYLE = \{\s*color: '#314059',\s*weight: 2\.5,\s*opacity: 0\.75,\s*fillColor: '#D6C58F',\s*fillOpacity: 0\.11\s*\}/);
+  assert.match(html, /const HOME_BOUNDARY_STYLE = \{\s*color: '#214025',\s*weight: 2,\s*opacity: 0\.8,\s*fillColor: '#214025',\s*fillOpacity: 0\.1\s*\}/);
+  assert.match(html, /const LOT_WEEDING_ZONE_STYLE = \{\s*color: '#4B7D5D',\s*weight: 2,\s*opacity: 0\.85,\s*fillColor: '#A9CFA0',\s*fillOpacity: 0\.16\s*\}/);
+  assert.match(html, /const baseStyle = LOT_WEEDING_ZONE_STYLE;/);
+
+  const fallback = html.match(/async function loadKMLBoundary\(kmlUrl\) \{([\s\S]*?)\n    \}/);
+  assert.ok(fallback);
+  assert.match(fallback[1], /L\.geoJSON\(geojson, \{\s*style: ZONE_BOUNDARY_STYLE\s*\}\)/);
+  assert.doesNotMatch(fallback[1], /color:\s*'#214025'|fillColor:\s*'#214025'/);
 });
 
 test('service-worker ownership and automatic lot-line integration stay aligned', () => {
@@ -566,6 +636,14 @@ test('service-worker ownership and automatic lot-line integration stay aligned',
   assert.match(worker, /const SW_VERSION = 'zd-shell-v5'/);
   assert.doesNotMatch(html, /shell-zd-shell-v4/);
   assert.doesNotMatch(html, /key !== 'shell-zd-shell-/);
+  const versionedStylePath = 'public/map-styles/altagether-voyager-v1.json?v=2';
+  assert.match(html, new RegExp(
+    `const ZONE_STREET_STYLE_URL = '${versionedStylePath.replace(/[.?]/g, '\\$&')}'`
+  ));
+  assert.match(worker, new RegExp(
+    `'/${versionedStylePath.replace(/[.?]/g, '\\$&')}'`
+  ));
+  assert.doesNotMatch(worker, /['"]\/public\/map-styles\/altagether-voyager-v1\.json['"]/);
 
   assert.doesNotMatch(html, /mobileLayerLotLines/);
   assert.doesNotMatch(html, /lotLinesLayerToggleBtn/);

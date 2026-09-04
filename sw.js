@@ -16,7 +16,7 @@ const PRECACHE_URLS = [
   '/public/js/address-id.js',
   '/public/js/contact-checkin.js',
   '/public/js/main-map.js',
-  '/public/map-styles/altagether-voyager-v1.json',
+  '/public/map-styles/altagether-voyager-v1.json?v=2',
   '/public/images/app_icon.png'
 ];
 
