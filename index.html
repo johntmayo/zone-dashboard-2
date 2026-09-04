@@ -9925,7 +9925,7 @@
       }
     }
 
-    function getAddressApnDigits(address) {
+    function getAddressSalesApnDigits(address) {
       if (!sheetData || !sheetData.headers || !sheetData.addressMap) return new Set();
       const apnCol = sheetData.headers.find((header) => {
         const normalized = String(header || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -9945,7 +9945,7 @@
     function getCentralSalesForAddress(address) {
       if (!salesCentralState.loaded || !(salesCentralState.byApn instanceof Map)) return [];
       const matches = [];
-      getAddressApnDigits(address).forEach((apnDigits) => {
+      getAddressSalesApnDigits(address).forEach((apnDigits) => {
         const exact = getCentralSalesByApn(apnDigits);
         if (exact) matches.push(exact);
       });
