@@ -1548,7 +1548,7 @@ try {
   console.error('Failed to register lot weeding routes:', err.message);
 }
 
-// --- Central property sales source (read-only, matched in the dashboard by EPN/APN) ---
+// --- Central property sales source (read-only, matched in the dashboard by APN) ---
 try {
   const { registerSalesRoutes } = require('./sales/routes');
   registerSalesRoutes(app, { getSheetsClient });

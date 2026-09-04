@@ -1481,7 +1481,7 @@
       loaded: false,
       configured: false,
       error: '',
-      byEpn: new Map(),
+      byApn: new Map(),
       lastFetchedAt: null
     };
     const lotWeedingAdminState = {
@@ -3917,7 +3917,7 @@
         const addressPlan = getGodmodeValue(row, GODMODE_FIELD_ALIASES.addressPlan);
         const buildStage = getGodmodeValue(row, GODMODE_FIELD_ALIASES.rebuild);
         const damage = getGodmodeValue(row, GODMODE_FIELD_ALIASES.damage);
-        const centralSales = getCentralSalesByEpn(getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn));
+        const centralSales = getCentralSalesByApn(getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn));
         const sold = Boolean(centralSales && centralSales.records.some((record) => record.soldSinceFire));
         const lotWeedingRequestKey = getGodmodeLotWeedingRequestKey(row, addressKey);
         const lotWeedingStatus = normalizeGodmodeLotWeedingStatus(getGodmodeValue(row, GODMODE_FIELD_ALIASES.lotWeedingStatus));
@@ -8243,7 +8243,7 @@
       const captain = getGodmodeCaptainDisplay(row);
       const coCaptains = getGodmodeCoCaptainList(row).join(', ');
       const apn = getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn);
-      const centralSales = getCentralSalesByEpn(apn);
+      const centralSales = getCentralSalesByApn(apn);
       const latestSale = centralSales && centralSales.records.length ? centralSales.records[0] : null;
       const fields = [
         ['Resident ID', getGodmodeValue(row, GODMODE_FIELD_ALIASES.residentId)],
@@ -8256,10 +8256,10 @@
         ['Last outreach', getGodmodeValue(row, GODMODE_FIELD_ALIASES.outreachDate)],
         ['Outreach log', getGodmodeValue(row, GODMODE_FIELD_ALIASES.outreachLog)],
         ['Sold since fire', latestSale && latestSale.soldSinceFire ? 'Yes' : ''],
-        ['Sale date', latestSale ? formatOverlayDate(latestSale.saleDate) : ''],
-        ['Sale price', latestSale ? formatCentralSalePrice(latestSale.salePrice) : ''],
-        ['Buyer / new owner', latestSale ? latestSale.buyer : ''],
-        ['Lot size', latestSale ? latestSale.lotSize : ''],
+        ['Latest sale date', latestSale ? formatOverlayDate(latestSale.latestSaleDate) : ''],
+        ['Latest sale price', latestSale ? formatCentralSalePrice(latestSale.latestSalePrice) : ''],
+        ['Latest new owner', latestSale ? latestSale.latestNewOwner : ''],
+        ['Sales history', latestSale ? latestSale.salesHistory : ''],
         ['Coverage', unzoned ? 'Unzoned coverage gap' : 'Covered by zone/captain'],
         ['Zone', unzoned ? 'Unzoned' : zone],
         ['Captain', captain],
@@ -9875,7 +9875,7 @@
     async function loadCentralSalesData() {
       salesCentralState.loading = true;
       salesCentralState.error = '';
-      salesCentralState.byEpn = new Map();
+      salesCentralState.byApn = new Map();
 
       try {
         const response = await fetch('/api/sales/records');
@@ -9887,31 +9887,29 @@
         const payload = await response.json();
         salesCentralState.configured = Boolean(payload.configured);
         (Array.isArray(payload.records) ? payload.records : []).forEach((record) => {
-          const epnDigits = normalizeApnDigits(record && record.epn);
-          if (!epnDigits) return;
-          if (!salesCentralState.byEpn.has(epnDigits)) {
-            salesCentralState.byEpn.set(epnDigits, {
-              epn: String(record.epn || '').trim(),
-              epnDigits,
+          const apnDigits = normalizeApnDigits(record && record.apn);
+          if (apnDigits.length !== 10) return;
+          if (!salesCentralState.byApn.has(apnDigits)) {
+            salesCentralState.byApn.set(apnDigits, {
+              apn: String(record.apn || '').trim(),
+              apnDigits,
               address: String(record.address || '').trim(),
               records: []
             });
           }
-          salesCentralState.byEpn.get(epnDigits).records.push({
-            saleDate: String(record.saleDate || '').trim(),
-            salePrice: String(record.salePrice || '').trim(),
-            buyer: String(record.buyer || '').trim(),
-            lotSize: String(record.lotSize || '').trim(),
-            history: String(record.history || '').trim(),
-            notes: String(record.notes || '').trim(),
+          salesCentralState.byApn.get(apnDigits).records.push({
+            latestSaleDate: String(record.latestSaleDate || '').trim(),
+            latestSalePrice: String(record.latestSalePrice || '').trim(),
+            latestNewOwner: String(record.latestNewOwner || '').trim(),
+            salesHistory: String(record.salesHistory || '').trim(),
             soldSinceFire: Boolean(record.soldSinceFire),
             rowNumber: Number(record.rowNumber) || 0
           });
         });
-        salesCentralState.byEpn.forEach((entry) => {
+        salesCentralState.byApn.forEach((entry) => {
           entry.records.sort((a, b) => {
-            const aTime = Date.parse(a.saleDate || '');
-            const bTime = Date.parse(b.saleDate || '');
+            const aTime = Date.parse(a.latestSaleDate || '');
+            const bTime = Date.parse(b.latestSaleDate || '');
             const aValue = Number.isFinite(aTime) ? aTime : 0;
             const bValue = Number.isFinite(bTime) ? bTime : 0;
             return bValue - aValue || b.rowNumber - a.rowNumber;
@@ -9924,41 +9922,34 @@
         salesCentralState.loaded = false;
         salesCentralState.configured = false;
         salesCentralState.error = error && error.message ? error.message : 'Central sales data unavailable.';
-        salesCentralState.byEpn = new Map();
+        salesCentralState.byApn = new Map();
       } finally {
         salesCentralState.loading = false;
       }
     }
 
-    function getAddressEpnDigits(address) {
+    function getAddressApnDigits(address) {
       if (!sheetData || !sheetData.headers || !sheetData.addressMap) return new Set();
-      const epnCol = sheetData.headers.find((header) => {
+      const apnCol = sheetData.headers.find((header) => {
         const normalized = String(header || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-        return ['epn', 'epnnumber', 'apn', 'ain', 'parcel', 'parcelnumber', 'parcelid'].includes(normalized);
+        return ['apn', 'ain', 'parcel', 'parcelnumber', 'parcelid'].includes(normalized);
       });
-      if (!epnCol) return new Set();
+      if (!apnCol) return new Set();
       const rows = sheetData.addressMap.get(address) || [];
-      return new Set(rows.map((row) => normalizeApnDigits(row[epnCol])).filter(Boolean));
+      return new Set(rows.map((row) => normalizeApnDigits(row[apnCol])).filter((digits) => digits.length === 10));
     }
 
-    function getCentralSalesByEpn(rawEpn) {
-      const epnDigits = normalizeApnDigits(rawEpn);
-      if (!epnDigits || !salesCentralState.loaded || !(salesCentralState.byEpn instanceof Map)) return null;
-      const exact = salesCentralState.byEpn.get(epnDigits);
-      if (exact) return exact;
-      const trimmed = epnDigits.replace(/^0+/, '');
-      if (!trimmed || trimmed === epnDigits) return null;
-      for (const [centralEpn, sales] of salesCentralState.byEpn.entries()) {
-        if (String(centralEpn || '').replace(/^0+/, '') === trimmed) return sales;
-      }
-      return null;
+    function getCentralSalesByApn(rawApn) {
+      const apnDigits = normalizeApnDigits(rawApn);
+      if (apnDigits.length !== 10 || !salesCentralState.loaded || !(salesCentralState.byApn instanceof Map)) return null;
+      return salesCentralState.byApn.get(apnDigits) || null;
     }
 
     function getCentralSalesForAddress(address) {
-      if (!salesCentralState.loaded || !(salesCentralState.byEpn instanceof Map)) return [];
+      if (!salesCentralState.loaded || !(salesCentralState.byApn instanceof Map)) return [];
       const matches = [];
-      getAddressEpnDigits(address).forEach((epnDigits) => {
-        const exact = getCentralSalesByEpn(epnDigits);
+      getAddressApnDigits(address).forEach((apnDigits) => {
+        const exact = getCentralSalesByApn(apnDigits);
         if (exact) matches.push(exact);
       });
       return matches;
@@ -9979,8 +9970,8 @@
     function renderCentralSalesSection(address) {
       const matches = getCentralSalesForAddress(address);
       const records = matches.flatMap((match) => match.records || []).sort((a, b) => {
-        const aTime = Date.parse(a.saleDate || '');
-        const bTime = Date.parse(b.saleDate || '');
+        const aTime = Date.parse(a.latestSaleDate || '');
+        const bTime = Date.parse(b.latestSaleDate || '');
         const aValue = Number.isFinite(aTime) ? aTime : 0;
         const bValue = Number.isFinite(bTime) ? bTime : 0;
         return bValue - aValue || b.rowNumber - a.rowNumber;
@@ -9989,28 +9980,21 @@
 
       const latest = records[0];
       const detailRows = [
-        ['Sale date', formatOverlayDate(latest.saleDate)],
-        ['Sale price', formatCentralSalePrice(latest.salePrice)],
-        ['Buyer / new owner', latest.buyer],
-        ['Lot size', latest.lotSize]
+        ['Latest sale date', formatOverlayDate(latest.latestSaleDate)],
+        ['Latest sale price', formatCentralSalePrice(latest.latestSalePrice)],
+        ['Latest new owner', latest.latestNewOwner]
       ].filter(([, value]) => String(value || '').trim());
-      const historyItems = records.map((record) => {
-        const parts = [
-          formatOverlayDate(record.saleDate),
-          formatCentralSalePrice(record.salePrice),
-          record.buyer ? `Buyer: ${record.buyer}` : '',
-          record.history,
-          record.notes
-        ].filter(Boolean);
-        return parts.length ? `<li>${parts.map(escapeHtml).join(' · ')}</li>` : '';
-      }).filter(Boolean);
+      const historyLines = records
+        .flatMap((record) => String(record.salesHistory || '').split(/\r?\n/))
+        .map((line) => line.trim())
+        .filter(Boolean);
 
       return `
         <section class="central-sales-section" aria-label="Property sale information">
           <div class="central-sales-section__heading">
             <div>
               <h4>Sale Information</h4>
-              <p>Read-only records from Altagether’s central sales spreadsheet, matched by EPN.</p>
+              <p>Read-only records from Altagether’s central sales spreadsheet, matched by APN.</p>
             </div>
             <span class="central-sales-section__badge">SOLD</span>
           </div>
@@ -10019,7 +10003,12 @@
               ${detailRows.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}
             </dl>
           ` : ''}
-          ${historyItems.length ? `<ul class="central-sales-section__history">${historyItems.join('')}</ul>` : ''}
+          ${historyLines.length ? `
+            <div class="central-sales-section__history">
+              <div class="central-sales-section__history-label">Sales history</div>
+              ${historyLines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}
+            </div>
+          ` : ''}
         </section>
       `;
     }
@@ -12559,7 +12548,7 @@
         Boolean(findLotWeedingRequestColumns(headers).statusCol);
       const hasCentralSalesData = salesCentralState.configured &&
         salesCentralState.loaded &&
-        salesCentralState.byEpn.size > 0;
+        salesCentralState.byApn.size > 0;
 
       const streets = getUniqueStreets(addresses);
       const damages = getFullDamageOptions();

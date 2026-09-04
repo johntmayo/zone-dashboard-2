@@ -12431,14 +12431,28 @@
 
 .central-sales-section__history {
   margin: 12px 0 0;
-  padding: 10px 0 0 18px;
+  padding: 10px 0 0;
   border-top: 1px solid rgba(159, 58, 39, 0.16);
   color: var(--text-secondary);
   font-size: 0.78rem;
   line-height: 1.45;
 }
 
-.central-sales-section__history li + li {
+.central-sales-section__history-label {
+  margin-bottom: 5px;
+  color: var(--text-primary);
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.69rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.central-sales-section__history p {
+  margin: 0;
+}
+
+.central-sales-section__history p + p {
   margin-top: 5px;
 }
 

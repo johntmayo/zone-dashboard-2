@@ -3,7 +3,10 @@
 let cachedPayload = null;
 
 const DEFAULT_RANGE = 'A1:ZZ5000';
-const DEFAULT_CACHE_TTL_MS = 30 * 1000;
+const DEFAULT_CACHE_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_SHEET_ID = '10DlHR_AblJPPtnO341WOKyJYJhCHa61UZ2-6whANGwg';
+const DEFAULT_SHEET_NAME = 'Sales Rollup by APN';
+const APN_DIGIT_LENGTH = 10;
 
 function strEnv(name, fallback = '') {
   return String(process.env[name] || fallback).trim();
@@ -24,9 +27,9 @@ function extractSpreadsheetId(value) {
 function getSalesConfig() {
   return {
     sheetId: extractSpreadsheetId(
-      strEnv('SALES_SOURCE_SHEET_ID') || strEnv('SALES_SOURCE_SHEET_URL')
+      strEnv('SALES_SOURCE_SHEET_ID') || strEnv('SALES_SOURCE_SHEET_URL') || DEFAULT_SHEET_ID
     ),
-    sheetName: strEnv('SALES_SOURCE_SHEET_NAME'),
+    sheetName: strEnv('SALES_SOURCE_SHEET_NAME', DEFAULT_SHEET_NAME),
     range: strEnv('SALES_SOURCE_RANGE', DEFAULT_RANGE),
     cacheTtlMs: intEnv('SALES_CACHE_TTL_MS', DEFAULT_CACHE_TTL_MS)
   };
@@ -58,8 +61,7 @@ function findColumn(headers, aliases, fallbackMatcher) {
 
 function getSalesColumns(headers) {
   return {
-    epn: findColumn(headers, [
-      'epn',
+    apn: findColumn(headers, [
       'apn',
       'ain',
       'parcel',
@@ -67,28 +69,29 @@ function getSalesColumns(headers) {
       'parcel id',
       'assessor parcel number',
       'assessor identification number'
-    ], (lower) => /\b(epn|apn|ain)\b/.test(lower) || lower.includes('parcel')),
+    ], (lower) => /\b(apn|ain)\b/.test(lower) || lower.includes('parcel')),
     address: findColumn(headers, [
       'address',
       'property address',
       'site address',
       'situs address'
     ], (lower) => lower.includes('address')),
-    saleDate: findColumn(headers, [
+    latestSaleDate: findColumn(headers, [
+      'latest sale date',
       'sale date',
       'sold date',
       'recording date',
-      'date sold',
-      'latest sale date'
+      'date sold'
     ], (lower) => (lower.includes('sale') || lower.includes('sold') || lower.includes('recording')) && lower.includes('date')),
-    salePrice: findColumn(headers, [
+    latestSalePrice: findColumn(headers, [
+      'latest sale price',
       'sale price',
       'sold price',
       'purchase price',
-      'latest sale price',
       'price'
     ], (lower) => (lower.includes('sale') || lower.includes('sold') || lower.includes('purchase')) && lower.includes('price')),
-    buyer: findColumn(headers, [
+    latestNewOwner: findColumn(headers, [
+      'latest new owner',
       'buyer',
       'buyer name',
       'new owner',
@@ -96,24 +99,11 @@ function getSalesColumns(headers) {
       'grantee',
       'purchaser'
     ], (lower) => lower.includes('buyer') || lower.includes('new owner') || lower.includes('grantee') || lower.includes('purchaser')),
-    lotSize: findColumn(headers, [
-      'lot sqft',
-      'lot sq ft',
-      'lot square feet',
-      'lot size',
-      'lot area'
-    ], (lower) => lower.includes('lot') && (lower.includes('sq') || lower.includes('size') || lower.includes('area'))),
-    history: findColumn(headers, [
+    salesHistory: findColumn(headers, [
       'sales history',
       'sale history',
       'history'
     ], (lower) => lower.includes('histor')),
-    notes: findColumn(headers, [
-      'sale notes',
-      'sales notes',
-      'notes',
-      'comments'
-    ], (lower) => lower.includes('note') || lower.includes('comment')),
     soldSinceFire: findColumn(headers, [
       'address - sold since fire',
       'sold since fire',
@@ -159,24 +149,24 @@ function formatSheetDate(value) {
 
 function normalizeSalesRows(headers, rows) {
   const columns = getSalesColumns(headers || []);
-  if (!columns.epn) return [];
+  if (!columns.apn) return [];
 
   return (rows || []).map(({ rowNumber, record }) => {
-    const epn = getValue(record, columns.epn);
+    const apn = getValue(record, columns.apn);
+    const apnDigits = String(apn || '').replace(/\D/g, '');
     const explicitSoldValue = getValue(record, columns.soldSinceFire);
     return {
       rowNumber,
-      epn,
+      apn,
+      apnDigits,
       address: getValue(record, columns.address),
-      saleDate: formatSheetDate(getValue(record, columns.saleDate)),
-      salePrice: getValue(record, columns.salePrice),
-      buyer: getValue(record, columns.buyer),
-      lotSize: getValue(record, columns.lotSize),
-      history: getValue(record, columns.history),
-      notes: getValue(record, columns.notes),
-      soldSinceFire: columns.soldSinceFire ? isTruthy(explicitSoldValue) : true
+      soldSinceFire: columns.soldSinceFire ? isTruthy(explicitSoldValue) : true,
+      latestSaleDate: formatSheetDate(getValue(record, columns.latestSaleDate)),
+      latestSalePrice: getValue(record, columns.latestSalePrice),
+      latestNewOwner: getValue(record, columns.latestNewOwner),
+      salesHistory: getValue(record, columns.salesHistory),
     };
-  }).filter((record) => String(record.epn || '').replace(/\D/g, ''));
+  }).filter((record) => record.apnDigits.length === APN_DIGIT_LENGTH);
 }
 
 async function loadSalesPayload({ sheetsClient, config, force = false }) {
