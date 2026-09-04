@@ -9843,13 +9843,15 @@
       display: none;
     }
 
-    /* Other compact/embedded maps keep their existing layout; required provider
-       credits are restored specifically on the full main map. */
+    /* Incidental maps keep attribution hidden; the three approved branded maps
+       expose compact provider credits. */
     .leaflet-control-attribution {
       display: none !important;
     }
 
-    #zoneMap .leaflet-control-attribution {
+    #zoneMap .leaflet-control-attribution,
+    #homeMap .leaflet-control-attribution,
+    #lotWeedingAdminMap .leaflet-control-attribution {
       display: block !important;
       max-width: min(72vw, 620px);
       padding: 2px 5px;
@@ -9861,12 +9863,18 @@
       white-space: normal;
     }
 
-    #zoneMap .leaflet-control-attribution a {
+    #zoneMap .leaflet-control-attribution a,
+    #homeMap .leaflet-control-attribution a,
+    #lotWeedingAdminMap .leaflet-control-attribution a {
       color: #314059;
     }
 
     #zoneMap .leaflet-gl-layer,
-    #zoneMap .leaflet-gl-layer canvas {
+    #zoneMap .leaflet-gl-layer canvas,
+    #homeMap .leaflet-gl-layer,
+    #homeMap .leaflet-gl-layer canvas,
+    #lotWeedingAdminMap .leaflet-gl-layer,
+    #lotWeedingAdminMap .leaflet-gl-layer canvas {
       pointer-events: none;
     }
 

@@ -1521,6 +1521,8 @@
       selectedRowNumber: null,
       selectedRowNumbers: new Set(),
       map: null,
+      basemap: null,
+      basemapGeneration: 0,
       markers: [],
       zoneOverlayVisible: false,
       zoneOverlayLayer: null,
@@ -1578,6 +1580,8 @@
     let homeTileLayer = null; // Tile layer for homepage
     let isSatelliteMode = false; // Track satellite mode state
     let zoneBasemapGeneration = 0; // Prevent late street failures from replacing Satellite
+    let homeBasemapGeneration = 0; // Prevent late Home street failures from replacing Satellite
+    let homeSatelliteToggleButton = null;
     let lotLinesLayer = null; // Viewport-scoped LA County parcel outlines (main map only)
     let lotLinesRefreshTimer = null;
     let lotLinesRefreshHandler = null;
@@ -1897,6 +1901,8 @@
         if (nextCartoKey) {
           cartoBasemapKey = nextCartoKey;
           if (zoneMap && !isSatelliteMode) setBaseMapMode('street', true);
+          if (homeMap && !isHomeSatelliteMode) setHomeBaseMapMode('street', true);
+          refreshLotWeedingAdminStreetBasemapForCartoKey();
         }
         if (!token) return;
         MAPBOX_CONFIG.accessToken = token;
@@ -4953,21 +4959,49 @@
     }
 
     function destroyLotWeedingAdminMap() {
-      if (lotWeedingAdminState.map && typeof lotWeedingAdminState.map.remove === 'function') {
-        const center = lotWeedingAdminState.map.getCenter?.();
-        const zoom = lotWeedingAdminState.map.getZoom?.();
+      const map = lotWeedingAdminState.map;
+      const basemap = lotWeedingAdminState.basemap;
+      lotWeedingAdminState.basemapGeneration += 1;
+      lotWeedingAdminState.map = null;
+      lotWeedingAdminState.basemap = null;
+      if (map && typeof map.remove === 'function') {
+        const center = map.getCenter?.();
+        const zoom = map.getZoom?.();
         if (center && Number.isFinite(zoom)) {
           lotWeedingAdminState.lastMapView = { center: [center.lat, center.lng], zoom };
         }
-        lotWeedingAdminState.map.remove();
+        if (basemap && typeof basemap.disposeBrandedBasemap === 'function') {
+          basemap.disposeBrandedBasemap();
+        }
+        map.remove();
       }
-      lotWeedingAdminState.map = null;
       lotWeedingAdminState.markers = [];
       lotWeedingAdminState.zoneOverlayLayer = null;
       lotWeedingAdminState.zoneOverlayControl = null;
       lotWeedingAdminState.drawingControl = null;
       lotWeedingAdminState.drawLayer = null;
       lotWeedingAdminState.drawSelectionLayer = null;
+    }
+
+    function refreshLotWeedingAdminStreetBasemapForCartoKey() {
+      const map = lotWeedingAdminState.map;
+      const currentBasemap = lotWeedingAdminState.basemap;
+      if (!map || !currentBasemap || lotWeedingAdminState.activeTab !== 'map' ||
+          !map.getContainer?.()?.isConnected) return;
+      lotWeedingAdminState.basemapGeneration += 1;
+      const generation = lotWeedingAdminState.basemapGeneration;
+      if (map.hasLayer(currentBasemap)) map.removeLayer(currentBasemap);
+      if (lotWeedingAdminState.map !== map) return;
+      lotWeedingAdminState.basemap = createBrandedStreetBasemap({
+        targetMap: map,
+        maxZoom: 22,
+        generation,
+        getCurrentGeneration: () => lotWeedingAdminState.basemapGeneration,
+        isStreetMode: () => true,
+        isCurrentMap: () => lotWeedingAdminState.map === map,
+        getCurrentLayer: () => lotWeedingAdminState.basemap,
+        contextLabel: 'Lot Weeding'
+      }).addTo(map);
     }
 
     function getLotWeedingAdminFilteredRequests() {
@@ -5213,11 +5247,11 @@
       ? MAPBOX_ADDITIONAL_LAYER_CONFIG.labelMinZoom
       : 16;
     const LOT_WEEDING_ZONE_STYLE = {
-      color: '#4B7D5D',
+      color: '#314059',
       weight: 2,
-      opacity: 0.85,
-      fillColor: '#A9CFA0',
-      fillOpacity: 0.16
+      opacity: 0.78,
+      fillColor: '#D6C58F',
+      fillOpacity: 0.11
     };
 
     function updateLotWeedingZoneLabelVisibility() {
@@ -5520,8 +5554,21 @@
       // the default zoomed-out view first.
       const initialCenter = lotWeedingAdminState.lastMapView ? lotWeedingAdminState.lastMapView.center : defaultCenter;
       const initialZoom = lotWeedingAdminState.lastMapView ? lotWeedingAdminState.lastMapView.zoom : 12;
-      const map = L.map(mapEl, { attributionControl: false, maxZoom: 22 }).setView(initialCenter, initialZoom);
-      createStreetBasemap({ maxZoom: 22 }).addTo(map);
+      const map = L.map(mapEl, { attributionControl: true, maxZoom: 22 }).setView(initialCenter, initialZoom);
+      map.attributionControl.setPrefix(false);
+      lotWeedingAdminState.map = map;
+      lotWeedingAdminState.basemapGeneration += 1;
+      const basemapGeneration = lotWeedingAdminState.basemapGeneration;
+      lotWeedingAdminState.basemap = createBrandedStreetBasemap({
+        targetMap: map,
+        maxZoom: 22,
+        generation: basemapGeneration,
+        getCurrentGeneration: () => lotWeedingAdminState.basemapGeneration,
+        isStreetMode: () => true,
+        isCurrentMap: () => lotWeedingAdminState.map === map,
+        getCurrentLayer: () => lotWeedingAdminState.basemap,
+        contextLabel: 'Lot Weeding'
+      }).addTo(map);
       installLotWeedingMapControls(map);
       attachLotWeedingAdminDrawHandlers(map);
       map.on('zoomend', updateLotWeedingZoneLabelVisibility);
@@ -5533,13 +5580,16 @@
         return createLotWeedingAdminMarker(request, map);
       }).filter(Boolean);
 
-      lotWeedingAdminState.map = map;
       lotWeedingAdminState.markers = markers;
 
       if (!lotWeedingAdminState.lastMapView && bounds.length > 0) {
         map.fitBounds(bounds, { padding: [34, 34], maxZoom: 17 });
       }
-      setTimeout(() => map.invalidateSize(), 80);
+      setTimeout(() => {
+        if (lotWeedingAdminState.map !== map) return;
+        map.invalidateSize();
+        lotWeedingAdminState.basemap?.resizeMapLibre?.();
+      }, 80);
       syncLotWeedingAdminZoneOverlay();
       renderLotWeedingAdminDrawLayer();
     }
@@ -16399,6 +16449,7 @@
           setTimeout(() => {
             if (homeMap) {
               homeMap.invalidateSize();
+              resizeHomeMapLibre();
               // Load zone boundary on home map (Mapbox or KML) if map wasn't ready before
               if (zoneKmlUrl || (isMapboxEnabled() && currentZoneName)) {
                 setTimeout(() => loadHomeZoneBoundary(), 200);
@@ -18043,9 +18094,11 @@
       if (!homeMap) {
         try {
           // Default center (Altadena, CA - adjust as needed)
-          homeMap = L.map('homeMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 15);
-          
-          homeTileLayer = createStreetBasemap({ maxZoom: 22 }).addTo(homeMap);
+          homeMap = L.map('homeMap', { attributionControl: true, maxZoom: 22 }).setView([34.19, -118.15], 15);
+          homeMap.attributionControl.setPrefix(false);
+          isHomeSatelliteMode = false;
+          homeBasemapGeneration += 1;
+          homeTileLayer = createHomeStreetBasemap(homeBasemapGeneration).addTo(homeMap);
           
           // Create satellite toggle control for home map
           const HomeSatelliteToggleControl = L.Control.extend({
@@ -18056,30 +18109,13 @@
               button.title = 'Switch to satellite view';
               button.innerHTML = '🛰️';
               button.style.cssText = 'width: 30px; height: 30px; line-height: 30px; text-align: center; text-decoration: none; display: block; font-size: 18px;';
+              homeSatelliteToggleButton = button;
               
               L.DomEvent.disableClickPropagation(button);
               L.DomEvent.on(button, 'click', L.DomEvent.stop);
               L.DomEvent.on(button, 'click', () => {
                 if (!homeMap) return;
-                
-                // Remove current tile layer
-                if (homeTileLayer) {
-                  homeMap.removeLayer(homeTileLayer);
-                }
-                
-                // Toggle between street and satellite
-                if (isHomeSatelliteMode) {
-                  homeTileLayer = createStreetBasemap({ maxZoom: 22 }).addTo(homeMap);
-                  button.innerHTML = '🛰️';
-                  button.title = 'Switch to satellite view';
-                  isHomeSatelliteMode = false;
-                } else {
-                  // Switch to satellite — Esri World Imagery + reference labels/roads (hybrid)
-                  homeTileLayer = createEsriSatelliteHybridBasemap().addTo(homeMap);
-                  button.innerHTML = '🗺️';
-                  button.title = 'Switch to street map';
-                  isHomeSatelliteMode = true;
-                }
+                setHomeBaseMapMode(isHomeSatelliteMode ? 'street' : 'satellite');
               });
               
               return container;
@@ -18093,6 +18129,7 @@
           setTimeout(() => {
             if (homeMap) {
               homeMap.invalidateSize();
+              resizeHomeMapLibre();
             }
           }, 100);
         } catch (error) {
@@ -18103,6 +18140,7 @@
         setTimeout(() => {
           if (homeMap) {
             homeMap.invalidateSize();
+            resizeHomeMapLibre();
           }
         }, 100);
       }
@@ -20227,48 +20265,104 @@
       currentTileLayer.resizeMapLibre();
     }
 
-    function createZoneStreetBasemap(generation) {
+    function resizeHomeMapLibre() {
+      homeTileLayer?.resizeMapLibre?.();
+    }
+
+    function createBrandedStreetBasemap(options) {
+      const targetMap = options.targetMap;
+      const generation = options.generation;
+      const maxZoom = options.maxZoom || 22;
+      const contextLabel = options.contextLabel || 'Map';
       const group = L.layerGroup();
       let glLayer = null;
+      let glMap = null;
+      let glCanvas = null;
       let fallbackLayer = null;
       let startupTimer = null;
+      let disposed = false;
+      let loaded = false;
+      let onMapError = null;
+      let onMapLoad = null;
+      let onContextLost = null;
 
-      const useEsriFallback = (reason) => {
-        if (startupTimer) clearTimeout(startupTimer);
-        if (!zoneMap || !window.MainMapHelpers ||
-            !MainMapHelpers.canApplyBasemapFallback({
-              generation,
-              currentGeneration: zoneBasemapGeneration,
-              isSatellite: isSatelliteMode,
-              layerActive: zoneMap.hasLayer(group),
-              fallbackActive: !!fallbackLayer
-            })) return;
-        if (reason) console.warn('CARTO vector street basemap unavailable; using Esri streets.', reason);
-        if (glLayer && group.hasLayer(glLayer)) {
-          try {
-            group.removeLayer(glLayer);
-          } catch (removeError) {
-            console.warn('Could not fully tear down failed MapLibre layer.', removeError);
+      const isActive = () => {
+        if (disposed || !targetMap || options.isCurrentMap() === false ||
+            generation !== options.getCurrentGeneration() || options.isStreetMode() === false ||
+            options.getCurrentLayer() !== group) return false;
+        try {
+          return targetMap.hasLayer(group);
+        } catch (error) {
+          return false;
+        }
+      };
+
+      const clearMapLibreListeners = () => {
+        if (startupTimer) {
+          clearTimeout(startupTimer);
+          startupTimer = null;
+        }
+        try {
+          if (glMap && onMapError) glMap.off('error', onMapError);
+          if (glMap && onMapLoad) glMap.off('load', onMapLoad);
+          if (glCanvas && onContextLost) {
+            glCanvas.removeEventListener('webglcontextlost', onContextLost);
           }
+        } catch (error) {
+          // The bridge may already have destroyed its MapLibre map.
+        }
+        onMapError = null;
+        onMapLoad = null;
+        onContextLost = null;
+        glCanvas = null;
+        glMap = null;
+      };
+
+      const removeMapLibreLayer = () => {
+        clearMapLibreListeners();
+        if (!glLayer) return;
+        try {
+          if (group.hasLayer(glLayer)) group.removeLayer(glLayer);
+        } catch (removeError) {
+          console.warn(`${contextLabel} MapLibre resources could not be fully removed.`, removeError);
         }
         glLayer = null;
-        fallbackLayer = createStreetBasemap({ maxZoom: 24 });
+      };
+
+      const useEsriFallback = (reason) => {
+        if (!window.MainMapHelpers ||
+            !MainMapHelpers.canApplyBasemapFallback({
+              generation,
+              currentGeneration: options.getCurrentGeneration(),
+              isSatellite: options.isStreetMode() === false,
+              layerActive: isActive(),
+              fallbackActive: !!fallbackLayer
+            })) return;
+        if (reason) console.warn(`${contextLabel} CARTO vector basemap unavailable; using Esri streets.`, reason);
+        removeMapLibreLayer();
+        if (!isActive()) return;
+        fallbackLayer = createStreetBasemap({ maxZoom });
         group.addLayer(fallbackLayer);
       };
 
       group.resizeMapLibre = () => {
-        if (!glLayer || typeof glLayer.getMaplibreMap !== 'function') return;
-        const map = glLayer.getMaplibreMap();
-        if (map && typeof map.resize === 'function') map.resize();
+        if (!isActive() || !glLayer || typeof glLayer.getMaplibreMap !== 'function') return;
+        const maplibreMap = glLayer.getMaplibreMap();
+        if (maplibreMap && typeof maplibreMap.resize === 'function') maplibreMap.resize();
       };
 
+      group.disposeBrandedBasemap = () => {
+        if (disposed) return;
+        disposed = true;
+        removeMapLibreLayer();
+      };
+      group.on('remove', group.disposeBrandedBasemap);
+
       Promise.resolve().then(async () => {
-        while (zoneMap && generation === zoneBasemapGeneration && !isSatelliteMode &&
-               zoneMap.hasLayer(group) && zoneMap.getContainer().offsetParent === null) {
+        while (isActive() && targetMap.getContainer().offsetParent === null) {
           await new Promise((resolve) => setTimeout(resolve, 150));
         }
-        if (!zoneMap || generation !== zoneBasemapGeneration || isSatelliteMode ||
-            !zoneMap.hasLayer(group)) return;
+        if (!isActive()) return;
         if (!window.maplibregl || typeof L.maplibreGL !== 'function' ||
             !window.MainMapHelpers) {
           throw new Error('MapLibre GL, its Leaflet bridge, or map helpers did not load');
@@ -20277,8 +20371,7 @@
         if (!response.ok) throw new Error(`Style request failed (${response.status})`);
         const style = await response.json();
         MainMapHelpers.applyCartoKey(style, cartoBasemapKey);
-        if (!zoneMap || generation !== zoneBasemapGeneration || isSatelliteMode ||
-            !zoneMap.hasLayer(group)) return;
+        if (!isActive()) return;
 
         glLayer = L.maplibreGL({
           style,
@@ -20286,16 +20379,19 @@
           attributionControl: { customAttribution: CARTO_ATTRIBUTION }
         });
         group.addLayer(glLayer);
-        const glMap = glLayer.getMaplibreMap();
+        if (!isActive()) {
+          removeMapLibreLayer();
+          return;
+        }
+        glMap = glLayer.getMaplibreMap();
         if (!glMap) throw new Error('MapLibre did not create a map');
 
-        let loaded = false;
         const failureMonitor = MainMapHelpers.createBasemapFailureMonitor({
           threshold: 3,
           windowMs: 5000,
           onFallback: useEsriFallback
         });
-        const onMapError = (event) => {
+        onMapError = (event) => {
           const error = event?.error || new Error('MapLibre rendering error');
           if (!loaded) {
             useEsriFallback(error);
@@ -20304,24 +20400,72 @@
           }
         };
         glMap.on('error', onMapError);
-        const canvas = glMap.getCanvas();
-        if (canvas) {
-          canvas.addEventListener('webglcontextlost', (event) => {
+        glCanvas = glMap.getCanvas();
+        if (glCanvas) {
+          onContextLost = (event) => {
             event.preventDefault();
             failureMonitor.recordContextLoss(new Error('MapLibre WebGL context lost'));
-          });
+          };
+          glCanvas.addEventListener('webglcontextlost', onContextLost);
         }
-        glMap.once('load', () => {
+        onMapLoad = () => {
+          if (!isActive()) return;
           loaded = true;
           if (startupTimer) clearTimeout(startupTimer);
-          resizeZoneMapLibre();
-        });
+          startupTimer = null;
+          group.resizeMapLibre();
+        };
+        glMap.once('load', onMapLoad);
         startupTimer = setTimeout(() => {
           if (!loaded) useEsriFallback(new Error('MapLibre style startup timed out'));
         }, 12000);
       }).catch(useEsriFallback);
 
       return group;
+    }
+
+    function createZoneStreetBasemap(generation) {
+      const map = zoneMap;
+      return createBrandedStreetBasemap({
+        targetMap: map,
+        maxZoom: 24,
+        generation,
+        getCurrentGeneration: () => zoneBasemapGeneration,
+        isStreetMode: () => !isSatelliteMode,
+        isCurrentMap: () => zoneMap === map,
+        getCurrentLayer: () => currentTileLayer,
+        contextLabel: 'Main map'
+      });
+    }
+
+    function createHomeStreetBasemap(generation) {
+      const map = homeMap;
+      return createBrandedStreetBasemap({
+        targetMap: map,
+        maxZoom: 22,
+        generation,
+        getCurrentGeneration: () => homeBasemapGeneration,
+        isStreetMode: () => !isHomeSatelliteMode,
+        isCurrentMap: () => homeMap === map,
+        getCurrentLayer: () => homeTileLayer,
+        contextLabel: 'Home map'
+      });
+    }
+
+    function setHomeBaseMapMode(mode, force) {
+      if (!homeMap) return;
+      const wantSatellite = mode === 'satellite';
+      if (!force && wantSatellite === isHomeSatelliteMode) return;
+      homeBasemapGeneration += 1;
+      if (homeTileLayer && homeMap.hasLayer(homeTileLayer)) homeMap.removeLayer(homeTileLayer);
+      isHomeSatelliteMode = wantSatellite;
+      homeTileLayer = wantSatellite
+        ? createEsriSatelliteHybridBasemap({ maxZoom: 22 }).addTo(homeMap)
+        : createHomeStreetBasemap(homeBasemapGeneration).addTo(homeMap);
+      if (homeSatelliteToggleButton) {
+        homeSatelliteToggleButton.innerHTML = wantSatellite ? '🗺️' : '🛰️';
+        homeSatelliteToggleButton.title = wantSatellite ? 'Switch to street map' : 'Switch to satellite view';
+      }
     }
 
     function ensureLotLinesLayer() {
@@ -20653,10 +20797,10 @@
       fillOpacity: 0.11
     };
     const HOME_BOUNDARY_STYLE = {
-      color: '#214025',
-      weight: 2,
-      opacity: 0.8,
-      fillColor: '#214025',
+      color: '#314059',
+      weight: 1.75,
+      opacity: 0.75,
+      fillColor: '#D6C58F',
       fillOpacity: 0.1
     };
 
