@@ -2,6 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const {
   getSalesConfig,
@@ -129,4 +131,11 @@ test('loadSalesPayload caches normalized records without any write operation', a
   assert.strictEqual(second, first);
   assert.equal(reads, 1);
   clearSalesCache();
+});
+
+test('central sales APN helper does not shadow the existing homepage helper', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.equal((html.match(/function getAddressSalesApnDigits\(/g) || []).length, 1);
+  assert.equal((html.match(/function getAddressApnDigits\(/g) || []).length, 1);
+  assert.match(html, /getAddressSalesApnDigits\(address\)\.forEach/);
 });
