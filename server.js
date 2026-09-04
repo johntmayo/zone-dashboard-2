@@ -1548,6 +1548,15 @@ try {
   console.error('Failed to register lot weeding routes:', err.message);
 }
 
+// --- Central property sales source (read-only, matched in the dashboard by APN) ---
+try {
+  const { registerSalesRoutes } = require('./sales/routes');
+  registerSalesRoutes(app, { getSheetsClient });
+  console.log('Central sales routes registered.');
+} catch (err) {
+  console.error('Failed to register central sales routes:', err.message);
+}
+
 // --- EPIC-LA integration (read-only cache lookups + admin sync trigger) ---
 // The EPIC cache lives in a dedicated Google Sheet (EPIC_CACHE_SHEET_ID) and
 // is refreshed by `npm run sync:epic` or POST /api/admin/sync-epic. None of
@@ -1639,6 +1648,13 @@ app.listen(PORT, () => {
     console.log(`Lot weeding source (${lotWeedingConfig.source}) sheet ID: ${lotWeedingConfig.sheetId || 'not configured'}`);
   } catch (err) {
     console.log(`Lot weeding mirror sheet ID: ${LOT_WEEDING_SHEET_ID || 'not configured'}`);
+  }
+  try {
+    const { getSalesConfig } = require('./sales/routes');
+    const salesConfig = getSalesConfig();
+    console.log(`Central sales source sheet ID: ${salesConfig.sheetId || 'not configured'}`);
+  } catch (err) {
+    console.log('Central sales source: unavailable');
   }
   console.log(`To change sheets, update the IDs in server.js or set environment variables`);
   logUsersConfigStatusAtStartup();

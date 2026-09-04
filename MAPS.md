@@ -2,11 +2,14 @@
 
 This document explains all map-related behavior in the app: where maps live, how they are initialized, what layers/controls exist, where map data comes from, and how users interact with map features.
 
-**Future basemap / lot-line work:** see `MAP_BASEMAP_ROADMAP.md`. The live street map is Esri and is considered good enough until that plan is picked up.
+**Basemap / lot-line decision record:** see `MAP_BASEMAP_ROADMAP.md`. Its approved main-map phases are now implemented.
 
 ## Map stack and dependencies
 
 - Rendering engine: **Leaflet** (`leaflet.css` + `leaflet.js` loaded from CDN).
+- Branded street renderer: **MapLibre GL JS 5.6.2** through
+  **@maplibre/maplibre-gl-leaflet 0.1.4**. Both CDN URLs are version-pinned.
+  Leaflet remains the controller for all markers, overlays, popups, and controls.
 - Vector tile overlays: **Leaflet.VectorGrid** (`Leaflet.VectorGrid.bundled.js`).
 - KML conversion: **@mapbox/togeojson** (`toGeoJSON.kml(...)`).
 - Optional/legacy load: **leaflet-kml** is included, but KML rendering in active flows uses `toGeoJSON` + `L.geoJSON`.
@@ -18,7 +21,7 @@ This document explains all map-related behavior in the app: where maps live, how
 
 ## Map contexts in the app
 
-The app has three distinct map contexts:
+The app has four primary map contexts:
 
 1. **Main Map View (`zoneMap`)**
    - Full map shown when navigating to the `Map` view.
@@ -33,6 +36,11 @@ The app has three distinct map contexts:
 3. **Batch Tagging Map (Tools view)**
    - Temporary map used when clicking “Draw on map” in Batch Tagging.
    - Supports custom polygon drawing and in-polygon address selection.
+
+4. **Lot Weeding Command Center (`lotWeedingAdminState.map`)**
+   - Recreated as the Command Center filters and tabs render.
+   - Uses branded streets with Esri fallback, lot-status markers, drawing tools,
+     and the optional Altagether Zones overlay.
 
 ## View integration and lifecycle
 
@@ -49,16 +57,49 @@ The app has three distinct map contexts:
 
 ## Base maps
 
-All map contexts use two base map modes:
+The three explicitly approved maps share one guarded branded-street factory:
 
-- **Street**: Esri World Street Map (same host as satellite; no API key). If those tiles fail, the map automatically tries a second Esri host, Esri World Topo, then OpenStreetMap. CARTO and Mapbox raster streets are not used for the basemap.
-- **Satellite**: Esri World Imagery hybrid (imagery + place names + roads)
+- **Main, Home, and Lot Weeding Street**: the local, versioned
+  `public/map-styles/altagether-voyager-v1.json?v=2`, derived from CARTO Voyager and
+  rendered by MapLibre under Leaflet. It keeps CARTO vector source, glyph, and
+  sprite URLs; OSM-derived mapped structures appear as restrained historical
+  reference outlines from Leaflet z18+; commercial POI clutter is reduced; and
+  house numbers are collision-aware and subordinate from Leaflet z18+.
+  The main map desktop and mobile Layers UI state the intended semantics exactly:
+  **Structure shapes update periodically and may be inaccurate.**
+  The local house-number layer starts at style zoom 17 because the Leaflet
+  bridge evaluates MapLibre at `Leaflet zoom - 1`; its size stops are shifted
+  the same way so apparent sizing remains 9/11/12px at Leaflet z18/z20/z24.
+  The runtime `cartoBasemapKey` is appended to the CARTO TileJSON request when
+  `/api/mapbox-token` provides one. Current unkeyed vector access is allowed to
+  start so map initialization never waits for a key.
+- **Batch Tagging and incidental-map Street**: unchanged Esri World Street Map
+  chain; these maps do not load the branded style.
+- **Satellite**: Esri World Imagery hybrid (imagery + place names + roads) on
+  the existing Main and Home toggles. Lot Weeding has no added satellite mode.
+
+If MapLibre, WebGL, the local style, or style startup fails, each approved map
+automatically falls back to the existing Esri street chain. The shared factory
+guards map identity, layer identity, mode, and generation; waits for hidden map
+containers; resizes after reveal; monitors post-load error bursts and WebGL
+context loss; and releases listeners/WebGL resources on removal. These guards
+prevent late Home failures from replacing Satellite and prevent destroyed Lot
+Weeding maps from being mutated.
+
+The warm civic/editorial style uses paper `#F8F3E9`, navy labels `#314059`,
+quiet numbers `#6F6A61`, pale gold major roads, cream-gold secondary roads,
+muted olive open space, and soft blue-gray water. Local streets and structures
+stay neutral. Operational teal `#347072` is not used for roads or water. Chivo
+is not available from CARTO's glyph endpoint, so the style uses the closest existing supported stack:
+Montserrat (with Open Sans and Noto Sans fallbacks). This avoids hosting a
+large glyph archive.
 
 ### Where base map toggles exist
 
 - Main map: in the custom Layers control (`setBaseMapMode('street'|'satellite')`).
 - Home map: custom top-left toggle in `initializeHomeMap()`.
 - Batch tagging map: custom top-left toggle in `initializeBatchTagging()`.
+- Lot Weeding: no satellite toggle.
 
 ## Address marker layers
 
@@ -91,6 +132,11 @@ Zone boundary is loaded with a **Mapbox-first, KML-fallback** strategy:
    - Converts KML -> GeoJSON with `toGeoJSON.kml(...)`.
    - Renders with `L.geoJSON(...)`.
 
+The Main, Home, and Lot Weeding zone polygons use the same restrained navy
+`#314059` outline and warm `#D6C58F` wash family, with lighter sizing on Home.
+Lot Weeding draw/lasso geometry, selection colors, and marker status colors are
+unchanged.
+
 ### Boundary data key dependencies
 
 - `currentZoneName` is extracted from `Sheet1` (`ZoneName` or `Zone name` column).
@@ -98,7 +144,7 @@ Zone boundary is loaded with a **Mapbox-first, KML-fallback** strategy:
 
 ## Additional overlays on main map
 
-There are two overlay systems on the main map:
+There are three overlay systems on the main map:
 
 1. **Additional Mapbox GeoJSON layer**
    - Config: `MAPBOX_ADDITIONAL_LAYER_CONFIG`
@@ -112,6 +158,29 @@ There are two overlay systems on the main map:
    - Rendered with `L.vectorGrid.protobuf(...)`
    - Ordered by `MAPBOX_DATASET_OVERLAY_ORDER`
    - Visibility tracked in `datasetOverlayVisibility`
+
+3. **LA County lot lines**
+   - Public source:
+     `LACounty_Cache/LACounty_Parcel/MapServer/0`
+   - Automatic and non-toggleable on the main map; no request or rendering
+     below Leaflet z17 or while the main map is hidden.
+   - Solid, no-fill, subtle parcel outlines ramp from opacity/weight
+     `0.175/0.4375` at z17 to `0.28/0.70` at z20; no APN labels.
+   - Debounced viewport envelope query asks for IDs first, deduplicates them,
+     then retrieves minimal GeoJSON in batches of at most 150 IDs and below
+     1,800 encoded URL characters (at most three requests concurrently) with
+     `outSR=4326`.
+   - `AbortController`, generation checks, partial-batch isolation, and a
+     7,500-feature in-memory reuse cache prevent stale updates and limit traffic.
+     A separate per-refresh map retains every current-viewport feature even
+     when reuse-cache eviction occurs.
+   - Rendering uses a dedicated Leaflet canvas renderer and deliberately has no
+     feature-count cap, so dense current viewports do not silently lose lot lines.
+   - Attribution/help wording: **Los Angeles County Office of the Assessor;
+     informational, not survey-grade.** Attribution is registered permanently
+     when the main map initializes and may remain visible below z17.
+   - Live ArcGIS responses are never service-worker cached and no countywide
+     parcel copy is stored or redistributed.
 
 ### Configured dataset overlays
 
@@ -135,6 +204,9 @@ Created by `ensureAdditionalMapboxLayerControl()` and includes:
 - Overlays section:
   - Altagether Zones toggle.
   - One toggle per configured dataset overlay in active order.
+- LA County lot lines are automatic map context, not a Layers control.
+- Desktop and mobile Layers UI both show the secondary note:
+  **Structure shapes update periodically and may be inaccurate.**
 
 ### Color-by controls
 
@@ -173,7 +245,8 @@ The Tools “Draw on map” flow in `initializeBatchTagging()`:
 
 - `GET /api/mapbox-token`
   - Source: server environment (`MAPBOX_PUBLIC_TOKEN` or `MAPBOX_ACCESS_TOKEN`, plus optional `CARTO_API_KEY` / `CARTO_BASEMAP_KEY`).
-  - Used by `initializeMapboxAccessToken()` to enable Mapbox-backed map features and to choose the street basemap.
+  - Used by `initializeMapboxAccessToken()` for Mapbox-backed overlays and the
+    optional CARTO vector basemap key.
 - `POST /api/sheets/values`
   - Used by `fetchViaOAuth(...)` to read `Sheet1` and `Zone Notes`.
 
@@ -204,6 +277,28 @@ The Tools “Draw on map” flow in `initializeBatchTagging()`:
 - Can be Google Drive links; app attempts direct and proxy-based retrieval.
 - Converted in-browser to GeoJSON for rendering.
 
+## 5) LA County ArcGIS parcels
+
+- Browser requests go directly to the public parcel feature layer.
+- Only viewport IDs and the geometry/`OBJECTID` fields needed to draw the
+  current view are requested.
+- Fetches begin at Leaflet z17 and are discarded if superseded.
+
+## Structure-outline sources and semantics
+
+The main-map street style uses only the existing CARTO/OpenMapTiles `building`
+source-layer, derived from OpenStreetMap, as historical/reference context from
+Leaflet z18+ (style minzoom 17 accounts for the bridge offset). It uses a faint
+warm fill and quiet solid outline beneath roads, labels, house numbers, and
+operational overlays. The user-facing description is intentionally limited to:
+**Structure shapes update periodically and may be inaccurate.**
+
+The researched 2023 LARIAC structure-footprint endpoint remains prohibited:
+live metadata says **“LARIAC Members only”**, so it is not used or exposed.
+Generic dotted or dashed footprint styling also remains prohibited because it
+could falsely imply fire loss. Building outlines have no status interaction or
+damage semantics.
+
 ## Mapbox configuration model
 
 `MAPBOX_CONFIG` contains:
@@ -227,6 +322,8 @@ Mapbox functionality is considered enabled only when all required fields are pre
 ## Important implementation notes
 
 - Map implementation is centralized in `index.html` (single-page script architecture).
+- Testable parcel request, batching, gating, style, and stale-request behavior
+  lives in `public/js/main-map.js`.
 - Backend (`server.js`) mainly provides token/config and Sheets API proxy routes.
 - No clustering or heatmap plugin behavior is active in current code paths.
 - `leaflet-kml` library is loaded, but active KML rendering uses `toGeoJSON` + `L.geoJSON`.
@@ -236,6 +333,8 @@ Mapbox functionality is considered enabled only when all required fields are pre
 - `index.html` - all primary map logic, controls, layers, and data orchestration.
 - `server.js` - token endpoint and Sheets data routes used by map flows.
 - `public/css/styles.css` - map UI/control/label styling.
+- `public/js/main-map.js` - main-map parcel loader helpers (browser + Node).
+- `public/map-styles/altagether-voyager-v1.json` - local CARTO-derived vector style.
 - `SETUP.md` - operational notes including Mapbox boundary setup and fallback behavior.
 - `help.html`, `about.html` - user-facing map behavior documentation references.
 
