@@ -55,7 +55,7 @@ The app has three distinct map contexts:
 All map contexts have Street and Satellite modes, but only the main map uses the new vector street style:
 
 - **Main-map Street (`zoneMap`)**: the local, versioned
-  `public/map-styles/altagether-voyager-v1.json`, derived from CARTO Voyager and
+  `public/map-styles/altagether-voyager-v1.json?v=2`, derived from CARTO Voyager and
   rendered by MapLibre under Leaflet. It keeps CARTO vector source, glyph, and
   sprite URLs; OSM-derived mapped structures appear as restrained historical
   reference outlines from Leaflet z18+; commercial POI clutter is reduced; and
@@ -77,9 +77,10 @@ switches destroy and reconstruct the MapLibre layer, and generation checks
 prevent a late street failure from replacing Satellite.
 
 The warm civic/editorial style uses paper `#F8F3E9`, navy labels `#314059`,
-quiet numbers `#6F6A61`, and restrained green/water colors. Operational teal
-`#347072` is not used for roads or water. Chivo is not available from CARTO's
-glyph endpoint, so the style uses the closest existing supported stack:
+quiet numbers `#6F6A61`, pale gold major roads, cream-gold secondary roads,
+muted olive open space, and soft blue-gray water. Local streets and structures
+stay neutral. Operational teal `#347072` is not used for roads or water. Chivo
+is not available from CARTO's glyph endpoint, so the style uses the closest existing supported stack:
 Montserrat (with Open Sans and Noto Sans fallbacks). This avoids hosting a
 large glyph archive.
 

@@ -1704,16 +1704,18 @@
       },
       labelMinZoom: 16,
       style: {
-        color: '#4B7D5D',
+        color: '#314059',
         weight: 2,
-        opacity: 0.85,
-        fillColor: '#A9CFA0',
-        fillOpacity: 0.16
+        opacity: 0.78,
+        fillColor: '#D6C58F',
+        fillOpacity: 0.11
       },
       hoverStyle: {
+        color: '#314059',
         weight: 3,
-        opacity: 0.95,
-        fillOpacity: 0.24
+        opacity: 0.9,
+        fillColor: '#D6C58F',
+        fillOpacity: 0.18
       }
     };
     function isAdditionalMapboxLayerEnabled() {
@@ -5210,6 +5212,13 @@
     const LOT_WEEDING_ZONE_LABEL_MIN_ZOOM = Number.isFinite(MAPBOX_ADDITIONAL_LAYER_CONFIG?.labelMinZoom)
       ? MAPBOX_ADDITIONAL_LAYER_CONFIG.labelMinZoom
       : 16;
+    const LOT_WEEDING_ZONE_STYLE = {
+      color: '#4B7D5D',
+      weight: 2,
+      opacity: 0.85,
+      fillColor: '#A9CFA0',
+      fillOpacity: 0.16
+    };
 
     function updateLotWeedingZoneLabelVisibility() {
       const map = lotWeedingAdminState.map;
@@ -5261,7 +5270,7 @@
         if (lotWeedingAdminState.zoneOverlayLayer && map.hasLayer(lotWeedingAdminState.zoneOverlayLayer)) {
           map.removeLayer(lotWeedingAdminState.zoneOverlayLayer);
         }
-        const baseStyle = MAPBOX_ADDITIONAL_LAYER_CONFIG.style || {};
+        const baseStyle = LOT_WEEDING_ZONE_STYLE;
         // Zones are a non-interactive visual layer beneath the pins: the polygons never
         // capture clicks/hover (so the lasso works), and each zone shows a permanent,
         // click-through label (zone name + captains) that sits lightly over the pins.
@@ -20206,7 +20215,7 @@
       toggleBtn.title = expanded ? 'Collapse layers' : 'Expand layers';
     }
 
-    const ZONE_STREET_STYLE_URL = 'public/map-styles/altagether-voyager-v1.json';
+    const ZONE_STREET_STYLE_URL = 'public/map-styles/altagether-voyager-v1.json?v=2';
     const CARTO_ATTRIBUTION =
       '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors ' +
       '&copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>';
@@ -20637,11 +20646,11 @@
     }
 
     const ZONE_BOUNDARY_STYLE = {
-      color: '#214025',
-      weight: 3,
-      opacity: 0.8,
-      fillColor: '#214025',
-      fillOpacity: 0.1
+      color: '#314059',
+      weight: 2.5,
+      opacity: 0.75,
+      fillColor: '#D6C58F',
+      fillOpacity: 0.11
     };
     const HOME_BOUNDARY_STYLE = {
       color: '#214025',
@@ -20840,13 +20849,7 @@
         
         // Add to map
         kmlLayer = L.geoJSON(geojson, {
-          style: {
-            color: '#214025',
-            weight: 3,
-            opacity: 0.8,
-            fillColor: '#214025',
-            fillOpacity: 0.1
-          }
+          style: ZONE_BOUNDARY_STYLE
         }).addTo(zoneMap);
         
         // Fit map to boundary

@@ -12357,12 +12357,14 @@
   justify-content: center;
   flex: 0 0 auto;
   padding: 2px 7px;
+  border: 1px solid rgba(146, 64, 14, 0.45);
   border-radius: 999px;
-  background: #9f3a27;
-  color: #fff;
+  background: #fff7d6;
+  box-shadow: 0 1px 3px rgba(124, 45, 18, 0.12);
+  color: #7c2d12;
   font-family: 'Chivo', sans-serif;
   font-size: 0.67rem;
-  font-weight: 800;
+  font-weight: 900;
   line-height: 1.25;
   letter-spacing: 0.07em;
   text-decoration: none;
