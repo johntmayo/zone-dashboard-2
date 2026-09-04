@@ -10,9 +10,10 @@
 
   var PARCEL_ENDPOINT =
     'https://public.gis.lacounty.gov/public/rest/services/LACounty_Cache/LACounty_Parcel/MapServer/0';
-  var PARCEL_MIN_ZOOM = 17;
-  var DEFAULT_BATCH_SIZE = 250;
-  var DEFAULT_CACHE_SIZE = 3000;
+  var PARCEL_MIN_ZOOM = 16;
+  var DEFAULT_BATCH_SIZE = 150;
+  var DEFAULT_MAX_REQUEST_URL_LENGTH = 1800;
+  var DEFAULT_CACHE_SIZE = 7500;
   var DEFAULT_BATCH_CONCURRENCY = 3;
 
   function applyCartoKey(style, key) {
@@ -162,6 +163,31 @@
     });
   }
 
+  function batchObjectIdsForGet(ids, endpoint, batchSize, maxUrlLength) {
+    var unique = dedupeObjectIds(ids);
+    var size = Math.max(1, Number(batchSize) || DEFAULT_BATCH_SIZE);
+    var urlLimit = Math.max(1, Number(maxUrlLength) || DEFAULT_MAX_REQUEST_URL_LENGTH);
+    var batches = [];
+    var current = [];
+
+    unique.forEach(function (id) {
+      if (buildParcelFeatureQueryUrl([id], endpoint).length >= urlLimit) {
+        throw new RangeError('Parcel request URL limit is too small for one object ID');
+      }
+      var candidate = current.concat(id);
+      var exceedsCount = candidate.length > size;
+      var exceedsUrl = buildParcelFeatureQueryUrl(candidate, endpoint).length >= urlLimit;
+      if (current.length && (exceedsCount || exceedsUrl)) {
+        batches.push(current);
+        current = [id];
+      } else {
+        current = candidate;
+      }
+    });
+    if (current.length) batches.push(current);
+    return batches;
+  }
+
   function shouldLoadParcels(options) {
     options = options || {};
     return Number(options.zoom) >= PARCEL_MIN_ZOOM &&
@@ -171,11 +197,11 @@
 
   function getParcelLineStyle(zoom) {
     var z = Math.max(PARCEL_MIN_ZOOM, Math.min(20, Number(zoom) || PARCEL_MIN_ZOOM));
-    var progress = (z - PARCEL_MIN_ZOOM) / 3;
+    var progress = (z - PARCEL_MIN_ZOOM) / 4;
     return {
       color: '#766F65',
-      opacity: 0.22 + (0.06 * progress),
-      weight: 0.45 + (0.25 * progress),
+      opacity: 0.14 + (0.14 * progress),
+      weight: 0.35 + (0.35 * progress),
       fill: false,
       fillOpacity: 0,
       lineCap: 'round',
@@ -214,8 +240,13 @@
     if (typeof fetchFn !== 'function') throw new TypeError('fetchFn is required');
     var endpoint = options.endpoint || PARCEL_ENDPOINT;
     var batchSize = options.batchSize || DEFAULT_BATCH_SIZE;
+    var maxRequestUrlLength =
+      options.maxRequestUrlLength || DEFAULT_MAX_REQUEST_URL_LENGTH;
     var cacheSize = options.cacheSize || DEFAULT_CACHE_SIZE;
-    var batchConcurrency = options.batchConcurrency || DEFAULT_BATCH_CONCURRENCY;
+    var batchConcurrency = Math.min(
+      DEFAULT_BATCH_CONCURRENCY,
+      Math.max(1, Number(options.batchConcurrency) || DEFAULT_BATCH_CONCURRENCY)
+    );
     var cache = new Map();
     var generation = 0;
     var activeController = null;
@@ -278,7 +309,12 @@
           if (cache.has(id)) currentFeatures.set(id, cache.get(id));
         });
         var missingIds = ids.filter(function (id) { return !cache.has(id); });
-        var batches = batchObjectIds(missingIds, batchSize);
+        var batches = batchObjectIdsForGet(
+          missingIds,
+          endpoint,
+          batchSize,
+          maxRequestUrlLength
+        );
         var settled = await runWithConcurrency(batches, batchConcurrency, async function (batch) {
           if (myGeneration !== generation || signal.aborted) return [];
           var geojson = await fetchJson(buildParcelFeatureQueryUrl(batch, endpoint), signal);
@@ -327,6 +363,9 @@
   var api = {
     PARCEL_ENDPOINT: PARCEL_ENDPOINT,
     PARCEL_MIN_ZOOM: PARCEL_MIN_ZOOM,
+    DEFAULT_BATCH_SIZE: DEFAULT_BATCH_SIZE,
+    DEFAULT_MAX_REQUEST_URL_LENGTH: DEFAULT_MAX_REQUEST_URL_LENGTH,
+    DEFAULT_CACHE_SIZE: DEFAULT_CACHE_SIZE,
     applyCartoKey: applyCartoKey,
     createBasemapFailureMonitor: createBasemapFailureMonitor,
     canApplyBasemapFallback: canApplyBasemapFallback,
@@ -335,6 +374,7 @@
     buildParcelFeatureQueryUrl: buildParcelFeatureQueryUrl,
     dedupeObjectIds: dedupeObjectIds,
     batchObjectIds: batchObjectIds,
+    batchObjectIdsForGet: batchObjectIdsForGet,
     shouldLoadParcels: shouldLoadParcels,
     getParcelLineStyle: getParcelLineStyle,
     runWithConcurrency: runWithConcurrency,

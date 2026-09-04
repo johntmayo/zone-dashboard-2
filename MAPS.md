@@ -57,11 +57,14 @@ All map contexts have Street and Satellite modes, but only the main map uses the
 - **Main-map Street (`zoneMap`)**: the local, versioned
   `public/map-styles/altagether-voyager-v1.json`, derived from CARTO Voyager and
   rendered by MapLibre under Leaflet. It keeps CARTO vector source, glyph, and
-  sprite URLs; buildings are removed; commercial POI clutter is reduced; and
-  house numbers are collision-aware and subordinate from z17 through z24.
-  The local house-number layer starts at style zoom 16 because the Leaflet
+  sprite URLs; OSM-derived mapped structures appear as restrained historical
+  reference outlines from Leaflet z18+; commercial POI clutter is reduced; and
+  house numbers are collision-aware and subordinate from Leaflet z18+.
+  Structure outlines are not authoritative current-condition, damage, occupancy,
+  or residential-use data.
+  The local house-number layer starts at style zoom 17 because the Leaflet
   bridge evaluates MapLibre at `Leaflet zoom - 1`; its size stops are shifted
-  the same way so apparent sizing remains 9/11/12px at Leaflet z17/z20/z24.
+  the same way so apparent sizing remains 9/11/12px at Leaflet z18/z20/z24.
   The runtime `cartoBasemapKey` is appended to the CARTO TileJSON request when
   `/api/mapbox-token` provides one. Current unkeyed vector access is allowed to
   start so map initialization never waits for a key.
@@ -142,16 +145,21 @@ There are three overlay systems on the main map:
 3. **LA County lot lines**
    - Public source:
      `LACounty_Cache/LACounty_Parcel/MapServer/0`
-   - Toggle label: **LA County lot lines**; default on.
-   - Main map only; no request or rendering below z17 or while hidden.
-   - Solid, no-fill, subtle parcel outlines; no APN labels.
+   - Toggle label: **LA County lot lines (zoom 16+)**; default on.
+   - Main map only; no request or rendering below Leaflet z16 or while hidden.
+   - Solid, no-fill, subtle parcel outlines ramp from opacity/weight
+     `0.14/0.35` at z16 to `0.28/0.70` at z20; no APN labels.
    - Debounced viewport envelope query asks for IDs first, deduplicates them,
-     then retrieves minimal GeoJSON in 250-ID batches (at most three requests
-     concurrently) with `outSR=4326`.
+     then retrieves minimal GeoJSON in batches of at most 150 IDs and below
+     1,800 encoded URL characters (at most three requests concurrently) with
+     `outSR=4326`.
    - `AbortController`, generation checks, partial-batch isolation, and a
-     bounded in-memory reuse cache prevent stale updates and limit traffic.
+     7,500-feature in-memory reuse cache prevent stale updates and limit traffic.
      A separate per-refresh map retains every current-viewport feature even
      when reuse-cache eviction occurs.
+   - Measured z16 viewports contain about 1,700–6,800 parcels. Rendering uses a
+     dedicated Leaflet canvas renderer and deliberately has no feature-count
+     cap, so ordinary 1200px-wide z16 views do not silently lose all lot lines.
    - Attribution/help wording: **Los Angeles County Office of the Assessor;
      informational, not survey-grade.**
    - Live ArcGIS responses are never service-worker cached and no countywide
@@ -255,18 +263,22 @@ The Tools “Draw on map” flow in `initializeBatchTagging()`:
 - Browser requests go directly to the public parcel feature layer.
 - Only viewport IDs and the geometry/`OBJECTID` fields needed to draw the
   current view are requested.
-- Fetches begin at z17 and are discarded if superseded.
+- Fetches begin at Leaflet z16 and are discarded if superseded.
 
-## Structure-footprint licensing and semantics
+## Structure-outline sources and semantics
 
-The building/structure footprint layer is intentionally not implemented or
-exposed. Live metadata for the researched 2023 LARIAC endpoint says **“LARIAC
-Members only”**, so permission must be established before any use.
+The main-map street style uses only the existing CARTO/OpenMapTiles `building`
+source-layer, derived from OpenStreetMap, as historical/reference context from
+Leaflet z18+ (style minzoom 17 accounts for the bridge offset). It uses a faint
+warm fill and quiet solid outline beneath roads, labels, house numbers, and
+operational overlays. These mapped structures may predate the Eaton Fire and do
+not indicate current condition, damage, occupancy, or residential use.
 
-Independently of licensing, generic dotted or dashed footprints are prohibited
-for this post-fire reference map: they could falsely imply fire loss. A future
-authorized structure layer would need explicit, accurate semantics and must
-never use dotted/dashed styling merely as a generic reference treatment.
+The researched 2023 LARIAC structure-footprint endpoint remains prohibited:
+live metadata says **“LARIAC Members only”**, so it is not used or exposed.
+Generic dotted or dashed footprint styling also remains prohibited because it
+could falsely imply fire loss. Building outlines have no status interaction or
+damage semantics.
 
 ## Mapbox configuration model
 

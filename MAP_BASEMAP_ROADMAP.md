@@ -15,25 +15,35 @@ The main `zoneMap` uses a local CARTO Voyager-derived vector style rendered
 with MapLibre GL through the MapLibre-GL-Leaflet bridge. Leaflet remains the
 controller. Homepage and batch maps retain the existing Esri streets.
 
-The style is warm and editorial, hides buildings, reduces POIs, and keeps
-collision-aware house numbers subordinate at z17–24. A runtime CARTO key is
-used when configured; currently available unkeyed vector access avoids blocking
-startup. MapLibre/WebGL/style startup failures fall back to Esri streets.
-Satellite remains Esri imagery hybrid.
+The style is warm and editorial, reduces POIs, shows restrained OSM-derived
+building outlines as historical/reference context at Leaflet z18+, and keeps
+collision-aware house numbers subordinate at Leaflet z18+. A runtime CARTO key
+is used when configured; currently available unkeyed vector access avoids
+blocking startup. MapLibre/WebGL/style startup failures fall back to Esri
+streets. Satellite remains Esri imagery hybrid.
 
-The main map also has viewport-loaded LA County assessor lot lines at z17+.
+The main map also has viewport-loaded LA County assessor lot lines at Leaflet
+z16+.
 
 ---
 
 ## 2) Constraints the map must respect
 
-**Post-fire Altadena.** About half the structures burned. Commercial basemaps (Carto, Mapbox Streets, Esri Streets, Google) draw **pre-fire building footprints**. At captain zoom those look official and they are wrong: ghosts of burned houses, empty lots that look occupied.
+**Post-fire Altadena.** About half the structures burned. Commercial basemaps
+(CARTO, Mapbox Streets, Esri Streets, Google) may draw **pre-fire building
+footprints**. The main map therefore presents OSM-derived mapped structures only
+as restrained historical/reference context, with visible wording that they do
+not indicate current condition or residential use.
 
 **House numbers are contextual, not authoritative.** They are visible but
-quiet and collision-aware from z17–24. Spreadsheet pins remain the addresses
+quiet and collision-aware from Leaflet z18+. The MapLibre style uses minzoom 17
+to account for the bridge's `Leaflet zoom - 1` offset. Spreadsheet pins remain the addresses
 that count.
 
-**Lot lines matter; building outlines do not.** The house can be gone; the parcel (APN) is not. Captains already work in APNs (EPIC, lot weeding). Lot geometry should come from **LA County parcels**, not from a vendor’s decorative “lots.”
+**Lot lines remain the operational geometry.** The house can be gone; the parcel
+(APN) is not. Captains already work in APNs (EPIC, lot weeding). Lot geometry
+comes from **LA County parcels**. Building outlines are secondary reference
+context only and never current-condition or damage data.
 
 **Geography and scale are small.** ~170 volunteers today, maybe 500. Occasional use, not all-day GIS. Only Altadena and bits of Pasadena. Mapbox’s free **50,000 map loads/month** (GL JS / MapLibre) is plenty at this scale. The gray map after one day was almost certainly a bad Leaflet raster recipe, not a blown free tier.
 
@@ -47,13 +57,15 @@ Split the map into two jobs:
 
 | Layer | Job | Source |
 |---|---|---|
-| **Basemap** | Quiet streets + labels. Canvas only. | Local CARTO Voyager-derived style, rendered with MapLibre; optional CARTO key |
+| **Basemap** | Quiet streets, labels, and secondary historical/reference structure outlines. Canvas only. | Local CARTO Voyager-derived style and existing CARTO/OpenMapTiles source, rendered with MapLibre; optional CARTO key |
 | **Operational overlays** | Truth for captains | Existing pins/boundaries/VectorGrid overlays plus viewport-loaded **county lot lines** |
 
-Do **not** bake lot lines or building footprints into the basemap style.
+Do **not** bake county lot lines or restricted LARIAC footprints into the
+basemap style. The only structure geometry in the style is the existing
+OSM-derived CARTO/OpenMapTiles `building` source-layer.
 
 Do **not** use deprecated CARTO raster tiles. The implementation uses CARTO's
-vector source and a local customized style with buildings removed.
+vector source and a local customized style with restrained reference buildings.
 
 Do **not** put Mapbox styles into Leaflet as PNG tiles (`Static Tiles API`). That is per-tile billing and is the path that went gray. Mapbox is fine **as a vector style** (MapLibre / Mapbox GL), where a map load includes tiles.
 
@@ -71,24 +83,32 @@ Do **not** put Mapbox styles into Leaflet as PNG tiles (`Static Tiles API`). Tha
 
 1. Maintain the local CARTO-derived style:
    - Paper-colored land, navy labels, quiet roads
-   - **Buildings off**
-   - House numbers quiet and collision-aware at z17–24
+   - OSM-derived buildings as faint, solid historical/reference outlines from
+     Leaflet z18+, below roads, labels, and house numbers
+   - House numbers quiet and collision-aware at Leaflet z18+
    - Teal reserved for our markers, not for roads/water
 2. Render with **MapLibre** under existing Leaflet markers/overlays.
 3. Keep Esri as automatic backup if MapLibre/WebGL/style startup fails.
 4. Recheck satellite imagery recency over Altadena. If Esri World Imagery is still pre-fire, aerial mode has the same ghost-building problem as footprints.
 
-Expected look: a street map that reads as Altogether, with pins as the address layer.
+Expected look: a street map that reads as Altogether, with pins as the address
+layer and mapped structures clearly secondary.
 
 ### Phase 2 — Lot lines (done)
 
 - LA County assessor parcels are a **toggle overlay**, default on.
-- Render/fetch only at z17+ with solid, subtle, no-fill lines.
-- Use ID-first viewport queries, object-ID batches, abort/stale protection, and
-  bounded memory caching. Do not persist a countywide copy.
+- Render/fetch only at Leaflet z16+ with solid, subtle, no-fill lines that ramp
+  from opacity/weight `0.14/0.35` at z16 to `0.28/0.70` at z20.
+- Use ID-first viewport queries, URL-bounded batches (150 IDs and less than
+  1,800 encoded characters), at most three concurrent geometry requests,
+  abort/stale protection, and a 7,500-feature reuse cache.
+- Measured z16 views contain about 1,700–6,800 parcels. A dedicated Leaflet
+  canvas renderer draws every current-viewport parcel; no feature cap silently
+  removes lines from ordinary 1200px-wide views. Do not persist a countywide copy.
 - APN labels and parcel interactions are intentionally absent by default.
 
-This is the “nice map that matches how the work is done” step: parcel, not footprint.
+This is the operational geometry that matches how the work is done; structure
+outlines remain reference context rather than parcel or condition data.
 
 ### Phase 3 — Optional polish (only if captains ask)
 

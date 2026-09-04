@@ -3616,6 +3616,10 @@
       cursor: pointer;
       transition: all 0.2s;
       border: 1px solid transparent;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
     }
 
     .address-item:hover {
@@ -9712,6 +9716,20 @@
       background: #ffffff;
     }
 
+    .map-layers-control .map-reference-note {
+      box-sizing: border-box;
+      max-width: 220px;
+      margin: 0;
+      padding: 9px 10px 10px;
+      border-top: 1px solid rgba(49, 64, 89, 0.12);
+      background: #ffffff;
+      color: #606772;
+      font-family: 'Chivo', sans-serif;
+      font-size: 10px;
+      font-weight: 400;
+      line-height: 1.35;
+    }
+
     .map-basemap-toggle {
       display: flex;
       margin: 0 10px 10px;
@@ -11545,6 +11563,14 @@
     font-size: 1rem;
   }
 
+  .mobile-map-sheet .map-reference-note {
+    margin: 10px 0 0;
+    color: var(--text-secondary);
+    font-family: 'Chivo', sans-serif;
+    font-size: 0.75rem;
+    line-height: 1.45;
+  }
+
   /* ---- Modals -> bottom sheets ---- */
 
   .newsletter-modal-overlay {
@@ -12322,6 +12348,104 @@
 .details-section__title-button:hover,
 .details-section__title-button:focus-visible {
   color: var(--accent-altagether-green);
+}
+
+.address-sale-badge,
+.central-sales-section__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #9f3a27;
+  color: #fff;
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.67rem;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: 0.07em;
+  text-decoration: none;
+}
+
+.details-section__title-button .address-sale-badge {
+  margin-left: 6px;
+  vertical-align: 2px;
+}
+
+.central-sales-section {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid rgba(159, 58, 39, 0.24);
+  border-radius: 10px;
+  background: rgba(159, 58, 39, 0.055);
+}
+
+.central-sales-section__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.central-sales-section__heading h4 {
+  margin: 0;
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.central-sales-section__heading p {
+  margin: 3px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.central-sales-section__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  margin: 12px 0 0;
+}
+
+.central-sales-section__facts div {
+  min-width: 0;
+}
+
+.central-sales-section__facts dt {
+  color: var(--text-secondary);
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.69rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.central-sales-section__facts dd {
+  margin: 2px 0 0;
+  color: var(--text-primary);
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+
+.central-sales-section__history {
+  margin: 12px 0 0;
+  padding: 10px 0 0 18px;
+  border-top: 1px solid rgba(159, 58, 39, 0.16);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.central-sales-section__history li + li {
+  margin-top: 5px;
+}
+
+@media (max-width: 520px) {
+  .central-sales-section__facts {
+    grid-template-columns: 1fr;
+  }
 }
 
 .address-details-modal .address-modal-fields {
