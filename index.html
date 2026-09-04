@@ -178,8 +178,11 @@
           <button class="mobile-map-layer-row" id="mobileLayerCensus">Census Tracts</button>
           <button class="mobile-map-layer-row" id="mobileLayerFire">Eaton Fire Perimeter</button>
           <button class="mobile-map-layer-row" id="mobileLayerWaterDistricts">Altadena Water Districts</button>
-          <button class="mobile-map-layer-row active" id="mobileLayerLotLines" aria-pressed="true">LA County lot lines</button>
+          <button class="mobile-map-layer-row active" id="mobileLayerLotLines" aria-pressed="true">LA County lot lines (zoom 16+)</button>
           <button class="mobile-map-layer-row" id="mobileLayerSceLines">SCE Undergrounding Projects</button>
+          <p class="map-reference-note">
+            Mapped structures are reference outlines and may predate the Eaton Fire; they do not indicate current condition or residential use.
+          </p>
         </div>
 
         <div class="mobile-map-sheet-section">
@@ -1471,6 +1474,14 @@
       configured: false,
       error: '',
       byApn: new Map(),
+      lastFetchedAt: null
+    };
+    const salesCentralState = {
+      loading: false,
+      loaded: false,
+      configured: false,
+      error: '',
+      byEpn: new Map(),
       lastFetchedAt: null
     };
     const lotWeedingAdminState = {
@@ -3906,7 +3917,8 @@
         const addressPlan = getGodmodeValue(row, GODMODE_FIELD_ALIASES.addressPlan);
         const buildStage = getGodmodeValue(row, GODMODE_FIELD_ALIASES.rebuild);
         const damage = getGodmodeValue(row, GODMODE_FIELD_ALIASES.damage);
-        const sold = hasGodmodeTruthyValue(getGodmodeValue(row, GODMODE_FIELD_ALIASES.soldSinceFire));
+        const centralSales = getCentralSalesByEpn(getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn));
+        const sold = Boolean(centralSales && centralSales.records.some((record) => record.soldSinceFire));
         const lotWeedingRequestKey = getGodmodeLotWeedingRequestKey(row, addressKey);
         const lotWeedingStatus = normalizeGodmodeLotWeedingStatus(getGodmodeValue(row, GODMODE_FIELD_ALIASES.lotWeedingStatus));
         const lotWeedingScheduledDate = formatLotWeedingScheduledDate(getGodmodeValue(row, GODMODE_FIELD_ALIASES.lotWeedingScheduledDate));
@@ -4342,7 +4354,8 @@
         const [res] = await Promise.all([
           fetch(`/api/admin/godmode-master?email=${encodeURIComponent(currentUserEmail)}`),
           loadGodmodeUserActivity(),
-          loadContactCheckinAdminData(force)
+          loadContactCheckinAdminData(force),
+          loadCentralSalesData()
         ]);
         const payload = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -8229,9 +8242,12 @@
       const unzoned = isGodmodeUnzonedValue(zone);
       const captain = getGodmodeCaptainDisplay(row);
       const coCaptains = getGodmodeCoCaptainList(row).join(', ');
+      const apn = getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn);
+      const centralSales = getCentralSalesByEpn(apn);
+      const latestSale = centralSales && centralSales.records.length ? centralSales.records[0] : null;
       const fields = [
         ['Resident ID', getGodmodeValue(row, GODMODE_FIELD_ALIASES.residentId)],
-        ['APN', getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn)],
+        ['APN', apn],
         ['Phone', getGodmodeValue(row, GODMODE_FIELD_ALIASES.phone)],
         ['Email', getGodmodeValue(row, GODMODE_FIELD_ALIASES.email)],
         ['Damage', getGodmodeValue(row, GODMODE_FIELD_ALIASES.damage)],
@@ -8239,8 +8255,11 @@
         ['Build Status', getGodmodeValue(row, GODMODE_FIELD_ALIASES.rebuild)],
         ['Last outreach', getGodmodeValue(row, GODMODE_FIELD_ALIASES.outreachDate)],
         ['Outreach log', getGodmodeValue(row, GODMODE_FIELD_ALIASES.outreachLog)],
-        ['Sold since fire', getGodmodeValue(row, GODMODE_FIELD_ALIASES.soldSinceFire)],
-        ['Sale date', getGodmodeValue(row, GODMODE_FIELD_ALIASES.saleDate)],
+        ['Sold since fire', latestSale && latestSale.soldSinceFire ? 'Yes' : ''],
+        ['Sale date', latestSale ? formatOverlayDate(latestSale.saleDate) : ''],
+        ['Sale price', latestSale ? formatCentralSalePrice(latestSale.salePrice) : ''],
+        ['Buyer / new owner', latestSale ? latestSale.buyer : ''],
+        ['Lot size', latestSale ? latestSale.lotSize : ''],
         ['Coverage', unzoned ? 'Unzoned coverage gap' : 'Covered by zone/captain'],
         ['Zone', unzoned ? 'Unzoned' : zone],
         ['Captain', captain],
@@ -9072,7 +9091,10 @@
         }
         updateHeaderTitle();
 
-        await loadCentralLotWeedingData();
+        await Promise.all([
+          loadCentralLotWeedingData(),
+          loadCentralSalesData()
+        ]);
         
         // If an address was selected, restore that view; otherwise show list
         if (selectedAddress && addressMap.has(selectedAddress)) {
@@ -9848,6 +9870,158 @@
       } finally {
         lotWeedingCentralState.loading = false;
       }
+    }
+
+    async function loadCentralSalesData() {
+      salesCentralState.loading = true;
+      salesCentralState.error = '';
+      salesCentralState.byEpn = new Map();
+
+      try {
+        const response = await fetch('/api/sales/records');
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.message || err.error || 'Failed to fetch central sales data');
+        }
+
+        const payload = await response.json();
+        salesCentralState.configured = Boolean(payload.configured);
+        (Array.isArray(payload.records) ? payload.records : []).forEach((record) => {
+          const epnDigits = normalizeApnDigits(record && record.epn);
+          if (!epnDigits) return;
+          if (!salesCentralState.byEpn.has(epnDigits)) {
+            salesCentralState.byEpn.set(epnDigits, {
+              epn: String(record.epn || '').trim(),
+              epnDigits,
+              address: String(record.address || '').trim(),
+              records: []
+            });
+          }
+          salesCentralState.byEpn.get(epnDigits).records.push({
+            saleDate: String(record.saleDate || '').trim(),
+            salePrice: String(record.salePrice || '').trim(),
+            buyer: String(record.buyer || '').trim(),
+            lotSize: String(record.lotSize || '').trim(),
+            history: String(record.history || '').trim(),
+            notes: String(record.notes || '').trim(),
+            soldSinceFire: Boolean(record.soldSinceFire),
+            rowNumber: Number(record.rowNumber) || 0
+          });
+        });
+        salesCentralState.byEpn.forEach((entry) => {
+          entry.records.sort((a, b) => {
+            const aTime = Date.parse(a.saleDate || '');
+            const bTime = Date.parse(b.saleDate || '');
+            const aValue = Number.isFinite(aTime) ? aTime : 0;
+            const bValue = Number.isFinite(bTime) ? bTime : 0;
+            return bValue - aValue || b.rowNumber - a.rowNumber;
+          });
+        });
+        salesCentralState.loaded = true;
+        salesCentralState.lastFetchedAt = payload.lastFetchedAt || new Date().toISOString();
+      } catch (error) {
+        console.warn('Central sales data unavailable.', error);
+        salesCentralState.loaded = false;
+        salesCentralState.configured = false;
+        salesCentralState.error = error && error.message ? error.message : 'Central sales data unavailable.';
+        salesCentralState.byEpn = new Map();
+      } finally {
+        salesCentralState.loading = false;
+      }
+    }
+
+    function getAddressEpnDigits(address) {
+      if (!sheetData || !sheetData.headers || !sheetData.addressMap) return new Set();
+      const epnCol = sheetData.headers.find((header) => {
+        const normalized = String(header || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        return ['epn', 'epnnumber', 'apn', 'ain', 'parcel', 'parcelnumber', 'parcelid'].includes(normalized);
+      });
+      if (!epnCol) return new Set();
+      const rows = sheetData.addressMap.get(address) || [];
+      return new Set(rows.map((row) => normalizeApnDigits(row[epnCol])).filter(Boolean));
+    }
+
+    function getCentralSalesByEpn(rawEpn) {
+      const epnDigits = normalizeApnDigits(rawEpn);
+      if (!epnDigits || !salesCentralState.loaded || !(salesCentralState.byEpn instanceof Map)) return null;
+      const exact = salesCentralState.byEpn.get(epnDigits);
+      if (exact) return exact;
+      const trimmed = epnDigits.replace(/^0+/, '');
+      if (!trimmed || trimmed === epnDigits) return null;
+      for (const [centralEpn, sales] of salesCentralState.byEpn.entries()) {
+        if (String(centralEpn || '').replace(/^0+/, '') === trimmed) return sales;
+      }
+      return null;
+    }
+
+    function getCentralSalesForAddress(address) {
+      if (!salesCentralState.loaded || !(salesCentralState.byEpn instanceof Map)) return [];
+      const matches = [];
+      getAddressEpnDigits(address).forEach((epnDigits) => {
+        const exact = getCentralSalesByEpn(epnDigits);
+        if (exact) matches.push(exact);
+      });
+      return matches;
+    }
+
+    function formatCentralSalePrice(value) {
+      const text = String(value || '').trim();
+      if (!text) return '';
+      const numeric = Number(text.replace(/[$,\s]/g, ''));
+      if (!Number.isFinite(numeric)) return text;
+      return numeric.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0
+      });
+    }
+
+    function renderCentralSalesSection(address) {
+      const matches = getCentralSalesForAddress(address);
+      const records = matches.flatMap((match) => match.records || []).sort((a, b) => {
+        const aTime = Date.parse(a.saleDate || '');
+        const bTime = Date.parse(b.saleDate || '');
+        const aValue = Number.isFinite(aTime) ? aTime : 0;
+        const bValue = Number.isFinite(bTime) ? bTime : 0;
+        return bValue - aValue || b.rowNumber - a.rowNumber;
+      });
+      if (!records.length) return '';
+
+      const latest = records[0];
+      const detailRows = [
+        ['Sale date', formatOverlayDate(latest.saleDate)],
+        ['Sale price', formatCentralSalePrice(latest.salePrice)],
+        ['Buyer / new owner', latest.buyer],
+        ['Lot size', latest.lotSize]
+      ].filter(([, value]) => String(value || '').trim());
+      const historyItems = records.map((record) => {
+        const parts = [
+          formatOverlayDate(record.saleDate),
+          formatCentralSalePrice(record.salePrice),
+          record.buyer ? `Buyer: ${record.buyer}` : '',
+          record.history,
+          record.notes
+        ].filter(Boolean);
+        return parts.length ? `<li>${parts.map(escapeHtml).join(' · ')}</li>` : '';
+      }).filter(Boolean);
+
+      return `
+        <section class="central-sales-section" aria-label="Property sale information">
+          <div class="central-sales-section__heading">
+            <div>
+              <h4>Sale Information</h4>
+              <p>Read-only records from Altagether’s central sales spreadsheet, matched by EPN.</p>
+            </div>
+            <span class="central-sales-section__badge">SOLD</span>
+          </div>
+          ${detailRows.length ? `
+            <dl class="central-sales-section__facts">
+              ${detailRows.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}
+            </dl>
+          ` : ''}
+          ${historyItems.length ? `<ul class="central-sales-section__history">${historyItems.join('')}</ul>` : ''}
+        </section>
+      `;
     }
 
     function buildCentralLotWeedingMap(headers, rows) {
@@ -11202,6 +11376,25 @@
       const normalized = typeof normalizeHeaderKey === 'function'
         ? normalizeHeaderKey(column)
         : lower.replace(/[^a-z0-9]/g, '');
+      const centralSalesColumns = new Set([
+        'addressforsale',
+        'addresssoldsincefire',
+        'recentlysold',
+        'solddate',
+        'saledate',
+        'saleprice',
+        'salenotes',
+        'newowner',
+        'latestnewowner',
+        'latestsaledate',
+        'latestsaleprice',
+        'lotsqft',
+        'lotsquarefeet',
+        'saleshistory'
+      ]);
+      if (centralSalesColumns.has(normalized) || lower.startsWith('sale') || lower.startsWith('sales')) {
+        return false;
+      }
       const alwaysInherited = new Set([
         'apn',
         'damage',
@@ -11210,18 +11403,10 @@
         'addressnotes',
         'addressunittype',
         'captainassigned',
-        'addressforsale',
-        'addresssoldsincefire',
-        'latestsaledate',
-        'latestsaleprice',
-        'latestnewowner',
-        'lotsqft',
-        'saleshistory'
       ]);
 
       if (alwaysInherited.has(normalized)) return true;
       if (lower.startsWith('address') || lower.startsWith('address -')) return true;
-      if (lower.startsWith('sale') || lower.startsWith('sales')) return true;
       if (lower.startsWith('lot') || normalized.startsWith('lotweeding')) return true;
       if (normalized.startsWith('situs')) return true;
       if (['apn', 'parcel', 'zone', 'zonename', 'city', 'state', 'zip', 'zipcode', 'postalcode'].includes(normalized)) return true;
@@ -11230,8 +11415,7 @@
       if (lower.includes('build status') || lower.includes('build stage') || lower.includes('rebuild status') || lower.includes('rebuild stage')) return true;
       if (lower.includes('captain') || lower.includes('household size')) return true;
       if (lower.includes('nc name') || lower.includes('nc phone') || lower.includes('nc email')) return true;
-      if (lower.includes('for sale') || lower.includes('sold since fire') || lower.includes('recently sold') || lower.includes('unit type')) return true;
-      if (lower.includes('new owner') || lower.includes('sale price') || lower.includes('lot sqft') || lower.includes('lot sq ft') || lower.includes('lot square feet')) return true;
+      if (lower.includes('unit type')) return true;
       return false;
     }
 
@@ -11239,7 +11423,7 @@
       const cols = new Set();
       if (explicitColumns) {
         explicitColumns.forEach((col) => {
-          if (col && !isAddRecordPersonOrSystemColumn(col)) cols.add(col);
+          if (col && isAddRecordAddressInheritedColumn(col)) cols.add(col);
         });
       }
       (headers || []).forEach((col) => {
@@ -12373,7 +12557,9 @@
       const hasLotWeedingRequestData = getLotWeedingRequests().length > 0 ||
         Boolean(findLotWeedingRequestColumns(headers).requestedCol) ||
         Boolean(findLotWeedingRequestColumns(headers).statusCol);
-      const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
+      const hasCentralSalesData = salesCentralState.configured &&
+        salesCentralState.loaded &&
+        salesCentralState.byEpn.size > 0;
 
       const streets = getUniqueStreets(addresses);
       const damages = getFullDamageOptions();
@@ -12465,7 +12651,7 @@
             <option value="" ${currentCaptainFilter === '' ? 'selected' : ''}>(not specified)</option>
             ${captainNames.map(name => `<option value="${escapeHtml(name).replace(/"/g, '&quot;')}" ${currentCaptainFilter === name ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}
           </select>` : ''}
-          ${(contactDateCol || soldSinceFireCol) ? `
+          ${(contactDateCol || hasCentralSalesData) ? `
           <div class="contact-filter-group filter-more-checkboxes">
             ${contactDateCol ? `
             <label class="contact-filter-checkbox" title="View only addresses where at least one outreach attempt has been logged.">
@@ -12477,7 +12663,7 @@
               <span>Show no-outreach-yet addresses</span>
             </label>
             ` : ''}
-            ${soldSinceFireCol ? `
+            ${hasCentralSalesData ? `
             <label class="contact-filter-checkbox" title="Label addresses marked as sold since January 2025 with a SOLD tag on the map.">
               <input type="checkbox" id="persistentShowSoldTagsCheckbox" ${showSoldSinceJan25Tags ? 'checked' : ''}>
               <span>Label sold since Jan '25</span>
@@ -13718,7 +13904,8 @@
         <ul class="address-list">
           ${filteredAddresses.map(addr => `
             <li class="address-item" data-address="${addr.replace(/"/g, '&quot;')}">
-              ${addr}
+              <span>${escapeHtml(addr)}</span>
+              ${getAddressSoldSinceFire(addr) ? '<span class="address-sale-badge">SOLD</span>' : ''}
             </li>
           `).join('')}
         </ul>
@@ -14413,6 +14600,7 @@
             <header class="details-section__header">
               <button type="button" class="details-section__title details-section__title-button" data-address-modal-trigger="${address.replace(/"/g, '&quot;')}" title="Open full address details">
                 ${escapeHtml(address)}
+                ${getAddressSoldSinceFire(address) ? '<span class="address-sale-badge">SOLD</span>' : ''}
               </button>
               <p class="details-section__subtitle">Address details</p>
               ${apnValueForHeader ? `<p class="details-section__apn"><abbr title="Assessor Parcel Number — the official LA County identifier for this property. Useful for looking up parcel records, permits, and ownership history." style="text-decoration: underline dotted; cursor: help;">APN</abbr>: ${escapeHtml(apnValueForHeader)}</p>` : ''}
@@ -14638,23 +14826,13 @@
           }
         });
 
-        // Address Tags: expandable section (open by default) - Unit Type, For Sale, Sold Since Fire
+        // Address Tags: only captain-maintained, non-sales fields remain here.
         const unitTypeCol = findColumn(headers, ['unit', 'type']);
-        const forSaleCol = findColumn(headers, ['for', 'sale']);
-        const recentlySoldCol = findColumn(headers, ['recently', 'sold']) || findColumn(headers, ['sold', 'since', 'fire']);
-        const hasAddressTagsCols = unitTypeCol || forSaleCol || recentlySoldCol;
+        const hasAddressTagsCols = unitTypeCol;
         if (hasAddressTagsCols) {
           const firstRow = rows[0] || {};
           const unitTypeVal = unitTypeCol ? (firstRow[unitTypeCol] || '').trim() : '';
-          const forSaleVal = forSaleCol ? (firstRow[forSaleCol] || '').trim() : '';
-          const recentlySoldVal = recentlySoldCol ? (firstRow[recentlySoldCol] || '').trim() : '';
           const unitTypeOptions = ['Owner Occupied', 'Rental', 'Owner Occupied Plus Rental', 'Commercial', 'Other'];
-          const forSaleLower = forSaleVal.toLowerCase();
-          const recentlySoldLower = recentlySoldVal.toLowerCase();
-          const forSaleChecked = forSaleLower === 'true' || forSaleVal === 'TRUE' || forSaleLower === 'yes' ||
-            (forSaleVal !== '' && forSaleLower !== 'false' && forSaleVal !== 'FALSE' && forSaleLower !== 'no');
-          const recentlySoldChecked = recentlySoldLower === 'true' || recentlySoldVal === 'TRUE' || recentlySoldLower === 'yes' ||
-            (recentlySoldVal !== '' && recentlySoldLower !== 'false' && recentlySoldVal !== 'FALSE' && recentlySoldLower !== 'no');
           html += '<div class="address-tags-section" style="margin-top:12px;">';
           html += '<div style="font-weight:700; font-family: Chivo, sans-serif; color: var(--text-secondary); margin-bottom:8px;">Address Tags</div>';
           html += '<div style="margin-top:0; padding-left:0;">';
@@ -14668,38 +14846,10 @@
                 }).join('')}
               </select></div>`;
           }
-          if (forSaleCol) {
-            html += `<div class="person-info"><label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-              <input type="checkbox" class="editable-checkbox" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${forSaleCol}" data-original-value="${forSaleVal.replace(/"/g, '&quot;')}" ${forSaleChecked ? 'checked' : ''} style="width:18px; height:18px;">
-              <strong>For Sale</strong></label></div>`;
-          }
-          if (recentlySoldCol) {
-            html += `<div class="person-info"><label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-              <input type="checkbox" class="editable-checkbox" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${recentlySoldCol}" data-original-value="${recentlySoldVal.replace(/"/g, '&quot;')}" ${recentlySoldChecked ? 'checked' : ''} style="width:18px; height:18px;">
-              <strong>Sold Since Fire</strong></label></div>`;
-          }
           html += '</div></div>';
         }
 
-        const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
-        const salesHistoryCol = headers.find(h => /sales?\s*history/i.test(h));
-        const soldSinceFireVal = soldSinceFireCol && rows[0] ? (rows[0][soldSinceFireCol] || '') : '';
-        const isSoldSinceFireAddress = soldSinceFireCol ? isTruthySheetCheckbox(soldSinceFireVal) : false;
-        const salesHistoryValue = salesHistoryCol && rows[0] ? String(rows[0][salesHistoryCol] || '').trim() : '';
-        if (isSoldSinceFireAddress && salesHistoryCol) {
-          if (isSignedIn()) {
-            html += `<div class="details-field">
-              <label class="details-field__label">Sales history</label>
-              <textarea class="editable-notes"
-                   data-address="${address.replace(/"/g, '&quot;')}"
-                   data-address-level="true"
-                   data-column="${salesHistoryCol}"
-                   data-original-value="${salesHistoryValue.replace(/"/g, '&quot;')}">${salesHistoryValue}</textarea>
-            </div>`;
-          } else {
-            html += `<div class="person-info" style="margin-top:12px;"><strong>Sales History:</strong> ${salesHistoryValue || '(not set)'}</div>`;
-          }
-        }
+        html += renderCentralSalesSection(address);
 
       }
 
@@ -16964,12 +17114,8 @@
     }
 
     function getAddressSoldSinceFire(address) {
-      if (!sheetData || !sheetData.headers || !sheetData.addressMap) return false;
-      const soldSinceFireCol = sheetData.headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
-      if (!soldSinceFireCol) return false;
-      const rows = sheetData.addressMap.get(address);
-      if (!rows || rows.length === 0) return false;
-      return rows.some(row => isSoldSinceFireValue(row[soldSinceFireCol]));
+      return getCentralSalesForAddress(address)
+        .some((match) => (match.records || []).some((record) => record.soldSinceFire));
     }
 
     function getOverlapArea(boxA, boxB) {
@@ -20188,8 +20334,13 @@
         const pane = zoneMap.getPane('lotLinesPane') || zoneMap.createPane('lotLinesPane');
         pane.style.zIndex = '360';
         pane.style.pointerEvents = 'none';
+        const lotLinesRenderer = L.canvas({
+          pane: 'lotLinesPane',
+          padding: 0.25
+        });
         lotLinesLayer = L.geoJSON([], {
           pane: 'lotLinesPane',
+          renderer: lotLinesRenderer,
           interactive: false,
           style: () => MainMapHelpers.getParcelLineStyle(zoneMap.getZoom())
         }).addTo(zoneMap);
@@ -20263,13 +20414,17 @@
       const button = document.getElementById('lotLinesLayerToggleBtn');
       if (button) {
         button.classList.toggle('active', lotLinesVisible);
-        button.title = lotLinesVisible ? 'Hide LA County lot lines' : 'Show LA County lot lines';
+        button.title = lotLinesVisible
+          ? 'Hide LA County lot lines (visible at zoom 16+)'
+          : 'Show LA County lot lines (visible at zoom 16+)';
         button.setAttribute('aria-pressed', lotLinesVisible ? 'true' : 'false');
       }
       const mobileButton = document.getElementById('mobileLayerLotLines');
       if (mobileButton) {
         mobileButton.classList.toggle('active', lotLinesVisible);
-        mobileButton.title = lotLinesVisible ? 'Hide LA County lot lines' : 'Show LA County lot lines';
+        mobileButton.title = lotLinesVisible
+          ? 'Hide LA County lot lines (visible at zoom 16+)'
+          : 'Show LA County lot lines (visible at zoom 16+)';
         mobileButton.setAttribute('aria-pressed', lotLinesVisible ? 'true' : 'false');
       }
     }
@@ -20462,7 +20617,7 @@
           const lotLinesBtn = L.DomUtil.create('button', 'map-layer-item-btn', panel);
           lotLinesBtn.id = 'lotLinesLayerToggleBtn';
           lotLinesBtn.type = 'button';
-          lotLinesBtn.textContent = 'LA County lot lines';
+          lotLinesBtn.textContent = 'LA County lot lines (zoom 16+)';
           lotLinesBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
 
           const datasetOverlayButtons = {};
@@ -20482,6 +20637,9 @@
           sceLinesBtn.href = '#';
           sceLinesBtn.innerHTML = SCE_LINES_OVERLAY_CONFIG.displayName;
           sceLinesBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
+
+          const referenceNote = L.DomUtil.create('p', 'map-reference-note', panel);
+          referenceNote.textContent = 'Mapped structures are reference outlines and may predate the Eaton Fire; they do not indicate current condition or residential use.';
 
           L.DomEvent.disableClickPropagation(container);
           L.DomEvent.on(expandBtn, 'click', L.DomEvent.stop);
@@ -22592,8 +22750,8 @@
                                   l.includes('outreach');
                          }) || null;
       const damageCol = findColumn(headers, 'damage');
-      const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
       const formerResidentCol = getFormerResidentColumn(headers);
+      const centralSalesAvailable = salesCentralState.configured && salesCentralState.loaded;
 
       let totalPeople = 0;
       let contactedCount = 0;
@@ -22601,13 +22759,6 @@
       let standingCount = 0;
       let damageNotSetCount = 0;
       let soldSinceFireCount = 0;
-
-      const isSoldSinceFire = (value) => {
-        const normalized = String(value || '').trim().toLowerCase();
-        if (!normalized || normalized === '—' || normalized === '-') return false;
-        if (['no', 'n', 'false', '0', 'none', 'not sold', 'unsold'].includes(normalized)) return false;
-        return true;
-      };
 
       addressMap.forEach((residents, address) => {
         const activeResidents = getActiveResidentRows(residents, formerResidentCol);
@@ -22635,12 +22786,7 @@
           }
         }
 
-        if (soldSinceFireCol && residents.length > 0) {
-          const soldValue = residents[0][soldSinceFireCol];
-          if (isSoldSinceFire(soldValue)) {
-            soldSinceFireCount++;
-          }
-        }
+        if (centralSalesAvailable && getAddressSoldSinceFire(address)) soldSinceFireCount++;
       });
 
       // Format outreach coverage as "X of Y (Z%)"
@@ -22657,7 +22803,7 @@
       document.getElementById('statTotalLoss').textContent      = damageCol ? totalLossCount : '—';
       document.getElementById('statStanding').textContent       = damageCol ? standingCount : '—';
       document.getElementById('statDamageNotSet').textContent   = damageCol ? damageNotSetCount : '—';
-      document.getElementById('statSoldSinceFire').textContent  = soldSinceFireCol ? soldSinceFireCount : '—';
+      document.getElementById('statSoldSinceFire').textContent  = centralSalesAvailable ? soldSinceFireCount : '—';
 
       container.classList.remove('hidden');
     }

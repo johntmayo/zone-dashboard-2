@@ -6,6 +6,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
   PARCEL_ENDPOINT,
+  PARCEL_MIN_ZOOM,
+  DEFAULT_BATCH_SIZE,
+  DEFAULT_MAX_REQUEST_URL_LENGTH,
+  DEFAULT_CACHE_SIZE,
   applyCartoKey,
   createBasemapFailureMonitor,
   canApplyBasemapFallback,
@@ -13,6 +17,7 @@ const {
   buildParcelFeatureQueryUrl,
   dedupeObjectIds,
   batchObjectIds,
+  batchObjectIdsForGet,
   shouldLoadParcels,
   getParcelLineStyle,
   runWithConcurrency,
@@ -33,7 +38,7 @@ function feature(id) {
 
 const validRequest = {
   bounds: { west: -118.16, south: 34.18, east: -118.14, north: 34.20 },
-  zoom: 17,
+  zoom: 16,
   visible: true,
   mapVisible: true
 };
@@ -129,9 +134,20 @@ test('deduplicates and batches valid object IDs', () => {
   assert.deepEqual(batches.flat(), ids);
 });
 
+test('GET batches of realistic IDs stay within the ArcGIS URL bound', () => {
+  const ids = Array.from({ length: 6800 }, (_, index) => 7000000 + index);
+  const batches = batchObjectIdsForGet(ids);
+  assert.ok(batches.length > 1);
+  assert.ok(batches.every((batch) => batch.length <= DEFAULT_BATCH_SIZE));
+  assert.ok(batches.every((batch) =>
+    buildParcelFeatureQueryUrl(batch).length < DEFAULT_MAX_REQUEST_URL_LENGTH));
+  assert.deepEqual(batches.flat(), ids);
+});
+
 test('gates parcel loading by zoom and visibility', () => {
-  assert.equal(shouldLoadParcels({ zoom: 16, visible: true, mapVisible: true }), false);
-  assert.equal(shouldLoadParcels({ zoom: 17, visible: true, mapVisible: true }), true);
+  assert.equal(PARCEL_MIN_ZOOM, 16);
+  assert.equal(shouldLoadParcels({ zoom: 15, visible: true, mapVisible: true }), false);
+  assert.equal(shouldLoadParcels({ zoom: 16, visible: true, mapVisible: true }), true);
   assert.equal(shouldLoadParcels({ zoom: 18, visible: false, mapVisible: true }), false);
   assert.equal(shouldLoadParcels({ zoom: 18, visible: true, mapVisible: false }), false);
 });
@@ -147,7 +163,7 @@ test('loader gating performs zero fetches and publishes an empty collection', as
   });
   const result = await loader.load({
     ...validRequest,
-    zoom: 16,
+    zoom: 15,
     onFeatures: (collection) => { published = collection; }
   });
   assert.equal(result.skipped, true);
@@ -170,15 +186,23 @@ test('concurrency runner never exceeds its limit and preserves result order', as
 });
 
 test('parcel style is solid, subtle, and has no fill', () => {
-  for (const zoom of [17, 18, 19, 20]) {
+  for (const zoom of [16, 17, 18, 19, 20]) {
     const style = getParcelLineStyle(zoom);
     assert.equal(style.color, '#766F65');
     assert.equal(style.fill, false);
     assert.equal(style.fillOpacity, 0);
     assert.equal(Object.hasOwn(style, 'dashArray'), false);
-    assert.ok(style.opacity >= 0.18 && style.opacity <= 0.30);
-    assert.ok(style.weight >= 0.4 && style.weight <= 0.75);
+    assert.ok(style.opacity >= 0.14 && style.opacity <= 0.28);
+    assert.ok(style.weight >= 0.35 && style.weight <= 0.70);
   }
+  assert.deepEqual(
+    { opacity: getParcelLineStyle(16).opacity, weight: getParcelLineStyle(16).weight },
+    { opacity: 0.14, weight: 0.35 }
+  );
+  assert.deepEqual(
+    { opacity: getParcelLineStyle(20).opacity, weight: getParcelLineStyle(20).weight },
+    { opacity: 0.28, weight: 0.70 }
+  );
 });
 
 test('a stale generation cannot publish features', async () => {
@@ -294,6 +318,56 @@ test('current viewport retains all features when the reuse cache evicts entries'
   assert.equal(loader.getCacheSize(), 3000);
 });
 
+test('large z16 viewport renders completely and fits the default reuse cache', async () => {
+  const ids = Array.from({ length: 6800 }, (_, index) => 7000000 + index);
+  const featureUrls = [];
+  const loader = createParcelViewportLoader({
+    fetchFn: async (url) => {
+      const parsed = new URL(url);
+      if (parsed.searchParams.get('returnIdsOnly') === 'true') {
+        return response({ objectIds: ids });
+      }
+      featureUrls.push(url);
+      return response({
+        type: 'FeatureCollection',
+        features: parsed.searchParams.get('objectIds').split(',').map(Number).map(feature)
+      });
+    }
+  });
+  const result = await loader.load(validRequest);
+  assert.equal(result.features.length, 6800);
+  assert.deepEqual(result.features.map((item) => item.properties.OBJECTID), ids);
+  assert.equal(loader.getCacheSize(), 6800);
+  assert.ok(DEFAULT_CACHE_SIZE >= 6800);
+  assert.ok(featureUrls.every((url) => url.length < DEFAULT_MAX_REQUEST_URL_LENGTH));
+});
+
+test('parcel loader caps configured geometry concurrency at three', async () => {
+  let active = 0;
+  let peak = 0;
+  const loader = createParcelViewportLoader({
+    batchSize: 1,
+    batchConcurrency: 9,
+    fetchFn: async (url) => {
+      const parsed = new URL(url);
+      if (parsed.searchParams.get('returnIdsOnly') === 'true') {
+        return response({ objectIds: [1, 2, 3, 4, 5, 6] });
+      }
+      active += 1;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 2));
+      active -= 1;
+      return response({
+        type: 'FeatureCollection',
+        features: [feature(Number(parsed.searchParams.get('objectIds')))]
+      });
+    }
+  });
+  const result = await loader.load(validRequest);
+  assert.equal(result.features.length, 6);
+  assert.equal(peak, 3);
+});
+
 test('a deferred stale feature response cannot publish or enter reuse cache', async () => {
   let idRequestCount = 0;
   let objectOneFetchCount = 0;
@@ -403,7 +477,7 @@ test('malformed bounds and ArcGIS errors are isolated', async () => {
   assert.match(malformedJson.failures[0].message, /invalid JSON/);
 });
 
-test('empty ID results publish an empty collection without feature fetches', async () => {
+test('z16 fetches IDs and empty results publish without feature requests', async () => {
   let fetchCount = 0;
   let published;
   const loader = createParcelViewportLoader({
@@ -429,7 +503,35 @@ test('local MapLibre style preserves required civic-map invariants', () => {
     'https://tiles.basemaps.cartocdn.com/vector/carto.streets/v1/tiles.json');
   assert.match(style.sources.carto.attribution, /OpenStreetMap contributors/);
   assert.match(style.sources.carto.attribution, /CARTO/);
-  assert.equal(style.layers.some((layer) => layer['source-layer'] === 'building'), false);
+
+  const buildingLayers = style.layers.filter((layer) => layer['source-layer'] === 'building');
+  assert.deepEqual(buildingLayers.map((layer) => layer.id), [
+    'building-reference-fill',
+    'building-reference-outline'
+  ]);
+  assert.ok(buildingLayers.every((layer) => layer.source === 'carto'));
+  assert.ok(buildingLayers.every((layer) => layer.minzoom === 17));
+
+  const buildingFill = buildingLayers[0];
+  assert.equal(buildingFill.type, 'fill');
+  assert.equal(buildingFill.paint['fill-color'], '#E7DED1');
+  assert.equal(buildingFill.paint['fill-opacity'], 0.4);
+  assert.equal(Object.hasOwn(buildingFill.paint, 'fill-extrusion-height'), false);
+  assert.equal(Object.hasOwn(buildingFill.paint, 'fill-translate'), false);
+
+  const buildingOutline = buildingLayers[1];
+  assert.equal(buildingOutline.type, 'line');
+  assert.equal(buildingOutline.paint['line-color'], '#B8AEA0');
+  assert.equal(buildingOutline.paint['line-opacity'], 0.5);
+  assert.equal(buildingOutline.paint['line-width'], 0.6);
+  assert.equal(Object.hasOwn(buildingOutline.paint, 'line-dasharray'), false);
+  assert.doesNotMatch(JSON.stringify(buildingLayers),
+    /damage|status|burned|destroyed|affected|residential/i);
+
+  const buildingOutlineIndex = style.layers.indexOf(buildingOutline);
+  assert.ok(buildingOutlineIndex < style.layers.findIndex((layer) => layer.id === 'waterway_label'));
+  assert.ok(buildingOutlineIndex < style.layers.findIndex((layer) => layer.id === 'road_service_case'));
+  assert.ok(buildingOutlineIndex < style.layers.findIndex((layer) => layer.id === 'housenumber'));
 
   const background = style.layers.find((layer) => layer.id === 'background');
   assert.equal(background.paint['background-color'], '#F8F3E9');
@@ -437,9 +539,9 @@ test('local MapLibre style preserves required civic-map invariants', () => {
   assert.ok(house);
   assert.equal(house.layout['text-field'], '{housenumber}');
   // The Leaflet bridge evaluates MapLibre at Leaflet zoom - 1.
-  assert.equal(house.minzoom, 16);
+  assert.equal(house.minzoom, 17);
   assert.equal(house.maxzoom, 24);
-  assert.deepEqual(house.layout['text-size'].stops, [[16, 9], [19, 11], [23, 12]]);
+  assert.deepEqual(house.layout['text-size'].stops, [[17, 9], [19, 11], [23, 12]]);
   assert.equal(house.layout['text-allow-overlap'], false);
   assert.equal(house.layout['text-ignore-placement'], false);
   assert.equal(house.layout['symbol-avoid-edges'], true);
@@ -465,8 +567,19 @@ test('service-worker cache ownership and lot-line controls stay aligned', () => 
   assert.doesNotMatch(html, /shell-zd-shell-v4/);
   assert.doesNotMatch(html, /key !== 'shell-zd-shell-/);
   assert.match(html, /create\('button', 'map-layer-item-btn', panel\)/);
-  assert.match(html, /mobileLayerLotLines" aria-pressed="true"/);
+  assert.match(html, /mobileLayerLotLines" aria-pressed="true">LA County lot lines \(zoom 16\+\)/);
+  assert.match(html, /const lotLinesRenderer = L\.canvas\(\{/);
+  assert.match(html, /renderer: lotLinesRenderer/);
   assert.match(html, /function syncLotLinesAttribution\(\)/);
   assert.match(html, /removeAttribution\(LA_COUNTY_PARCEL_ATTRIBUTION\)/);
   assert.match(html, /lotLinesVisible = !!visible;\s+syncLotLinesAttribution\(\);/);
+
+  const referenceWording =
+    'Mapped structures are reference outlines and may predate the Eaton Fire; ' +
+    'they do not indicate current condition or residential use.';
+  const normalizedHtml = html.replace(/\s+/g, ' ');
+  assert.equal(normalizedHtml.split(referenceWording).length - 1, 2);
+  assert.match(html, /<p class="map-reference-note">[\s\S]*Mapped structures are reference outlines/);
+  assert.match(html,
+    /L\.DomUtil\.create\('p', 'map-reference-note', panel\)[\s\S]*Mapped structures are reference outlines/);
 });
