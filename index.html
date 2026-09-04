@@ -178,10 +178,9 @@
           <button class="mobile-map-layer-row" id="mobileLayerCensus">Census Tracts</button>
           <button class="mobile-map-layer-row" id="mobileLayerFire">Eaton Fire Perimeter</button>
           <button class="mobile-map-layer-row" id="mobileLayerWaterDistricts">Altadena Water Districts</button>
-          <button class="mobile-map-layer-row active" id="mobileLayerLotLines" aria-pressed="true">LA County lot lines (zoom 16+)</button>
           <button class="mobile-map-layer-row" id="mobileLayerSceLines">SCE Undergrounding Projects</button>
           <p class="map-reference-note">
-            Mapped structures are reference outlines and may predate the Eaton Fire; they do not indicate current condition or residential use.
+            Structure shapes update periodically and may be inaccurate.
           </p>
         </div>
 
@@ -1580,8 +1579,6 @@
     let isSatelliteMode = false; // Track satellite mode state
     let zoneBasemapGeneration = 0; // Prevent late street failures from replacing Satellite
     let lotLinesLayer = null; // Viewport-scoped LA County parcel outlines (main map only)
-    let lotLinesVisible = true;
-    let lotLinesAttributionVisible = false;
     let lotLinesRefreshTimer = null;
     let lotLinesRefreshHandler = null;
     let lotLinesLoader = null;
@@ -17933,6 +17930,7 @@
           // Default center (Altadena, CA - adjust as needed)
           zoneMap = L.map('zoneMap', { attributionControl: true, maxZoom: 24 }).setView([34.19, -118.15], 16);
           zoneMap.attributionControl.setPrefix(false);
+          zoneMap.attributionControl.addAttribution(LA_COUNTY_PARCEL_ATTRIBUTION);
           ensureSoldTagPane();
           
           isSatelliteMode = false;
@@ -20346,7 +20344,7 @@
       const request = {
         bounds: zoneMap.getBounds(),
         zoom: zoneMap.getZoom(),
-        visible: lotLinesVisible,
+        visible: true,
         mapVisible: currentView === 'map' && !!mapElement && mapElement.offsetParent !== null
       };
       if (!MainMapHelpers.shouldLoadParcels(request)) {
@@ -20357,7 +20355,7 @@
       lotLinesLayer.setStyle(MainMapHelpers.getParcelLineStyle(zoneMap.getZoom()));
       lotLinesLoader.load(Object.assign(request, {
         onFeatures: (collection) => {
-          if (!zoneMap || !lotLinesVisible || currentView !== 'map' ||
+          if (!zoneMap || currentView !== 'map' ||
               zoneMap.getZoom() < MainMapHelpers.PARCEL_MIN_ZOOM) return;
           lotLinesLayer.clearLayers();
           lotLinesLayer.addData(collection);
@@ -20373,49 +20371,6 @@
       if (lotLinesRefreshTimer) clearTimeout(lotLinesRefreshTimer);
       const wait = delay === undefined ? 250 : Math.max(0, Number(delay) || 0);
       lotLinesRefreshTimer = setTimeout(refreshLotLines, wait);
-    }
-
-    function syncLotLinesAttribution() {
-      if (!zoneMap || !zoneMap.attributionControl) return;
-      if (lotLinesVisible && !lotLinesAttributionVisible) {
-        zoneMap.attributionControl.addAttribution(LA_COUNTY_PARCEL_ATTRIBUTION);
-        lotLinesAttributionVisible = true;
-      } else if (!lotLinesVisible && lotLinesAttributionVisible) {
-        zoneMap.attributionControl.removeAttribution(LA_COUNTY_PARCEL_ATTRIBUTION);
-        lotLinesAttributionVisible = false;
-      }
-    }
-
-    function setLotLinesVisible(visible) {
-      lotLinesVisible = !!visible;
-      syncLotLinesAttribution();
-      ensureLotLinesLayer();
-      if (!lotLinesVisible) {
-        if (lotLinesLoader) lotLinesLoader.abort();
-        if (lotLinesLayer) lotLinesLayer.clearLayers();
-      } else {
-        scheduleLotLinesRefresh(0);
-      }
-      updateLotLinesToggleButton();
-    }
-
-    function updateLotLinesToggleButton() {
-      const button = document.getElementById('lotLinesLayerToggleBtn');
-      if (button) {
-        button.classList.toggle('active', lotLinesVisible);
-        button.title = lotLinesVisible
-          ? 'Hide LA County lot lines (visible at zoom 16+)'
-          : 'Show LA County lot lines (visible at zoom 16+)';
-        button.setAttribute('aria-pressed', lotLinesVisible ? 'true' : 'false');
-      }
-      const mobileButton = document.getElementById('mobileLayerLotLines');
-      if (mobileButton) {
-        mobileButton.classList.toggle('active', lotLinesVisible);
-        mobileButton.title = lotLinesVisible
-          ? 'Hide LA County lot lines (visible at zoom 16+)'
-          : 'Show LA County lot lines (visible at zoom 16+)';
-        mobileButton.setAttribute('aria-pressed', lotLinesVisible ? 'true' : 'false');
-      }
     }
 
     /**
@@ -20603,12 +20558,6 @@
           zonesBtn.innerHTML = MAPBOX_ADDITIONAL_LAYER_CONFIG.displayName;
           zonesBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
 
-          const lotLinesBtn = L.DomUtil.create('button', 'map-layer-item-btn', panel);
-          lotLinesBtn.id = 'lotLinesLayerToggleBtn';
-          lotLinesBtn.type = 'button';
-          lotLinesBtn.textContent = 'LA County lot lines (zoom 16+)';
-          lotLinesBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
-
           const datasetOverlayButtons = {};
           MAPBOX_DATASET_OVERLAY_ORDER.forEach((overlayKey) => {
             const overlayConfig = MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey];
@@ -20628,7 +20577,7 @@
           sceLinesBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
 
           const referenceNote = L.DomUtil.create('p', 'map-reference-note', panel);
-          referenceNote.textContent = 'Mapped structures are reference outlines and may predate the Eaton Fire; they do not indicate current condition or residential use.';
+          referenceNote.textContent = 'Structure shapes update periodically and may be inaccurate.';
 
           L.DomEvent.disableClickPropagation(container);
           L.DomEvent.on(expandBtn, 'click', L.DomEvent.stop);
@@ -20653,11 +20602,6 @@
             await setAdditionalMapboxLayerVisible(!additionalMapboxLayerVisible);
           });
 
-          L.DomEvent.on(lotLinesBtn, 'click', L.DomEvent.stop);
-          L.DomEvent.on(lotLinesBtn, 'click', () => {
-            setLotLinesVisible(!lotLinesVisible);
-          });
-
           L.DomEvent.on(sceLinesBtn, 'click', L.DomEvent.stop);
           L.DomEvent.on(sceLinesBtn, 'click', async () => {
             await setSceLinesVisible(!sceLinesVisible);
@@ -20673,7 +20617,6 @@
           updateMapLayersExpandButton();
           updateSatelliteLayerToggleButton();
           updateAdditionalMapboxLayerToggleButton();
-          updateLotLinesToggleButton();
           MAPBOX_DATASET_OVERLAY_ORDER.forEach((overlayKey) => {
             updateDatasetOverlayToggleButton(overlayKey, !!datasetOverlayVisibility[overlayKey]);
           });
@@ -20689,7 +20632,7 @@
       if (MAPBOX_ADDITIONAL_LAYER_CONFIG.defaultVisible && isAdditionalMapboxLayerEnabled()) {
         setAdditionalMapboxLayerVisible(true);
       }
-      setLotLinesVisible(lotLinesVisible);
+      scheduleLotLinesRefresh(0);
       setSceLinesVisible(!!SCE_LINES_OVERLAY_CONFIG.defaultVisible);
     }
 
@@ -26727,8 +26670,6 @@
       isSatellite: function() { return isSatelliteMode; },
       toggleLayer: setAdditionalMapboxLayerVisible,
       isLayerVisible: function() { return additionalMapboxLayerVisible; },
-      toggleLotLines: setLotLinesVisible,
-      areLotLinesVisible: function() { return !!lotLinesVisible; },
       toggleSceLinesLayer: setSceLinesVisible,
       isSceLinesVisible: function() { return !!sceLinesVisible; },
       toggleDatasetLayer: setDatasetOverlayVisible,
@@ -27025,8 +26966,6 @@
         // Altagether Zones overlay (additionalMapbox layer)
         var zonesBtn = document.getElementById('mobileLayerZones');
         if (zonesBtn) zonesBtn.classList.toggle('active', window._mapControls.isLayerVisible());
-        var lotLinesBtn = document.getElementById('mobileLayerLotLines');
-        if (lotLinesBtn) lotLinesBtn.classList.toggle('active', window._mapControls.areLotLinesVisible());
         var sceLinesBtn = document.getElementById('mobileLayerSceLines');
         if (sceLinesBtn) sceLinesBtn.classList.toggle('active', window._mapControls.isSceLinesVisible());
         // Dataset overlays
@@ -27099,17 +27038,6 @@
         layerZonesBtn.addEventListener('click', function() {
           if (window._mapControls) {
             window._mapControls.toggleLayer(!window._mapControls.isLayerVisible());
-          }
-          syncMapSheetState();
-        });
-      }
-
-      // Overlay: LA County parcel boundaries
-      var layerLotLinesBtn = document.getElementById('mobileLayerLotLines');
-      if (layerLotLinesBtn) {
-        layerLotLinesBtn.addEventListener('click', function() {
-          if (window._mapControls) {
-            window._mapControls.toggleLotLines(!window._mapControls.areLotLinesVisible());
           }
           syncMapSheetState();
         });

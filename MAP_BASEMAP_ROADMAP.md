@@ -22,8 +22,8 @@ is used when configured; currently available unkeyed vector access avoids
 blocking startup. MapLibre/WebGL/style startup failures fall back to Esri
 streets. Satellite remains Esri imagery hybrid.
 
-The main map also has viewport-loaded LA County assessor lot lines at Leaflet
-z16+.
+The main map also has automatic, non-toggleable viewport-loaded LA County
+assessor lot lines at Leaflet z17+.
 
 ---
 
@@ -32,8 +32,8 @@ z16+.
 **Post-fire Altadena.** About half the structures burned. Commercial basemaps
 (CARTO, Mapbox Streets, Esri Streets, Google) may draw **pre-fire building
 footprints**. The main map therefore presents OSM-derived mapped structures only
-as restrained historical/reference context, with visible wording that they do
-not indicate current condition or residential use.
+as restrained historical/reference context. The exact visible Layers wording is:
+**Structure shapes update periodically and may be inaccurate.**
 
 **House numbers are contextual, not authoritative.** They are visible but
 quiet and collision-aware from Leaflet z18+. The MapLibre style uses minzoom 17
@@ -96,15 +96,18 @@ layer and mapped structures clearly secondary.
 
 ### Phase 2 — Lot lines (done)
 
-- LA County assessor parcels are a **toggle overlay**, default on.
-- Render/fetch only at Leaflet z16+ with solid, subtle, no-fill lines that ramp
-  from opacity/weight `0.14/0.35` at z16 to `0.28/0.70` at z20.
+- LA County assessor parcels are automatic operational context and cannot be
+  disabled from desktop, mobile, or the public map-controls bridge.
+- Render/fetch only at Leaflet z17+ with solid, subtle, no-fill lines that ramp
+  from opacity/weight `0.175/0.4375` at z17 to `0.28/0.70` at z20.
 - Use ID-first viewport queries, URL-bounded batches (150 IDs and less than
   1,800 encoded characters), at most three concurrent geometry requests,
   abort/stale protection, and a 7,500-feature reuse cache.
-- Measured z16 views contain about 1,700–6,800 parcels. A dedicated Leaflet
-  canvas renderer draws every current-viewport parcel; no feature cap silently
-  removes lines from ordinary 1200px-wide views. Do not persist a countywide copy.
+- A dedicated Leaflet canvas renderer draws every current-viewport parcel; no
+  feature cap silently removes lines from dense views. Do not persist a
+  countywide copy.
+- County attribution is registered when the main map initializes and remains
+  registered even below z17 when no parcel geometry is drawn.
 - APN labels and parcel interactions are intentionally absent by default.
 
 This is the operational geometry that matches how the work is done; structure
