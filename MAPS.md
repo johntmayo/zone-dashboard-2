@@ -7,7 +7,7 @@ This document explains all map-related behavior in the app: where maps live, how
 ## Map stack and dependencies
 
 - Rendering engine: **Leaflet** (`leaflet.css` + `leaflet.js` loaded from CDN).
-- Main-map street renderer: **MapLibre GL JS 5.6.2** through
+- Branded street renderer: **MapLibre GL JS 5.6.2** through
   **@maplibre/maplibre-gl-leaflet 0.1.4**. Both CDN URLs are version-pinned.
   Leaflet remains the controller for all markers, overlays, popups, and controls.
 - Vector tile overlays: **Leaflet.VectorGrid** (`Leaflet.VectorGrid.bundled.js`).
@@ -21,7 +21,7 @@ This document explains all map-related behavior in the app: where maps live, how
 
 ## Map contexts in the app
 
-The app has three distinct map contexts:
+The app has four primary map contexts:
 
 1. **Main Map View (`zoneMap`)**
    - Full map shown when navigating to the `Map` view.
@@ -36,6 +36,11 @@ The app has three distinct map contexts:
 3. **Batch Tagging Map (Tools view)**
    - Temporary map used when clicking “Draw on map” in Batch Tagging.
    - Supports custom polygon drawing and in-polygon address selection.
+
+4. **Lot Weeding Command Center (`lotWeedingAdminState.map`)**
+   - Recreated as the Command Center filters and tabs render.
+   - Uses branded streets with Esri fallback, lot-status markers, drawing tools,
+     and the optional Altagether Zones overlay.
 
 ## View integration and lifecycle
 
@@ -52,15 +57,15 @@ The app has three distinct map contexts:
 
 ## Base maps
 
-All map contexts have Street and Satellite modes, but only the main map uses the new vector street style:
+The three explicitly approved maps share one guarded branded-street factory:
 
-- **Main-map Street (`zoneMap`)**: the local, versioned
+- **Main, Home, and Lot Weeding Street**: the local, versioned
   `public/map-styles/altagether-voyager-v1.json?v=2`, derived from CARTO Voyager and
   rendered by MapLibre under Leaflet. It keeps CARTO vector source, glyph, and
   sprite URLs; OSM-derived mapped structures appear as restrained historical
   reference outlines from Leaflet z18+; commercial POI clutter is reduced; and
   house numbers are collision-aware and subordinate from Leaflet z18+.
-  The desktop and mobile Layers UI state the intended semantics exactly:
+  The main map desktop and mobile Layers UI state the intended semantics exactly:
   **Structure shapes update periodically and may be inaccurate.**
   The local house-number layer starts at style zoom 17 because the Leaflet
   bridge evaluates MapLibre at `Leaflet zoom - 1`; its size stops are shifted
@@ -68,13 +73,18 @@ All map contexts have Street and Satellite modes, but only the main map uses the
   The runtime `cartoBasemapKey` is appended to the CARTO TileJSON request when
   `/api/mapbox-token` provides one. Current unkeyed vector access is allowed to
   start so map initialization never waits for a key.
-- **Home and batch Street**: unchanged Esri World Street Map fallback chain.
-- **Satellite**: Esri World Imagery hybrid (imagery + place names + roads)
+- **Batch Tagging and incidental-map Street**: unchanged Esri World Street Map
+  chain; these maps do not load the branded style.
+- **Satellite**: Esri World Imagery hybrid (imagery + place names + roads) on
+  the existing Main and Home toggles. Lot Weeding has no added satellite mode.
 
-If MapLibre, WebGL, the local style, or style startup fails, `zoneMap`
-automatically falls back to the existing Esri street chain. Street/Satellite
-switches destroy and reconstruct the MapLibre layer, and generation checks
-prevent a late street failure from replacing Satellite.
+If MapLibre, WebGL, the local style, or style startup fails, each approved map
+automatically falls back to the existing Esri street chain. The shared factory
+guards map identity, layer identity, mode, and generation; waits for hidden map
+containers; resizes after reveal; monitors post-load error bursts and WebGL
+context loss; and releases listeners/WebGL resources on removal. These guards
+prevent late Home failures from replacing Satellite and prevent destroyed Lot
+Weeding maps from being mutated.
 
 The warm civic/editorial style uses paper `#F8F3E9`, navy labels `#314059`,
 quiet numbers `#6F6A61`, pale gold major roads, cream-gold secondary roads,
@@ -89,6 +99,7 @@ large glyph archive.
 - Main map: in the custom Layers control (`setBaseMapMode('street'|'satellite')`).
 - Home map: custom top-left toggle in `initializeHomeMap()`.
 - Batch tagging map: custom top-left toggle in `initializeBatchTagging()`.
+- Lot Weeding: no satellite toggle.
 
 ## Address marker layers
 
@@ -120,6 +131,11 @@ Zone boundary is loaded with a **Mapbox-first, KML-fallback** strategy:
    - Fetches KML directly, then via proxy fallbacks if needed.
    - Converts KML -> GeoJSON with `toGeoJSON.kml(...)`.
    - Renders with `L.geoJSON(...)`.
+
+The Main, Home, and Lot Weeding zone polygons use the same restrained navy
+`#314059` outline and warm `#D6C58F` wash family, with lighter sizing on Home.
+Lot Weeding draw/lasso geometry, selection colors, and marker status colors are
+unchanged.
 
 ### Boundary data key dependencies
 

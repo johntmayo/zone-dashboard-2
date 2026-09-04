@@ -1,7 +1,7 @@
 # Map Basemap Roadmap
 
 **Created:** August 27, 2026  
-**Status:** Approved main-map phases implemented September 2026.
+**Status:** Approved branded-map phases implemented September 2026.
 **Companion docs:** `MAPS.md` (how maps work today), `ZONE_DASHBOARD_STYLE_GUIDE.md` (brand)
 
 This records the implemented architecture and remaining non-goals. Esri is
@@ -11,16 +11,22 @@ still the automatic street fallback and the Satellite provider.
 
 ## 1) Current implementation
 
-The main `zoneMap` uses a local CARTO Voyager-derived vector style rendered
-with MapLibre GL through the MapLibre-GL-Leaflet bridge. Leaflet remains the
-controller. Homepage and batch maps retain the existing Esri streets.
+The main `zoneMap`, Home `homeMap`, and Lot Weeding Command Center map use one
+local CARTO Voyager-derived vector style rendered with MapLibre GL through the
+MapLibre-GL-Leaflet bridge. Leaflet remains the controller. Batch Tagging and
+other incidental maps retain the existing Esri streets.
 
 The style is warm and editorial, reduces POIs, shows restrained OSM-derived
 building outlines as historical/reference context at Leaflet z18+, and keeps
 collision-aware house numbers subordinate at Leaflet z18+. A runtime CARTO key
 is used when configured; currently available unkeyed vector access avoids
 blocking startup. MapLibre/WebGL/style startup failures fall back to Esri
-streets. Satellite remains Esri imagery hybrid.
+streets. Satellite remains Esri imagery hybrid where an existing toggle is
+present (Main and Home); no Lot Weeding satellite mode was added.
+
+The three approved maps use one lifecycle-safe factory with style/key reuse,
+visibility-aware startup, resize hooks, generation/map/layer guards, startup
+timeout and post-load failure handling, and clean MapLibre/WebGL teardown.
 
 The main map also has automatic, non-toggleable viewport-loaded LA County
 assessor lot lines at Leaflet z17+.
@@ -141,5 +147,6 @@ outlines remain reference context rather than parcel or condition data.
 2. Periodically verify CARTO source/glyph/sprite URLs and LA County service
    metadata/terms.
 3. Recheck Esri aerial recency over Altadena.
-4. Keep changes scoped to `zoneMap` unless a separate homepage/batch-map
-   upgrade is approved.
+4. Keep branded-map changes scoped to `zoneMap`, `homeMap`, and the Lot Weeding
+   Command Center. Batch Tagging, Add Record, Move Pin, and other incidental
+   maps remain outside the approved scope.

@@ -602,7 +602,7 @@ test('local MapLibre style preserves required civic-map invariants', () => {
   assert.equal(byId('waterway').paint['line-color'], '#B8CCCC');
 });
 
-test('warmer map branding preserves SOLD semantics and main-map scope', () => {
+test('warmer map branding preserves SOLD semantics and approved-map boundaries', () => {
   const root = path.join(__dirname, '..');
   const css = fs.readFileSync(path.join(root, 'public', 'css', 'styles.css'), 'utf8');
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
@@ -619,14 +619,67 @@ test('warmer map branding preserves SOLD semantics and main-map scope', () => {
 
   assert.match(html, /const MAPBOX_ADDITIONAL_LAYER_CONFIG = \{[\s\S]*?style: \{\s*color: '#314059',\s*weight: 2,\s*opacity: 0\.78,\s*fillColor: '#D6C58F',\s*fillOpacity: 0\.11\s*\},\s*hoverStyle: \{\s*color: '#314059',\s*weight: 3,\s*opacity: 0\.9,\s*fillColor: '#D6C58F',\s*fillOpacity: 0\.18\s*\}/);
   assert.match(html, /const ZONE_BOUNDARY_STYLE = \{\s*color: '#314059',\s*weight: 2\.5,\s*opacity: 0\.75,\s*fillColor: '#D6C58F',\s*fillOpacity: 0\.11\s*\}/);
-  assert.match(html, /const HOME_BOUNDARY_STYLE = \{\s*color: '#214025',\s*weight: 2,\s*opacity: 0\.8,\s*fillColor: '#214025',\s*fillOpacity: 0\.1\s*\}/);
-  assert.match(html, /const LOT_WEEDING_ZONE_STYLE = \{\s*color: '#4B7D5D',\s*weight: 2,\s*opacity: 0\.85,\s*fillColor: '#A9CFA0',\s*fillOpacity: 0\.16\s*\}/);
+  assert.match(html, /const HOME_BOUNDARY_STYLE = \{\s*color: '#314059',\s*weight: 1\.75,\s*opacity: 0\.75,\s*fillColor: '#D6C58F',\s*fillOpacity: 0\.1\s*\}/);
+  assert.match(html, /const LOT_WEEDING_ZONE_STYLE = \{\s*color: '#314059',\s*weight: 2,\s*opacity: 0\.78,\s*fillColor: '#D6C58F',\s*fillOpacity: 0\.11\s*\}/);
   assert.match(html, /const baseStyle = LOT_WEEDING_ZONE_STYLE;/);
 
   const fallback = html.match(/async function loadKMLBoundary\(kmlUrl\) \{([\s\S]*?)\n    \}/);
   assert.ok(fallback);
   assert.match(fallback[1], /L\.geoJSON\(geojson, \{\s*style: ZONE_BOUNDARY_STYLE\s*\}\)/);
   assert.doesNotMatch(fallback[1], /color:\s*'#214025'|fillColor:\s*'#214025'/);
+});
+
+test('shared branded basemap is lifecycle-safe and limited to approved maps', () => {
+  const root = path.join(__dirname, '..');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'public', 'css', 'styles.css'), 'utf8');
+  const styleUrl = 'public/map-styles/altagether-voyager-v1.json?v=2';
+
+  assert.equal(html.split(`'${styleUrl}'`).length - 1, 1);
+  assert.match(html, /maplibre-gl@5\.6\.2\/dist\/maplibre-gl\.js/);
+  assert.match(html, /@maplibre\/maplibre-gl-leaflet@0\.1\.4\/leaflet-maplibre-gl\.js/);
+  assert.match(html, /function createBrandedStreetBasemap\(options\)/);
+  assert.match(html, /fetch\(ZONE_STREET_STYLE_URL, \{ cache: 'no-store' \}\)/);
+  assert.match(html, /MainMapHelpers\.applyCartoKey\(style, cartoBasemapKey\)/);
+  assert.match(html, /fallbackLayer = createStreetBasemap\(\{ maxZoom \}\)/);
+  assert.match(html, /while \(isActive\(\) && targetMap\.getContainer\(\)\.offsetParent === null\)/);
+  assert.match(html, /generation !== options\.getCurrentGeneration\(\)/);
+  assert.match(html, /options\.getCurrentLayer\(\) !== group/);
+  assert.match(html, /threshold: 3,\s*windowMs: 5000/);
+  assert.match(html, /MapLibre style startup timed out/);
+  assert.match(html, /webglcontextlost/);
+  assert.match(html, /group\.disposeBrandedBasemap/);
+  assert.match(html, /group\.on\('remove', group\.disposeBrandedBasemap\)/);
+
+  const home = html.match(/function initializeHomeMap\(\) \{([\s\S]*?)\/\/ Update homepage map markers/);
+  assert.ok(home);
+  assert.match(home[1], /attributionControl: true/);
+  assert.match(home[1], /createHomeStreetBasemap\(homeBasemapGeneration\)/);
+  assert.match(home[1], /setHomeBaseMapMode\(isHomeSatelliteMode \? 'street' : 'satellite'\)/);
+  assert.match(home[1], /homeMap\.invalidateSize\(\);\s*resizeHomeMapLibre\(\);/);
+  assert.doesNotMatch(home[1], /ensureLotLinesLayer|scheduleLotLinesRefresh/);
+
+  assert.match(html, /function setHomeBaseMapMode\(mode, force\) \{[\s\S]*?homeBasemapGeneration \+= 1;[\s\S]*?isHomeSatelliteMode = wantSatellite;[\s\S]*?createEsriSatelliteHybridBasemap/);
+  assert.match(html, /isStreetMode: \(\) => !isHomeSatelliteMode/);
+  assert.match(html, /if \(homeMap && !isHomeSatelliteMode\) setHomeBaseMapMode\('street', true\)/);
+
+  const lotMap = html.match(/function initializeLotWeedingAdminMap\(requests\) \{([\s\S]*?)function applyLotWeedingAdminMarkerStyle/);
+  assert.ok(lotMap);
+  assert.match(lotMap[1], /attributionControl: true/);
+  assert.match(lotMap[1], /createBrandedStreetBasemap\(\{/);
+  assert.match(lotMap[1], /isCurrentMap: \(\) => lotWeedingAdminState\.map === map/);
+  assert.match(lotMap[1], /lotWeedingAdminState\.basemap\?\.resizeMapLibre\?\.\(\)/);
+  assert.doesNotMatch(lotMap[1], /createEsriSatelliteHybridBasemap/);
+  assert.match(html, /function destroyLotWeedingAdminMap\(\) \{[\s\S]*?basemapGeneration \+= 1;[\s\S]*?lotWeedingAdminState\.map = null;[\s\S]*?disposeBrandedBasemap\(\);[\s\S]*?map\.remove\(\)/);
+
+  assert.match(html, /addRecordMinimap = L\.map[\s\S]*?createStreetBasemap\(\{ maxZoom: 19 \}\)\.addTo\(addRecordMinimap\)/);
+  assert.match(html, /mpMap = L\.map\('movePinMap'[\s\S]*?createStreetBasemap\(\{ maxZoom: 20 \}\)\.addTo\(mpMap\)/);
+  assert.match(html, /function initializeBatchTagging\(\) \{[\s\S]*?batchTaggingTileLayer = createStreetBasemap\(\{ maxZoom: 22 \}\)/);
+  assert.doesNotMatch(html, /createBrandedStreetBasemap\(\{\s*targetMap: (?:addRecordMinimap|mpMap|mapContainer)/);
+
+  assert.match(css, /#zoneMap \.leaflet-control-attribution,\s*#homeMap \.leaflet-control-attribution,\s*#lotWeedingAdminMap \.leaflet-control-attribution\s*\{[\s\S]*?display: block !important/);
+  assert.match(css, /#zoneMap \.leaflet-gl-layer,[\s\S]*?#homeMap \.leaflet-gl-layer,[\s\S]*?#lotWeedingAdminMap \.leaflet-gl-layer,[\s\S]*?pointer-events: none/);
+  assert.match(css, /\.leaflet-control-attribution \{\s*display: none !important;/);
 });
 
 test('service-worker ownership and automatic lot-line integration stay aligned', () => {
