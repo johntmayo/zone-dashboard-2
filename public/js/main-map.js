@@ -10,7 +10,7 @@
 
   var PARCEL_ENDPOINT =
     'https://public.gis.lacounty.gov/public/rest/services/LACounty_Cache/LACounty_Parcel/MapServer/0';
-  var PARCEL_MIN_ZOOM = 16;
+  var PARCEL_MIN_ZOOM = 17;
   var DEFAULT_BATCH_SIZE = 150;
   var DEFAULT_MAX_REQUEST_URL_LENGTH = 1800;
   var DEFAULT_CACHE_SIZE = 7500;
@@ -197,11 +197,11 @@
 
   function getParcelLineStyle(zoom) {
     var z = Math.max(PARCEL_MIN_ZOOM, Math.min(20, Number(zoom) || PARCEL_MIN_ZOOM));
-    var progress = (z - PARCEL_MIN_ZOOM) / 4;
+    var progress = (z - PARCEL_MIN_ZOOM) / 3;
     return {
       color: '#766F65',
-      opacity: 0.14 + (0.14 * progress),
-      weight: 0.35 + (0.35 * progress),
+      opacity: z === 20 ? 0.28 : 0.175 + (0.105 * progress),
+      weight: z === 20 ? 0.70 : 0.4375 + (0.2625 * progress),
       fill: false,
       fillOpacity: 0,
       lineCap: 'round',

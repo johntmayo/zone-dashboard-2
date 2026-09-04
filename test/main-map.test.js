@@ -38,7 +38,7 @@ function feature(id) {
 
 const validRequest = {
   bounds: { west: -118.16, south: 34.18, east: -118.14, north: 34.20 },
-  zoom: 16,
+  zoom: 17,
   visible: true,
   mapVisible: true
 };
@@ -145,9 +145,9 @@ test('GET batches of realistic IDs stay within the ArcGIS URL bound', () => {
 });
 
 test('gates parcel loading by zoom and visibility', () => {
-  assert.equal(PARCEL_MIN_ZOOM, 16);
-  assert.equal(shouldLoadParcels({ zoom: 15, visible: true, mapVisible: true }), false);
-  assert.equal(shouldLoadParcels({ zoom: 16, visible: true, mapVisible: true }), true);
+  assert.equal(PARCEL_MIN_ZOOM, 17);
+  assert.equal(shouldLoadParcels({ zoom: 16, visible: true, mapVisible: true }), false);
+  assert.equal(shouldLoadParcels({ zoom: 17, visible: true, mapVisible: true }), true);
   assert.equal(shouldLoadParcels({ zoom: 18, visible: false, mapVisible: true }), false);
   assert.equal(shouldLoadParcels({ zoom: 18, visible: true, mapVisible: false }), false);
 });
@@ -163,7 +163,7 @@ test('loader gating performs zero fetches and publishes an empty collection', as
   });
   const result = await loader.load({
     ...validRequest,
-    zoom: 15,
+    zoom: 16,
     onFeatures: (collection) => { published = collection; }
   });
   assert.equal(result.skipped, true);
@@ -186,18 +186,18 @@ test('concurrency runner never exceeds its limit and preserves result order', as
 });
 
 test('parcel style is solid, subtle, and has no fill', () => {
-  for (const zoom of [16, 17, 18, 19, 20]) {
+  for (const zoom of [17, 18, 19, 20]) {
     const style = getParcelLineStyle(zoom);
     assert.equal(style.color, '#766F65');
     assert.equal(style.fill, false);
     assert.equal(style.fillOpacity, 0);
     assert.equal(Object.hasOwn(style, 'dashArray'), false);
-    assert.ok(style.opacity >= 0.14 && style.opacity <= 0.28);
-    assert.ok(style.weight >= 0.35 && style.weight <= 0.70);
+    assert.ok(style.opacity >= 0.175 && style.opacity <= 0.28);
+    assert.ok(style.weight >= 0.4375 && style.weight <= 0.70);
   }
   assert.deepEqual(
-    { opacity: getParcelLineStyle(16).opacity, weight: getParcelLineStyle(16).weight },
-    { opacity: 0.14, weight: 0.35 }
+    { opacity: getParcelLineStyle(17).opacity, weight: getParcelLineStyle(17).weight },
+    { opacity: 0.175, weight: 0.4375 }
   );
   assert.deepEqual(
     { opacity: getParcelLineStyle(20).opacity, weight: getParcelLineStyle(20).weight },
@@ -318,7 +318,7 @@ test('current viewport retains all features when the reuse cache evicts entries'
   assert.equal(loader.getCacheSize(), 3000);
 });
 
-test('large z16 viewport renders completely and fits the default reuse cache', async () => {
+test('large z17 viewport renders completely and fits the default reuse cache', async () => {
   const ids = Array.from({ length: 6800 }, (_, index) => 7000000 + index);
   const featureUrls = [];
   const loader = createParcelViewportLoader({
@@ -477,7 +477,7 @@ test('malformed bounds and ArcGIS errors are isolated', async () => {
   assert.match(malformedJson.failures[0].message, /invalid JSON/);
 });
 
-test('z16 fetches IDs and empty results publish without feature requests', async () => {
+test('z17 fetches IDs and empty results publish without feature requests', async () => {
   let fetchCount = 0;
   let published;
   const loader = createParcelViewportLoader({
@@ -559,27 +559,32 @@ test('local MapLibre style preserves required civic-map invariants', () => {
   assert.equal(roadAndWaterPaint.some((paint) => paint.includes('#347072')), false);
 });
 
-test('service-worker cache ownership and lot-line controls stay aligned', () => {
+test('service-worker ownership and automatic lot-line integration stay aligned', () => {
   const root = path.join(__dirname, '..');
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const worker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
   assert.match(worker, /const SW_VERSION = 'zd-shell-v5'/);
   assert.doesNotMatch(html, /shell-zd-shell-v4/);
   assert.doesNotMatch(html, /key !== 'shell-zd-shell-/);
-  assert.match(html, /create\('button', 'map-layer-item-btn', panel\)/);
-  assert.match(html, /mobileLayerLotLines" aria-pressed="true">LA County lot lines \(zoom 16\+\)/);
+
+  assert.doesNotMatch(html, /mobileLayerLotLines/);
+  assert.doesNotMatch(html, /lotLinesLayerToggleBtn/);
+  assert.doesNotMatch(html, /LA County lot lines \(zoom \d+\+\)/);
+  assert.doesNotMatch(html, /setLotLinesVisible|updateLotLinesToggleButton|syncLotLinesAttribution/);
+  assert.doesNotMatch(html, /toggleLotLines|areLotLinesVisible/);
+  assert.doesNotMatch(html, /lotLinesVisible|lotLinesAttributionVisible/);
+
   assert.match(html, /const lotLinesRenderer = L\.canvas\(\{/);
   assert.match(html, /renderer: lotLinesRenderer/);
-  assert.match(html, /function syncLotLinesAttribution\(\)/);
-  assert.match(html, /removeAttribution\(LA_COUNTY_PARCEL_ATTRIBUTION\)/);
-  assert.match(html, /lotLinesVisible = !!visible;\s+syncLotLinesAttribution\(\);/);
+  assert.match(html, /const request = \{[\s\S]*?visible: true,[\s\S]*?mapVisible:/);
+  assert.match(html,
+    /zoneMap = L\.map\('zoneMap'[\s\S]*?addAttribution\(LA_COUNTY_PARCEL_ATTRIBUTION\)/);
+  assert.doesNotMatch(html, /removeAttribution\(LA_COUNTY_PARCEL_ATTRIBUTION\)/);
 
-  const referenceWording =
-    'Mapped structures are reference outlines and may predate the Eaton Fire; ' +
-    'they do not indicate current condition or residential use.';
+  const referenceWording = 'Structure shapes update periodically and may be inaccurate.';
   const normalizedHtml = html.replace(/\s+/g, ' ');
   assert.equal(normalizedHtml.split(referenceWording).length - 1, 2);
-  assert.match(html, /<p class="map-reference-note">[\s\S]*Mapped structures are reference outlines/);
+  assert.match(html, /<p class="map-reference-note">[\s\S]*Structure shapes update periodically/);
   assert.match(html,
-    /L\.DomUtil\.create\('p', 'map-reference-note', panel\)[\s\S]*Mapped structures are reference outlines/);
+    /L\.DomUtil\.create\('p', 'map-reference-note', panel\)[\s\S]*Structure shapes update periodically/);
 });
