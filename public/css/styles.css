@@ -9693,6 +9693,14 @@
       box-shadow: none;
     }
 
+    .map-layers-control .map-layer-item-btn:focus-visible {
+      position: relative;
+      z-index: 1;
+      outline: 3px solid #d5a63f;
+      outline-offset: -3px;
+      box-shadow: inset 0 0 0 1px #314059;
+    }
+
     .map-layer-group-label {
       padding: 8px 10px 4px;
       font-family: 'Chivo', sans-serif;
@@ -9817,9 +9825,31 @@
       display: none;
     }
 
-    /* Hide Leaflet’s default attribution strip (OSM/Carto/Esri/etc.). Add credits elsewhere per your layout and provider terms. */
+    /* Other compact/embedded maps keep their existing layout; required provider
+       credits are restored specifically on the full main map. */
     .leaflet-control-attribution {
       display: none !important;
+    }
+
+    #zoneMap .leaflet-control-attribution {
+      display: block !important;
+      max-width: min(72vw, 620px);
+      padding: 2px 5px;
+      background: rgba(255, 253, 248, 0.88);
+      color: #4b5563;
+      font-family: 'Chivo', sans-serif;
+      font-size: 9px;
+      line-height: 1.25;
+      white-space: normal;
+    }
+
+    #zoneMap .leaflet-control-attribution a {
+      color: #314059;
+    }
+
+    #zoneMap .leaflet-gl-layer,
+    #zoneMap .leaflet-gl-layer canvas {
+      pointer-events: none;
     }
 
     .overlay-floating-card-wrapper,
