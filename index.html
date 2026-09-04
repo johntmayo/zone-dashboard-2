@@ -27,6 +27,9 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css" />
+  <script src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js"></script>
   <script src="https://unpkg.com/leaflet.vectorgrid@1.3.0/dist/Leaflet.VectorGrid.bundled.js"></script>
   <script src="https://unpkg.com/@mapbox/togeojson@0.16.0/togeojson.js"></script>
   <script src="https://unpkg.com/leaflet-kml@1.0.0/dist/leaflet-kml.js"></script>
@@ -36,6 +39,7 @@
   <script src="public/js/utils.js"></script>
   <script src="public/js/address-id.js"></script>
   <script src="public/js/contact-checkin.js"></script>
+  <script src="public/js/main-map.js"></script>
   <!-- Google Analytics 4 (loads only when GA_MEASUREMENT_ID is set) -->
   <script>
     window.trackAnalyticsEvent = function(eventName, params) {
@@ -174,6 +178,7 @@
           <button class="mobile-map-layer-row" id="mobileLayerCensus">Census Tracts</button>
           <button class="mobile-map-layer-row" id="mobileLayerFire">Eaton Fire Perimeter</button>
           <button class="mobile-map-layer-row" id="mobileLayerWaterDistricts">Altadena Water Districts</button>
+          <button class="mobile-map-layer-row active" id="mobileLayerLotLines" aria-pressed="true">LA County lot lines</button>
           <button class="mobile-map-layer-row" id="mobileLayerSceLines">SCE Undergrounding Projects</button>
         </div>
 
@@ -1562,6 +1567,13 @@
     let currentTileLayer = null; // Current map tile layer
     let homeTileLayer = null; // Tile layer for homepage
     let isSatelliteMode = false; // Track satellite mode state
+    let zoneBasemapGeneration = 0; // Prevent late street failures from replacing Satellite
+    let lotLinesLayer = null; // Viewport-scoped LA County parcel outlines (main map only)
+    let lotLinesVisible = true;
+    let lotLinesAttributionVisible = false;
+    let lotLinesRefreshTimer = null;
+    let lotLinesRefreshHandler = null;
+    let lotLinesLoader = null;
     let currentColorMode = null; // Current color mode: 'contact', 'damage', 'status', 'rebuild', or null
     // Load saved color mode from localStorage
     const savedColorMode = localStorage.getItem('currentColorMode');
@@ -1661,8 +1673,8 @@
       datasetId: 'cm64fisju135z1qqmifs0zty5',  // Dataset ID containing zone polygons (ZoneName, Status, ContactEmail, etc.)
       accessToken: '' // Set from environment/runtime; keep blank in source to avoid secret scanning blocks
     };
-    // Optional CARTO raster basemap key (from /api/mapbox-token). Without it, Carto tiles
-    // render an "API KEY REQUIRED" watermark; we fall back to Mapbox streets instead.
+    // Optional CARTO vector basemap key from /api/mapbox-token. The public vector
+    // endpoint currently permits unkeyed startup; Esri remains the automatic fallback.
     let cartoBasemapKey = '';
     function isMapboxEnabled() {
       return !!(MAPBOX_CONFIG.accessToken && MAPBOX_CONFIG.username && MAPBOX_CONFIG.datasetId);
@@ -1872,7 +1884,10 @@
         const payload = await response.json();
         const token = (payload?.token || '').trim();
         const nextCartoKey = (payload?.cartoKey || '').trim();
-        if (nextCartoKey) cartoBasemapKey = nextCartoKey;
+        if (nextCartoKey) {
+          cartoBasemapKey = nextCartoKey;
+          if (zoneMap && !isSatelliteMode) setBaseMapMode('street', true);
+        }
         if (!token) return;
         MAPBOX_CONFIG.accessToken = token;
 
@@ -11873,6 +11888,8 @@
         requestAnimationFrame(() => {
           if (zoneMap && currentView === 'map') {
             zoneMap.invalidateSize({ pan: false });
+            resizeZoneMapLibre();
+            scheduleLotLinesRefresh(0);
           }
         });
       });
@@ -16166,6 +16183,9 @@
         setTimeout(() => {
           if (zoneMap) {
             resyncMapLayoutAfterFilterBar({ immediate: true, followUpMs: 100 });
+            zoneMap.invalidateSize({ pan: false });
+            resizeZoneMapLibre();
+            scheduleLotLinesRefresh(0);
             // Ensure control still exists after invalidation
             ensureColorFilterControl();
             // Update markers after map is properly sized
@@ -16195,6 +16215,8 @@
         }
         // Stop watchdog when leaving map view
         stopColorFilterWatchdog();
+        if (lotLinesLoader) lotLinesLoader.abort();
+        if (lotLinesLayer) lotLinesLayer.clearLayers();
       }
       if (shouldShowFilters) {
         // Refresh the shared filters/actions when entering Map or Neighbors. The bar
@@ -17774,10 +17796,19 @@
       if (!zoneMap) {
         try {
           // Default center (Altadena, CA - adjust as needed)
-          zoneMap = L.map('zoneMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 16);
+          zoneMap = L.map('zoneMap', { attributionControl: true, maxZoom: 24 }).setView([34.19, -118.15], 16);
+          zoneMap.attributionControl.setPrefix(false);
           ensureSoldTagPane();
           
-          currentTileLayer = createStreetBasemap({ maxZoom: 22 }).addTo(zoneMap);
+          isSatelliteMode = false;
+          zoneBasemapGeneration += 1;
+          currentTileLayer = createZoneStreetBasemap(zoneBasemapGeneration).addTo(zoneMap);
+          ensureLotLinesLayer();
+          if (!lotLinesRefreshHandler) {
+            lotLinesRefreshHandler = () => scheduleLotLinesRefresh(250);
+            zoneMap.on('zoomend', lotLinesRefreshHandler);
+            zoneMap.on('moveend', lotLinesRefreshHandler);
+          }
           
           // Add expandable Layers control (Satellite + Zones toggle)
           ensureAdditionalMapboxLayerControl();
@@ -20042,10 +20073,210 @@
       toggleBtn.title = expanded ? 'Collapse layers' : 'Expand layers';
     }
 
+    const ZONE_STREET_STYLE_URL = 'public/map-styles/altagether-voyager-v1.json';
+    const CARTO_ATTRIBUTION =
+      '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors ' +
+      '&copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>';
+    const LA_COUNTY_PARCEL_ATTRIBUTION =
+      'Los Angeles County Office of the Assessor; informational, not survey-grade.';
+
+    function resizeZoneMapLibre() {
+      if (!currentTileLayer || typeof currentTileLayer.resizeMapLibre !== 'function') return;
+      currentTileLayer.resizeMapLibre();
+    }
+
+    function createZoneStreetBasemap(generation) {
+      const group = L.layerGroup();
+      let glLayer = null;
+      let fallbackLayer = null;
+      let startupTimer = null;
+
+      const useEsriFallback = (reason) => {
+        if (startupTimer) clearTimeout(startupTimer);
+        if (!zoneMap || !window.MainMapHelpers ||
+            !MainMapHelpers.canApplyBasemapFallback({
+              generation,
+              currentGeneration: zoneBasemapGeneration,
+              isSatellite: isSatelliteMode,
+              layerActive: zoneMap.hasLayer(group),
+              fallbackActive: !!fallbackLayer
+            })) return;
+        if (reason) console.warn('CARTO vector street basemap unavailable; using Esri streets.', reason);
+        if (glLayer && group.hasLayer(glLayer)) {
+          try {
+            group.removeLayer(glLayer);
+          } catch (removeError) {
+            console.warn('Could not fully tear down failed MapLibre layer.', removeError);
+          }
+        }
+        glLayer = null;
+        fallbackLayer = createStreetBasemap({ maxZoom: 24 });
+        group.addLayer(fallbackLayer);
+      };
+
+      group.resizeMapLibre = () => {
+        if (!glLayer || typeof glLayer.getMaplibreMap !== 'function') return;
+        const map = glLayer.getMaplibreMap();
+        if (map && typeof map.resize === 'function') map.resize();
+      };
+
+      Promise.resolve().then(async () => {
+        while (zoneMap && generation === zoneBasemapGeneration && !isSatelliteMode &&
+               zoneMap.hasLayer(group) && zoneMap.getContainer().offsetParent === null) {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+        }
+        if (!zoneMap || generation !== zoneBasemapGeneration || isSatelliteMode ||
+            !zoneMap.hasLayer(group)) return;
+        if (!window.maplibregl || typeof L.maplibreGL !== 'function' ||
+            !window.MainMapHelpers) {
+          throw new Error('MapLibre GL, its Leaflet bridge, or map helpers did not load');
+        }
+        const response = await fetch(ZONE_STREET_STYLE_URL, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Style request failed (${response.status})`);
+        const style = await response.json();
+        MainMapHelpers.applyCartoKey(style, cartoBasemapKey);
+        if (!zoneMap || generation !== zoneBasemapGeneration || isSatelliteMode ||
+            !zoneMap.hasLayer(group)) return;
+
+        glLayer = L.maplibreGL({
+          style,
+          interactive: false,
+          attributionControl: { customAttribution: CARTO_ATTRIBUTION }
+        });
+        group.addLayer(glLayer);
+        const glMap = glLayer.getMaplibreMap();
+        if (!glMap) throw new Error('MapLibre did not create a map');
+
+        let loaded = false;
+        const failureMonitor = MainMapHelpers.createBasemapFailureMonitor({
+          threshold: 3,
+          windowMs: 5000,
+          onFallback: useEsriFallback
+        });
+        const onMapError = (event) => {
+          const error = event?.error || new Error('MapLibre rendering error');
+          if (!loaded) {
+            useEsriFallback(error);
+          } else {
+            failureMonitor.recordError(error);
+          }
+        };
+        glMap.on('error', onMapError);
+        const canvas = glMap.getCanvas();
+        if (canvas) {
+          canvas.addEventListener('webglcontextlost', (event) => {
+            event.preventDefault();
+            failureMonitor.recordContextLoss(new Error('MapLibre WebGL context lost'));
+          });
+        }
+        glMap.once('load', () => {
+          loaded = true;
+          if (startupTimer) clearTimeout(startupTimer);
+          resizeZoneMapLibre();
+        });
+        startupTimer = setTimeout(() => {
+          if (!loaded) useEsriFallback(new Error('MapLibre style startup timed out'));
+        }, 12000);
+      }).catch(useEsriFallback);
+
+      return group;
+    }
+
+    function ensureLotLinesLayer() {
+      if (!zoneMap || !window.MainMapHelpers) return;
+      if (!lotLinesLayer) {
+        const pane = zoneMap.getPane('lotLinesPane') || zoneMap.createPane('lotLinesPane');
+        pane.style.zIndex = '360';
+        pane.style.pointerEvents = 'none';
+        lotLinesLayer = L.geoJSON([], {
+          pane: 'lotLinesPane',
+          interactive: false,
+          style: () => MainMapHelpers.getParcelLineStyle(zoneMap.getZoom())
+        }).addTo(zoneMap);
+      }
+      if (!lotLinesLoader) {
+        lotLinesLoader = MainMapHelpers.createParcelViewportLoader();
+      }
+    }
+
+    function refreshLotLines() {
+      if (!zoneMap || !window.MainMapHelpers) return;
+      ensureLotLinesLayer();
+      const mapElement = zoneMap.getContainer();
+      const request = {
+        bounds: zoneMap.getBounds(),
+        zoom: zoneMap.getZoom(),
+        visible: lotLinesVisible,
+        mapVisible: currentView === 'map' && !!mapElement && mapElement.offsetParent !== null
+      };
+      if (!MainMapHelpers.shouldLoadParcels(request)) {
+        if (lotLinesLoader) lotLinesLoader.abort();
+        if (lotLinesLayer) lotLinesLayer.clearLayers();
+        return;
+      }
+      lotLinesLayer.setStyle(MainMapHelpers.getParcelLineStyle(zoneMap.getZoom()));
+      lotLinesLoader.load(Object.assign(request, {
+        onFeatures: (collection) => {
+          if (!zoneMap || !lotLinesVisible || currentView !== 'map' ||
+              zoneMap.getZoom() < MainMapHelpers.PARCEL_MIN_ZOOM) return;
+          lotLinesLayer.clearLayers();
+          lotLinesLayer.addData(collection);
+          lotLinesLayer.setStyle(MainMapHelpers.getParcelLineStyle(zoneMap.getZoom()));
+        },
+        onFailure: (errors) => {
+          console.warn('LA County lot lines could not be fully loaded.', errors[0]);
+        }
+      }));
+    }
+
+    function scheduleLotLinesRefresh(delay) {
+      if (lotLinesRefreshTimer) clearTimeout(lotLinesRefreshTimer);
+      const wait = delay === undefined ? 250 : Math.max(0, Number(delay) || 0);
+      lotLinesRefreshTimer = setTimeout(refreshLotLines, wait);
+    }
+
+    function syncLotLinesAttribution() {
+      if (!zoneMap || !zoneMap.attributionControl) return;
+      if (lotLinesVisible && !lotLinesAttributionVisible) {
+        zoneMap.attributionControl.addAttribution(LA_COUNTY_PARCEL_ATTRIBUTION);
+        lotLinesAttributionVisible = true;
+      } else if (!lotLinesVisible && lotLinesAttributionVisible) {
+        zoneMap.attributionControl.removeAttribution(LA_COUNTY_PARCEL_ATTRIBUTION);
+        lotLinesAttributionVisible = false;
+      }
+    }
+
+    function setLotLinesVisible(visible) {
+      lotLinesVisible = !!visible;
+      syncLotLinesAttribution();
+      ensureLotLinesLayer();
+      if (!lotLinesVisible) {
+        if (lotLinesLoader) lotLinesLoader.abort();
+        if (lotLinesLayer) lotLinesLayer.clearLayers();
+      } else {
+        scheduleLotLinesRefresh(0);
+      }
+      updateLotLinesToggleButton();
+    }
+
+    function updateLotLinesToggleButton() {
+      const button = document.getElementById('lotLinesLayerToggleBtn');
+      if (button) {
+        button.classList.toggle('active', lotLinesVisible);
+        button.title = lotLinesVisible ? 'Hide LA County lot lines' : 'Show LA County lot lines';
+        button.setAttribute('aria-pressed', lotLinesVisible ? 'true' : 'false');
+      }
+      const mobileButton = document.getElementById('mobileLayerLotLines');
+      if (mobileButton) {
+        mobileButton.classList.toggle('active', lotLinesVisible);
+        mobileButton.title = lotLinesVisible ? 'Hide LA County lot lines' : 'Show LA County lot lines';
+        mobileButton.setAttribute('aria-pressed', lotLinesVisible ? 'true' : 'false');
+      }
+    }
+
     /**
      * Street basemap that does not depend on CARTO or Mapbox raster tiles.
-     * Satellite already uses Esri successfully; street view uses the same host.
-     * If a provider fails, swap to the next source without dropping markers.
+     * Used by non-main maps and as the main map's automatic fallback.
      */
     function createStreetBasemap(options) {
       const maxZoom = (options && options.maxZoom) || 22;
@@ -20101,46 +20332,50 @@
     }
 
     /** Esri World Imagery + reference layers (same idea as ArcGIS “Imagery Hybrid”: aerials plus roads and place names). */
-    function createEsriSatelliteHybridBasemap() {
-      const maxZ = 22;
+    function createEsriSatelliteHybridBasemap(options) {
+      const maxZ = (options && options.maxZoom) || 22;
+      const tileOptions = { maxZoom: maxZ };
+      if (maxZ > 22) tileOptions.maxNativeZoom = 22;
       const attribution =
         'Tiles © <a href="https://www.esri.com/" rel="noopener noreferrer" target="_blank">Esri</a> — ' +
         'Imagery: Esri, Maxar, Earthstar Geographics, and the GIS User Community. ' +
         'Reference (labels & roads): Esri, HERE, Garmin, USGS, METI/NASA, EPA, USDA, USFWS, © OpenStreetMap contributors, and the GIS User Community.';
       const imagery = L.tileLayer(
         'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        { attribution, maxZoom: maxZ }
+        Object.assign({ attribution }, tileOptions)
       );
       const boundaries = L.tileLayer(
         'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-        { maxZoom: maxZ }
+        tileOptions
       );
       const transport = L.tileLayer(
         'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',
-        { maxZoom: maxZ }
+        tileOptions
       );
       return L.layerGroup([imagery, boundaries, transport]);
     }
 
-    function setBaseMapMode(mode) {
+    function setBaseMapMode(mode, force) {
       if (!zoneMap) return;
       const wantSatellite = mode === 'satellite';
-      if ((wantSatellite && isSatelliteMode) || (!wantSatellite && !isSatelliteMode)) {
+      if (!force && ((wantSatellite && isSatelliteMode) || (!wantSatellite && !isSatelliteMode))) {
         updateSatelliteLayerToggleButton();
         return;
       }
+      zoneBasemapGeneration += 1;
       if (currentTileLayer) {
         zoneMap.removeLayer(currentTileLayer);
       }
       if (!wantSatellite) {
-        currentTileLayer = createStreetBasemap({ maxZoom: 22 }).addTo(zoneMap);
         isSatelliteMode = false;
+        currentTileLayer = createZoneStreetBasemap(zoneBasemapGeneration).addTo(zoneMap);
       } else {
-        currentTileLayer = createEsriSatelliteHybridBasemap().addTo(zoneMap);
         isSatelliteMode = true;
+        currentTileLayer = createEsriSatelliteHybridBasemap({ maxZoom: 24 }).addTo(zoneMap);
       }
       updateSatelliteLayerToggleButton();
       refreshDatasetOverlayOnZoom();
+      scheduleLotLinesRefresh(0);
     }
 
     function updateAdditionalMapboxLabelVisibility() {
@@ -20224,6 +20459,12 @@
           zonesBtn.innerHTML = MAPBOX_ADDITIONAL_LAYER_CONFIG.displayName;
           zonesBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
 
+          const lotLinesBtn = L.DomUtil.create('button', 'map-layer-item-btn', panel);
+          lotLinesBtn.id = 'lotLinesLayerToggleBtn';
+          lotLinesBtn.type = 'button';
+          lotLinesBtn.textContent = 'LA County lot lines';
+          lotLinesBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
+
           const datasetOverlayButtons = {};
           MAPBOX_DATASET_OVERLAY_ORDER.forEach((overlayKey) => {
             const overlayConfig = MAPBOX_DATASET_OVERLAY_CONFIG[overlayKey];
@@ -20265,6 +20506,11 @@
             await setAdditionalMapboxLayerVisible(!additionalMapboxLayerVisible);
           });
 
+          L.DomEvent.on(lotLinesBtn, 'click', L.DomEvent.stop);
+          L.DomEvent.on(lotLinesBtn, 'click', () => {
+            setLotLinesVisible(!lotLinesVisible);
+          });
+
           L.DomEvent.on(sceLinesBtn, 'click', L.DomEvent.stop);
           L.DomEvent.on(sceLinesBtn, 'click', async () => {
             await setSceLinesVisible(!sceLinesVisible);
@@ -20280,6 +20526,7 @@
           updateMapLayersExpandButton();
           updateSatelliteLayerToggleButton();
           updateAdditionalMapboxLayerToggleButton();
+          updateLotLinesToggleButton();
           MAPBOX_DATASET_OVERLAY_ORDER.forEach((overlayKey) => {
             updateDatasetOverlayToggleButton(overlayKey, !!datasetOverlayVisibility[overlayKey]);
           });
@@ -20295,6 +20542,7 @@
       if (MAPBOX_ADDITIONAL_LAYER_CONFIG.defaultVisible && isAdditionalMapboxLayerEnabled()) {
         setAdditionalMapboxLayerVisible(true);
       }
+      setLotLinesVisible(lotLinesVisible);
       setSceLinesVisible(!!SCE_LINES_OVERLAY_CONFIG.defaultVisible);
     }
 
@@ -26344,6 +26592,8 @@
       isSatellite: function() { return isSatelliteMode; },
       toggleLayer: setAdditionalMapboxLayerVisible,
       isLayerVisible: function() { return additionalMapboxLayerVisible; },
+      toggleLotLines: setLotLinesVisible,
+      areLotLinesVisible: function() { return !!lotLinesVisible; },
       toggleSceLinesLayer: setSceLinesVisible,
       isSceLinesVisible: function() { return !!sceLinesVisible; },
       toggleDatasetLayer: setDatasetOverlayVisible,
@@ -26640,6 +26890,8 @@
         // Altagether Zones overlay (additionalMapbox layer)
         var zonesBtn = document.getElementById('mobileLayerZones');
         if (zonesBtn) zonesBtn.classList.toggle('active', window._mapControls.isLayerVisible());
+        var lotLinesBtn = document.getElementById('mobileLayerLotLines');
+        if (lotLinesBtn) lotLinesBtn.classList.toggle('active', window._mapControls.areLotLinesVisible());
         var sceLinesBtn = document.getElementById('mobileLayerSceLines');
         if (sceLinesBtn) sceLinesBtn.classList.toggle('active', window._mapControls.isSceLinesVisible());
         // Dataset overlays
@@ -26717,6 +26969,17 @@
         });
       }
 
+      // Overlay: LA County parcel boundaries
+      var layerLotLinesBtn = document.getElementById('mobileLayerLotLines');
+      if (layerLotLinesBtn) {
+        layerLotLinesBtn.addEventListener('click', function() {
+          if (window._mapControls) {
+            window._mapControls.toggleLotLines(!window._mapControls.areLotLinesVisible());
+          }
+          syncMapSheetState();
+        });
+      }
+
       // Overlay: SCE undergrounding projects
       var layerSceLinesBtn = document.getElementById('mobileLayerSceLines');
       if (layerSceLinesBtn) {
@@ -26788,18 +27051,6 @@
       } catch (e) { /* ignore */ }
 
       window.addEventListener('load', function () {
-        // Drop stale shell caches from older SW versions (they used to store `/`,
-        // i.e. a full copy of index.html) so this deploy is not stuck behind them.
-        if (window.caches && caches.keys) {
-          caches.keys().then(function (keys) {
-            keys.forEach(function (key) {
-              if (key.indexOf('shell-') === 0 && key !== 'shell-zd-shell-v4') {
-                caches.delete(key);
-              }
-            });
-          }).catch(function () {});
-        }
-
         navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function (reg) {
           function skipWaiting(worker) {
             if (worker) worker.postMessage({ type: 'SKIP_WAITING' });
