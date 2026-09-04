@@ -1,34 +1,32 @@
 # Central Sales Data Setup
 
-Property sales are read from one Google spreadsheet and displayed read-only in the dashboard. Records are matched to zone and master-sheet properties by EPN/APN digits; punctuation in the identifier does not matter.
+Property sales are read from the maintained Altagether sales tracker and displayed read-only in the dashboard. Records are matched to zone and master-sheet properties by APN digits; punctuation in the identifier does not matter.
 
 ## Server configuration
 
 Set these environment variables:
 
-- `SALES_SOURCE_SHEET_ID` — the Google spreadsheet ID. `SALES_SOURCE_SHEET_URL` is also accepted.
-- `SALES_SOURCE_SHEET_NAME` — optional tab name. If omitted, the first tab is read.
+- `SALES_SOURCE_SHEET_ID` — optional override for the Google spreadsheet ID. The maintained tracker (`10DlHR_AblJPPtnO341WOKyJYJhCHa61UZ2-6whANGwg`) is the default. `SALES_SOURCE_SHEET_URL` is also accepted.
+- `SALES_SOURCE_SHEET_NAME` — optional tab override. Defaults to `Sales Rollup by APN`.
 - `SALES_SOURCE_RANGE` — optional range; defaults to `A1:ZZ5000`.
-- `SALES_CACHE_TTL_MS` — optional server cache duration; defaults to `30000`.
+- `SALES_CACHE_TTL_MS` — optional server cache duration; defaults to `300000` (five minutes).
 
 Share the source spreadsheet with the dashboard service account as Viewer. Editor access is not required because the sales route has no write endpoint.
 
 ## Source columns
 
-The first row must contain headers. The only required field is an EPN/APN identifier. Recognized names include:
+The dashboard reads the `Sales Rollup by APN` tab, not the individual `Sales Events` tab. Its first row must contain headers. The required match field is `APN`; malformed values that do not normalize to exactly 10 digits are excluded from the dashboard feed.
 
-- Identifier: `EPN`, `EPN Number`, `APN`, `AIN`, `Parcel Number`
-- Date: `Sale Date`, `Sold Date`, `Recording Date`
-- Price: `Sale Price`, `Sold Price`, `Purchase Price`
-- Buyer: `Buyer`, `Buyer Name`, `New Owner`, `Grantee`
-- Lot size: `Lot SqFt`, `Lot Sq Ft`, `Lot Size`
-- History: `Sales History`, `Sale History`
-- Notes: `Sale Notes`, `Notes`, `Comments`
-- Optional status: `Sold Since Fire`, `Address - Sold Since Fire`
+- `APN`
+- `Address - Sold Since Fire`
+- `Latest Sale Date`
+- `Latest Sale Price`
+- `Latest New Owner`
+- `Sales History`
 
-When the optional status column is absent, every row in the curated source is treated as a post-fire sale. When it is present, only truthy values (`TRUE`, `Yes`, `1`, `X`, or `Sold`) count toward the Sold Since Fire filter and badge.
+`Address`, `Lot SqFt`, `Sale Count`, `Latitude`, and `Longitude` may remain in the tracker but are not used as dashboard property data. Map coordinates continue to come exclusively from each captain spreadsheet.
 
-Multiple rows may use the same EPN. The dashboard shows them newest-first and uses the newest row for the summary fields.
+The rollup formula is responsible for selecting the newest event for the `Latest` fields and combining all events, newest-first, into the multiline `Sales History` field. The dashboard does not recompute that rollup.
 
 ## Dashboard behavior
 

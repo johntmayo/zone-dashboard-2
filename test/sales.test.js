@@ -11,11 +11,10 @@ const {
   clearSalesCache
 } = require('../sales/routes');
 
-test('normalizeSalesRows maps EPN-keyed source columns to read-only records', () => {
+test('normalizeSalesRows maps the Sales Rollup by APN contract', () => {
   const parsed = normalizeSheetValues([
-    ['EPN Number', 'Property Address', 'Sold Date', 'Sale Price', 'Buyer Name', 'Lot Sq Ft', 'Sales History', 'Sale Notes'],
-    ['5842-001-020', '123 Lake Ave', '7/15/2026', '$925,000', 'Jane Buyer', '7,500', '2026 sale', 'Recorded transfer'],
-    ['', 'No parcel', '7/20/2026', '$1', '', '', '', '']
+    ['Address', 'APN', 'Address - Sold Since Fire', 'Sales History', 'Sale Count', 'Latest Sale Date', 'Latest Sale Price', 'Latest New Owner', 'Lot SqFt', 'Latitude', 'Longitude'],
+    ['123 Lake Ave', '5842-001-020', 'TRUE', '[Jul 15, 2026] Second sale\n[Mar 2, 2025] First sale', '2', '7/15/2026', '$925,000', 'Jane Buyer', '7,500', '34.1', '-118.1']
   ]);
 
   const records = normalizeSalesRows(parsed.headers, parsed.rows);
@@ -23,30 +22,53 @@ test('normalizeSalesRows maps EPN-keyed source columns to read-only records', ()
   assert.equal(records.length, 1);
   assert.deepEqual(records[0], {
     rowNumber: 2,
-    epn: '5842-001-020',
+    apn: '5842-001-020',
+    apnDigits: '5842001020',
     address: '123 Lake Ave',
-    saleDate: '7/15/2026',
-    salePrice: '$925,000',
-    buyer: 'Jane Buyer',
-    lotSize: '7,500',
-    history: '2026 sale',
-    notes: 'Recorded transfer',
-    soldSinceFire: true
+    soldSinceFire: true,
+    latestSaleDate: '7/15/2026',
+    latestSalePrice: '$925,000',
+    latestNewOwner: 'Jane Buyer',
+    salesHistory: '[Jul 15, 2026] Second sale\n[Mar 2, 2025] First sale'
   });
 });
 
-test('normalizeSalesRows accepts APN aliases and explicit sold-since-fire values', () => {
+test('normalizeSalesRows converts date serials and excludes malformed APNs', () => {
   const parsed = normalizeSheetValues([
-    ['APN', 'Sale Date', 'Address - Sold Since Fire'],
+    ['APN', 'Latest Sale Date', 'Address - Sold Since Fire'],
     ['5842001020', '46218', 'FALSE'],
-    ['5842001021', '46219', 'TRUE']
+    ['5842001021', '46219', 'TRUE'],
+    ['Irregular property: Forest service cabin 1', '46220', 'TRUE'],
+    ['', '46221', 'TRUE']
   ]);
 
   const records = normalizeSalesRows(parsed.headers, parsed.rows);
 
-  assert.equal(records[0].saleDate, '2026-07-15');
+  assert.equal(records.length, 2);
+  assert.equal(records[0].latestSaleDate, '2026-07-15');
   assert.equal(records[0].soldSinceFire, false);
   assert.equal(records[1].soldSinceFire, true);
+});
+
+test('getSalesConfig defaults to the maintained rollup spreadsheet', (t) => {
+  const names = [
+    'SALES_SOURCE_SHEET_ID',
+    'SALES_SOURCE_SHEET_URL',
+    'SALES_SOURCE_SHEET_NAME',
+    'SALES_SOURCE_RANGE',
+    'SALES_CACHE_TTL_MS'
+  ];
+  const original = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+  names.forEach((name) => delete process.env[name]);
+  t.after(() => names.forEach((name) => {
+    if (original[name] === undefined) delete process.env[name];
+    else process.env[name] = original[name];
+  }));
+
+  const config = getSalesConfig();
+  assert.equal(config.sheetId, '10DlHR_AblJPPtnO341WOKyJYJhCHa61UZ2-6whANGwg');
+  assert.equal(config.sheetName, 'Sales Rollup by APN');
+  assert.equal(config.cacheTtlMs, 300000);
 });
 
 test('getSalesConfig accepts a spreadsheet URL and source tab', (t) => {
@@ -88,7 +110,7 @@ test('loadSalesPayload caches normalized records without any write operation', a
       values: {
         get: async () => {
           reads += 1;
-          return { data: { values: [['EPN', 'Sale Date'], ['5842-001-020', '7/15/2026']] } };
+          return { data: { values: [['APN', 'Latest Sale Date'], ['5842-001-020', '7/15/2026']] } };
         }
       }
     }
