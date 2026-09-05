@@ -1,36 +1,55 @@
 # Map Basemap Roadmap
 
 **Created:** August 27, 2026  
-**Status:** Current street map is **good enough**. Do not prioritize this over other work.  
+**Status:** Approved branded-map phases implemented September 2026.
 **Companion docs:** `MAPS.md` (how maps work today), `ZONE_DASHBOARD_STYLE_GUIDE.md` (brand)
 
-This is the plan for what the map *should* become. The live app stays on Esri until someone has time to do the later phases on purpose.
+This records the implemented architecture and remaining non-goals. Esri is
+still the automatic street fallback and the Satellite provider.
 
 ---
 
-## 1) What “good enough” is right now
+## 1) Current implementation
 
-Street view uses **Esri World Street Map** (same host as satellite). If those tiles fail, the map automatically tries a second Esri host, Esri World Topo, then OpenStreetMap. No CARTO key. No Mapbox raster tiles.
+The main `zoneMap`, Home `homeMap`, and Lot Weeding Command Center map use one
+local CARTO Voyager-derived vector style rendered with MapLibre GL through the
+MapLibre-GL-Leaflet bridge. Leaflet remains the controller. Batch Tagging and
+other incidental maps retain the existing Esri streets.
 
-That exists because:
+The style is warm and editorial, reduces POIs, shows restrained OSM-derived
+building outlines as historical/reference context at Leaflet z18+, and keeps
+collision-aware house numbers subordinate at Leaflet z18+. A runtime CARTO key
+is used when configured; currently available unkeyed vector access avoids
+blocking startup. MapLibre/WebGL/style startup failures fall back to Esri
+streets. Satellite remains Esri imagery hybrid where an existing toggle is
+present (Main and Home); no Lot Weeding satellite mode was added.
 
-1. CARTO Voyager started watermarking unauthenticated raster tiles (`API KEY REQUIRED`).
-2. The follow-up used Mapbox Streets as Leaflet PNG tiles. Pins and zone outlines still loaded; the background went gray. That path is **not** how we should use Mapbox.
-3. The service worker no longer caches `index.html`, and a new worker reloads once so deploys apply without a manual cache clear.
+The three approved maps use one lifecycle-safe factory with style/key reuse,
+visibility-aware startup, resize hooks, generation/map/layer guards, startup
+timeout and post-load failure handling, and clean MapLibre/WebGL teardown.
 
-Satellite (Esri imagery hybrid) is unchanged.
-
-This is reliable. It is not the long-term look.
+The main map also has automatic, non-toggleable viewport-loaded LA County
+assessor lot lines at Leaflet z17+.
 
 ---
 
-## 2) Constraints that any future map must respect
+## 2) Constraints the map must respect
 
-**Post-fire Altadena.** About half the structures burned. Commercial basemaps (Carto, Mapbox Streets, Esri Streets, Google) draw **pre-fire building footprints**. At captain zoom those look official and they are wrong: ghosts of burned houses, empty lots that look occupied.
+**Post-fire Altadena.** About half the structures burned. Commercial basemaps
+(CARTO, Mapbox Streets, Esri Streets, Google) may draw **pre-fire building
+footprints**. The main map therefore presents OSM-derived mapped structures only
+as restrained historical/reference context. The exact visible Layers wording is:
+**Structure shapes update periodically and may be inaccurate.**
 
-**House numbers on basemaps are not trustworthy.** Voyager was already missing numbers or placing them wrong. In a burn zone that gets worse. The spreadsheet pins are the addresses that count. A future style should keep house numbers off or very faint.
+**House numbers are contextual, not authoritative.** They are visible but
+quiet and collision-aware from Leaflet z18+. The MapLibre style uses minzoom 17
+to account for the bridge's `Leaflet zoom - 1` offset. Spreadsheet pins remain the addresses
+that count.
 
-**Lot lines matter; building outlines do not.** The house can be gone; the parcel (APN) is not. Captains already work in APNs (EPIC, lot weeding). Lot geometry should come from **LA County parcels**, not from a vendor’s decorative “lots.”
+**Lot lines remain the operational geometry.** The house can be gone; the parcel
+(APN) is not. Captains already work in APNs (EPIC, lot weeding). Lot geometry
+comes from **LA County parcels**. Building outlines are secondary reference
+context only and never current-condition or damage data.
 
 **Geography and scale are small.** ~170 volunteers today, maybe 500. Occasional use, not all-day GIS. Only Altadena and bits of Pasadena. Mapbox’s free **50,000 map loads/month** (GL JS / MapLibre) is plenty at this scale. The gray map after one day was almost certainly a bad Leaflet raster recipe, not a blown free tier.
 
@@ -44,12 +63,15 @@ Split the map into two jobs:
 
 | Layer | Job | Source |
 |---|---|---|
-| **Basemap** | Quiet streets + labels. Canvas only. | Custom Mapbox Studio style, rendered with MapLibre, using the existing Mapbox token |
-| **Operational overlays** | Truth for captains | Existing: pins, zone boundary, fire perimeter, water districts. Later: **county lot lines** joined on APN |
+| **Basemap** | Quiet streets, labels, and secondary historical/reference structure outlines. Canvas only. | Local CARTO Voyager-derived style and existing CARTO/OpenMapTiles source, rendered with MapLibre; optional CARTO key |
+| **Operational overlays** | Truth for captains | Existing pins/boundaries/VectorGrid overlays plus viewport-loaded **county lot lines** |
 
-Do **not** bake lot lines or building footprints into the basemap style.
+Do **not** bake county lot lines or restricted LARIAC footprints into the
+basemap style. The only structure geometry in the style is the existing
+OSM-derived CARTO/OpenMapTiles `building` source-layer.
 
-Do **not** go back to CARTO Voyager (even with a free key). It failed on buildings and addresses, and CARTO is retiring those raster tiles.
+Do **not** use deprecated CARTO raster tiles. The implementation uses CARTO's
+vector source and a local customized style with restrained reference buildings.
 
 Do **not** put Mapbox styles into Leaflet as PNG tiles (`Static Tiles API`). That is per-tile billing and is the path that went gray. Mapbox is fine **as a vector style** (MapLibre / Mapbox GL), where a map load includes tiles.
 
@@ -57,33 +79,45 @@ Do **not** put Mapbox styles into Leaflet as PNG tiles (`Static Tiles API`). Tha
 
 ## 4) Phases
 
-### Phase 0 — Now (done)
+### Phase 0 — Fallback foundation (done)
 
 - Esri street basemap with fallbacks
 - Service worker no longer caches dashboard HTML
 - Document this plan and stop
 
-### Phase 1 — Altogether basemap (when map work is actually the priority)
+### Phase 1 — Altogether basemap (done)
 
-1. In Mapbox Studio, create a style owned by the `altagether` account:
+1. Maintain the local CARTO-derived style:
    - Paper-colored land, navy labels, quiet roads
-   - **Buildings off**
-   - **House numbers off** (or barely there)
+   - OSM-derived buildings as faint, solid historical/reference outlines from
+     Leaflet z18+, below roads, labels, and house numbers
+   - House numbers quiet and collision-aware at Leaflet z18+
    - Teal reserved for our markers, not for roads/water
-2. Render that style with **MapLibre** under the existing Leaflet markers/overlays (keep Leaflet for pins and GeoJSON until a later migration, or move markers if that is simpler).
-3. Keep Esri (or the current fallback chain) as an automatic backup if the Mapbox token or style fails.
+2. Render with **MapLibre** under existing Leaflet markers/overlays.
+3. Keep Esri as automatic backup if MapLibre/WebGL/style startup fails.
 4. Recheck satellite imagery recency over Altadena. If Esri World Imagery is still pre-fire, aerial mode has the same ghost-building problem as footprints.
 
-Expected look: a street map that reads as Altogether, with pins as the address layer.
+Expected look: a street map that reads as Altogether, with pins as the address
+layer and mapped structures clearly secondary.
 
-### Phase 2 — Lot lines (after Phase 1, or in parallel if parcels are needed sooner)
+### Phase 2 — Lot lines (done)
 
-- Add LA County assessor parcels as a **toggle overlay**, same family as water districts / fire perimeter.
-- Join on APN (already on sheet rows, EPIC, lot weeding).
-- Default off or on by zoom — lot lines at z16+ are useful; at city-scale they are noise.
-- Click/hover can show APN; do not duplicate the whole details panel on the polygon.
+- LA County assessor parcels are automatic operational context and cannot be
+  disabled from desktop, mobile, or the public map-controls bridge.
+- Render/fetch only at Leaflet z17+ with solid, subtle, no-fill lines that ramp
+  from opacity/weight `0.175/0.4375` at z17 to `0.28/0.70` at z20.
+- Use ID-first viewport queries, URL-bounded batches (150 IDs and less than
+  1,800 encoded characters), at most three concurrent geometry requests,
+  abort/stale protection, and a 7,500-feature reuse cache.
+- A dedicated Leaflet canvas renderer draws every current-viewport parcel; no
+  feature cap silently removes lines from dense views. Do not persist a
+  countywide copy.
+- County attribution is registered when the main map initializes and remains
+  registered even below z17 when no parcel geometry is drawn.
+- APN labels and parcel interactions are intentionally absent by default.
 
-This is the “nice map that matches how the work is done” step: parcel, not footprint.
+This is the operational geometry that matches how the work is done; structure
+outlines remain reference context rather than parcel or condition data.
 
 ### Phase 3 — Optional polish (only if captains ask)
 
@@ -99,17 +133,20 @@ This is the “nice map that matches how the work is done” step: parcel, not f
 - Public OpenStreetMap tile server as the primary basemap (usage policy).
 - Hiding CARTO watermarks or scraping tiles without a key.
 - Treating any vendor’s building outlines as current conditions in the fire area.
+- Exposing the researched 2023 LARIAC structure-footprint endpoint while its
+  metadata says **“LARIAC Members only.”**
+- Using dotted/dashed structure footprints as a generic reference layer:
+  post-fire, that treatment could falsely imply fire loss.
 
 ---
 
-## 6) How to pick this up later
+## 6) Operational follow-up
 
-When map work is the priority again:
-
-1. Read this file and `MAPS.md`.
-2. Confirm `MAPBOX_PUBLIC_TOKEN` still works in Mapbox Studio.
-3. Build the Studio style with buildings and house numbers off.
-4. Swap only the street basemap; leave pin/overlay behavior alone until the new canvas is trusted.
-5. Then add county parcels.
-
-Until then, Esri streets + satellite toggle is the supported map.
+1. Configure `CARTO_API_KEY` or `CARTO_BASEMAP_KEY` in production. Unkeyed
+   access is graceful behavior, not a long-term credential plan.
+2. Periodically verify CARTO source/glyph/sprite URLs and LA County service
+   metadata/terms.
+3. Recheck Esri aerial recency over Altadena.
+4. Keep branded-map changes scoped to `zoneMap`, `homeMap`, and the Lot Weeding
+   Command Center. Batch Tagging, Add Record, Move Pin, and other incidental
+   maps remain outside the approved scope.

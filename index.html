@@ -27,6 +27,9 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css" />
+  <script src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js"></script>
   <script src="https://unpkg.com/leaflet.vectorgrid@1.3.0/dist/Leaflet.VectorGrid.bundled.js"></script>
   <script src="https://unpkg.com/@mapbox/togeojson@0.16.0/togeojson.js"></script>
   <script src="https://unpkg.com/leaflet-kml@1.0.0/dist/leaflet-kml.js"></script>
@@ -36,6 +39,7 @@
   <script src="public/js/utils.js"></script>
   <script src="public/js/address-id.js"></script>
   <script src="public/js/contact-checkin.js"></script>
+  <script src="public/js/main-map.js"></script>
   <!-- Google Analytics 4 (loads only when GA_MEASUREMENT_ID is set) -->
   <script>
     window.trackAnalyticsEvent = function(eventName, params) {
@@ -175,6 +179,9 @@
           <button class="mobile-map-layer-row" id="mobileLayerFire">Eaton Fire Perimeter</button>
           <button class="mobile-map-layer-row" id="mobileLayerWaterDistricts">Altadena Water Districts</button>
           <button class="mobile-map-layer-row" id="mobileLayerSceLines">SCE Undergrounding Projects</button>
+          <p class="map-reference-note">
+            Structure shapes update periodically and may be inaccurate.
+          </p>
         </div>
 
         <div class="mobile-map-sheet-section">
@@ -1468,6 +1475,14 @@
       byApn: new Map(),
       lastFetchedAt: null
     };
+    const salesCentralState = {
+      loading: false,
+      loaded: false,
+      configured: false,
+      error: '',
+      byApn: new Map(),
+      lastFetchedAt: null
+    };
     const lotWeedingAdminState = {
       loading: false,
       loaded: false,
@@ -1506,6 +1521,8 @@
       selectedRowNumber: null,
       selectedRowNumbers: new Set(),
       map: null,
+      basemap: null,
+      basemapGeneration: 0,
       markers: [],
       zoneOverlayVisible: false,
       zoneOverlayLayer: null,
@@ -1562,6 +1579,13 @@
     let currentTileLayer = null; // Current map tile layer
     let homeTileLayer = null; // Tile layer for homepage
     let isSatelliteMode = false; // Track satellite mode state
+    let zoneBasemapGeneration = 0; // Prevent late street failures from replacing Satellite
+    let homeBasemapGeneration = 0; // Prevent late Home street failures from replacing Satellite
+    let homeSatelliteToggleButton = null;
+    let lotLinesLayer = null; // Viewport-scoped LA County parcel outlines (main map only)
+    let lotLinesRefreshTimer = null;
+    let lotLinesRefreshHandler = null;
+    let lotLinesLoader = null;
     let currentColorMode = null; // Current color mode: 'contact', 'damage', 'status', 'rebuild', or null
     // Load saved color mode from localStorage
     const savedColorMode = localStorage.getItem('currentColorMode');
@@ -1661,8 +1685,8 @@
       datasetId: 'cm64fisju135z1qqmifs0zty5',  // Dataset ID containing zone polygons (ZoneName, Status, ContactEmail, etc.)
       accessToken: '' // Set from environment/runtime; keep blank in source to avoid secret scanning blocks
     };
-    // Optional CARTO raster basemap key (from /api/mapbox-token). Without it, Carto tiles
-    // render an "API KEY REQUIRED" watermark; we fall back to Mapbox streets instead.
+    // Optional CARTO vector basemap key from /api/mapbox-token. The public vector
+    // endpoint currently permits unkeyed startup; Esri remains the automatic fallback.
     let cartoBasemapKey = '';
     function isMapboxEnabled() {
       return !!(MAPBOX_CONFIG.accessToken && MAPBOX_CONFIG.username && MAPBOX_CONFIG.datasetId);
@@ -1684,16 +1708,18 @@
       },
       labelMinZoom: 16,
       style: {
-        color: '#4B7D5D',
+        color: '#314059',
         weight: 2,
-        opacity: 0.85,
-        fillColor: '#A9CFA0',
-        fillOpacity: 0.16
+        opacity: 0.78,
+        fillColor: '#D6C58F',
+        fillOpacity: 0.11
       },
       hoverStyle: {
+        color: '#314059',
         weight: 3,
-        opacity: 0.95,
-        fillOpacity: 0.24
+        opacity: 0.9,
+        fillColor: '#D6C58F',
+        fillOpacity: 0.18
       }
     };
     function isAdditionalMapboxLayerEnabled() {
@@ -1872,7 +1898,12 @@
         const payload = await response.json();
         const token = (payload?.token || '').trim();
         const nextCartoKey = (payload?.cartoKey || '').trim();
-        if (nextCartoKey) cartoBasemapKey = nextCartoKey;
+        if (nextCartoKey) {
+          cartoBasemapKey = nextCartoKey;
+          if (zoneMap && !isSatelliteMode) setBaseMapMode('street', true);
+          if (homeMap && !isHomeSatelliteMode) setHomeBaseMapMode('street', true);
+          refreshLotWeedingAdminStreetBasemapForCartoKey();
+        }
         if (!token) return;
         MAPBOX_CONFIG.accessToken = token;
 
@@ -3891,7 +3922,8 @@
         const addressPlan = getGodmodeValue(row, GODMODE_FIELD_ALIASES.addressPlan);
         const buildStage = getGodmodeValue(row, GODMODE_FIELD_ALIASES.rebuild);
         const damage = getGodmodeValue(row, GODMODE_FIELD_ALIASES.damage);
-        const sold = hasGodmodeTruthyValue(getGodmodeValue(row, GODMODE_FIELD_ALIASES.soldSinceFire));
+        const centralSales = getCentralSalesByApn(getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn));
+        const sold = Boolean(centralSales && centralSales.records.some((record) => record.soldSinceFire));
         const lotWeedingRequestKey = getGodmodeLotWeedingRequestKey(row, addressKey);
         const lotWeedingStatus = normalizeGodmodeLotWeedingStatus(getGodmodeValue(row, GODMODE_FIELD_ALIASES.lotWeedingStatus));
         const lotWeedingScheduledDate = formatLotWeedingScheduledDate(getGodmodeValue(row, GODMODE_FIELD_ALIASES.lotWeedingScheduledDate));
@@ -4327,7 +4359,8 @@
         const [res] = await Promise.all([
           fetch(`/api/admin/godmode-master?email=${encodeURIComponent(currentUserEmail)}`),
           loadGodmodeUserActivity(),
-          loadContactCheckinAdminData(force)
+          loadContactCheckinAdminData(force),
+          loadCentralSalesData()
         ]);
         const payload = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -4926,21 +4959,49 @@
     }
 
     function destroyLotWeedingAdminMap() {
-      if (lotWeedingAdminState.map && typeof lotWeedingAdminState.map.remove === 'function') {
-        const center = lotWeedingAdminState.map.getCenter?.();
-        const zoom = lotWeedingAdminState.map.getZoom?.();
+      const map = lotWeedingAdminState.map;
+      const basemap = lotWeedingAdminState.basemap;
+      lotWeedingAdminState.basemapGeneration += 1;
+      lotWeedingAdminState.map = null;
+      lotWeedingAdminState.basemap = null;
+      if (map && typeof map.remove === 'function') {
+        const center = map.getCenter?.();
+        const zoom = map.getZoom?.();
         if (center && Number.isFinite(zoom)) {
           lotWeedingAdminState.lastMapView = { center: [center.lat, center.lng], zoom };
         }
-        lotWeedingAdminState.map.remove();
+        if (basemap && typeof basemap.disposeBrandedBasemap === 'function') {
+          basemap.disposeBrandedBasemap();
+        }
+        map.remove();
       }
-      lotWeedingAdminState.map = null;
       lotWeedingAdminState.markers = [];
       lotWeedingAdminState.zoneOverlayLayer = null;
       lotWeedingAdminState.zoneOverlayControl = null;
       lotWeedingAdminState.drawingControl = null;
       lotWeedingAdminState.drawLayer = null;
       lotWeedingAdminState.drawSelectionLayer = null;
+    }
+
+    function refreshLotWeedingAdminStreetBasemapForCartoKey() {
+      const map = lotWeedingAdminState.map;
+      const currentBasemap = lotWeedingAdminState.basemap;
+      if (!map || !currentBasemap || lotWeedingAdminState.activeTab !== 'map' ||
+          !map.getContainer?.()?.isConnected) return;
+      lotWeedingAdminState.basemapGeneration += 1;
+      const generation = lotWeedingAdminState.basemapGeneration;
+      if (map.hasLayer(currentBasemap)) map.removeLayer(currentBasemap);
+      if (lotWeedingAdminState.map !== map) return;
+      lotWeedingAdminState.basemap = createBrandedStreetBasemap({
+        targetMap: map,
+        maxZoom: 22,
+        generation,
+        getCurrentGeneration: () => lotWeedingAdminState.basemapGeneration,
+        isStreetMode: () => true,
+        isCurrentMap: () => lotWeedingAdminState.map === map,
+        getCurrentLayer: () => lotWeedingAdminState.basemap,
+        contextLabel: 'Lot Weeding'
+      }).addTo(map);
     }
 
     function getLotWeedingAdminFilteredRequests() {
@@ -5185,6 +5246,13 @@
     const LOT_WEEDING_ZONE_LABEL_MIN_ZOOM = Number.isFinite(MAPBOX_ADDITIONAL_LAYER_CONFIG?.labelMinZoom)
       ? MAPBOX_ADDITIONAL_LAYER_CONFIG.labelMinZoom
       : 16;
+    const LOT_WEEDING_ZONE_STYLE = {
+      color: '#314059',
+      weight: 2,
+      opacity: 0.78,
+      fillColor: '#D6C58F',
+      fillOpacity: 0.11
+    };
 
     function updateLotWeedingZoneLabelVisibility() {
       const map = lotWeedingAdminState.map;
@@ -5236,7 +5304,7 @@
         if (lotWeedingAdminState.zoneOverlayLayer && map.hasLayer(lotWeedingAdminState.zoneOverlayLayer)) {
           map.removeLayer(lotWeedingAdminState.zoneOverlayLayer);
         }
-        const baseStyle = MAPBOX_ADDITIONAL_LAYER_CONFIG.style || {};
+        const baseStyle = LOT_WEEDING_ZONE_STYLE;
         // Zones are a non-interactive visual layer beneath the pins: the polygons never
         // capture clicks/hover (so the lasso works), and each zone shows a permanent,
         // click-through label (zone name + captains) that sits lightly over the pins.
@@ -5486,8 +5554,21 @@
       // the default zoomed-out view first.
       const initialCenter = lotWeedingAdminState.lastMapView ? lotWeedingAdminState.lastMapView.center : defaultCenter;
       const initialZoom = lotWeedingAdminState.lastMapView ? lotWeedingAdminState.lastMapView.zoom : 12;
-      const map = L.map(mapEl, { attributionControl: false, maxZoom: 22 }).setView(initialCenter, initialZoom);
-      createStreetBasemap({ maxZoom: 22 }).addTo(map);
+      const map = L.map(mapEl, { attributionControl: true, maxZoom: 22 }).setView(initialCenter, initialZoom);
+      map.attributionControl.setPrefix(false);
+      lotWeedingAdminState.map = map;
+      lotWeedingAdminState.basemapGeneration += 1;
+      const basemapGeneration = lotWeedingAdminState.basemapGeneration;
+      lotWeedingAdminState.basemap = createBrandedStreetBasemap({
+        targetMap: map,
+        maxZoom: 22,
+        generation: basemapGeneration,
+        getCurrentGeneration: () => lotWeedingAdminState.basemapGeneration,
+        isStreetMode: () => true,
+        isCurrentMap: () => lotWeedingAdminState.map === map,
+        getCurrentLayer: () => lotWeedingAdminState.basemap,
+        contextLabel: 'Lot Weeding'
+      }).addTo(map);
       installLotWeedingMapControls(map);
       attachLotWeedingAdminDrawHandlers(map);
       map.on('zoomend', updateLotWeedingZoneLabelVisibility);
@@ -5499,13 +5580,16 @@
         return createLotWeedingAdminMarker(request, map);
       }).filter(Boolean);
 
-      lotWeedingAdminState.map = map;
       lotWeedingAdminState.markers = markers;
 
       if (!lotWeedingAdminState.lastMapView && bounds.length > 0) {
         map.fitBounds(bounds, { padding: [34, 34], maxZoom: 17 });
       }
-      setTimeout(() => map.invalidateSize(), 80);
+      setTimeout(() => {
+        if (lotWeedingAdminState.map !== map) return;
+        map.invalidateSize();
+        lotWeedingAdminState.basemap?.resizeMapLibre?.();
+      }, 80);
       syncLotWeedingAdminZoneOverlay();
       renderLotWeedingAdminDrawLayer();
     }
@@ -8214,9 +8298,12 @@
       const unzoned = isGodmodeUnzonedValue(zone);
       const captain = getGodmodeCaptainDisplay(row);
       const coCaptains = getGodmodeCoCaptainList(row).join(', ');
+      const apn = getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn);
+      const centralSales = getCentralSalesByApn(apn);
+      const latestSale = centralSales && centralSales.records.length ? centralSales.records[0] : null;
       const fields = [
         ['Resident ID', getGodmodeValue(row, GODMODE_FIELD_ALIASES.residentId)],
-        ['APN', getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn)],
+        ['APN', apn],
         ['Phone', getGodmodeValue(row, GODMODE_FIELD_ALIASES.phone)],
         ['Email', getGodmodeValue(row, GODMODE_FIELD_ALIASES.email)],
         ['Damage', getGodmodeValue(row, GODMODE_FIELD_ALIASES.damage)],
@@ -8224,8 +8311,11 @@
         ['Build Status', getGodmodeValue(row, GODMODE_FIELD_ALIASES.rebuild)],
         ['Last outreach', getGodmodeValue(row, GODMODE_FIELD_ALIASES.outreachDate)],
         ['Outreach log', getGodmodeValue(row, GODMODE_FIELD_ALIASES.outreachLog)],
-        ['Sold since fire', getGodmodeValue(row, GODMODE_FIELD_ALIASES.soldSinceFire)],
-        ['Sale date', getGodmodeValue(row, GODMODE_FIELD_ALIASES.saleDate)],
+        ['Sold since fire', latestSale && latestSale.soldSinceFire ? 'Yes' : ''],
+        ['Latest sale date', latestSale ? formatOverlayDate(latestSale.latestSaleDate) : ''],
+        ['Latest sale price', latestSale ? formatCentralSalePrice(latestSale.latestSalePrice) : ''],
+        ['Latest new owner', latestSale ? latestSale.latestNewOwner : ''],
+        ['Sales history', latestSale ? latestSale.salesHistory : ''],
         ['Coverage', unzoned ? 'Unzoned coverage gap' : 'Covered by zone/captain'],
         ['Zone', unzoned ? 'Unzoned' : zone],
         ['Captain', captain],
@@ -9057,7 +9147,10 @@
         }
         updateHeaderTitle();
 
-        await loadCentralLotWeedingData();
+        await Promise.all([
+          loadCentralLotWeedingData(),
+          loadCentralSalesData()
+        ]);
         
         // If an address was selected, restore that view; otherwise show list
         if (selectedAddress && addressMap.has(selectedAddress)) {
@@ -9833,6 +9926,147 @@
       } finally {
         lotWeedingCentralState.loading = false;
       }
+    }
+
+    async function loadCentralSalesData() {
+      salesCentralState.loading = true;
+      salesCentralState.error = '';
+      salesCentralState.byApn = new Map();
+
+      try {
+        const response = await fetch('/api/sales/records');
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.message || err.error || 'Failed to fetch central sales data');
+        }
+
+        const payload = await response.json();
+        salesCentralState.configured = Boolean(payload.configured);
+        (Array.isArray(payload.records) ? payload.records : []).forEach((record) => {
+          const apnDigits = normalizeApnDigits(record && record.apn);
+          if (apnDigits.length !== 10) return;
+          if (!salesCentralState.byApn.has(apnDigits)) {
+            salesCentralState.byApn.set(apnDigits, {
+              apn: String(record.apn || '').trim(),
+              apnDigits,
+              address: String(record.address || '').trim(),
+              records: []
+            });
+          }
+          salesCentralState.byApn.get(apnDigits).records.push({
+            latestSaleDate: String(record.latestSaleDate || '').trim(),
+            latestSalePrice: String(record.latestSalePrice || '').trim(),
+            latestNewOwner: String(record.latestNewOwner || '').trim(),
+            salesHistory: String(record.salesHistory || '').trim(),
+            soldSinceFire: Boolean(record.soldSinceFire),
+            rowNumber: Number(record.rowNumber) || 0
+          });
+        });
+        salesCentralState.byApn.forEach((entry) => {
+          entry.records.sort((a, b) => {
+            const aTime = Date.parse(a.latestSaleDate || '');
+            const bTime = Date.parse(b.latestSaleDate || '');
+            const aValue = Number.isFinite(aTime) ? aTime : 0;
+            const bValue = Number.isFinite(bTime) ? bTime : 0;
+            return bValue - aValue || b.rowNumber - a.rowNumber;
+          });
+        });
+        salesCentralState.loaded = true;
+        salesCentralState.lastFetchedAt = payload.lastFetchedAt || new Date().toISOString();
+      } catch (error) {
+        console.warn('Central sales data unavailable.', error);
+        salesCentralState.loaded = false;
+        salesCentralState.configured = false;
+        salesCentralState.error = error && error.message ? error.message : 'Central sales data unavailable.';
+        salesCentralState.byApn = new Map();
+      } finally {
+        salesCentralState.loading = false;
+      }
+    }
+
+    function getAddressSalesApnDigits(address) {
+      if (!sheetData || !sheetData.headers || !sheetData.addressMap) return new Set();
+      const apnCol = sheetData.headers.find((header) => {
+        const normalized = String(header || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        return ['apn', 'ain', 'parcel', 'parcelnumber', 'parcelid'].includes(normalized);
+      });
+      if (!apnCol) return new Set();
+      const rows = sheetData.addressMap.get(address) || [];
+      return new Set(rows.map((row) => normalizeApnDigits(row[apnCol])).filter((digits) => digits.length === 10));
+    }
+
+    function getCentralSalesByApn(rawApn) {
+      const apnDigits = normalizeApnDigits(rawApn);
+      if (apnDigits.length !== 10 || !salesCentralState.loaded || !(salesCentralState.byApn instanceof Map)) return null;
+      return salesCentralState.byApn.get(apnDigits) || null;
+    }
+
+    function getCentralSalesForAddress(address) {
+      if (!salesCentralState.loaded || !(salesCentralState.byApn instanceof Map)) return [];
+      const matches = [];
+      getAddressSalesApnDigits(address).forEach((apnDigits) => {
+        const exact = getCentralSalesByApn(apnDigits);
+        if (exact) matches.push(exact);
+      });
+      return matches;
+    }
+
+    function formatCentralSalePrice(value) {
+      const text = String(value || '').trim();
+      if (!text) return '';
+      const numeric = Number(text.replace(/[$,\s]/g, ''));
+      if (!Number.isFinite(numeric)) return text;
+      return numeric.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0
+      });
+    }
+
+    function renderCentralSalesSection(address) {
+      const matches = getCentralSalesForAddress(address);
+      const records = matches.flatMap((match) => match.records || []).sort((a, b) => {
+        const aTime = Date.parse(a.latestSaleDate || '');
+        const bTime = Date.parse(b.latestSaleDate || '');
+        const aValue = Number.isFinite(aTime) ? aTime : 0;
+        const bValue = Number.isFinite(bTime) ? bTime : 0;
+        return bValue - aValue || b.rowNumber - a.rowNumber;
+      });
+      if (!records.length) return '';
+
+      const latest = records[0];
+      const detailRows = [
+        ['Latest sale date', formatOverlayDate(latest.latestSaleDate)],
+        ['Latest sale price', formatCentralSalePrice(latest.latestSalePrice)],
+        ['Latest new owner', latest.latestNewOwner]
+      ].filter(([, value]) => String(value || '').trim());
+      const historyLines = records
+        .flatMap((record) => String(record.salesHistory || '').split(/\r?\n/))
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      return `
+        <section class="central-sales-section" aria-label="Property sale information">
+          <div class="central-sales-section__heading">
+            <div>
+              <h4>Sale Information</h4>
+              <p>Read-only records from Altagether’s central sales spreadsheet, matched by APN.</p>
+            </div>
+            <span class="central-sales-section__badge">SOLD</span>
+          </div>
+          ${detailRows.length ? `
+            <dl class="central-sales-section__facts">
+              ${detailRows.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}
+            </dl>
+          ` : ''}
+          ${historyLines.length ? `
+            <div class="central-sales-section__history">
+              <div class="central-sales-section__history-label">Sales history</div>
+              ${historyLines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}
+            </div>
+          ` : ''}
+        </section>
+      `;
     }
 
     function buildCentralLotWeedingMap(headers, rows) {
@@ -11187,6 +11421,25 @@
       const normalized = typeof normalizeHeaderKey === 'function'
         ? normalizeHeaderKey(column)
         : lower.replace(/[^a-z0-9]/g, '');
+      const centralSalesColumns = new Set([
+        'addressforsale',
+        'addresssoldsincefire',
+        'recentlysold',
+        'solddate',
+        'saledate',
+        'saleprice',
+        'salenotes',
+        'newowner',
+        'latestnewowner',
+        'latestsaledate',
+        'latestsaleprice',
+        'lotsqft',
+        'lotsquarefeet',
+        'saleshistory'
+      ]);
+      if (centralSalesColumns.has(normalized) || lower.startsWith('sale') || lower.startsWith('sales')) {
+        return false;
+      }
       const alwaysInherited = new Set([
         'apn',
         'damage',
@@ -11195,18 +11448,10 @@
         'addressnotes',
         'addressunittype',
         'captainassigned',
-        'addressforsale',
-        'addresssoldsincefire',
-        'latestsaledate',
-        'latestsaleprice',
-        'latestnewowner',
-        'lotsqft',
-        'saleshistory'
       ]);
 
       if (alwaysInherited.has(normalized)) return true;
       if (lower.startsWith('address') || lower.startsWith('address -')) return true;
-      if (lower.startsWith('sale') || lower.startsWith('sales')) return true;
       if (lower.startsWith('lot') || normalized.startsWith('lotweeding')) return true;
       if (normalized.startsWith('situs')) return true;
       if (['apn', 'parcel', 'zone', 'zonename', 'city', 'state', 'zip', 'zipcode', 'postalcode'].includes(normalized)) return true;
@@ -11215,8 +11460,7 @@
       if (lower.includes('build status') || lower.includes('build stage') || lower.includes('rebuild status') || lower.includes('rebuild stage')) return true;
       if (lower.includes('captain') || lower.includes('household size')) return true;
       if (lower.includes('nc name') || lower.includes('nc phone') || lower.includes('nc email')) return true;
-      if (lower.includes('for sale') || lower.includes('sold since fire') || lower.includes('recently sold') || lower.includes('unit type')) return true;
-      if (lower.includes('new owner') || lower.includes('sale price') || lower.includes('lot sqft') || lower.includes('lot sq ft') || lower.includes('lot square feet')) return true;
+      if (lower.includes('unit type')) return true;
       return false;
     }
 
@@ -11224,7 +11468,7 @@
       const cols = new Set();
       if (explicitColumns) {
         explicitColumns.forEach((col) => {
-          if (col && !isAddRecordPersonOrSystemColumn(col)) cols.add(col);
+          if (col && isAddRecordAddressInheritedColumn(col)) cols.add(col);
         });
       }
       (headers || []).forEach((col) => {
@@ -11873,6 +12117,8 @@
         requestAnimationFrame(() => {
           if (zoneMap && currentView === 'map') {
             zoneMap.invalidateSize({ pan: false });
+            resizeZoneMapLibre();
+            scheduleLotLinesRefresh(0);
           }
         });
       });
@@ -12356,7 +12602,9 @@
       const hasLotWeedingRequestData = getLotWeedingRequests().length > 0 ||
         Boolean(findLotWeedingRequestColumns(headers).requestedCol) ||
         Boolean(findLotWeedingRequestColumns(headers).statusCol);
-      const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
+      const hasCentralSalesData = salesCentralState.configured &&
+        salesCentralState.loaded &&
+        salesCentralState.byApn.size > 0;
 
       const streets = getUniqueStreets(addresses);
       const damages = getFullDamageOptions();
@@ -12448,7 +12696,7 @@
             <option value="" ${currentCaptainFilter === '' ? 'selected' : ''}>(not specified)</option>
             ${captainNames.map(name => `<option value="${escapeHtml(name).replace(/"/g, '&quot;')}" ${currentCaptainFilter === name ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}
           </select>` : ''}
-          ${(contactDateCol || soldSinceFireCol) ? `
+          ${(contactDateCol || hasCentralSalesData) ? `
           <div class="contact-filter-group filter-more-checkboxes">
             ${contactDateCol ? `
             <label class="contact-filter-checkbox" title="View only addresses where at least one outreach attempt has been logged.">
@@ -12460,7 +12708,7 @@
               <span>Show no-outreach-yet addresses</span>
             </label>
             ` : ''}
-            ${soldSinceFireCol ? `
+            ${hasCentralSalesData ? `
             <label class="contact-filter-checkbox" title="Label addresses marked as sold since January 2025 with a SOLD tag on the map.">
               <input type="checkbox" id="persistentShowSoldTagsCheckbox" ${showSoldSinceJan25Tags ? 'checked' : ''}>
               <span>Label sold since Jan '25</span>
@@ -13701,7 +13949,8 @@
         <ul class="address-list">
           ${filteredAddresses.map(addr => `
             <li class="address-item" data-address="${addr.replace(/"/g, '&quot;')}">
-              ${addr}
+              <span>${escapeHtml(addr)}</span>
+              ${getAddressSoldSinceFire(addr) ? '<span class="address-sale-badge">SOLD</span>' : ''}
             </li>
           `).join('')}
         </ul>
@@ -14396,6 +14645,7 @@
             <header class="details-section__header">
               <button type="button" class="details-section__title details-section__title-button" data-address-modal-trigger="${address.replace(/"/g, '&quot;')}" title="Open full address details">
                 ${escapeHtml(address)}
+                ${getAddressSoldSinceFire(address) ? '<span class="address-sale-badge">SOLD</span>' : ''}
               </button>
               <p class="details-section__subtitle">Address details</p>
               ${apnValueForHeader ? `<p class="details-section__apn"><abbr title="Assessor Parcel Number — the official LA County identifier for this property. Useful for looking up parcel records, permits, and ownership history." style="text-decoration: underline dotted; cursor: help;">APN</abbr>: ${escapeHtml(apnValueForHeader)}</p>` : ''}
@@ -14621,23 +14871,13 @@
           }
         });
 
-        // Address Tags: expandable section (open by default) - Unit Type, For Sale, Sold Since Fire
+        // Address Tags: only captain-maintained, non-sales fields remain here.
         const unitTypeCol = findColumn(headers, ['unit', 'type']);
-        const forSaleCol = findColumn(headers, ['for', 'sale']);
-        const recentlySoldCol = findColumn(headers, ['recently', 'sold']) || findColumn(headers, ['sold', 'since', 'fire']);
-        const hasAddressTagsCols = unitTypeCol || forSaleCol || recentlySoldCol;
+        const hasAddressTagsCols = unitTypeCol;
         if (hasAddressTagsCols) {
           const firstRow = rows[0] || {};
           const unitTypeVal = unitTypeCol ? (firstRow[unitTypeCol] || '').trim() : '';
-          const forSaleVal = forSaleCol ? (firstRow[forSaleCol] || '').trim() : '';
-          const recentlySoldVal = recentlySoldCol ? (firstRow[recentlySoldCol] || '').trim() : '';
           const unitTypeOptions = ['Owner Occupied', 'Rental', 'Owner Occupied Plus Rental', 'Commercial', 'Other'];
-          const forSaleLower = forSaleVal.toLowerCase();
-          const recentlySoldLower = recentlySoldVal.toLowerCase();
-          const forSaleChecked = forSaleLower === 'true' || forSaleVal === 'TRUE' || forSaleLower === 'yes' ||
-            (forSaleVal !== '' && forSaleLower !== 'false' && forSaleVal !== 'FALSE' && forSaleLower !== 'no');
-          const recentlySoldChecked = recentlySoldLower === 'true' || recentlySoldVal === 'TRUE' || recentlySoldLower === 'yes' ||
-            (recentlySoldVal !== '' && recentlySoldLower !== 'false' && recentlySoldVal !== 'FALSE' && recentlySoldLower !== 'no');
           html += '<div class="address-tags-section" style="margin-top:12px;">';
           html += '<div style="font-weight:700; font-family: Chivo, sans-serif; color: var(--text-secondary); margin-bottom:8px;">Address Tags</div>';
           html += '<div style="margin-top:0; padding-left:0;">';
@@ -14651,38 +14891,10 @@
                 }).join('')}
               </select></div>`;
           }
-          if (forSaleCol) {
-            html += `<div class="person-info"><label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-              <input type="checkbox" class="editable-checkbox" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${forSaleCol}" data-original-value="${forSaleVal.replace(/"/g, '&quot;')}" ${forSaleChecked ? 'checked' : ''} style="width:18px; height:18px;">
-              <strong>For Sale</strong></label></div>`;
-          }
-          if (recentlySoldCol) {
-            html += `<div class="person-info"><label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-              <input type="checkbox" class="editable-checkbox" data-address="${address.replace(/"/g, '&quot;')}" data-address-level="true" data-column="${recentlySoldCol}" data-original-value="${recentlySoldVal.replace(/"/g, '&quot;')}" ${recentlySoldChecked ? 'checked' : ''} style="width:18px; height:18px;">
-              <strong>Sold Since Fire</strong></label></div>`;
-          }
           html += '</div></div>';
         }
 
-        const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
-        const salesHistoryCol = headers.find(h => /sales?\s*history/i.test(h));
-        const soldSinceFireVal = soldSinceFireCol && rows[0] ? (rows[0][soldSinceFireCol] || '') : '';
-        const isSoldSinceFireAddress = soldSinceFireCol ? isTruthySheetCheckbox(soldSinceFireVal) : false;
-        const salesHistoryValue = salesHistoryCol && rows[0] ? String(rows[0][salesHistoryCol] || '').trim() : '';
-        if (isSoldSinceFireAddress && salesHistoryCol) {
-          if (isSignedIn()) {
-            html += `<div class="details-field">
-              <label class="details-field__label">Sales history</label>
-              <textarea class="editable-notes"
-                   data-address="${address.replace(/"/g, '&quot;')}"
-                   data-address-level="true"
-                   data-column="${salesHistoryCol}"
-                   data-original-value="${salesHistoryValue.replace(/"/g, '&quot;')}">${salesHistoryValue}</textarea>
-            </div>`;
-          } else {
-            html += `<div class="person-info" style="margin-top:12px;"><strong>Sales History:</strong> ${salesHistoryValue || '(not set)'}</div>`;
-          }
-        }
+        html += renderCentralSalesSection(address);
 
       }
 
@@ -16166,6 +16378,9 @@
         setTimeout(() => {
           if (zoneMap) {
             resyncMapLayoutAfterFilterBar({ immediate: true, followUpMs: 100 });
+            zoneMap.invalidateSize({ pan: false });
+            resizeZoneMapLibre();
+            scheduleLotLinesRefresh(0);
             // Ensure control still exists after invalidation
             ensureColorFilterControl();
             // Update markers after map is properly sized
@@ -16195,6 +16410,8 @@
         }
         // Stop watchdog when leaving map view
         stopColorFilterWatchdog();
+        if (lotLinesLoader) lotLinesLoader.abort();
+        if (lotLinesLayer) lotLinesLayer.clearLayers();
       }
       if (shouldShowFilters) {
         // Refresh the shared filters/actions when entering Map or Neighbors. The bar
@@ -16232,6 +16449,7 @@
           setTimeout(() => {
             if (homeMap) {
               homeMap.invalidateSize();
+              resizeHomeMapLibre();
               // Load zone boundary on home map (Mapbox or KML) if map wasn't ready before
               if (zoneKmlUrl || (isMapboxEnabled() && currentZoneName)) {
                 setTimeout(() => loadHomeZoneBoundary(), 200);
@@ -16942,12 +17160,8 @@
     }
 
     function getAddressSoldSinceFire(address) {
-      if (!sheetData || !sheetData.headers || !sheetData.addressMap) return false;
-      const soldSinceFireCol = sheetData.headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
-      if (!soldSinceFireCol) return false;
-      const rows = sheetData.addressMap.get(address);
-      if (!rows || rows.length === 0) return false;
-      return rows.some(row => isSoldSinceFireValue(row[soldSinceFireCol]));
+      return getCentralSalesForAddress(address)
+        .some((match) => (match.records || []).some((record) => record.soldSinceFire));
     }
 
     function getOverlapArea(boxA, boxB) {
@@ -17774,10 +17988,20 @@
       if (!zoneMap) {
         try {
           // Default center (Altadena, CA - adjust as needed)
-          zoneMap = L.map('zoneMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 16);
+          zoneMap = L.map('zoneMap', { attributionControl: true, maxZoom: 24 }).setView([34.19, -118.15], 16);
+          zoneMap.attributionControl.setPrefix(false);
+          zoneMap.attributionControl.addAttribution(LA_COUNTY_PARCEL_ATTRIBUTION);
           ensureSoldTagPane();
           
-          currentTileLayer = createStreetBasemap({ maxZoom: 22 }).addTo(zoneMap);
+          isSatelliteMode = false;
+          zoneBasemapGeneration += 1;
+          currentTileLayer = createZoneStreetBasemap(zoneBasemapGeneration).addTo(zoneMap);
+          ensureLotLinesLayer();
+          if (!lotLinesRefreshHandler) {
+            lotLinesRefreshHandler = () => scheduleLotLinesRefresh(250);
+            zoneMap.on('zoomend', lotLinesRefreshHandler);
+            zoneMap.on('moveend', lotLinesRefreshHandler);
+          }
           
           // Add expandable Layers control (Satellite + Zones toggle)
           ensureAdditionalMapboxLayerControl();
@@ -17870,9 +18094,11 @@
       if (!homeMap) {
         try {
           // Default center (Altadena, CA - adjust as needed)
-          homeMap = L.map('homeMap', { attributionControl: false, maxZoom: 22 }).setView([34.19, -118.15], 15);
-          
-          homeTileLayer = createStreetBasemap({ maxZoom: 22 }).addTo(homeMap);
+          homeMap = L.map('homeMap', { attributionControl: true, maxZoom: 22 }).setView([34.19, -118.15], 15);
+          homeMap.attributionControl.setPrefix(false);
+          isHomeSatelliteMode = false;
+          homeBasemapGeneration += 1;
+          homeTileLayer = createHomeStreetBasemap(homeBasemapGeneration).addTo(homeMap);
           
           // Create satellite toggle control for home map
           const HomeSatelliteToggleControl = L.Control.extend({
@@ -17883,30 +18109,13 @@
               button.title = 'Switch to satellite view';
               button.innerHTML = '🛰️';
               button.style.cssText = 'width: 30px; height: 30px; line-height: 30px; text-align: center; text-decoration: none; display: block; font-size: 18px;';
+              homeSatelliteToggleButton = button;
               
               L.DomEvent.disableClickPropagation(button);
               L.DomEvent.on(button, 'click', L.DomEvent.stop);
               L.DomEvent.on(button, 'click', () => {
                 if (!homeMap) return;
-                
-                // Remove current tile layer
-                if (homeTileLayer) {
-                  homeMap.removeLayer(homeTileLayer);
-                }
-                
-                // Toggle between street and satellite
-                if (isHomeSatelliteMode) {
-                  homeTileLayer = createStreetBasemap({ maxZoom: 22 }).addTo(homeMap);
-                  button.innerHTML = '🛰️';
-                  button.title = 'Switch to satellite view';
-                  isHomeSatelliteMode = false;
-                } else {
-                  // Switch to satellite — Esri World Imagery + reference labels/roads (hybrid)
-                  homeTileLayer = createEsriSatelliteHybridBasemap().addTo(homeMap);
-                  button.innerHTML = '🗺️';
-                  button.title = 'Switch to street map';
-                  isHomeSatelliteMode = true;
-                }
+                setHomeBaseMapMode(isHomeSatelliteMode ? 'street' : 'satellite');
               });
               
               return container;
@@ -17920,6 +18129,7 @@
           setTimeout(() => {
             if (homeMap) {
               homeMap.invalidateSize();
+              resizeHomeMapLibre();
             }
           }, 100);
         } catch (error) {
@@ -17930,6 +18140,7 @@
         setTimeout(() => {
           if (homeMap) {
             homeMap.invalidateSize();
+            resizeHomeMapLibre();
           }
         }, 100);
       }
@@ -20042,10 +20253,282 @@
       toggleBtn.title = expanded ? 'Collapse layers' : 'Expand layers';
     }
 
+    const ZONE_STREET_STYLE_URL = 'public/map-styles/altagether-voyager-v1.json?v=2';
+    const CARTO_ATTRIBUTION =
+      '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors ' +
+      '&copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>';
+    const LA_COUNTY_PARCEL_ATTRIBUTION =
+      'Los Angeles County Office of the Assessor; informational, not survey-grade.';
+
+    function resizeZoneMapLibre() {
+      if (!currentTileLayer || typeof currentTileLayer.resizeMapLibre !== 'function') return;
+      currentTileLayer.resizeMapLibre();
+    }
+
+    function resizeHomeMapLibre() {
+      homeTileLayer?.resizeMapLibre?.();
+    }
+
+    function createBrandedStreetBasemap(options) {
+      const targetMap = options.targetMap;
+      const generation = options.generation;
+      const maxZoom = options.maxZoom || 22;
+      const contextLabel = options.contextLabel || 'Map';
+      const group = L.layerGroup();
+      let glLayer = null;
+      let glMap = null;
+      let glCanvas = null;
+      let fallbackLayer = null;
+      let startupTimer = null;
+      let disposed = false;
+      let loaded = false;
+      let onMapError = null;
+      let onMapLoad = null;
+      let onContextLost = null;
+
+      const isActive = () => {
+        if (disposed || !targetMap || options.isCurrentMap() === false ||
+            generation !== options.getCurrentGeneration() || options.isStreetMode() === false ||
+            options.getCurrentLayer() !== group) return false;
+        try {
+          return targetMap.hasLayer(group);
+        } catch (error) {
+          return false;
+        }
+      };
+
+      const clearMapLibreListeners = () => {
+        if (startupTimer) {
+          clearTimeout(startupTimer);
+          startupTimer = null;
+        }
+        try {
+          if (glMap && onMapError) glMap.off('error', onMapError);
+          if (glMap && onMapLoad) glMap.off('load', onMapLoad);
+          if (glCanvas && onContextLost) {
+            glCanvas.removeEventListener('webglcontextlost', onContextLost);
+          }
+        } catch (error) {
+          // The bridge may already have destroyed its MapLibre map.
+        }
+        onMapError = null;
+        onMapLoad = null;
+        onContextLost = null;
+        glCanvas = null;
+        glMap = null;
+      };
+
+      const removeMapLibreLayer = () => {
+        clearMapLibreListeners();
+        if (!glLayer) return;
+        try {
+          if (group.hasLayer(glLayer)) group.removeLayer(glLayer);
+        } catch (removeError) {
+          console.warn(`${contextLabel} MapLibre resources could not be fully removed.`, removeError);
+        }
+        glLayer = null;
+      };
+
+      const useEsriFallback = (reason) => {
+        if (!window.MainMapHelpers ||
+            !MainMapHelpers.canApplyBasemapFallback({
+              generation,
+              currentGeneration: options.getCurrentGeneration(),
+              isSatellite: options.isStreetMode() === false,
+              layerActive: isActive(),
+              fallbackActive: !!fallbackLayer
+            })) return;
+        if (reason) console.warn(`${contextLabel} CARTO vector basemap unavailable; using Esri streets.`, reason);
+        removeMapLibreLayer();
+        if (!isActive()) return;
+        fallbackLayer = createStreetBasemap({ maxZoom });
+        group.addLayer(fallbackLayer);
+      };
+
+      group.resizeMapLibre = () => {
+        if (!isActive() || !glLayer || typeof glLayer.getMaplibreMap !== 'function') return;
+        const maplibreMap = glLayer.getMaplibreMap();
+        if (maplibreMap && typeof maplibreMap.resize === 'function') maplibreMap.resize();
+      };
+
+      group.disposeBrandedBasemap = () => {
+        if (disposed) return;
+        disposed = true;
+        removeMapLibreLayer();
+      };
+      group.on('remove', group.disposeBrandedBasemap);
+
+      Promise.resolve().then(async () => {
+        while (isActive() && targetMap.getContainer().offsetParent === null) {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+        }
+        if (!isActive()) return;
+        if (!window.maplibregl || typeof L.maplibreGL !== 'function' ||
+            !window.MainMapHelpers) {
+          throw new Error('MapLibre GL, its Leaflet bridge, or map helpers did not load');
+        }
+        const response = await fetch(ZONE_STREET_STYLE_URL, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Style request failed (${response.status})`);
+        const style = await response.json();
+        MainMapHelpers.applyCartoKey(style, cartoBasemapKey);
+        if (!isActive()) return;
+
+        glLayer = L.maplibreGL({
+          style,
+          interactive: false,
+          attributionControl: { customAttribution: CARTO_ATTRIBUTION }
+        });
+        group.addLayer(glLayer);
+        if (!isActive()) {
+          removeMapLibreLayer();
+          return;
+        }
+        glMap = glLayer.getMaplibreMap();
+        if (!glMap) throw new Error('MapLibre did not create a map');
+
+        const failureMonitor = MainMapHelpers.createBasemapFailureMonitor({
+          threshold: 3,
+          windowMs: 5000,
+          onFallback: useEsriFallback
+        });
+        onMapError = (event) => {
+          const error = event?.error || new Error('MapLibre rendering error');
+          if (!loaded) {
+            useEsriFallback(error);
+          } else {
+            failureMonitor.recordError(error);
+          }
+        };
+        glMap.on('error', onMapError);
+        glCanvas = glMap.getCanvas();
+        if (glCanvas) {
+          onContextLost = (event) => {
+            event.preventDefault();
+            failureMonitor.recordContextLoss(new Error('MapLibre WebGL context lost'));
+          };
+          glCanvas.addEventListener('webglcontextlost', onContextLost);
+        }
+        onMapLoad = () => {
+          if (!isActive()) return;
+          loaded = true;
+          if (startupTimer) clearTimeout(startupTimer);
+          startupTimer = null;
+          group.resizeMapLibre();
+        };
+        glMap.once('load', onMapLoad);
+        startupTimer = setTimeout(() => {
+          if (!loaded) useEsriFallback(new Error('MapLibre style startup timed out'));
+        }, 12000);
+      }).catch(useEsriFallback);
+
+      return group;
+    }
+
+    function createZoneStreetBasemap(generation) {
+      const map = zoneMap;
+      return createBrandedStreetBasemap({
+        targetMap: map,
+        maxZoom: 24,
+        generation,
+        getCurrentGeneration: () => zoneBasemapGeneration,
+        isStreetMode: () => !isSatelliteMode,
+        isCurrentMap: () => zoneMap === map,
+        getCurrentLayer: () => currentTileLayer,
+        contextLabel: 'Main map'
+      });
+    }
+
+    function createHomeStreetBasemap(generation) {
+      const map = homeMap;
+      return createBrandedStreetBasemap({
+        targetMap: map,
+        maxZoom: 22,
+        generation,
+        getCurrentGeneration: () => homeBasemapGeneration,
+        isStreetMode: () => !isHomeSatelliteMode,
+        isCurrentMap: () => homeMap === map,
+        getCurrentLayer: () => homeTileLayer,
+        contextLabel: 'Home map'
+      });
+    }
+
+    function setHomeBaseMapMode(mode, force) {
+      if (!homeMap) return;
+      const wantSatellite = mode === 'satellite';
+      if (!force && wantSatellite === isHomeSatelliteMode) return;
+      homeBasemapGeneration += 1;
+      if (homeTileLayer && homeMap.hasLayer(homeTileLayer)) homeMap.removeLayer(homeTileLayer);
+      isHomeSatelliteMode = wantSatellite;
+      homeTileLayer = wantSatellite
+        ? createEsriSatelliteHybridBasemap({ maxZoom: 22 }).addTo(homeMap)
+        : createHomeStreetBasemap(homeBasemapGeneration).addTo(homeMap);
+      if (homeSatelliteToggleButton) {
+        homeSatelliteToggleButton.innerHTML = wantSatellite ? '🗺️' : '🛰️';
+        homeSatelliteToggleButton.title = wantSatellite ? 'Switch to street map' : 'Switch to satellite view';
+      }
+    }
+
+    function ensureLotLinesLayer() {
+      if (!zoneMap || !window.MainMapHelpers) return;
+      if (!lotLinesLayer) {
+        const pane = zoneMap.getPane('lotLinesPane') || zoneMap.createPane('lotLinesPane');
+        pane.style.zIndex = '360';
+        pane.style.pointerEvents = 'none';
+        const lotLinesRenderer = L.canvas({
+          pane: 'lotLinesPane',
+          padding: 0.25
+        });
+        lotLinesLayer = L.geoJSON([], {
+          pane: 'lotLinesPane',
+          renderer: lotLinesRenderer,
+          interactive: false,
+          style: () => MainMapHelpers.getParcelLineStyle(zoneMap.getZoom())
+        }).addTo(zoneMap);
+      }
+      if (!lotLinesLoader) {
+        lotLinesLoader = MainMapHelpers.createParcelViewportLoader();
+      }
+    }
+
+    function refreshLotLines() {
+      if (!zoneMap || !window.MainMapHelpers) return;
+      ensureLotLinesLayer();
+      const mapElement = zoneMap.getContainer();
+      const request = {
+        bounds: zoneMap.getBounds(),
+        zoom: zoneMap.getZoom(),
+        visible: true,
+        mapVisible: currentView === 'map' && !!mapElement && mapElement.offsetParent !== null
+      };
+      if (!MainMapHelpers.shouldLoadParcels(request)) {
+        if (lotLinesLoader) lotLinesLoader.abort();
+        if (lotLinesLayer) lotLinesLayer.clearLayers();
+        return;
+      }
+      lotLinesLayer.setStyle(MainMapHelpers.getParcelLineStyle(zoneMap.getZoom()));
+      lotLinesLoader.load(Object.assign(request, {
+        onFeatures: (collection) => {
+          if (!zoneMap || currentView !== 'map' ||
+              zoneMap.getZoom() < MainMapHelpers.PARCEL_MIN_ZOOM) return;
+          lotLinesLayer.clearLayers();
+          lotLinesLayer.addData(collection);
+          lotLinesLayer.setStyle(MainMapHelpers.getParcelLineStyle(zoneMap.getZoom()));
+        },
+        onFailure: (errors) => {
+          console.warn('LA County lot lines could not be fully loaded.', errors[0]);
+        }
+      }));
+    }
+
+    function scheduleLotLinesRefresh(delay) {
+      if (lotLinesRefreshTimer) clearTimeout(lotLinesRefreshTimer);
+      const wait = delay === undefined ? 250 : Math.max(0, Number(delay) || 0);
+      lotLinesRefreshTimer = setTimeout(refreshLotLines, wait);
+    }
+
     /**
      * Street basemap that does not depend on CARTO or Mapbox raster tiles.
-     * Satellite already uses Esri successfully; street view uses the same host.
-     * If a provider fails, swap to the next source without dropping markers.
+     * Used by non-main maps and as the main map's automatic fallback.
      */
     function createStreetBasemap(options) {
       const maxZoom = (options && options.maxZoom) || 22;
@@ -20101,46 +20584,50 @@
     }
 
     /** Esri World Imagery + reference layers (same idea as ArcGIS “Imagery Hybrid”: aerials plus roads and place names). */
-    function createEsriSatelliteHybridBasemap() {
-      const maxZ = 22;
+    function createEsriSatelliteHybridBasemap(options) {
+      const maxZ = (options && options.maxZoom) || 22;
+      const tileOptions = { maxZoom: maxZ };
+      if (maxZ > 22) tileOptions.maxNativeZoom = 22;
       const attribution =
         'Tiles © <a href="https://www.esri.com/" rel="noopener noreferrer" target="_blank">Esri</a> — ' +
         'Imagery: Esri, Maxar, Earthstar Geographics, and the GIS User Community. ' +
         'Reference (labels & roads): Esri, HERE, Garmin, USGS, METI/NASA, EPA, USDA, USFWS, © OpenStreetMap contributors, and the GIS User Community.';
       const imagery = L.tileLayer(
         'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        { attribution, maxZoom: maxZ }
+        Object.assign({ attribution }, tileOptions)
       );
       const boundaries = L.tileLayer(
         'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-        { maxZoom: maxZ }
+        tileOptions
       );
       const transport = L.tileLayer(
         'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',
-        { maxZoom: maxZ }
+        tileOptions
       );
       return L.layerGroup([imagery, boundaries, transport]);
     }
 
-    function setBaseMapMode(mode) {
+    function setBaseMapMode(mode, force) {
       if (!zoneMap) return;
       const wantSatellite = mode === 'satellite';
-      if ((wantSatellite && isSatelliteMode) || (!wantSatellite && !isSatelliteMode)) {
+      if (!force && ((wantSatellite && isSatelliteMode) || (!wantSatellite && !isSatelliteMode))) {
         updateSatelliteLayerToggleButton();
         return;
       }
+      zoneBasemapGeneration += 1;
       if (currentTileLayer) {
         zoneMap.removeLayer(currentTileLayer);
       }
       if (!wantSatellite) {
-        currentTileLayer = createStreetBasemap({ maxZoom: 22 }).addTo(zoneMap);
         isSatelliteMode = false;
+        currentTileLayer = createZoneStreetBasemap(zoneBasemapGeneration).addTo(zoneMap);
       } else {
-        currentTileLayer = createEsriSatelliteHybridBasemap().addTo(zoneMap);
         isSatelliteMode = true;
+        currentTileLayer = createEsriSatelliteHybridBasemap({ maxZoom: 24 }).addTo(zoneMap);
       }
       updateSatelliteLayerToggleButton();
       refreshDatasetOverlayOnZoom();
+      scheduleLotLinesRefresh(0);
     }
 
     function updateAdditionalMapboxLabelVisibility() {
@@ -20242,6 +20729,9 @@
           sceLinesBtn.innerHTML = SCE_LINES_OVERLAY_CONFIG.displayName;
           sceLinesBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
 
+          const referenceNote = L.DomUtil.create('p', 'map-reference-note', panel);
+          referenceNote.textContent = 'Structure shapes update periodically and may be inaccurate.';
+
           L.DomEvent.disableClickPropagation(container);
           L.DomEvent.on(expandBtn, 'click', L.DomEvent.stop);
           L.DomEvent.on(expandBtn, 'click', () => {
@@ -20295,21 +20785,22 @@
       if (MAPBOX_ADDITIONAL_LAYER_CONFIG.defaultVisible && isAdditionalMapboxLayerEnabled()) {
         setAdditionalMapboxLayerVisible(true);
       }
+      scheduleLotLinesRefresh(0);
       setSceLinesVisible(!!SCE_LINES_OVERLAY_CONFIG.defaultVisible);
     }
 
     const ZONE_BOUNDARY_STYLE = {
-      color: '#214025',
-      weight: 3,
-      opacity: 0.8,
-      fillColor: '#214025',
-      fillOpacity: 0.1
+      color: '#314059',
+      weight: 2.5,
+      opacity: 0.75,
+      fillColor: '#D6C58F',
+      fillOpacity: 0.11
     };
     const HOME_BOUNDARY_STYLE = {
-      color: '#214025',
-      weight: 2,
-      opacity: 0.8,
-      fillColor: '#214025',
+      color: '#314059',
+      weight: 1.75,
+      opacity: 0.75,
+      fillColor: '#D6C58F',
       fillOpacity: 0.1
     };
 
@@ -20502,13 +20993,7 @@
         
         // Add to map
         kmlLayer = L.geoJSON(geojson, {
-          style: {
-            color: '#214025',
-            weight: 3,
-            opacity: 0.8,
-            fillColor: '#214025',
-            fillOpacity: 0.1
-          }
+          style: ZONE_BOUNDARY_STYLE
         }).addTo(zoneMap);
         
         // Fit map to boundary
@@ -22344,8 +22829,8 @@
                                   l.includes('outreach');
                          }) || null;
       const damageCol = findColumn(headers, 'damage');
-      const soldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
       const formerResidentCol = getFormerResidentColumn(headers);
+      const centralSalesAvailable = salesCentralState.configured && salesCentralState.loaded;
 
       let totalPeople = 0;
       let contactedCount = 0;
@@ -22353,13 +22838,6 @@
       let standingCount = 0;
       let damageNotSetCount = 0;
       let soldSinceFireCount = 0;
-
-      const isSoldSinceFire = (value) => {
-        const normalized = String(value || '').trim().toLowerCase();
-        if (!normalized || normalized === '—' || normalized === '-') return false;
-        if (['no', 'n', 'false', '0', 'none', 'not sold', 'unsold'].includes(normalized)) return false;
-        return true;
-      };
 
       addressMap.forEach((residents, address) => {
         const activeResidents = getActiveResidentRows(residents, formerResidentCol);
@@ -22387,12 +22865,7 @@
           }
         }
 
-        if (soldSinceFireCol && residents.length > 0) {
-          const soldValue = residents[0][soldSinceFireCol];
-          if (isSoldSinceFire(soldValue)) {
-            soldSinceFireCount++;
-          }
-        }
+        if (centralSalesAvailable && getAddressSoldSinceFire(address)) soldSinceFireCount++;
       });
 
       // Format outreach coverage as "X of Y (Z%)"
@@ -22409,7 +22882,7 @@
       document.getElementById('statTotalLoss').textContent      = damageCol ? totalLossCount : '—';
       document.getElementById('statStanding').textContent       = damageCol ? standingCount : '—';
       document.getElementById('statDamageNotSet').textContent   = damageCol ? damageNotSetCount : '—';
-      document.getElementById('statSoldSinceFire').textContent  = soldSinceFireCol ? soldSinceFireCount : '—';
+      document.getElementById('statSoldSinceFire').textContent  = centralSalesAvailable ? soldSinceFireCount : '—';
 
       container.classList.remove('hidden');
     }
@@ -26788,18 +27261,6 @@
       } catch (e) { /* ignore */ }
 
       window.addEventListener('load', function () {
-        // Drop stale shell caches from older SW versions (they used to store `/`,
-        // i.e. a full copy of index.html) so this deploy is not stuck behind them.
-        if (window.caches && caches.keys) {
-          caches.keys().then(function (keys) {
-            keys.forEach(function (key) {
-              if (key.indexOf('shell-') === 0 && key !== 'shell-zd-shell-v4') {
-                caches.delete(key);
-              }
-            });
-          }).catch(function () {});
-        }
-
         navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function (reg) {
           function skipWaiting(worker) {
             if (worker) worker.postMessage({ type: 'SKIP_WAITING' });
