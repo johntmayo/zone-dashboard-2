@@ -139,3 +139,10 @@ test('central sales APN helper does not shadow the existing homepage helper', ()
   assert.equal((html.match(/function getAddressApnDigits\(/g) || []).length, 1);
   assert.match(html, /getAddressSalesApnDigits\(address\)\.forEach/);
 });
+
+test('captain UI does not expose the retired For Sale field', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.doesNotMatch(html, /const\s+forSaleCol\s*=/);
+  assert.doesNotMatch(html, /<strong>For Sale<\/strong>/);
+  assert.doesNotMatch(html, /addressForSaleCol/);
+});
