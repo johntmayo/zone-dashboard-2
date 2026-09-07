@@ -3645,11 +3645,6 @@
       outreachDate: ['last outreach attempt date', 'last contact date', 'last outreach'],
       outreachLog: ['outreach log', 'contact notes'],
       outreach: ['last outreach attempt date', 'last contact date', 'outreach log', 'contact notes', 'last outreach'],
-      forSale: ['address - for sale', 'for sale'],
-      soldSinceFire: ['address - sold since fire', 'sold since fire'],
-      saleDate: ['sale date'],
-      salePrice: ['sale price'],
-      newOwner: ['new owner'],
       sourceSheet: ['source sheet', 'source_sheet_url', 'source sheet url', 'sheet_url', 'zone sheet url'],
       syncedAt: ['last_synced_at', 'last synced at', 'sync timestamp', 'source_last_seen_at']
     };
@@ -11602,12 +11597,7 @@
       const ncPhoneCol = findColumn(headers, 'nc phone');
       const ncEmailCol = findColumn(headers, 'nc email');
       const householdSizeCol = findColumn(headers, ['household', 'size']);
-      const addressForSaleCol = headers.find(h => /address\s*-\s*for sale|for sale/i.test(h));
-      const addressSoldSinceFireCol = headers.find(h => /address\s*-\s*sold since fire|sold since fire/i.test(h));
       const addressUnitTypeCol = headers.find(h => /address\s*-\s*unit type|unit type/i.test(h));
-      const saleDateCol = headers.find(h => /sale\s*date/i.test(h));
-      const saleNotesCol = headers.find(h => /sale\s*note/i.test(h));
-      const newOwnerCol = headers.find(h => /new\s*owner/i.test(h));
       const indoorsCol = headers.find(h => /indoors\s*remediat/i.test(h));
       const soilCol = headers.find(h => /soil\s*remediat/i.test(h));
       const ageCol = headers.find(h => /^age$/i.test(h));
@@ -11650,12 +11640,7 @@
         ncPhoneCol,
         ncEmailCol,
         householdSizeCol,
-        addressForSaleCol,
-        addressSoldSinceFireCol,
         addressUnitTypeCol,
-        saleDateCol,
-        saleNotesCol,
-        newOwnerCol,
         indoorsCol,
         soilCol
       ].filter(Boolean));
