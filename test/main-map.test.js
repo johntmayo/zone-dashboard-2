@@ -629,6 +629,51 @@ test('warmer map branding preserves SOLD semantics and approved-map boundaries',
   assert.doesNotMatch(fallback[1], /color:\s*'#214025'|fillColor:\s*'#214025'/);
 });
 
+test('blank person names on new addresses create an identified placeholder resident', () => {
+  const root = path.join(__dirname, '..');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+
+  assert.match(html, /public\/js\/resident-placeholder\.js/);
+  assert.match(
+    html,
+    /const enteredPersonName = \(document\.getElementById\('addRecordPersonName'\)\.value \|\| ''\)\.trim\(\);[\s\S]*?const personName = enteredPersonName \|\| PLACEHOLDER_RESIDENT_NAME/
+  );
+  assert.match(html, /setAddressPlaceholderValue\(headers, rowValuesByColumn, !enteredPersonName\)/);
+  assert.match(html, /setAddressPlaceholderValue\(headers, rowValuesByColumn, false\)/);
+  assert.match(
+    html,
+    /applyAddRecordPersonName\(rowValuesByColumn, personName, nameColumns\);[\s\S]*?ensureResidentIdAndApn\(headers, (?:addRecordPendingRowValues|rowValuesByColumn)\)/
+  );
+  assert.match(html, /if \(typeof value === 'boolean'\) return value/);
+});
+
+test('resident name editing protects identity and converts placeholders', () => {
+  const root = path.join(__dirname, '..');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+
+  assert.match(html, /Are you correcting this person’s name, or is this a different person\?/);
+  assert.match(html, /data-name-change-choice="correct">Correct the name/);
+  assert.match(html, /data-name-change-choice="different">Different person/);
+  assert.match(html, /data-name-change-choice="cancel">Cancel/);
+  assert.match(html, /placeholderNameChange === 'placeholder_conversion'[\s\S]*?value: newValue/);
+  assert.match(html, /Mark the current person as Former Resident, then add the new resident separately/);
+  assert.match(html, /Use this field for spelling or formatting corrections\. If this is a different person, add them as a new resident\./);
+});
+
+test('address placeholders stay visible but are excluded from person workflows', () => {
+  const root = path.join(__dirname, '..');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const checkIn = fs.readFileSync(path.join(root, 'public', 'js', 'contact-checkin.js'), 'utf8');
+
+  assert.match(html, /const activeRows = getActiveResidentRows\(rows, formerResidentCol\);[\s\S]*?residents\.push\(row\[residentNameCol\]\.trim\(\)\)/);
+  assert.match(html, /function getActiveRealResidentRows[\s\S]*?!isAddressPlaceholder\(row, headers \|\| \[\]\)/);
+  assert.match(html, /getActiveRealResidentRows\(rows, headers, formerResidentCol\)\.forEach/);
+  assert.match(html, /person\.address && !isAddressPlaceholder\(person\.row, headers\)/);
+  assert.match(html, /addressPlaceholder[\s\S]*?Address placeholder — add or convert a resident before logging person outreach/);
+  assert.match(checkIn, /residentRows = useRows\.filter[\s\S]*?!isAddressPlaceholder\(row, headers\)/);
+  assert.match(checkIn, /setAddressPlaceholderValue\(headers, valuesByColumn, false\)/);
+});
+
 test('shared branded basemap is lifecycle-safe and limited to approved maps', () => {
   const root = path.join(__dirname, '..');
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
@@ -686,7 +731,8 @@ test('service-worker ownership and automatic lot-line integration stay aligned',
   const root = path.join(__dirname, '..');
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const worker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
-  assert.match(worker, /const SW_VERSION = 'zd-shell-v5'/);
+  assert.match(worker, /const SW_VERSION = 'zd-shell-v6'/);
+  assert.match(worker, /'\/public\/js\/resident-placeholder\.js'/);
   assert.doesNotMatch(html, /shell-zd-shell-v4/);
   assert.doesNotMatch(html, /key !== 'shell-zd-shell-/);
   const versionedStylePath = 'public/map-styles/altagether-voyager-v1.json?v=2';
