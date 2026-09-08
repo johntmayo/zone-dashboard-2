@@ -4,7 +4,7 @@
  */
 'use strict';
 
-const SW_VERSION = 'zd-shell-v5';
+const SW_VERSION = 'zd-shell-v6';
 const SHELL_CACHE = `shell-${SW_VERSION}`;
 
 // Same-origin assets safe to precache. Do NOT precache `/` (the dashboard HTML) —
@@ -14,6 +14,7 @@ const PRECACHE_URLS = [
   '/public/css/styles.css?v=2',
   '/public/js/utils.js',
   '/public/js/address-id.js',
+  '/public/js/resident-placeholder.js',
   '/public/js/contact-checkin.js',
   '/public/js/main-map.js',
   '/public/map-styles/altagether-voyager-v1.json?v=2',
