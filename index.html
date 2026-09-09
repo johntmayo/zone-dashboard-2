@@ -38,6 +38,7 @@
   <link rel="stylesheet" href="public/css/styles.css?v=2">
   <script src="public/js/utils.js"></script>
   <script src="public/js/address-id.js"></script>
+  <script src="public/js/resident-placeholder.js"></script>
   <script src="public/js/contact-checkin.js"></script>
   <script src="public/js/main-map.js"></script>
   <!-- Google Analytics 4 (loads only when GA_MEASUREMENT_ID is set) -->
@@ -3611,6 +3612,7 @@
     const GODMODE_FIELD_ALIASES = {
       residentId: ['resident_id', 'resident id', 'residentid', 'person_id', 'person id'],
       addressId: ['address_id', 'address id', 'addressid'],
+      addressPlaceholder: ['address placeholder', 'address_placeholder'],
       name: ['resident name', 'full name', 'name', 'person name', 'voter name'],
       firstName: ['first name', 'firstname'],
       lastName: ['last name', 'lastname', 'surname'],
@@ -3917,6 +3919,7 @@
         const addressPlan = getGodmodeValue(row, GODMODE_FIELD_ALIASES.addressPlan);
         const buildStage = getGodmodeValue(row, GODMODE_FIELD_ALIASES.rebuild);
         const damage = getGodmodeValue(row, GODMODE_FIELD_ALIASES.damage);
+        const addressPlaceholder = hasGodmodeTruthyValue(getGodmodeValue(row, GODMODE_FIELD_ALIASES.addressPlaceholder));
         const centralSales = getCentralSalesByApn(getGodmodeValue(row, GODMODE_FIELD_ALIASES.apn));
         const sold = Boolean(centralSales && centralSales.records.some((record) => record.soldSinceFire));
         const lotWeedingRequestKey = getGodmodeLotWeedingRequestKey(row, addressKey);
@@ -3964,8 +3967,8 @@
           coCaptainList.forEach((captain) => match.coCaptains.add(captain));
         });
 
-        if (covered) peopleWithCaptain++;
-        if (unzoned) unzonedPeople++;
+        if (covered && !addressPlaceholder) peopleWithCaptain++;
+        if (unzoned && !addressPlaceholder) unzonedPeople++;
 
         if (addressKey) {
           if (!addresses.has(addressKey)) {
@@ -4025,7 +4028,7 @@
             });
           }
           const zoneRollup = zones.get(zone);
-          zoneRollup.people++;
+          if (!addressPlaceholder) zoneRollup.people++;
           captainList.forEach((captain) => zoneRollup.captains.add(captain));
           coCaptainList.forEach((captain) => zoneRollup.coCaptains.add(captain));
           const captainPhone = getGodmodeValue(row, GODMODE_FIELD_ALIASES.captainPhone);
@@ -4035,9 +4038,9 @@
           if (addressKey) zoneRollup.addressKeys.add(addressKey);
           if (addressKey && hasUnit) zoneRollup.unitAddressKeys.add(addressKey);
           if (buildingKey && hasUnit) zoneRollup.unitBuildingKeys.add(buildingKey);
-          if (addressKey && outreach) zoneRollup.outreachKeys.add(addressKey);
+          if (addressKey && outreach && !addressPlaceholder) zoneRollup.outreachKeys.add(addressKey);
           if (addressKey && sold) zoneRollup.soldKeys.add(addressKey);
-          if (hasGodmodeTruthyValue(getGodmodeValue(row, GODMODE_FIELD_ALIASES.followUp))) zoneRollup.followUp++;
+          if (!addressPlaceholder && hasGodmodeTruthyValue(getGodmodeValue(row, GODMODE_FIELD_ALIASES.followUp))) zoneRollup.followUp++;
           if (addressKey && !zoneRollup.addressPlanKeys.has(addressKey)) {
             incrementGodmodeMap(zoneRollup.addressPlans, addressPlan);
             zoneRollup.addressPlanKeys.add(addressKey);
@@ -4112,12 +4115,12 @@
               });
             }
             const captainRollup = captains.get(captain);
-            captainRollup.people++;
+            if (!addressPlaceholder) captainRollup.people++;
             captainRollup.zones.add(zone);
             coCaptainList.filter((name) => name.toLowerCase() !== captain.toLowerCase()).forEach((name) => captainRollup.coCaptains.add(name));
             if (addressKey) captainRollup.addressKeys.add(addressKey);
-            if (addressKey && outreach) captainRollup.outreachKeys.add(addressKey);
-            if (hasGodmodeTruthyValue(getGodmodeValue(row, GODMODE_FIELD_ALIASES.followUp))) captainRollup.followUp++;
+            if (addressKey && outreach && !addressPlaceholder) captainRollup.outreachKeys.add(addressKey);
+            if (!addressPlaceholder && hasGodmodeTruthyValue(getGodmodeValue(row, GODMODE_FIELD_ALIASES.followUp))) captainRollup.followUp++;
             captainRollup.email = captainRollup.email || getGodmodeValue(row, GODMODE_FIELD_ALIASES.captainEmail);
             captainRollup.phone = captainRollup.phone || getGodmodeValue(row, GODMODE_FIELD_ALIASES.captainPhone);
             captainRollup.onboardingMonth = captainRollup.onboardingMonth || getGodmodeValue(row, GODMODE_FIELD_ALIASES.onboardingMonth);
@@ -4219,7 +4222,7 @@
         lotWeedingCompletionPercent: formatGodmodePercent(lotWeedingCompleted, lotWeedingRequests.length),
         peopleWithCaptain,
         unzonedPeople,
-        totalPeople: rows.length,
+        totalPeople: rows.filter((row) => !hasGodmodeTruthyValue(getGodmodeValue(row, GODMODE_FIELD_ALIASES.addressPlaceholder))).length,
         totalAddresses: addressList.length,
         addressesWithCaptain: coveredAddresses.length,
         unzonedAddresses: unzonedAddresses.length,
@@ -9437,7 +9440,7 @@
       if (!contactDateCol) return false;
       
       const formerResidentCol = getFormerResidentColumn(sheetData.headers);
-      const rows = getActiveResidentRows(sheetData.addressMap.get(address), formerResidentCol);
+      const rows = getActiveRealResidentRows(sheetData.addressMap.get(address), sheetData.headers, formerResidentCol);
       if (!rows || rows.length === 0) return false;
       
       // Check if any person at this address has a contact date
@@ -9450,7 +9453,7 @@
     // Check if an address needs follow-up
     function isAddressNeedsFollowup(address) {
       const formerResidentCol = getFormerResidentColumn(sheetData.headers);
-      const rows = getActiveResidentRows(sheetData.addressMap.get(address), formerResidentCol);
+      const rows = getActiveRealResidentRows(sheetData.addressMap.get(address), sheetData.headers, formerResidentCol);
       if (!rows || rows.length === 0) return false;
       
       // Check for columns that might indicate needs follow-up
@@ -9478,7 +9481,7 @@
     // Check if an address is a renter
     function isAddressRenter(address) {
       const formerResidentCol = getFormerResidentColumn(sheetData.headers);
-      const rows = getActiveResidentRows(sheetData.addressMap.get(address), formerResidentCol);
+      const rows = getActiveRealResidentRows(sheetData.addressMap.get(address), sheetData.headers, formerResidentCol);
       if (!rows || rows.length === 0) return false;
       
       // Check columns that might indicate renter status (Renter checkbox, etc.)
@@ -10520,6 +10523,7 @@
         // Find people who need follow-up
         if (followupCol) {
           rows.forEach((personRow) => {
+            if (isAddressPlaceholder(personRow, headers)) return;
             const followupValue = (personRow[followupCol] || '').toString().trim();
             const followupValueLower = followupValue.toLowerCase();
             const isFollowupChecked = followupValueLower === 'true' || followupValue === 'TRUE' || 
@@ -11225,15 +11229,6 @@
       }
     }
 
-    // Generate a unique resident_id (UUID) for new rows
-    function generateResidentId() {
-      if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
-      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        const r = Math.random() * 16 | 0, v = c === 'y' ? (r & 0x3 | 0x8) : r;
-        return v.toString(16);
-      });
-    }
-
     // Ensure resident_id and APN are set on row values when those columns exist (Add Record)
     function ensureResidentIdAndApn(headers, valuesByColumn) {
       if (headers.includes('resident_id')) {
@@ -11256,7 +11251,11 @@
 
     // Build one row array in header order from a key-value map
     function buildRowForHeaders(headers, valuesByColumn) {
-      return headers.map(h => (valuesByColumn[h] != null && valuesByColumn[h] !== '') ? String(valuesByColumn[h]).trim() : '');
+      return headers.map(h => {
+        const value = valuesByColumn[h];
+        if (typeof value === 'boolean') return value;
+        return (value != null && value !== '') ? String(value).trim() : '';
+      });
     }
 
     // Parse leading house number from address string for sorting (e.g. "123 Main St" -> 123)
@@ -11396,7 +11395,7 @@
       const normalized = typeof normalizeHeaderKey === 'function'
         ? normalizeHeaderKey(column)
         : lower.replace(/[^a-z0-9]/g, '');
-      if (!lower || normalized === 'residentid' || normalized === 'addressid') return true;
+      if (!lower || normalized === 'residentid' || normalized === 'addressid' || normalized === 'addressplaceholder') return true;
       if (lower.startsWith('__')) return true;
       if (lower.startsWith('_') && !normalized.startsWith('situs')) return true;
       if (lower.startsWith('person - ') || lower.startsWith('person_')) return true;
@@ -11727,7 +11726,7 @@
                 </div>
                 <div class="newsletter-modal-section" style="margin-top:16px;">
                   <h4 class="newsletter-modal-section-title">Someone at this address?</h4>
-                  <p style="margin:0 0 8px 0; font-size:0.9rem; color:var(--text-light);">Optional. Add a name and details if you know who lives here.</p>
+                  <p style="margin:0 0 8px 0; font-size:0.9rem; color:var(--text-light);">Optional. Add a name and details if you know who lives here. If left blank, a placeholder resident will be created.</p>
                   <p style="margin:0 0 6px 0;"><label>Name</label></p>
                   <input type="text" id="addRecordPersonName" class="add-record-input" placeholder="e.g. Jane Smith" style="max-width:320px; margin-bottom:10px;">
                   <details style="margin-top:10px;"><summary style="cursor:pointer; font-weight:600;">Person details</summary><p style="margin:8px 0 10px 0; font-size:0.9rem; color:var(--text-light);">All fields are optional and can be added later.</p><div style="margin-top:8px; padding-left:0;">${personDetailsFields}</div></details>
@@ -11956,7 +11955,8 @@
           const streetVal = streetSelect.value === '__other__' ? (document.getElementById('addRecordStreetOther').value || '').trim() : (streetSelect.value || '').trim();
           const unitVal = (document.getElementById('addRecordUnit').value || '').trim();
           const cityState = (document.getElementById('addRecordCityState').value || '').trim();
-          const personName = (document.getElementById('addRecordPersonName').value || '').trim();
+          const enteredPersonName = (document.getElementById('addRecordPersonName').value || '').trim();
+          const personName = enteredPersonName || PLACEHOLDER_RESIDENT_NAME;
           if (!streetVal) { alert('Please select or enter a street.'); return; }
           const addressString = applyAddRecordAddressInput(rowValuesByColumn, {
             houseNum,
@@ -11966,6 +11966,7 @@
           }, addressInputOptions);
           applyAddRecordZoneDefaults(rowValuesByColumn, zoneDefaults);
           applyAddRecordPersonName(rowValuesByColumn, personName, nameColumns);
+          setAddressPlaceholderValue(headers, rowValuesByColumn, !enteredPersonName);
           Object.assign(rowValuesByColumn, collectPersonDetails('addRecord'));
           Object.assign(rowValuesByColumn, collectAddressDetails());
           let lat = '', lon = '';
@@ -12001,6 +12002,7 @@
           // t === 'person'
           const personName = (document.getElementById('addRecordPersonNameInput').value || '').trim();
           if (!personName) { alert('Please enter the person\'s name.'); return; }
+          setAddressPlaceholderValue(headers, rowValuesByColumn, false);
           const addrType = personAddressType ? personAddressType.value : 'existing';
           if (addrType === 'existing') {
             const existingAddr = (document.getElementById('addRecordExistingAddress').value || '').trim();
@@ -12970,8 +12972,8 @@
             valA = a;
             valB = b;
           } else if (tableSortColumn === 'residents') {
-            const residentsA = rowsA && residentNameCol ? rowsA.filter(r => r[residentNameCol]?.trim()).length : 0;
-            const residentsB = rowsB && residentNameCol ? rowsB.filter(r => r[residentNameCol]?.trim()).length : 0;
+            const residentsA = rowsA && residentNameCol ? rowsA.filter(r => r[residentNameCol]?.trim() && !isAddressPlaceholder(r, headers)).length : 0;
+            const residentsB = rowsB && residentNameCol ? rowsB.filter(r => r[residentNameCol]?.trim() && !isAddressPlaceholder(r, headers)).length : 0;
             valA = residentsA.toString();
             valB = residentsB.toString();
           } else {
@@ -13154,12 +13156,13 @@
         return lower.includes('email address') || (lower.includes('email') && !lower.includes('nc email'));
       });
       if (!emailCol) return [];
+      const formerResidentCol = getFormerResidentColumn(headers);
       const filteredAddresses = getFilteredAddresses();
       const emailSet = new Set();
       filteredAddresses.forEach(addr => {
         const rows = sheetData.addressMap.get(addr);
         if (!rows) return;
-        rows.forEach(row => {
+        getActiveRealResidentRows(rows, headers, formerResidentCol).forEach(row => {
           const email = (row[emailCol] || '').trim();
           if (email && email.includes('@')) emailSet.add(email.toLowerCase());
         });
@@ -13464,6 +13467,7 @@
         
         // Get person-level data
         rows.forEach(row => {
+          if (isAddressPlaceholder(row, headers)) return;
           if (residentNameCol && row[residentNameCol] && row[residentNameCol].trim()) {
             const person = {
               name: row[residentNameCol].trim(),
@@ -13985,6 +13989,11 @@
       return (Array.isArray(rows) ? rows : []).filter(row => !isFormerResidentRow(row, formerResidentCol));
     }
 
+    function getActiveRealResidentRows(rows, headers, formerResidentCol) {
+      return getActiveResidentRows(rows, formerResidentCol)
+        .filter(row => !isAddressPlaceholder(row, headers || []));
+    }
+
     // Called by Contact Check-In after local sheet edits so Neighbors / Map / Details
     // reflect changes immediately (e.g. marking someone a former resident).
     function syncViewsAfterLocalSheetEdit(options) {
@@ -14408,6 +14417,7 @@
         h.toLowerCase() !== 'address' &&
         h.toLowerCase() !== 'resident_id' &&
         h.toLowerCase() !== 'address_id' &&
+        h.toLowerCase() !== 'address placeholder' &&
         !h.startsWith('_') &&
         rows.some(row => row[h] && row[h].trim())
       );
@@ -14435,7 +14445,7 @@
       // Separate address-level and person-level columns
       const addressLevelCols = headers.filter(h => {
         const lower = h.toLowerCase();
-        if (lower === 'resident_id' || lower === 'address_id') return false; // Backend only, never display
+        if (lower === 'resident_id' || lower === 'address_id' || lower === 'address placeholder') return false; // Backend only, never display
         if (lower.includes('apn status')) return false;
         // Explicitly exclude person-level notes and email address
         if (lower.includes('person note')) return false;
@@ -14484,6 +14494,7 @@
       const hiddenFromPersonView = [
         'resident_id', // Backend only, never display
         'address_id', // Backend only, never display
+        'address placeholder', // Internal classification, never display
         'apn',        // Address/parcel-level — shown in address section, not per-person
         'apn status',
         'situshouseno',
@@ -14944,6 +14955,7 @@
 
         html += `<div class="person-entry person-card">`;
         const displayName = getPersonDisplayName(row, index, nameCol);
+        const addressPlaceholder = isAddressPlaceholder(row, headers);
         const outreachComposerId = `outreach-composer-${String(address).replace(/[^a-zA-Z0-9]/g, '-')}-${originalRowIndex}`;
         html += `
           <div class="person-entry-head">
@@ -14954,7 +14966,12 @@
         `;
 
         // Per-person outreach logging
-        if (isSignedIn()) {
+        if (addressPlaceholder) {
+          html += `
+            </div>
+            <div class="outreach-status"><span class="outreach-status__value">Address placeholder — add or convert a resident before logging person outreach.</span></div>
+          `;
+        } else if (isSignedIn()) {
           const outreachLogValue = outreachLogCol ? (row[outreachLogCol] || '') : '';
           const hasOutreachLog = String(outreachLogValue).trim().length > 0;
           const outreachNotesId = `${outreachComposerId}-notes`;
@@ -15786,6 +15803,7 @@
       const modalHiddenKeywords = [
         'resident_id',
         'address_id',
+        'address placeholder',
         'apn',
         'house #',
         'house number',
@@ -15859,6 +15877,7 @@
       const disabledAttr = canEdit ? '' : ' disabled';
       const rowPosition = rows.indexOf(row);
       const displayName = getPersonDisplayName(row, rowPosition === -1 ? 0 : rowPosition, nameCol);
+      const addressPlaceholder = isAddressPlaceholder(row, headers);
       const standardCols = new Set([
         nameCol,
         ageCol,
@@ -15881,6 +15900,9 @@
         const value = row[col] || '';
         const fieldClass = options.fieldClass ? ` ${options.fieldClass}` : '';
         const inputClass = options.inputClass ? ` ${options.inputClass}` : '';
+        const helperText = options.helperText
+          ? `<p class="person-details-field__helper" style="margin:6px 0 0; font-size:0.85rem; color:var(--text-light);">${escapeHtml(options.helperText)}</p>`
+          : '';
         const copyButtonHtml = options.withCopy && String(value || '').trim()
           ? `<button class="copy-email-btn"
                      data-email="${escapeHtmlAttr(String(value).trim())}"
@@ -15908,6 +15930,7 @@
               >
               ${copyButtonHtml}
             </div>
+            ${helperText}
           </div>
         `;
       };
@@ -15993,7 +16016,10 @@
             <div class="newsletter-modal-content">
               <div class="newsletter-modal-section">
                 <div class="person-details-grid">
-                  ${textField('Name', nameCol, 'text', { fieldClass: 'person-details-field--full' })}
+                  ${textField('Name', nameCol, 'text', {
+                    fieldClass: 'person-details-field--full',
+                    helperText: 'Use this field for spelling or formatting corrections. If this is a different person, add them as a new resident.'
+                  })}
                   ${textField('Approximate Age', ageCol, 'text', {
                     fieldClass: 'person-details-field--compact',
                     inputClass: 'person-details-input--compact'
@@ -16012,7 +16038,7 @@
                   ${textField('Email address', emailCol, 'email', { withCopy: true })}
                 </div>
               </div>
-              <div class="newsletter-modal-section">
+              ${addressPlaceholder ? '' : `<div class="newsletter-modal-section">
                 <h4 class="newsletter-modal-section-title">Outreach</h4>
                 <div class="person-details-grid">
                   ${staticField('Last outreach attempt', contactDateCol)}
@@ -16022,7 +16048,7 @@
                     emptyText: 'No outreach logged yet'
                   })}
                 </div>
-              </div>
+              </div>`}
               ${additionalCols.length > 0 ? `
                 <div class="newsletter-modal-section">
                   <h4 class="newsletter-modal-section-title">Additional Details</h4>
@@ -16031,7 +16057,7 @@
                   </div>
                 </div>
               ` : ''}
-              <div class="newsletter-modal-section">
+              ${addressPlaceholder ? '' : `<div class="newsletter-modal-section">
                 <h4 class="newsletter-modal-section-title">All Tags</h4>
                 <div class="person-details-tags">
                   ${quickTagsHtml}
@@ -16042,7 +16068,7 @@
                   ${formerResidentNotesCol ? notesField('Former Resident Notes', formerResidentNotesCol, 'Why or when they left') : ''}
                   ${checkboxField('Deceased', deceasedCol, { role: 'deceased' })}
                 </div>
-              </div>
+              </div>`}
               ${personNotesCol ? `
                 <div class="newsletter-modal-section">
                   <h4 class="newsletter-modal-section-title">Notes</h4>
@@ -16144,6 +16170,42 @@
       }
     }
 
+    function askResidentNameChangeIntent() {
+      return new Promise((resolve) => {
+        const modalId = 'residentNameChangeModalOverlay';
+        document.getElementById(modalId)?.remove();
+        document.body.insertAdjacentHTML('beforeend', `
+          <div class="newsletter-modal-overlay" id="${modalId}">
+            <div class="newsletter-modal" style="max-width:560px;" role="dialog" aria-modal="true" aria-labelledby="residentNameChangeTitle">
+              <div class="newsletter-modal-header">
+                <h3 class="newsletter-modal-title" id="residentNameChangeTitle">Are you correcting this person’s name, or is this a different person?</h3>
+              </div>
+              <div class="newsletter-modal-content">
+                <p><strong>Correct the name:</strong> Save the correction while keeping the same resident ID and history.</p>
+                <p><strong>Different person:</strong> Do not overwrite the existing resident. Mark the current person as Former Resident and add the new resident separately.</p>
+              </div>
+              <div class="newsletter-modal-actions">
+                <button type="button" class="btn-modal-save" data-name-change-choice="correct">Correct the name</button>
+                <button type="button" class="btn-modal-secondary" data-name-change-choice="different">Different person</button>
+                <button type="button" class="btn-modal-secondary" data-name-change-choice="cancel">Cancel</button>
+              </div>
+            </div>
+          </div>
+        `);
+        const promptOverlay = document.getElementById(modalId);
+        const finish = (choice) => {
+          promptOverlay?.remove();
+          resolve(choice);
+        };
+        promptOverlay.querySelectorAll('[data-name-change-choice]').forEach((button) => {
+          button.addEventListener('click', () => finish(button.getAttribute('data-name-change-choice')));
+        });
+        promptOverlay.addEventListener('click', (event) => {
+          if (event.target === promptOverlay) finish('cancel');
+        });
+      });
+    }
+
     async function savePersonDetailsModal(overlay) {
       if (!overlay) return;
       if (!isSignedIn() || !currentSheetId) {
@@ -16165,6 +16227,31 @@
 
       const fields = Array.from(overlay.querySelectorAll('[data-person-modal-field="true"]'));
       if (fields.length === 0) return;
+
+      const nameCol = getResidentNameColumn(sheetData.headers || []);
+      const nameField = nameCol
+        ? fields.find(field => field.getAttribute('data-column') === nameCol)
+        : null;
+      const currentName = nameCol ? String(row[nameCol] || '').trim() : '';
+      const nextName = nameField ? nameField.value.trim() : currentName;
+      const placeholderNameChange = classifyResidentNameChange(
+        currentName,
+        nextName,
+        isAddressPlaceholder(row, sheetData.headers || [])
+      );
+
+      if (nameField && !nextName) {
+        alert('Please enter a resident name.');
+        return;
+      }
+      if (placeholderNameChange === 'real_resident_change') {
+        const choice = await askResidentNameChangeIntent();
+        if (choice === 'different') {
+          alert('Do not overwrite this resident. Mark the current person as Former Resident, then add the new resident separately.');
+          return;
+        }
+        if (choice !== 'correct') return;
+      }
 
       if (saveBtn) saveBtn.disabled = true;
       if (saveStatus) {
@@ -16211,6 +16298,43 @@
           changedFields.push({ field, column, newValue });
         });
 
+        if (nameField && placeholderNameChange !== 'unchanged') {
+          const nameParts = splitPersonName(nextName);
+          const componentUpdates = [
+            [sheetData.headers.find(h => /^first\s*name$/i.test(h)), nameParts.first],
+            [sheetData.headers.find(h => /^middle\s*name$/i.test(h)), nameParts.middle],
+            [sheetData.headers.find(h => /^last\s*name$/i.test(h)), nameParts.last]
+          ];
+          componentUpdates.forEach(([column, newValue]) => {
+            if (!column || column === nameCol || String(row[column] || '').trim() === newValue) return;
+            if (sheetData.useResidentId && row['resident_id']) {
+              updatesByResidentId.push({ resident_id: row['resident_id'], column, value: newValue });
+            } else if (row.__originalIndex !== undefined && row.__originalIndex !== -1) {
+              const colIndex = sheetData.headers.indexOf(column);
+              const colLetter = indexToColumnLetter(colIndex);
+              const rowNumber = row.__originalIndex + 2;
+              updates.push({ range: `Sheet1!${colLetter}${rowNumber}`, values: [[newValue]] });
+            }
+            changedFields.push({ field: null, column, newValue });
+          });
+        }
+
+        if (placeholderNameChange === 'placeholder_conversion') {
+          const placeholderCol = findAddressPlaceholderColumn(sheetData.headers || []);
+          if (placeholderCol) {
+            const newValue = false;
+            if (sheetData.useResidentId && row['resident_id']) {
+              updatesByResidentId.push({ resident_id: row['resident_id'], column: placeholderCol, value: newValue });
+            } else if (row.__originalIndex !== undefined && row.__originalIndex !== -1) {
+              const colIndex = sheetData.headers.indexOf(placeholderCol);
+              const colLetter = indexToColumnLetter(colIndex);
+              const rowNumber = row.__originalIndex + 2;
+              updates.push({ range: `Sheet1!${colLetter}${rowNumber}`, values: [[newValue]] });
+            }
+            changedFields.push({ field: null, column: placeholderCol, newValue });
+          }
+        }
+
         if (changedFields.length === 0) {
           if (saveStatus) {
             saveStatus.textContent = 'No changes to save';
@@ -16233,12 +16357,11 @@
         }
 
         changedFields.forEach(({ field, column, newValue }) => {
-          field.setAttribute('data-original-value', newValue);
+          if (field) field.setAttribute('data-original-value', String(newValue));
           row[column] = newValue;
         });
 
         const titleEl = overlay.querySelector('.newsletter-modal-title');
-        const nameCol = getResidentNameColumn(sheetData.headers || []);
         if (titleEl && nameCol) {
           titleEl.textContent = row[nameCol] || titleEl.textContent;
         }
@@ -21359,6 +21482,9 @@
 
         const rows = sheetData.addressMap.get(address);
         const row = rows ? rows.find(r => r.__originalIndex === originalRowIndex) : null;
+        if (!row || isAddressPlaceholder(row, headers)) {
+          throw new Error('Add or convert a resident before logging person outreach.');
+        }
         const useResidentId = sheetData.useResidentId && row && row['resident_id'];
         const existingOutreachLog = contactNotesCol ? String(row?.[contactNotesCol] || '').trim() : '';
         const normalizedOutreachNote = contactNotes || '(no notes)';
@@ -21478,6 +21604,7 @@
       const addressMap = sheetData.addressMap || new Map();
       const formerResidentCol = getFormerResidentColumn(headers);
       const activeData = data.filter(row => !isFormerResidentRow(row, formerResidentCol));
+      const activeRealResidentData = activeData.filter(row => !isAddressPlaceholder(row, headers));
 
       // Find relevant columns
       const lastContactCol = headers.find(h => 
@@ -21495,7 +21622,7 @@
       // 1. People Contacted Chart
       let peopleContacted = 0;
       let peopleNotContacted = 0;
-      activeData.forEach(row => {
+      activeRealResidentData.forEach(row => {
         const hasContact = lastContactCol && row[lastContactCol] && String(row[lastContactCol]).trim().length > 0;
         if (hasContact) {
           peopleContacted++;
@@ -22454,7 +22581,7 @@
       addressMap.forEach((rows, address) => {
         let peopleCount = 0;
         rows.forEach(row => {
-          if (residentNameCol && row[residentNameCol] && String(row[residentNameCol]).trim()) {
+          if (residentNameCol && row[residentNameCol] && String(row[residentNameCol]).trim() && !isAddressPlaceholder(row, headers)) {
             peopleCount++;
           }
         });
@@ -22825,7 +22952,7 @@
       let soldSinceFireCount = 0;
 
       addressMap.forEach((residents, address) => {
-        const activeResidents = getActiveResidentRows(residents, formerResidentCol);
+        const activeResidents = getActiveRealResidentRows(residents, headers, formerResidentCol);
         totalPeople += activeResidents.length;
 
         // Outreach attempted: any resident has a non-empty outreach date
@@ -23490,7 +23617,7 @@
             hasEmail: rowHasEmail(row)
           };
         })
-        .filter((person) => person.address);
+        .filter((person) => person.address && !isAddressPlaceholder(person.row, headers));
       const peopleByKey = new Map(allPeople.map((person) => [person.key, person]));
       const addressDetails = new Map();
       const firstNonEmpty = (rows, column) => {
@@ -25006,7 +25133,7 @@
           }
         }
         
-        getActiveResidentRows(rows, formerResidentCol).forEach(row => {
+        getActiveRealResidentRows(rows, headers, formerResidentCol).forEach(row => {
           let include = false;
           
           if (type === 'uncontacted') {
@@ -25124,7 +25251,7 @@
           }
         }
         
-        getActiveResidentRows(rows, formerResidentCol).forEach(row => {
+        getActiveRealResidentRows(rows, headers, formerResidentCol).forEach(row => {
           // Filter by damage status
           if (damageFilter.length > 0 && damageCol) {
             const damage = (row[damageCol] || '').trim();
@@ -25981,7 +26108,7 @@
       const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
       
       addressMap.forEach((rows, address) => {
-        const activeRows = getActiveResidentRows(rows, formerResidentCol);
+        const activeRows = getActiveRealResidentRows(rows, headers, formerResidentCol);
         stats.totalPeople += activeRows.length;
         
         // Damage breakdown
@@ -26077,7 +26204,7 @@
       
       // Data completeness
       const allRows = Array.from(addressMap.values())
-        .flatMap(rows => getActiveResidentRows(rows, formerResidentCol));
+        .flatMap(rows => getActiveRealResidentRows(rows, headers, formerResidentCol));
       const totalRows = allRows.length;
       
       if (nameCol) {

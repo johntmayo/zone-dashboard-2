@@ -303,7 +303,10 @@
       var outreachLogCol = typeof findOutreachLogColumn === 'function' ? findOutreachLogColumn(headers) : null;
       var apnCol = findHeader(headers, 'APN', ['apn']);
 
-      var residents = useRows.map(function (row, idx) {
+      var residentRows = useRows.filter(function (row) {
+        return typeof isAddressPlaceholder !== 'function' || !isAddressPlaceholder(row, headers);
+      });
+      var residents = residentRows.map(function (row, idx) {
         var residentId = row.resident_id != null ? String(row.resident_id).trim() : '';
         return {
           id: residentId || ('row_' + (row.__originalIndex != null ? row.__originalIndex : idx)),
@@ -1490,6 +1493,9 @@
     if (cellCol && phone) valuesByColumn[cellCol] = phone;
     if (emailCol && email) valuesByColumn[emailCol] = email;
     if (notesCol && notes) valuesByColumn[notesCol] = notes;
+    if (typeof setAddressPlaceholderValue === 'function') {
+      setAddressPlaceholderValue(headers, valuesByColumn, false);
+    }
 
     // Address notes are address-level: bake this save's note into the new row
     // (inheritance may already copy older notes; append the new one if needed).
@@ -1515,7 +1521,11 @@
 
     var row = typeof buildRowForHeaders === 'function'
       ? buildRowForHeaders(headers, valuesByColumn)
-      : headers.map(function (h) { return valuesByColumn[h] != null ? String(valuesByColumn[h]) : ''; });
+      : headers.map(function (h) {
+          return typeof valuesByColumn[h] === 'boolean'
+            ? valuesByColumn[h]
+            : (valuesByColumn[h] != null ? String(valuesByColumn[h]) : '');
+        });
 
     if (typeof appendRowsToSheet !== 'function') throw new Error('Add Record is unavailable');
     await appendRowsToSheet([row]);
@@ -1573,12 +1583,13 @@
       var addressNote = document.getElementById('cciAddressNote') && document.getElementById('cciAddressNote').value.trim();
       var addressNotesCol = findAddressNotesColumn(headers);
       if (addressNote && addressNotesCol) {
-        // Write onto existing residents at this address
-        address.residents.forEach(function (resident) {
-          if (!resident.residentId) return;
-          var existing = String(resident.row[addressNotesCol] || '').trim();
+        // Address notes also apply when this address currently has only a placeholder row.
+        address.rows.forEach(function (row) {
+          var residentId = row.resident_id != null ? String(row.resident_id).trim() : '';
+          if (!residentId) return;
+          var existing = String(row[addressNotesCol] || '').trim();
           updates.push({
-            resident_id: resident.residentId,
+            resident_id: residentId,
             column: addressNotesCol,
             value: existing ? (existing + '\n' + addressNote) : addressNote
           });
