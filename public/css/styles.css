@@ -13079,6 +13079,71 @@
   padding: 1px 0;
 }
 
+.person-info--with-tip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.person-info--with-tip label {
+  margin: 0;
+}
+
+.field-help-tip {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-primary-dark, #314059);
+  color: #fff;
+  font-family: 'Chivo', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: help;
+  position: relative;
+  flex: 0 0 16px;
+}
+
+.field-help-tip:hover::after,
+.field-help-tip:focus::after {
+  content: attr(data-tip);
+  position: absolute;
+  z-index: 40;
+  right: 0;
+  left: auto;
+  bottom: calc(100% + 8px);
+  width: min(280px, 70vw);
+  background: #172033;
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 10px;
+  box-shadow: 0 14px 32px rgba(48, 64, 89, 0.18);
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+}
+
+.field-help-tip:focus {
+  outline: 2px solid var(--river, #3a6ea5);
+  outline-offset: 2px;
+}
+
+.batch-tag-field-hint {
+  margin: 0 0 6px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
 /* Contact info: consistent rhythm for Home, Cell, Email */
 .address-details .person-card__contact .person-info-inline {
   margin: 2px 0 4px;
