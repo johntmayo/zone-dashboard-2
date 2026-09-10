@@ -36,7 +36,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <link rel="stylesheet" href="public/css/styles.css?v=3">
-  <script src="public/js/utils.js"></script>
+  <script src="public/js/utils.js?v=2"></script>
   <script src="public/js/address-id.js"></script>
   <script src="public/js/resident-placeholder.js"></script>
   <script src="public/js/contact-checkin.js"></script>
@@ -14147,14 +14147,27 @@
       );
     }
 
-    const SUCCESSFULLY_CONTACTED_HELP_TEXT = 'Have you ever had a successful two-way interaction with this person? They replied, answered, spoke with you, asked a question, or otherwise confirmed they received your message. Sending an email, leaving a voicemail, or dropping off a flyer does not count unless they responded.';
+    const SUCCESSFULLY_CONTACTED_HELP_TEXT = 'A one-time historical record. Have you ever had a successful two-way interaction with this person?';
+
+    function normalizePersonTagColumnKey(colName) {
+      return String(colName || '').trim().toLowerCase().replace(/[\s_-]+/g, ' ');
+    }
 
     function isSuccessfullyContactedColumn(colName) {
-      return /^successfully[\s_-]*contacted$/i.test(String(colName || '').trim());
+      return normalizePersonTagColumnKey(colName) === 'successfully contacted';
     }
 
     function findSuccessfullyContactedColumn(headers) {
       return (Array.isArray(headers) ? headers : []).find(isSuccessfullyContactedColumn) || null;
+    }
+
+    function buildDetailsPanelQuickTagCols(headers, quickTagCols, personLevelCols) {
+      const successfullyContactedCol = findSuccessfullyContactedColumn(headers);
+      const cols = quickTagCols.filter(col => personLevelCols.includes(col));
+      if (successfullyContactedCol && !cols.includes(successfullyContactedCol)) {
+        return [successfullyContactedCol, ...cols];
+      }
+      return cols;
     }
 
     function isWantsUpdatesColumn(colName) {
@@ -14200,6 +14213,83 @@
       event.stopPropagation();
       tip.focus();
     });
+
+    (function initFieldHelpTooltipBehavior() {
+      let tooltipEl = null;
+      let activeBtn = null;
+
+      function ensureTooltipEl() {
+        if (tooltipEl) return tooltipEl;
+        tooltipEl = document.createElement('div');
+        tooltipEl.id = 'fieldHelpTooltip';
+        tooltipEl.className = 'field-help-tooltip-floating';
+        tooltipEl.setAttribute('role', 'tooltip');
+        tooltipEl.hidden = true;
+        document.body.appendChild(tooltipEl);
+        return tooltipEl;
+      }
+
+      function hideFieldHelpTooltip() {
+        if (!tooltipEl) return;
+        tooltipEl.hidden = true;
+        activeBtn = null;
+      }
+
+      function showFieldHelpTooltip(btn) {
+        const text = btn.getAttribute('data-tip');
+        if (!text) {
+          hideFieldHelpTooltip();
+          return;
+        }
+        const el = ensureTooltipEl();
+        el.textContent = text;
+        el.hidden = false;
+        el.style.visibility = 'hidden';
+        el.style.display = 'block';
+        const rect = btn.getBoundingClientRect();
+        const tipRect = el.getBoundingClientRect();
+        const margin = 8;
+        let top = rect.bottom + margin;
+        let left = rect.left;
+        if (left + tipRect.width > window.innerWidth - margin) {
+          left = window.innerWidth - tipRect.width - margin;
+        }
+        if (left < margin) left = margin;
+        if (top + tipRect.height > window.innerHeight - margin) {
+          top = rect.top - tipRect.height - margin;
+        }
+        el.style.top = `${Math.round(top)}px`;
+        el.style.left = `${Math.round(left)}px`;
+        el.style.visibility = 'visible';
+        activeBtn = btn;
+      }
+
+      document.addEventListener('mouseover', (event) => {
+        const btn = event.target.closest('.field-help-tip[data-tip]');
+        if (btn) showFieldHelpTooltip(btn);
+      });
+
+      document.addEventListener('mouseout', (event) => {
+        const btn = event.target.closest('.field-help-tip[data-tip]');
+        if (!btn || btn !== activeBtn) return;
+        const related = event.relatedTarget;
+        if (related && btn.contains(related)) return;
+        hideFieldHelpTooltip();
+      });
+
+      document.addEventListener('focusin', (event) => {
+        const btn = event.target.closest('.field-help-tip[data-tip]');
+        if (btn) showFieldHelpTooltip(btn);
+      });
+
+      document.addEventListener('focusout', (event) => {
+        const btn = event.target.closest('.field-help-tip[data-tip]');
+        if (btn && btn === activeBtn) hideFieldHelpTooltip();
+      });
+
+      document.addEventListener('scroll', hideFieldHelpTooltip, true);
+      window.addEventListener('resize', hideFieldHelpTooltip);
+    })();
 
     function getPersonDisplayName(row, fallbackIndex, nameCol) {
       if (nameCol && row && row[nameCol]) {
@@ -15211,7 +15301,8 @@
           return (lower.includes('cell') || lower.includes('mobile')) && 
                  (lower.includes('phone') || lower.includes('cell') || lower.includes('mobile'));
         });
-        const outreachDateCol = typeof findOutreachDateColumn === 'function'
+        const successfullyContactedCol = findSuccessfullyContactedColumn(headers);
+        let outreachDateCol = typeof findOutreachDateColumn === 'function'
           ? findOutreachDateColumn(headers)
           : personLevelCols.find(col => {
               if (isSuccessfullyContactedColumn(col)) return false;
@@ -15223,11 +15314,15 @@
                 lower.includes('contact date') ||
                 lower.includes('outreach date');
             });
+        if (outreachDateCol && isSuccessfullyContactedColumn(outreachDateCol)) {
+          outreachDateCol = null;
+        }
         
         const renderedFields = new Set(); // Track which fields have been rendered
         if (ageCol) renderedFields.add(ageCol);
         if (genderCol) renderedFields.add(genderCol);
         if (outreachDateCol) renderedFields.add(outreachDateCol);
+        if (successfullyContactedCol) renderedFields.delete(successfullyContactedCol);
         
         // Helper function to format column name for display
         const formatColumnLabel = (col) => {
@@ -15385,8 +15480,8 @@
           html += '</div>';
         }
 
-        // Quick Tags sub-section: Renter, Needs Follow-Up, Unable to reach (keep checkboxes)
-        const personTagCols = quickTagCols.filter(col => personLevelCols.includes(col));
+        // Quick Tags sub-section: Successfully contacted first, then other person tags
+        const personTagCols = buildDetailsPanelQuickTagCols(headers, quickTagCols, personLevelCols);
         if (personTagCols.length > 0) {
           html += '<div class="person-card__section person-card__tags">';
           html += '<p class="person-card__tags-label">Quick tags</p>';

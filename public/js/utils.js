@@ -479,16 +479,22 @@ function getFirstValidCoordinatePair(rows, latCol, lonCol) {
  * @param {string[]} headers - Array of header row values
  * @returns {string|null} Matching header string, or null
  */
+function isSuccessfullyContactedHeader(header) {
+  const normalized = String(header || '').trim().toLowerCase().replace(/[\s_-]+/g, ' ');
+  return normalized === 'successfully contacted';
+}
+
 function findOutreachDateColumn(headers) {
   if (!headers || !Array.isArray(headers)) return null;
+  const eligibleHeaders = (headers || []).filter(h => !isSuccessfullyContactedHeader(h));
   return (
-    findColumn(headers, ['last', 'outreach', 'date']) ||
-    findColumn(headers, ['outreach', 'attempt', 'date']) ||
-    findColumn(headers, ['last', 'outreach']) ||
-    findColumn(headers, ['outreach', 'date']) ||
-    findColumn(headers, ['last', 'contact', 'date']) ||
-    findColumn(headers, ['contact', 'date']) ||
-    findColumn(headers, ['last', 'contact']) ||
+    findColumn(eligibleHeaders, ['last', 'outreach', 'date']) ||
+    findColumn(eligibleHeaders, ['outreach', 'attempt', 'date']) ||
+    findColumn(eligibleHeaders, ['last', 'outreach']) ||
+    findColumn(eligibleHeaders, ['outreach', 'date']) ||
+    findColumn(eligibleHeaders, ['last', 'contact', 'date']) ||
+    findColumn(eligibleHeaders, ['contact', 'date']) ||
+    findColumn(eligibleHeaders, ['last', 'contact']) ||
     null
   );
 }
