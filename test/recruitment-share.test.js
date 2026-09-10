@@ -30,6 +30,9 @@ test('recruitment share dialog exposes the expected accessible controls', () => 
   assert.match(html, /id="recruitmentShareDownload"/);
   assert.match(html, /id="recruitmentShareCopyPost"/);
   assert.match(html, /id="recruitmentShareCopyLink"/);
+  assert.match(html, /role="group" aria-label="Choose a suggested post"/);
+  assert.match(html, /data-recruitment-post-variant="altagether" aria-pressed="true"/);
+  assert.match(html, /data-recruitment-post-variant="captain" aria-pressed="false"/);
   assert.match(html, /id="recruitmentShareStatus" role="status" aria-live="polite"/);
 });
 
@@ -38,7 +41,14 @@ test('recruitment share content and labels live in the frontend config', () => {
 
   assert.match(script, /var SHARE_DRIVE_CONFIG = \{/);
   assert.match(script, /imagePath: '\/public\/images\/recruitment-drive-share\.png'/);
+  assert.match(script, /defaultPostVariant: 'altagether'/);
+  assert.match(script, /label: 'Altagether post'/);
+  assert.match(script, /label: 'Captain post'/);
+  assert.match(script, /'Learn more: altagether\.org\/join'/);
+  assert.match(script, /I’m a Neighborhood Captain with Altagether/);
+  assert.match(script, /take a look:\\naltagether\.org\/join/);
   assert.match(script, /recruitmentUrl: 'https:\/\/altagether\.org\/join'/);
+  assert.match(script, /recruitmentUrlLabel: 'altagether\.org\/join'/);
   assert.match(script, /open: 'Share Recruitment Drive'/);
   assert.match(script, /copyPost: 'Copy post'/);
   assert.match(script, /copyLink: 'Copy link'/);
