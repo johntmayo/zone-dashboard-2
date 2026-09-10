@@ -86,11 +86,13 @@ test('mapEventRow and mapPhoneBankRow: map the campaign columns', () => {
     Date: 'Sept 12',
     Time: '6:00 PM',
     Title: 'Townwide phone bank',
-    'Join URL': 'https://example.com/join',
-    Notes: 'Zoom'
-  }, ['Date', 'Time', 'Title', 'Join URL', 'Notes'], 2);
+    'Virtual Join Link': 'https://example.com/join',
+    'In-Person Location': 'EFC, 540 W. Woodbury Road',
+    Notes: 'Bring a laptop'
+  }, ['Date', 'Time', 'Title', 'Virtual Join Link', 'In-Person Location', 'Notes'], 2);
   assert.equal(session.joinUrl, 'https://example.com/join');
   assert.equal(session.title, 'Townwide phone bank');
+  assert.equal(session.inPersonLocation, 'EFC, 540 W. Woodbury Road');
 });
 
 test('mapLinkRow: uses Filename/Link aliases and infers section from the label', () => {

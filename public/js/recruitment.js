@@ -171,14 +171,31 @@
     list.innerHTML = feed.phoneBank.map(function (item) {
       var when = [item.date, item.time].filter(Boolean).join(' · ');
       var title = item.title || 'Phone bank';
-      var join = item.joinUrl
-        ? '<a class="recruitment-resource" href="' + escapeLocal(item.joinUrl) + '" target="_blank" rel="noopener noreferrer">Join</a>'
-        : '';
-      return '<li class="recruitment-feed-item">' +
+      var attendanceOptions = [];
+      if (item.inPersonLocation) {
+        attendanceOptions.push(
+          '<div class="recruitment-phonebank-option">' +
+            '<div class="recruitment-phonebank-label">In person</div>' +
+            '<div class="recruitment-phonebank-detail">' + escapeLocal(item.inPersonLocation) + '</div>' +
+          '</div>'
+        );
+      }
+      if (item.joinUrl) {
+        attendanceOptions.push(
+          '<div class="recruitment-phonebank-option">' +
+            '<div class="recruitment-phonebank-label">Virtual · Zoom</div>' +
+            '<a class="recruitment-resource" href="' + escapeLocal(item.joinUrl) +
+              '" target="_blank" rel="noopener noreferrer">Join on Zoom</a>' +
+          '</div>'
+        );
+      }
+      return '<li class="recruitment-feed-item recruitment-phonebank-session">' +
         '<div class="recruitment-feed-title">' + escapeLocal(title) + '</div>' +
         (when ? '<div class="recruitment-feed-meta">' + escapeLocal(when) + '</div>' : '') +
+        (attendanceOptions.length
+          ? '<div class="recruitment-phonebank-options">' + attendanceOptions.join('') + '</div>'
+          : '') +
         (item.notes ? '<div class="recruitment-feed-meta">' + escapeLocal(item.notes) + '</div>' : '') +
-        (join ? '<div class="recruitment-feed-actions">' + join + '</div>' : '') +
         '</li>';
     }).join('');
   }
