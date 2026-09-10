@@ -6,7 +6,7 @@
  * One Google Sheet (RECRUITMENT_SHEET_ID) with four tabs:
  *   Places     Timestamp | Place | Captain Name | Captain Email | Zone
  *   Events     Timestamp | Event | When | Captain Name | Captain Email | Zone
- *   PhoneBank  Date | Time | Title | Join URL | Notes
+ *   PhoneBank  Date | Time | Title | Virtual Join Link | In-Person Location | Notes
  *   Links      Label | URL | Section
  *
  * Env:
@@ -26,7 +26,7 @@ const DEFAULT_NC_DIRECTORY_SHEET_ID = '1E77qmT4eGtyokaDvD2wlK3q2NeMcS4itmkbYp6Rz
 
 const PLACE_HEADERS = ['Timestamp', 'Place', 'Captain Name', 'Captain Email', 'Zone'];
 const EVENT_HEADERS = ['Timestamp', 'Event', 'When', 'Captain Name', 'Captain Email', 'Zone'];
-const PHONEBANK_HEADERS = ['Date', 'Time', 'Title', 'Join URL', 'Notes'];
+const PHONEBANK_HEADERS = ['Date', 'Time', 'Title', 'Virtual Join Link', 'In-Person Location', 'Notes'];
 const LINK_HEADERS = ['Label', 'URL', 'Section'];
 
 const PLACE_FIELD_ALIASES = {
@@ -50,8 +50,9 @@ const PHONEBANK_FIELD_ALIASES = {
   date: ['date', 'day', 'sessiondate'],
   time: ['time', 'start', 'starttime'],
   title: ['title', 'session', 'name', 'label'],
-  joinUrl: ['joinurl', 'url', 'link', 'joinlink', 'zoom', 'meetingurl'],
-  notes: ['notes', 'note', 'details']
+  joinUrl: ['virtualjoinlink', 'virtualurl', 'joinurl', 'url', 'link', 'joinlink', 'zoom', 'zoomlink', 'meetingurl'],
+  notes: ['notes', 'note', 'details'],
+  inPersonLocation: ['inpersonlocation', 'inpersonaddress', 'location', 'address', 'venue']
 };
 
 const LINK_FIELD_ALIASES = {
@@ -178,7 +179,8 @@ function mapPhoneBankRow(row, headers, rowNumber) {
     time: pickField(row, headers, PHONEBANK_FIELD_ALIASES.time),
     title: pickField(row, headers, PHONEBANK_FIELD_ALIASES.title),
     joinUrl: pickField(row, headers, PHONEBANK_FIELD_ALIASES.joinUrl),
-    notes: pickField(row, headers, PHONEBANK_FIELD_ALIASES.notes)
+    notes: pickField(row, headers, PHONEBANK_FIELD_ALIASES.notes),
+    inPersonLocation: pickField(row, headers, PHONEBANK_FIELD_ALIASES.inPersonLocation)
   };
 }
 
