@@ -13110,15 +13110,10 @@
   flex: 0 0 16px;
 }
 
-.field-help-tip:hover::after,
-.field-help-tip:focus::after {
-  content: attr(data-tip);
-  position: absolute;
-  z-index: 40;
-  right: 0;
-  left: auto;
-  bottom: calc(100% + 8px);
-  width: min(280px, 70vw);
+.field-help-tooltip-floating {
+  position: fixed;
+  z-index: 10050;
+  width: min(280px, calc(100vw - 24px));
   background: #172033;
   color: #fff;
   padding: 10px 12px;
@@ -13133,25 +13128,23 @@
   pointer-events: none;
 }
 
-/* Person modal scrolls; keep the tip inside the card instead of clipping above/left. */
-.person-details-modal .newsletter-modal-section,
-.person-details-modal .person-details-tags,
-.person-details-modal .person-info--with-tip {
-  overflow: visible;
-}
-
-.person-details-modal .field-help-tip:hover::after,
-.person-details-modal .field-help-tip:focus::after {
-  top: calc(100% + 8px);
-  bottom: auto;
-  left: 0;
-  right: auto;
-  width: min(280px, calc(100vw - 72px));
-}
-
 .field-help-tip:focus {
   outline: 2px solid var(--river, #3a6ea5);
   outline-offset: 2px;
+}
+
+.person-details-modal {
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+}
+
+.person-details-modal .newsletter-modal-content {
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: calc(94vh - 120px);
+  max-height: calc(94dvh - 120px);
 }
 
 .batch-tag-field-hint {
