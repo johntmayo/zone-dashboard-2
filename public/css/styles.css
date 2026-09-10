@@ -14277,3 +14277,217 @@
   padding-right: 32px;
   cursor: pointer;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Recruitment Drive
+   ═══════════════════════════════════════════════════════════════ */
+.recruitment-page {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.recruitment-hero {
+  margin-bottom: 28px;
+}
+
+.recruitment-kicker {
+  margin: 0 0 6px;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-clay);
+}
+
+.recruitment-lead {
+  max-width: 46rem;
+  margin: 12px 0 0;
+  font-family: var(--font-reading);
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.recruitment-bento {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.recruitment-card {
+  background: var(--bg-card);
+  border: var(--border-thickness) solid var(--border-color);
+  box-shadow: 6px 6px 0px #D9DBDB;
+  padding: 22px 22px 20px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.recruitment-card--wide {
+  grid-column: 1 / -1;
+}
+
+.recruitment-card-header h3 {
+  margin: 0 0 6px;
+  font-family: var(--font-ui);
+  font-weight: 900;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--brand-primary-dark);
+}
+
+.recruitment-card-header p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.recruitment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recruitment-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.recruitment-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 2px dashed var(--brand-primary-dark);
+  background: var(--bg-paper);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+}
+
+.recruitment-input:focus {
+  outline: 3px solid var(--accent-gold);
+  outline-offset: 1px;
+}
+
+.recruitment-input[readonly] {
+  border-style: solid;
+  background: #f4f1ea;
+  color: var(--text-secondary);
+}
+
+.recruitment-form-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.recruitment-form-row .recruitment-input {
+  flex: 1;
+}
+
+.recruitment-form-row .btn-save {
+  margin-top: 0;
+  flex-shrink: 0;
+}
+
+.recruitment-status {
+  min-height: 1.2em;
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.recruitment-status.is-error {
+  color: var(--accent-clay);
+  font-weight: 700;
+}
+
+.recruitment-resources,
+.recruitment-card-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.recruitment-resource {
+  display: inline-block;
+  padding: 8px 12px;
+  border: 2px solid var(--text-primary);
+  box-shadow: 2px 2px 0 var(--text-primary);
+  background: var(--bg-paper);
+  color: var(--brand-primary-dark);
+  text-decoration: none;
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.recruitment-resource:hover,
+.recruitment-card-links .tool-link-btn:hover {
+  transform: translate(-1px, -1px);
+}
+
+.recruitment-feed-heading {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.recruitment-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.recruitment-feed-item {
+  padding: 10px 12px;
+  border: 1px solid var(--rule-neutral);
+  background: var(--bg-paper);
+}
+
+.recruitment-feed-title {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.recruitment-feed-meta {
+  margin-top: 2px;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+
+.recruitment-feed-actions {
+  margin-top: 8px;
+}
+
+.recruitment-feed-empty {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  padding: 8px 0;
+}
+
+@media (max-width: 768px) {
+  .recruitment-bento {
+    grid-template-columns: 1fr;
+  }
+
+  .recruitment-form-row {
+    flex-direction: column;
+  }
+}

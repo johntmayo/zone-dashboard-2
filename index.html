@@ -40,6 +40,7 @@
   <script src="public/js/address-id.js"></script>
   <script src="public/js/resident-placeholder.js"></script>
   <script src="public/js/contact-checkin.js"></script>
+  <script src="public/js/recruitment.js"></script>
   <script src="public/js/main-map.js"></script>
   <!-- Google Analytics 4 (loads only when GA_MEASUREMENT_ID is set) -->
   <script>
@@ -125,6 +126,7 @@
         <button class="nav-item active" data-view="home" id="navHome">Home</button>
         <button class="nav-item" data-view="map" id="navMap">Map</button>
         <button class="nav-item" data-view="people" id="navPeople">Neighbors</button>
+        <button class="nav-item hidden" data-view="recruitment" id="navRecruitment">Recruitment</button>
         <button class="nav-item" data-view="meetups" id="navMeetups">Actions</button>
         <button class="nav-item" data-view="tools" id="navTools">Tools</button>
         <button class="nav-item" data-view="resources" id="navResources">Resources</button>
@@ -1124,6 +1126,108 @@
 
     </div>
 
+    <!-- Recruitment View -->
+    <div class="content-view hidden" id="recruitmentView">
+      <div class="recruitment-page">
+        <header class="recruitment-hero">
+          <p class="recruitment-kicker">Limited-time drive</p>
+          <h2 class="page-title">Recruitment</h2>
+          <p class="recruitment-lead">Help grow the Neighborhood Captain network. Claim a place to flyer, take a meeting, or jump on a phone bank — then see what other captains have already picked up.</p>
+        </header>
+
+        <div class="recruitment-bento">
+          <section class="recruitment-card recruitment-card--wide" id="recruitmentPlacesCard">
+            <div class="recruitment-card-header">
+              <h3>Adopt a place</h3>
+              <p>Pick a business or community space where a flyer should live. Other captains can see what is already covered.</p>
+            </div>
+            <form class="recruitment-form" id="recruitmentPlaceForm">
+              <label class="recruitment-label" for="recruitmentPlaceCaptain">Your name</label>
+              <input class="recruitment-input" id="recruitmentPlaceCaptain" type="text" readonly>
+              <label class="recruitment-label" for="recruitmentPlaceName">Business or community space</label>
+              <div class="recruitment-form-row">
+                <input class="recruitment-input" id="recruitmentPlaceName" type="text" maxlength="160" placeholder="e.g. Fox's, Altadena Library, community center" required>
+                <button type="submit" class="btn-save btn-save-small" id="recruitmentPlaceSubmit">Add</button>
+              </div>
+              <p class="recruitment-status" id="recruitmentPlaceStatus"></p>
+            </form>
+            <div class="recruitment-resources" id="recruitmentPlaceResources"></div>
+            <h4 class="recruitment-feed-heading">Places captains have adopted</h4>
+            <ul class="recruitment-feed" id="recruitmentPlaceFeed">
+              <li class="recruitment-feed-empty">Loading…</li>
+            </ul>
+          </section>
+
+          <section class="recruitment-card recruitment-card--wide" id="recruitmentEventsCard">
+            <div class="recruitment-card-header">
+              <h3>Events &amp; meetings</h3>
+              <p>If you are already going somewhere you can make a short pitch, claim it so others know it is covered.</p>
+            </div>
+            <form class="recruitment-form" id="recruitmentEventForm">
+              <label class="recruitment-label" for="recruitmentEventCaptain">Your name</label>
+              <input class="recruitment-input" id="recruitmentEventCaptain" type="text" readonly>
+              <label class="recruitment-label" for="recruitmentEventName">Event or meeting</label>
+              <input class="recruitment-input" id="recruitmentEventName" type="text" maxlength="160" placeholder="e.g. Rotary Club" required>
+              <label class="recruitment-label" for="recruitmentEventWhen">When</label>
+              <div class="recruitment-form-row">
+                <input class="recruitment-input" id="recruitmentEventWhen" type="text" maxlength="160" placeholder="e.g. Wednesday, September 9" required>
+                <button type="submit" class="btn-save btn-save-small" id="recruitmentEventSubmit">Add</button>
+              </div>
+              <p class="recruitment-status" id="recruitmentEventStatus"></p>
+            </form>
+            <div class="recruitment-resources" id="recruitmentEventResources"></div>
+            <h4 class="recruitment-feed-heading">Events captains have claimed</h4>
+            <ul class="recruitment-feed" id="recruitmentEventFeed">
+              <li class="recruitment-feed-empty">Loading…</li>
+            </ul>
+          </section>
+
+          <section class="recruitment-card" id="recruitmentPhoneBankCard">
+            <div class="recruitment-card-header">
+              <h3>Phone bank</h3>
+              <p>Join a virtual session and use the shared script.</p>
+            </div>
+            <div class="recruitment-resources" id="recruitmentPhoneBankResources"></div>
+            <ul class="recruitment-feed" id="recruitmentPhoneBankList">
+              <li class="recruitment-feed-empty">Loading…</li>
+            </ul>
+          </section>
+
+          <section class="recruitment-card" id="recruitmentInviteCard">
+            <div class="recruitment-card-header">
+              <h3>Invite a neighbor</h3>
+              <p>Point someone toward becoming a Neighborhood Captain.</p>
+            </div>
+            <div class="recruitment-card-links">
+              <a class="tool-link-btn hidden" id="recruitmentInviteLink" href="#" target="_blank" rel="noopener noreferrer">Open signup</a>
+              <div class="recruitment-resources" id="recruitmentInviteExtra"></div>
+              <a class="tool-link-btn" href="outreach-helper.html" target="_blank" rel="noopener noreferrer">Outreach language</a>
+            </div>
+          </section>
+
+          <section class="recruitment-card" id="recruitmentTalkingCard">
+            <div class="recruitment-card-header">
+              <h3>Talking points</h3>
+              <p>Ready-to-use language for texts, emails, calls, and letters.</p>
+            </div>
+            <div class="recruitment-card-links">
+              <a class="tool-link-btn" href="outreach-helper.html" target="_blank" rel="noopener noreferrer">Open Outreach Helper</a>
+            </div>
+          </section>
+
+          <section class="recruitment-card" id="recruitmentShareCard">
+            <div class="recruitment-card-header">
+              <h3>Share the drive</h3>
+              <p>Ask in the captain community if someone can cover a gap you see.</p>
+            </div>
+            <div class="recruitment-card-links">
+              <a class="tool-link-btn" href="whatsapp-community.html" target="_blank" rel="noopener noreferrer">WhatsApp Community</a>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
     <!-- Actions View -->
     <div class="content-view hidden" id="meetupsView">
       <h2 class="page-title">Actions</h2>
@@ -1308,6 +1412,9 @@
       <div class="mobile-more-handle"></div>
       <div class="mobile-more-zone" id="mobileMoreZone">Zone XX</div>
       <nav class="mobile-more-list">
+        <button class="mobile-more-item hidden" data-view="recruitment" id="mobileMoreRecruitment">
+          <span>Recruitment</span><span class="mobile-more-item-arrow">›</span>
+        </button>
         <button class="mobile-more-item" data-view="tools">
           <span>Tools</span><span class="mobile-more-item-arrow">›</span>
         </button>
@@ -3521,12 +3628,15 @@
       if (viewName === 'home') return true;
       if (viewName === 'lotWeedingAdmin') return canAccessLotWeedingAdminView();
       if (isZonelessLotWeedingOnlyUser()) return false;
-      return viewName === 'profile' || (viewName === 'godmode' && isCurrentUserAdmin);
+      return viewName === 'profile' || viewName === 'recruitment' || (viewName === 'godmode' && isCurrentUserAdmin);
     }
 
     function canOpenView(viewName) {
       // Signed-out users stay on the canonical Home login screen — no tab hopping.
       if (!isSignedIn()) return viewName === 'home';
+      if (viewName === 'recruitment' && window.Recruitment && !window.Recruitment.isEnabled()) {
+        return false;
+      }
       if (currentSheetUrl || localStorage.getItem('savedSheetUrl')) {
         if (viewName === 'godmode') return isCurrentUserAdmin;
         if (viewName === 'lotWeedingAdmin') return canAccessLotWeedingAdminView();
@@ -3590,7 +3700,7 @@
         const mobileMoreBtn = document.getElementById('mobileNavMore');
         if (mobileMoreBtn) {
           const moreAllowed = canOpenView('tools') || canOpenView('resources') || canOpenView('profile') ||
-            canOpenView('godmode') || canOpenView('lotWeedingAdmin');
+            canOpenView('godmode') || canOpenView('lotWeedingAdmin') || canOpenView('recruitment');
           mobileMoreBtn.disabled = !moreAllowed;
           mobileMoreBtn.style.pointerEvents = moreAllowed ? 'auto' : 'none';
           mobileMoreBtn.classList.toggle('is-nav-disabled', !moreAllowed);
@@ -16750,6 +16860,11 @@
         setTimeout(() => {
           setupToolModuleExpansion();
         }, 100);
+      } else if (viewName === 'recruitment') {
+        if (window.Recruitment && typeof window.Recruitment.loadPage === 'function') {
+          window.Recruitment.fillCaptainFields();
+          window.Recruitment.loadPage();
+        }
       } else if (viewName === 'profile') {
         loadProfileView();
       } else if (viewName === 'godmode') {
@@ -27191,7 +27306,7 @@
 
       // ---- Sync mobile bottom nav active state ----
       function syncMobileNav(viewName) {
-        var moreViews = ['tools', 'resources', 'profile', 'godmode', 'lotWeedingAdmin'];
+        var moreViews = ['tools', 'resources', 'profile', 'godmode', 'lotWeedingAdmin', 'recruitment'];
         document.querySelectorAll('.mobile-nav-tab[data-view]').forEach(function(tab) {
           tab.classList.toggle('active', tab.getAttribute('data-view') === viewName);
         });
