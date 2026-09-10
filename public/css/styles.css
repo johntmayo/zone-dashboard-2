@@ -14461,6 +14461,18 @@
   background: var(--bg-paper);
 }
 
+#recruitmentPlaceFeed .recruitment-feed-item {
+  border-color: #81bdc3;
+  border-left: 5px solid #81bdc3;
+  background: #c9e3e6;
+}
+
+#recruitmentEventFeed .recruitment-feed-item {
+  border-color: #afc892;
+  border-left: 5px solid #afc892;
+  background: #d7e5c8;
+}
+
 .recruitment-feed-title {
   font-weight: 700;
   color: var(--text-primary);
@@ -14476,6 +14488,40 @@
   margin-top: 8px;
 }
 
+.recruitment-phonebank-session {
+  padding: 14px;
+}
+
+.recruitment-phonebank-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.recruitment-phonebank-option {
+  min-width: 0;
+  padding: 10px;
+  border: 2px solid var(--brand-primary-dark);
+  background: #f4f1ea;
+}
+
+.recruitment-phonebank-label {
+  margin-bottom: 6px;
+  color: var(--brand-primary-dark);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.recruitment-phonebank-detail {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .recruitment-feed-empty {
   color: var(--text-secondary);
   font-size: 0.95rem;
@@ -14489,5 +14535,9 @@
 
   .recruitment-form-row {
     flex-direction: column;
+  }
+
+  .recruitment-phonebank-options {
+    grid-template-columns: 1fr;
   }
 }
