@@ -13130,6 +13130,23 @@
   line-height: 1.35;
   text-align: left;
   white-space: normal;
+  pointer-events: none;
+}
+
+/* Person modal scrolls; keep the tip inside the card instead of clipping above/left. */
+.person-details-modal .newsletter-modal-section,
+.person-details-modal .person-details-tags,
+.person-details-modal .person-info--with-tip {
+  overflow: visible;
+}
+
+.person-details-modal .field-help-tip:hover::after,
+.person-details-modal .field-help-tip:focus::after {
+  top: calc(100% + 8px);
+  bottom: auto;
+  left: 0;
+  right: auto;
+  width: min(280px, calc(100vw - 72px));
 }
 
 .field-help-tip:focus {
