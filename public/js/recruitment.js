@@ -5,10 +5,31 @@
 (function (global) {
   'use strict';
 
+  var SHARE_DRIVE_CONFIG = {
+    imagePath: '/public/images/recruitment-drive-share.png',
+    downloadFilename: 'altagether-recruitment-drive.png',
+    suggestedPost: [
+      'Altagether is looking for new Neighborhood Captains across Altadena. Captains help keep their neighbors connected, share useful information and resources, and strengthen their neighborhoods as recovery continues.',
+      'You don’t need any special expertise, just a willingness to help your neighbors.',
+      'Learn more: https://altagether.org/join'
+    ].join('\n\n'),
+    recruitmentUrl: 'https://altagether.org/join',
+    labels: {
+      open: 'Share Recruitment Drive',
+      download: 'Download image',
+      copyPost: 'Copy post',
+      copyLink: 'Copy link',
+      copied: 'Copied',
+      copyFailed: 'Copy failed'
+    }
+  };
+
   var CLIENT_ENABLED = true;
   var loaded = false;
   var loading = false;
   var bound = false;
+  var shareBound = false;
+  var shareLastFocused = null;
   var config = {
     enabled: CLIENT_ENABLED,
     sheetConfigured: false
@@ -97,21 +118,154 @@
     renderResourceLinks('recruitmentPlaceResources', linksForSection('places'));
     renderResourceLinks('recruitmentEventResources', linksForSection('events'));
     renderResourceLinks('recruitmentPhoneBankResources', linksForSection('phonebank'));
+  }
 
-    var inviteLinks = (feed.links || []).filter(function (item) {
-      return item.section === 'invite';
+  function renderSharePost(container, text) {
+    if (!container) return;
+    container.textContent = '';
+    String(text || '').split(/\n{2,}/).forEach(function (paragraph) {
+      var p = document.createElement('p');
+      p.textContent = paragraph;
+      container.appendChild(p);
     });
-    var invite = document.getElementById('recruitmentInviteLink');
-    if (invite) {
-      if (inviteLinks.length) {
-        invite.href = inviteLinks[0].url;
-        invite.textContent = inviteLinks[0].label || 'Open signup';
-        invite.classList.remove('hidden');
-      } else {
-        invite.classList.add('hidden');
+  }
+
+  function fallbackCopyText(text) {
+    var textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.setAttribute('readonly', '');
+    textArea.style.position = 'fixed';
+    textArea.style.opacity = '0';
+    document.body.appendChild(textArea);
+    textArea.select();
+    var copied = document.execCommand('copy');
+    document.body.removeChild(textArea);
+    if (!copied) throw new Error('Clipboard copy failed');
+  }
+
+  async function copyShareText(text) {
+    if (navigator.clipboard && global.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return;
+      } catch (err) {
+        // Fall through for browsers that expose Clipboard API but block the call.
       }
     }
-    renderResourceLinks('recruitmentInviteExtra', inviteLinks.slice(1));
+    fallbackCopyText(text);
+  }
+
+  function showCopyFeedback(button, resetLabel) {
+    if (!button) return;
+    if (button._recruitmentResetTimer) clearTimeout(button._recruitmentResetTimer);
+    button.textContent = SHARE_DRIVE_CONFIG.labels.copied;
+    button._recruitmentResetTimer = setTimeout(function () {
+      button.textContent = resetLabel;
+      button._recruitmentResetTimer = null;
+    }, 1800);
+  }
+
+  async function handleShareCopy(button, text, resetLabel) {
+    var status = document.getElementById('recruitmentShareStatus');
+    try {
+      await copyShareText(text);
+      showCopyFeedback(button, resetLabel);
+      if (status) status.textContent = SHARE_DRIVE_CONFIG.labels.copied;
+    } catch (err) {
+      button.textContent = SHARE_DRIVE_CONFIG.labels.copyFailed;
+      if (status) status.textContent = 'Copy failed. Please select and copy the text manually.';
+    }
+  }
+
+  function closeShareModal() {
+    var modal = document.getElementById('recruitmentShareModal');
+    if (!modal || modal.classList.contains('hidden')) return;
+    modal.classList.add('hidden');
+    document.body.classList.remove('recruitment-share-open');
+    if (shareLastFocused && typeof shareLastFocused.focus === 'function') {
+      shareLastFocused.focus();
+    }
+    shareLastFocused = null;
+  }
+
+  function openShareModal() {
+    var modal = document.getElementById('recruitmentShareModal');
+    var closeButton = document.getElementById('recruitmentShareClose');
+    if (!modal) return;
+    shareLastFocused = document.activeElement;
+    modal.classList.remove('hidden');
+    document.body.classList.add('recruitment-share-open');
+    if (closeButton) closeButton.focus();
+  }
+
+  function handleShareModalKeydown(event) {
+    var modal = document.getElementById('recruitmentShareModal');
+    if (!modal || modal.classList.contains('hidden')) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeShareModal();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    var focusable = Array.prototype.slice.call(
+      modal.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])')
+    ).filter(function (element) {
+      return element.offsetParent !== null;
+    });
+    if (!focusable.length) return;
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  function bindShareModal() {
+    if (shareBound) return;
+    var modal = document.getElementById('recruitmentShareModal');
+    var openButton = document.getElementById('recruitmentShareOpen');
+    var closeButton = document.getElementById('recruitmentShareClose');
+    var image = document.getElementById('recruitmentShareImage');
+    var download = document.getElementById('recruitmentShareDownload');
+    var post = document.getElementById('recruitmentSharePost');
+    var link = document.getElementById('recruitmentShareLink');
+    var copyPost = document.getElementById('recruitmentShareCopyPost');
+    var copyLink = document.getElementById('recruitmentShareCopyLink');
+    if (!modal || !openButton || !closeButton) return;
+
+    openButton.textContent = SHARE_DRIVE_CONFIG.labels.open;
+    if (image) image.src = SHARE_DRIVE_CONFIG.imagePath;
+    if (download) {
+      download.href = SHARE_DRIVE_CONFIG.imagePath;
+      download.download = SHARE_DRIVE_CONFIG.downloadFilename;
+      download.textContent = SHARE_DRIVE_CONFIG.labels.download;
+    }
+    renderSharePost(post, SHARE_DRIVE_CONFIG.suggestedPost);
+    if (link) link.textContent = SHARE_DRIVE_CONFIG.recruitmentUrl;
+    if (copyPost) copyPost.textContent = SHARE_DRIVE_CONFIG.labels.copyPost;
+    if (copyLink) copyLink.textContent = SHARE_DRIVE_CONFIG.labels.copyLink;
+
+    openButton.addEventListener('click', openShareModal);
+    closeButton.addEventListener('click', closeShareModal);
+    modal.addEventListener('click', function (event) {
+      if (event.target === modal) closeShareModal();
+    });
+    modal.addEventListener('keydown', handleShareModalKeydown);
+    if (copyPost) {
+      copyPost.addEventListener('click', function () {
+        handleShareCopy(copyPost, SHARE_DRIVE_CONFIG.suggestedPost, SHARE_DRIVE_CONFIG.labels.copyPost);
+      });
+    }
+    if (copyLink) {
+      copyLink.addEventListener('click', function () {
+        handleShareCopy(copyLink, SHARE_DRIVE_CONFIG.recruitmentUrl, SHARE_DRIVE_CONFIG.labels.copyLink);
+      });
+    }
+    shareBound = true;
   }
 
   function fillCaptainFields() {
@@ -352,6 +506,7 @@
 
   async function boot() {
     bindForms();
+    bindShareModal();
     await loadConfig();
   }
 
