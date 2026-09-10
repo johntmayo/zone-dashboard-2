@@ -35,11 +35,12 @@
   <script src="https://unpkg.com/leaflet-kml@1.0.0/dist/leaflet-kml.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <link rel="stylesheet" href="public/css/styles.css?v=2">
-  <script src="public/js/utils.js"></script>
+  <link rel="stylesheet" href="public/css/styles.css?v=3">
+  <script src="public/js/utils.js?v=2"></script>
   <script src="public/js/address-id.js"></script>
   <script src="public/js/resident-placeholder.js"></script>
   <script src="public/js/contact-checkin.js"></script>
+  <script src="public/js/recruitment.js"></script>
   <script src="public/js/main-map.js"></script>
   <!-- Google Analytics 4 (loads only when GA_MEASUREMENT_ID is set) -->
   <script>
@@ -125,6 +126,7 @@
         <button class="nav-item active" data-view="home" id="navHome">Home</button>
         <button class="nav-item" data-view="map" id="navMap">Map</button>
         <button class="nav-item" data-view="people" id="navPeople">Neighbors</button>
+        <button class="nav-item hidden" data-view="recruitment" id="navRecruitment">Recruitment</button>
         <button class="nav-item" data-view="meetups" id="navMeetups">Actions</button>
         <button class="nav-item" data-view="tools" id="navTools">Tools</button>
         <button class="nav-item" data-view="resources" id="navResources">Resources</button>
@@ -966,6 +968,18 @@
                               <option value="clear">Clear outreach date</option>
                             </select>
                           </div>
+                          <div id="batchPersonSuccessfullyContactedWrap">
+                            <label class="batch-tag-field-label" style="display:flex; align-items:center; gap:6px; margin-bottom:4px; font-weight:600;">
+                              Successfully contacted
+                              <button type="button" class="field-help-tip" id="batchPersonSuccessfullyContactedHelp" aria-label="What successfully contacted means">?</button>
+                            </label>
+                            <p class="batch-tag-field-hint">Have you ever had a successful interaction with this person?</p>
+                            <select id="batchPersonSuccessfullyContacted" class="add-record-select" style="min-width:160px;">
+                              <option value="">— no change —</option>
+                              <option value="TRUE">Yes — two-way contact</option>
+                              <option value="FALSE">Clear</option>
+                            </select>
+                          </div>
                           <div id="batchPersonNewsletterWrap">
                             <label style="display:block; margin-bottom:4px; font-weight:600;">Wants updates</label>
                             <select id="batchPersonNewsletter" class="add-record-select" style="min-width:160px;">
@@ -1110,6 +1124,108 @@
         </div>
       </div>
 
+    </div>
+
+    <!-- Recruitment View -->
+    <div class="content-view hidden" id="recruitmentView">
+      <div class="recruitment-page">
+        <header class="recruitment-hero">
+          <p class="recruitment-kicker">Limited-time drive</p>
+          <h2 class="page-title">Recruitment</h2>
+          <p class="recruitment-lead">Help grow the Neighborhood Captain network. Claim a place to flyer, take a meeting, or jump on a phone bank — then see what other captains have already picked up.</p>
+        </header>
+
+        <div class="recruitment-bento">
+          <section class="recruitment-card recruitment-card--wide" id="recruitmentPlacesCard">
+            <div class="recruitment-card-header">
+              <h3>Adopt a place</h3>
+              <p>Pick a business or community space where a flyer should live. Other captains can see what is already covered.</p>
+            </div>
+            <form class="recruitment-form" id="recruitmentPlaceForm">
+              <label class="recruitment-label" for="recruitmentPlaceCaptain">Your name</label>
+              <input class="recruitment-input" id="recruitmentPlaceCaptain" type="text" readonly>
+              <label class="recruitment-label" for="recruitmentPlaceName">Business or community space</label>
+              <div class="recruitment-form-row">
+                <input class="recruitment-input" id="recruitmentPlaceName" type="text" maxlength="160" placeholder="e.g. Fox's, Altadena Library, community center" required>
+                <button type="submit" class="btn-save btn-save-small" id="recruitmentPlaceSubmit">Add</button>
+              </div>
+              <p class="recruitment-status" id="recruitmentPlaceStatus"></p>
+            </form>
+            <div class="recruitment-resources" id="recruitmentPlaceResources"></div>
+            <h4 class="recruitment-feed-heading">Places captains have adopted</h4>
+            <ul class="recruitment-feed" id="recruitmentPlaceFeed">
+              <li class="recruitment-feed-empty">Loading…</li>
+            </ul>
+          </section>
+
+          <section class="recruitment-card recruitment-card--wide" id="recruitmentEventsCard">
+            <div class="recruitment-card-header">
+              <h3>Events &amp; meetings</h3>
+              <p>If you are already going somewhere you can make a short pitch, claim it so others know it is covered.</p>
+            </div>
+            <form class="recruitment-form" id="recruitmentEventForm">
+              <label class="recruitment-label" for="recruitmentEventCaptain">Your name</label>
+              <input class="recruitment-input" id="recruitmentEventCaptain" type="text" readonly>
+              <label class="recruitment-label" for="recruitmentEventName">Event or meeting</label>
+              <input class="recruitment-input" id="recruitmentEventName" type="text" maxlength="160" placeholder="e.g. Rotary Club" required>
+              <label class="recruitment-label" for="recruitmentEventWhen">When</label>
+              <div class="recruitment-form-row">
+                <input class="recruitment-input" id="recruitmentEventWhen" type="text" maxlength="160" placeholder="e.g. Wednesday, September 9" required>
+                <button type="submit" class="btn-save btn-save-small" id="recruitmentEventSubmit">Add</button>
+              </div>
+              <p class="recruitment-status" id="recruitmentEventStatus"></p>
+            </form>
+            <div class="recruitment-resources" id="recruitmentEventResources"></div>
+            <h4 class="recruitment-feed-heading">Events captains have claimed</h4>
+            <ul class="recruitment-feed" id="recruitmentEventFeed">
+              <li class="recruitment-feed-empty">Loading…</li>
+            </ul>
+          </section>
+
+          <section class="recruitment-card" id="recruitmentPhoneBankCard">
+            <div class="recruitment-card-header">
+              <h3>Phone bank</h3>
+              <p>Join a virtual session and use the shared script.</p>
+            </div>
+            <div class="recruitment-resources" id="recruitmentPhoneBankResources"></div>
+            <ul class="recruitment-feed" id="recruitmentPhoneBankList">
+              <li class="recruitment-feed-empty">Loading…</li>
+            </ul>
+          </section>
+
+          <section class="recruitment-card" id="recruitmentInviteCard">
+            <div class="recruitment-card-header">
+              <h3>Invite a neighbor</h3>
+              <p>Point someone toward becoming a Neighborhood Captain.</p>
+            </div>
+            <div class="recruitment-card-links">
+              <a class="tool-link-btn hidden" id="recruitmentInviteLink" href="#" target="_blank" rel="noopener noreferrer">Open signup</a>
+              <div class="recruitment-resources" id="recruitmentInviteExtra"></div>
+              <a class="tool-link-btn" href="outreach-helper.html" target="_blank" rel="noopener noreferrer">Outreach language</a>
+            </div>
+          </section>
+
+          <section class="recruitment-card" id="recruitmentTalkingCard">
+            <div class="recruitment-card-header">
+              <h3>Talking points</h3>
+              <p>Ready-to-use language for texts, emails, calls, and letters.</p>
+            </div>
+            <div class="recruitment-card-links">
+              <a class="tool-link-btn" href="outreach-helper.html" target="_blank" rel="noopener noreferrer">Open Outreach Helper</a>
+            </div>
+          </section>
+
+          <section class="recruitment-card" id="recruitmentShareCard">
+            <div class="recruitment-card-header">
+              <h3>Share the drive</h3>
+              <p>Ask in the captain community if someone can cover a gap you see.</p>
+            </div>
+            <div class="recruitment-card-links">
+              <a class="tool-link-btn" href="whatsapp-community.html" target="_blank" rel="noopener noreferrer">WhatsApp Community</a>
+            </div>
+          </section>
+        </div>
+      </div>
     </div>
 
     <!-- Actions View -->
@@ -1296,6 +1412,9 @@
       <div class="mobile-more-handle"></div>
       <div class="mobile-more-zone" id="mobileMoreZone">Zone XX</div>
       <nav class="mobile-more-list">
+        <button class="mobile-more-item hidden" data-view="recruitment" id="mobileMoreRecruitment">
+          <span>Recruitment</span><span class="mobile-more-item-arrow">›</span>
+        </button>
         <button class="mobile-more-item" data-view="tools">
           <span>Tools</span><span class="mobile-more-item-arrow">›</span>
         </button>
@@ -3509,12 +3628,15 @@
       if (viewName === 'home') return true;
       if (viewName === 'lotWeedingAdmin') return canAccessLotWeedingAdminView();
       if (isZonelessLotWeedingOnlyUser()) return false;
-      return viewName === 'profile' || (viewName === 'godmode' && isCurrentUserAdmin);
+      return viewName === 'profile' || viewName === 'recruitment' || (viewName === 'godmode' && isCurrentUserAdmin);
     }
 
     function canOpenView(viewName) {
       // Signed-out users stay on the canonical Home login screen — no tab hopping.
       if (!isSignedIn()) return viewName === 'home';
+      if (viewName === 'recruitment' && window.Recruitment && !window.Recruitment.isEnabled()) {
+        return false;
+      }
       if (currentSheetUrl || localStorage.getItem('savedSheetUrl')) {
         if (viewName === 'godmode') return isCurrentUserAdmin;
         if (viewName === 'lotWeedingAdmin') return canAccessLotWeedingAdminView();
@@ -3578,7 +3700,7 @@
         const mobileMoreBtn = document.getElementById('mobileNavMore');
         if (mobileMoreBtn) {
           const moreAllowed = canOpenView('tools') || canOpenView('resources') || canOpenView('profile') ||
-            canOpenView('godmode') || canOpenView('lotWeedingAdmin');
+            canOpenView('godmode') || canOpenView('lotWeedingAdmin') || canOpenView('recruitment');
           mobileMoreBtn.disabled = !moreAllowed;
           mobileMoreBtn.style.pointerEvents = moreAllowed ? 'auto' : 'none';
           mobileMoreBtn.classList.toggle('is-nav-disabled', !moreAllowed);
@@ -14025,23 +14147,154 @@
       );
     }
 
+    const SUCCESSFULLY_CONTACTED_HELP_TEXT = 'A one-time historical record. Have you ever had a successful two-way interaction with this person?';
+
+    function normalizePersonTagColumnKey(colName) {
+      return String(colName || '').trim().toLowerCase().replace(/[\s_-]+/g, ' ');
+    }
+
+    function isSuccessfullyContactedColumn(colName) {
+      return normalizePersonTagColumnKey(colName) === 'successfully contacted';
+    }
+
+    function findSuccessfullyContactedColumn(headers) {
+      return (Array.isArray(headers) ? headers : []).find(isSuccessfullyContactedColumn) || null;
+    }
+
+    function buildDetailsPanelQuickTagCols(headers, quickTagCols, personLevelCols) {
+      const successfullyContactedCol = findSuccessfullyContactedColumn(headers);
+      const cols = quickTagCols.filter(col => personLevelCols.includes(col));
+      if (successfullyContactedCol && !cols.includes(successfullyContactedCol)) {
+        return [successfullyContactedCol, ...cols];
+      }
+      return cols;
+    }
+
+    function isWantsUpdatesColumn(colName) {
+      return /^wants[\s_-]*updates$/i.test(String(colName || '').trim());
+    }
+
+    function isPersonQuickTagCheckbox(colName) {
+      return String(colName || '').startsWith('Person - ') ||
+        isWantsUpdatesColumn(colName) ||
+        isSuccessfullyContactedColumn(colName);
+    }
+
+    function renderSuccessfullyContactedHelpTip() {
+      return `<button type="button" class="field-help-tip" aria-label="What successfully contacted means" data-tip="${escapeHtmlAttr(SUCCESSFULLY_CONTACTED_HELP_TEXT)}">?</button>`;
+    }
+
     function getPersonQuickTagColumns(headers) {
       const quickTagSuffixes = ['renter', 'needs follow-up', 'unable to reach'];
-      const isWantsUpdatesColumn = (colName) => /^wants[\s_-]*updates$/i.test(String(colName || '').trim());
-      return headers.filter(col => {
-        if (isWantsUpdatesColumn(col)) return true;
+      const cols = (headers || []).filter(col => {
+        if (isWantsUpdatesColumn(col) || isSuccessfullyContactedColumn(col)) return true;
         if (!col.startsWith('Person - ')) return false;
         const suffix = col.substring(9).trim().toLowerCase();
         return quickTagSuffixes.includes(suffix);
+      });
+      return cols.sort((a, b) => {
+        const rank = (col) => isSuccessfullyContactedColumn(col) ? 0 : 1;
+        return rank(a) - rank(b);
       });
     }
 
     function getQuickTagDisplayLabel(colName) {
       const raw = String(colName || '').trim();
-      if (/^wants[\s_-]*updates$/i.test(raw)) return 'Wants updates';
+      if (isSuccessfullyContactedColumn(raw)) return 'Successfully contacted';
+      if (isWantsUpdatesColumn(raw)) return 'Wants updates';
       if (raw.startsWith('Person - ')) return raw.substring(9).trim();
       return raw;
     }
+
+    document.addEventListener('click', (event) => {
+      const tip = event.target.closest('.field-help-tip');
+      if (!tip) return;
+      event.preventDefault();
+      event.stopPropagation();
+      tip.focus();
+    });
+
+    (function initFieldHelpTooltipBehavior() {
+      let tooltipEl = null;
+      let activeBtn = null;
+
+      function ensureTooltipEl() {
+        if (tooltipEl) return tooltipEl;
+        tooltipEl = document.createElement('div');
+        tooltipEl.id = 'fieldHelpTooltip';
+        tooltipEl.className = 'field-help-tooltip-floating';
+        tooltipEl.setAttribute('role', 'tooltip');
+        tooltipEl.hidden = true;
+        document.body.appendChild(tooltipEl);
+        return tooltipEl;
+      }
+
+      function hideFieldHelpTooltip() {
+        if (!tooltipEl) return;
+        if (activeBtn && document.activeElement === activeBtn) {
+          activeBtn.blur();
+        }
+        tooltipEl.hidden = true;
+        tooltipEl.style.display = 'none';
+        tooltipEl.style.visibility = '';
+        activeBtn = null;
+      }
+
+      function showFieldHelpTooltip(btn) {
+        const text = btn.getAttribute('data-tip');
+        if (!text) {
+          hideFieldHelpTooltip();
+          return;
+        }
+        const el = ensureTooltipEl();
+        el.textContent = text;
+        el.hidden = false;
+        el.style.visibility = 'hidden';
+        el.style.display = 'block';
+        const rect = btn.getBoundingClientRect();
+        const tipRect = el.getBoundingClientRect();
+        const margin = 8;
+        let top = rect.bottom + margin;
+        let left = rect.left;
+        if (left + tipRect.width > window.innerWidth - margin) {
+          left = window.innerWidth - tipRect.width - margin;
+        }
+        if (left < margin) left = margin;
+        if (top + tipRect.height > window.innerHeight - margin) {
+          top = rect.top - tipRect.height - margin;
+        }
+        el.style.top = `${Math.round(top)}px`;
+        el.style.left = `${Math.round(left)}px`;
+        el.style.visibility = 'visible';
+        activeBtn = btn;
+      }
+
+      document.addEventListener('mouseover', (event) => {
+        const btn = event.target.closest('.field-help-tip[data-tip]');
+        if (btn) showFieldHelpTooltip(btn);
+      });
+
+      document.addEventListener('mouseout', (event) => {
+        if (!activeBtn) return;
+        if (event.target !== activeBtn && !activeBtn.contains(event.target)) return;
+        const related = event.relatedTarget;
+        if (related && activeBtn.contains(related)) return;
+        hideFieldHelpTooltip();
+      });
+
+      document.addEventListener('focusin', (event) => {
+        const btn = event.target.closest('.field-help-tip[data-tip]');
+        if (btn) showFieldHelpTooltip(btn);
+      });
+
+      document.addEventListener('focusout', (event) => {
+        const btn = event.target.closest('.field-help-tip[data-tip]');
+        if (btn && btn === activeBtn) hideFieldHelpTooltip();
+      });
+
+      document.addEventListener('scroll', hideFieldHelpTooltip, true);
+      window.addEventListener('resize', hideFieldHelpTooltip);
+    })();
 
     function getPersonDisplayName(row, fallbackIndex, nameCol) {
       if (nameCol && row && row[nameCol]) {
@@ -14897,15 +15150,18 @@
       // Always close the address-section body + section wrapper
       html += '</div></section>';
 
-      const lastContactCol = headers.find(h => 
-        h.toLowerCase() === 'last contact date' ||
-        h.toLowerCase() === 'last outreach attempt date' ||
-        h.toLowerCase().includes('last contact') || 
-        h.toLowerCase().includes('last outreach') || 
-        h.toLowerCase().includes('contact date') ||
-        h.toLowerCase().includes('outreach date') ||
-        h.toLowerCase().includes('contacted')
-      );
+      const lastContactCol = typeof findOutreachDateColumn === 'function'
+        ? findOutreachDateColumn(headers)
+        : headers.find(h => {
+            if (isSuccessfullyContactedColumn(h)) return false;
+            const lower = h.toLowerCase();
+            return lower === 'last contact date' ||
+              lower === 'last outreach attempt date' ||
+              lower.includes('last contact') ||
+              lower.includes('last outreach') ||
+              lower.includes('contact date') ||
+              lower.includes('outreach date');
+          });
       const outreachLogCol = headers.find(h => {
         const lower = h.toLowerCase();
         return (lower.includes('contact') && lower.includes('note')) ||
@@ -15050,21 +15306,28 @@
           return (lower.includes('cell') || lower.includes('mobile')) && 
                  (lower.includes('phone') || lower.includes('cell') || lower.includes('mobile'));
         });
-        const outreachDateCol = personLevelCols.find(col => {
-          const lower = col.toLowerCase();
-          return lower === 'last contact date' ||
-            lower === 'last outreach attempt date' ||
-            lower.includes('last contact') ||
-            lower.includes('last outreach') ||
-            lower.includes('contact date') ||
-            lower.includes('outreach date') ||
-            lower.includes('contacted');
-        });
+        const successfullyContactedCol = findSuccessfullyContactedColumn(headers);
+        let outreachDateCol = typeof findOutreachDateColumn === 'function'
+          ? findOutreachDateColumn(headers)
+          : personLevelCols.find(col => {
+              if (isSuccessfullyContactedColumn(col)) return false;
+              const lower = col.toLowerCase();
+              return lower === 'last contact date' ||
+                lower === 'last outreach attempt date' ||
+                lower.includes('last contact') ||
+                lower.includes('last outreach') ||
+                lower.includes('contact date') ||
+                lower.includes('outreach date');
+            });
+        if (outreachDateCol && isSuccessfullyContactedColumn(outreachDateCol)) {
+          outreachDateCol = null;
+        }
         
         const renderedFields = new Set(); // Track which fields have been rendered
         if (ageCol) renderedFields.add(ageCol);
         if (genderCol) renderedFields.add(genderCol);
         if (outreachDateCol) renderedFields.add(outreachDateCol);
+        if (successfullyContactedCol) renderedFields.delete(successfullyContactedCol);
         
         // Helper function to format column name for display
         const formatColumnLabel = (col) => {
@@ -15083,7 +15346,8 @@
             if (suffix.toLowerCase() === 'unable to reach') return 'Unable to reach';
             return suffix;
           }
-          if (/^wants[\s_-]*updates$/i.test(col)) return 'Wants updates';
+          if (isSuccessfullyContactedColumn(col)) return 'Successfully contacted';
+          if (isWantsUpdatesColumn(col)) return 'Wants updates';
           if (/^age$/i.test(col)) return 'Approximate Age';
           if (lower === 'last contact date' || lower === 'last outreach attempt date') return 'Last Outreach Attempt';
           return col;
@@ -15091,7 +15355,7 @@
 
         // Omit colon for phone labels and person-tag checkboxes (Renter, Needs Follow-Up, Unable to reach)
         const formatLabelForDisplay = (label) => {
-          if (label === 'Renter' || label === 'Needs Follow-Up' || label === 'Unable to reach' || label === 'Wants updates') return label;
+          if (label === 'Renter' || label === 'Needs Follow-Up' || label === 'Unable to reach' || label === 'Wants updates' || label === 'Successfully contacted') return label;
           return label + ':';
         };
         
@@ -15101,7 +15365,8 @@
           renderedFields.add(col);
           
           const isNotes = col.toLowerCase().includes('note');
-          const isPersonCheckbox = col.startsWith('Person - ') || /^wants[\s_-]*updates$/i.test(col);
+          const isPersonCheckbox = isPersonQuickTagCheckbox(col);
+          const helpTipHtml = isSuccessfullyContactedColumn(col) ? renderSuccessfullyContactedHelpTip() : '';
           const isEmail = isPersonEmailCol(col);
           const isEditable = isSignedIn();
           const value = row[col] || '';
@@ -15155,7 +15420,7 @@
               const isChecked = valueStrLower === 'true' || valueStr === 'TRUE' || 
                                valueStrLower === 'yes' || 
                                (valueStr !== '' && valueStrLower !== 'false' && valueStr !== 'FALSE' && valueStrLower !== 'no');
-              return `<div class="person-info${isInline ? '-item' : ''}">
+              return `<div class="person-info${isInline ? '-item' : ''}${helpTipHtml ? ' person-info--with-tip' : ''}">
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                   <input type="checkbox" 
                          class="editable-checkbox" 
@@ -15168,6 +15433,7 @@
                          style="width: 18px; height: 18px; cursor: pointer;">
                   <strong>${formatLabelForDisplay(displayLabel)}</strong>
                 </label>
+                ${helpTipHtml}
               </div>`;
             } else {
               return `<div class="person-info${isInline ? '-item' : ''}">
@@ -15189,7 +15455,7 @@
               const isChecked = valueStrLower === 'true' || valueStr === 'TRUE' || 
                                valueStrLower === 'yes' || 
                                (valueStr !== '' && valueStrLower !== 'false' && valueStr !== 'FALSE' && valueStrLower !== 'no');
-              return `<div class="person-info${isInline ? '-item' : ''}"><strong>${formatLabelForDisplay(displayLabel)}</strong> ${isChecked ? 'Yes' : 'No'}</div>`;
+              return `<div class="person-info${isInline ? '-item' : ''}${helpTipHtml ? ' person-info--with-tip' : ''}"><strong>${formatLabelForDisplay(displayLabel)}</strong> ${isChecked ? 'Yes' : 'No'}${helpTipHtml}</div>`;
             } else {
               return `<div class="person-info${isInline ? '-item' : ''}">
                 <strong>${formatLabelForDisplay(displayLabel)}</strong> ${value || '(not set)'}
@@ -15219,8 +15485,8 @@
           html += '</div>';
         }
 
-        // Quick Tags sub-section: Renter, Needs Follow-Up, Unable to reach (keep checkboxes)
-        const personTagCols = personLevelCols.filter(col => quickTagCols.includes(col));
+        // Quick Tags sub-section: Successfully contacted first, then other person tags
+        const personTagCols = buildDetailsPanelQuickTagCols(headers, quickTagCols, personLevelCols);
         if (personTagCols.length > 0) {
           html += '<div class="person-card__section person-card__tags">';
           html += '<p class="person-card__tags-label">Quick tags</p>';
@@ -15242,7 +15508,7 @@
             deferredNotesCols.push(col);
             return;
           }
-          const isPersonCheckbox = col.startsWith('Person - ');
+          const isPersonCheckbox = isPersonQuickTagCheckbox(col);
           const isEmail = isPersonEmailCol(col);
           const isEditable = isSignedIn();
           const displayLabel = formatColumnLabel(col);
@@ -15978,7 +16244,8 @@
         const roleAttr = options.role
           ? ` data-person-modal-role="${escapeHtmlAttr(options.role)}"`
           : '';
-        return `
+        const helpTipHtml = options.helpTip ? renderSuccessfullyContactedHelpTip() : '';
+        const checkboxHtml = `
           <label class="add-record-checkbox-wrap person-details-checkbox">
             <input
               type="checkbox"
@@ -15993,6 +16260,8 @@
             <span${tooltipAttr}>${escapeHtml(label)}</span>
           </label>
         `;
+        if (!helpTipHtml) return checkboxHtml;
+        return `<div class="person-info--with-tip">${checkboxHtml}${helpTipHtml}</div>`;
       };
       // Keep person modal fields opt-in. New sheet columns should not appear
       // just because they contain data.
@@ -16004,7 +16273,9 @@
         return textField(label, col);
       };
 
-      const quickTagsHtml = quickTagCols.map(col => checkboxField(getQuickTagDisplayLabel(col), col)).join('');
+      const quickTagsHtml = quickTagCols.map(col => checkboxField(getQuickTagDisplayLabel(col), col, {
+        helpTip: isSuccessfullyContactedColumn(col)
+      })).join('');
       const modalHTML = `
         <div class="newsletter-modal-overlay" id="personDetailsModalOverlay" data-address="${escapeHtmlAttr(address)}" data-original-row-index="${originalRowIndex}">
           <div class="newsletter-modal person-details-modal" style="max-width:640px;">
@@ -16594,6 +16865,11 @@
         setTimeout(() => {
           setupToolModuleExpansion();
         }, 100);
+      } else if (viewName === 'recruitment') {
+        if (window.Recruitment && typeof window.Recruitment.loadPage === 'function') {
+          window.Recruitment.fillCaptainFields();
+          window.Recruitment.loadPage();
+        }
       } else if (viewName === 'profile') {
         loadProfileView();
       } else if (viewName === 'godmode') {
@@ -21607,15 +21883,18 @@
       const activeRealResidentData = activeData.filter(row => !isAddressPlaceholder(row, headers));
 
       // Find relevant columns
-      const lastContactCol = headers.find(h => 
-        h.toLowerCase() === 'last contact date' ||
-        h.toLowerCase() === 'last outreach attempt date' ||
-        h.toLowerCase().includes('last contact') || 
-        h.toLowerCase().includes('last outreach') || 
-        h.toLowerCase().includes('contact date') ||
-        h.toLowerCase().includes('outreach date') ||
-        h.toLowerCase().includes('contacted')
-      );
+      const lastContactCol = typeof findOutreachDateColumn === 'function'
+        ? findOutreachDateColumn(headers)
+        : headers.find(h => {
+            if (isSuccessfullyContactedColumn(h)) return false;
+            const lower = h.toLowerCase();
+            return lower === 'last contact date' ||
+              lower === 'last outreach attempt date' ||
+              lower.includes('last contact') ||
+              lower.includes('last outreach') ||
+              lower.includes('contact date') ||
+              lower.includes('outreach date');
+          });
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
 
@@ -22443,15 +22722,18 @@
     function getAddressesContactedData(headers, data) {
       const formerResidentCol = getFormerResidentColumn(headers);
       const activeData = (data || []).filter(row => !isFormerResidentRow(row, formerResidentCol));
-      const lastContactCol = headers.find(h => 
-        h.toLowerCase() === 'last contact date' ||
-        h.toLowerCase() === 'last outreach attempt date' ||
-        h.toLowerCase().includes('last contact') || 
-        h.toLowerCase().includes('last outreach') || 
-        h.toLowerCase().includes('contact date') ||
-        h.toLowerCase().includes('outreach date') ||
-        h.toLowerCase().includes('contacted')
-      );
+      const lastContactCol = typeof findOutreachDateColumn === 'function'
+        ? findOutreachDateColumn(headers)
+        : headers.find(h => {
+            if (isSuccessfullyContactedColumn(h)) return false;
+            const lower = h.toLowerCase();
+            return lower === 'last contact date' ||
+              lower === 'last outreach attempt date' ||
+              lower.includes('last contact') ||
+              lower.includes('last outreach') ||
+              lower.includes('contact date') ||
+              lower.includes('outreach date');
+          });
       const addressColumns = findAddressColumns(headers);
 
       const households = new Set();
@@ -23465,8 +23747,11 @@
       const personSelectedCountEl = document.getElementById('batchPersonSelectedCount');
       const personSelectionSummaryEl = document.getElementById('batchPersonSelectionSummary');
       const personContactedSelect = document.getElementById('batchPersonContacted');
+      const personSuccessfullyContactedSelect = document.getElementById('batchPersonSuccessfullyContacted');
+      const personSuccessfullyContactedHelp = document.getElementById('batchPersonSuccessfullyContactedHelp');
       const personNewsletterSelect = document.getElementById('batchPersonNewsletter');
       const personFormerResidentSelect = document.getElementById('batchPersonFormerResident');
+      const personSuccessfullyContactedWrap = document.getElementById('batchPersonSuccessfullyContactedWrap');
       const personNewsletterWrap = document.getElementById('batchPersonNewsletterWrap');
       const personFormerResidentWrap = document.getElementById('batchPersonFormerResidentWrap');
       if (!listEl || !personListEl || !damageSelect || !addressPlanSelect || !rebuildSelect || !applyBtn || !personApplyBtn || !streetFilter || !searchInput || !contactFilter) return;
@@ -23587,6 +23872,7 @@
         return Boolean(email && email.includes('@'));
       };
       const newsletterCol = findHeaderByNormalizedName(['Wants Updates', 'Newsletter Subscriber']);
+      const successfullyContactedCol = findSuccessfullyContactedColumn(headers);
       const formerResidentCol = findColumn(headers, ['former', 'resident'], ['note']);
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
@@ -23732,8 +24018,13 @@
       }
 
       const missingPersonColumns = [];
+      if (!successfullyContactedCol) missingPersonColumns.push('Successfully Contacted');
       if (!newsletterCol) missingPersonColumns.push('Wants Updates');
       if (!formerResidentCol) missingPersonColumns.push('Former Resident');
+      if (personSuccessfullyContactedWrap) {
+        personSuccessfullyContactedWrap.style.opacity = successfullyContactedCol ? '' : '0.4';
+        personSuccessfullyContactedWrap.style.pointerEvents = successfullyContactedCol ? '' : 'none';
+      }
       if (personNewsletterWrap) {
         personNewsletterWrap.style.opacity = newsletterCol ? '' : '0.4';
         personNewsletterWrap.style.pointerEvents = newsletterCol ? '' : 'none';
@@ -23742,7 +24033,11 @@
         personFormerResidentWrap.style.opacity = formerResidentCol ? '' : '0.4';
         personFormerResidentWrap.style.pointerEvents = formerResidentCol ? '' : 'none';
       }
+      if (personSuccessfullyContactedHelp) {
+        personSuccessfullyContactedHelp.setAttribute('data-tip', SUCCESSFULLY_CONTACTED_HELP_TEXT);
+      }
       if (personContactedSelect) personContactedSelect.value = '';
+      if (personSuccessfullyContactedSelect) personSuccessfullyContactedSelect.value = '';
       if (personNewsletterSelect) personNewsletterSelect.value = '';
       if (personFormerResidentSelect) personFormerResidentSelect.value = '';
       if (personMissingCols) {
@@ -24554,19 +24849,25 @@
         }
 
         const contactAction = personContactedSelect ? (personContactedSelect.value || '').trim() : '';
+        const successfullyContactedValue = personSuccessfullyContactedSelect ? (personSuccessfullyContactedSelect.value || '').trim() : '';
         const newsletterValue = personNewsletterSelect ? (personNewsletterSelect.value || '').trim() : '';
         const formerResidentValue = personFormerResidentSelect ? (personFormerResidentSelect.value || '').trim() : '';
-        // Explicit "No" writes blank (not the word FALSE) into boolean columns
+        // Explicit "No" / Clear writes blank (not the word FALSE) into boolean columns
+        const successfullyContactedWriteValue = successfullyContactedValue === 'FALSE' ? '' : successfullyContactedValue;
         const newsletterWriteValue = newsletterValue === 'FALSE' ? '' : newsletterValue;
         const formerResidentWriteValue = formerResidentValue === 'FALSE' ? '' : formerResidentValue;
 
-        if (!contactAction && !newsletterValue && !formerResidentValue) {
+        if (!contactAction && !successfullyContactedValue && !newsletterValue && !formerResidentValue) {
           if (personStatusMsg) personStatusMsg.textContent = 'Choose at least one person tag to apply.';
           return;
         }
 
         if (contactAction && !contactDateCol) {
           if (personStatusMsg) personStatusMsg.textContent = 'Could not find a Last Outreach Attempt Date column in this sheet.';
+          return;
+        }
+        if (successfullyContactedValue && !successfullyContactedCol) {
+          if (personStatusMsg) personStatusMsg.textContent = 'Could not find a Successfully Contacted column in this sheet.';
           return;
         }
         if (newsletterValue && !newsletterCol) {
@@ -24584,6 +24885,7 @@
         const updates = [];
         const updatesByResidentId = [];
         const contactColIndex = contactDateCol != null ? headers.indexOf(contactDateCol) : -1;
+        const successfullyContactedColIndex = successfullyContactedCol != null ? headers.indexOf(successfullyContactedCol) : -1;
         const newsletterColIndex = newsletterCol != null ? headers.indexOf(newsletterCol) : -1;
         const formerResidentColIndex = formerResidentCol != null ? headers.indexOf(formerResidentCol) : -1;
 
@@ -24592,11 +24894,13 @@
           if (useResidentId && residentId) {
             if (contactAction === 'log' && contactDateCol) updatesByResidentId.push({ resident_id: residentId, column: contactDateCol, value: todayForSheet });
             if (contactAction === 'clear' && contactDateCol) updatesByResidentId.push({ resident_id: residentId, column: contactDateCol, value: '' });
+            if (successfullyContactedValue && successfullyContactedCol) updatesByResidentId.push({ resident_id: residentId, column: successfullyContactedCol, value: successfullyContactedWriteValue });
             if (newsletterValue && newsletterCol) updatesByResidentId.push({ resident_id: residentId, column: newsletterCol, value: newsletterWriteValue });
             if (formerResidentValue && formerResidentCol) updatesByResidentId.push({ resident_id: residentId, column: formerResidentCol, value: formerResidentWriteValue });
           } else if (row && rowNumber > 1) {
             if (contactAction === 'log' && contactColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(contactColIndex) + rowNumber, values: [[todayForSheet]] });
             if (contactAction === 'clear' && contactColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(contactColIndex) + rowNumber, values: [['']] });
+            if (successfullyContactedValue && successfullyContactedColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(successfullyContactedColIndex) + rowNumber, values: [[successfullyContactedWriteValue]] });
             if (newsletterValue && newsletterColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(newsletterColIndex) + rowNumber, values: [[newsletterWriteValue]] });
             if (formerResidentValue && formerResidentColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(formerResidentColIndex) + rowNumber, values: [[formerResidentWriteValue]] });
           }
@@ -24638,6 +24942,9 @@
             } else if (contactAction === 'clear') {
               if (person) person.lastContactRaw = '';
               if (row && contactDateCol) row[contactDateCol] = '';
+            }
+            if (successfullyContactedValue && successfullyContactedCol && row) {
+              row[successfullyContactedCol] = successfullyContactedWriteValue;
             }
             if (newsletterValue && newsletterCol && row) {
               row[newsletterCol] = newsletterWriteValue;
@@ -27004,7 +27311,7 @@
 
       // ---- Sync mobile bottom nav active state ----
       function syncMobileNav(viewName) {
-        var moreViews = ['tools', 'resources', 'profile', 'godmode', 'lotWeedingAdmin'];
+        var moreViews = ['tools', 'resources', 'profile', 'godmode', 'lotWeedingAdmin', 'recruitment'];
         document.querySelectorAll('.mobile-nav-tab[data-view]').forEach(function(tab) {
           tab.classList.toggle('active', tab.getAttribute('data-view') === viewName);
         });

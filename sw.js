@@ -4,15 +4,15 @@
  */
 'use strict';
 
-const SW_VERSION = 'zd-shell-v6';
+const SW_VERSION = 'zd-shell-v7';
 const SHELL_CACHE = `shell-${SW_VERSION}`;
 
 // Same-origin assets safe to precache. Do NOT precache `/` (the dashboard HTML) —
 // a cached copy of index.html is what kept users on a stale map after deploys.
 const PRECACHE_URLS = [
   '/manifest.webmanifest',
-  '/public/css/styles.css?v=2',
-  '/public/js/utils.js',
+  '/public/css/styles.css?v=3',
+  '/public/js/utils.js?v=2',
   '/public/js/address-id.js',
   '/public/js/resident-placeholder.js',
   '/public/js/contact-checkin.js',
