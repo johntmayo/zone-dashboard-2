@@ -1594,6 +1594,20 @@ try {
   console.error('Failed to register Contact Check-In routes:', err.message);
 }
 
+// --- Recruitment Drive (Places + Events signups) ---
+try {
+  const { registerRecruitmentRoutes, getRecruitmentConfig } = require('./recruitment/routes');
+  registerRecruitmentRoutes(app, {
+    getSheetsClient,
+    getAccessRowsForEmail,
+    sessionAuth
+  });
+  const recruitmentConfig = getRecruitmentConfig();
+  console.log(`Recruitment routes registered (enabled: ${recruitmentConfig.enabled}, sheet: ${recruitmentConfig.sheetId || 'not configured'}).`);
+} catch (err) {
+  console.error('Failed to register Recruitment routes:', err.message);
+}
+
 // Explicit PWA shell files (avoid SPA fallback + keep SW update-friendly).
 app.get('/sw.js', (req, res) => {
   res.setHeader('Cache-Control', 'no-cache, max-age=0, must-revalidate');
@@ -1642,6 +1656,13 @@ app.listen(PORT, () => {
   console.log(`Central sheet ID (announcements): ${CENTRAL_SHEET_ID}`);
   console.log(`Actions sheet ID: ${ACTIONS_SHEET_ID}`);
   console.log(`NC Directory sheet ID: ${NC_DIRECTORY_SHEET_ID}`);
+  try {
+    const { getRecruitmentConfig } = require('./recruitment/routes');
+    const recruitmentConfig = getRecruitmentConfig();
+    console.log(`Recruitment tab: ${recruitmentConfig.enabled ? 'on' : 'off'} (sheet: ${recruitmentConfig.sheetId || 'not configured'})`);
+  } catch (err) {
+    console.log('Recruitment tab: unavailable');
+  }
   try {
     const { getLotWeedingConfig } = require('./lot-weeding/routes');
     const lotWeedingConfig = getLotWeedingConfig();
