@@ -966,6 +966,18 @@
                               <option value="clear">Clear outreach date</option>
                             </select>
                           </div>
+                          <div id="batchPersonSuccessfullyContactedWrap">
+                            <label class="batch-tag-field-label" style="display:flex; align-items:center; gap:6px; margin-bottom:4px; font-weight:600;">
+                              Successfully contacted
+                              <button type="button" class="field-help-tip" id="batchPersonSuccessfullyContactedHelp" aria-label="What successfully contacted means">?</button>
+                            </label>
+                            <p class="batch-tag-field-hint">Have you ever had a successful interaction with this person?</p>
+                            <select id="batchPersonSuccessfullyContacted" class="add-record-select" style="min-width:160px;">
+                              <option value="">— no change —</option>
+                              <option value="TRUE">Yes — two-way contact</option>
+                              <option value="FALSE">Clear</option>
+                            </select>
+                          </div>
                           <div id="batchPersonNewsletterWrap">
                             <label style="display:block; margin-bottom:4px; font-weight:600;">Wants updates</label>
                             <select id="batchPersonNewsletter" class="add-record-select" style="min-width:160px;">
@@ -14025,23 +14037,59 @@
       );
     }
 
+    const SUCCESSFULLY_CONTACTED_HELP_TEXT = 'Have you ever had a successful two-way interaction with this person? They replied, answered, spoke with you, asked a question, or otherwise confirmed they received your message. Sending an email, leaving a voicemail, or dropping off a flyer does not count unless they responded.';
+
+    function isSuccessfullyContactedColumn(colName) {
+      return /^successfully[\s_-]*contacted$/i.test(String(colName || '').trim());
+    }
+
+    function findSuccessfullyContactedColumn(headers) {
+      return (Array.isArray(headers) ? headers : []).find(isSuccessfullyContactedColumn) || null;
+    }
+
+    function isWantsUpdatesColumn(colName) {
+      return /^wants[\s_-]*updates$/i.test(String(colName || '').trim());
+    }
+
+    function isPersonQuickTagCheckbox(colName) {
+      return String(colName || '').startsWith('Person - ') ||
+        isWantsUpdatesColumn(colName) ||
+        isSuccessfullyContactedColumn(colName);
+    }
+
+    function renderSuccessfullyContactedHelpTip() {
+      return `<button type="button" class="field-help-tip" aria-label="What successfully contacted means" data-tip="${escapeHtmlAttr(SUCCESSFULLY_CONTACTED_HELP_TEXT)}">?</button>`;
+    }
+
     function getPersonQuickTagColumns(headers) {
       const quickTagSuffixes = ['renter', 'needs follow-up', 'unable to reach'];
-      const isWantsUpdatesColumn = (colName) => /^wants[\s_-]*updates$/i.test(String(colName || '').trim());
-      return headers.filter(col => {
-        if (isWantsUpdatesColumn(col)) return true;
+      const cols = (headers || []).filter(col => {
+        if (isWantsUpdatesColumn(col) || isSuccessfullyContactedColumn(col)) return true;
         if (!col.startsWith('Person - ')) return false;
         const suffix = col.substring(9).trim().toLowerCase();
         return quickTagSuffixes.includes(suffix);
+      });
+      return cols.sort((a, b) => {
+        const rank = (col) => isSuccessfullyContactedColumn(col) ? 0 : 1;
+        return rank(a) - rank(b);
       });
     }
 
     function getQuickTagDisplayLabel(colName) {
       const raw = String(colName || '').trim();
-      if (/^wants[\s_-]*updates$/i.test(raw)) return 'Wants updates';
+      if (isSuccessfullyContactedColumn(raw)) return 'Successfully contacted';
+      if (isWantsUpdatesColumn(raw)) return 'Wants updates';
       if (raw.startsWith('Person - ')) return raw.substring(9).trim();
       return raw;
     }
+
+    document.addEventListener('click', (event) => {
+      const tip = event.target.closest('.field-help-tip');
+      if (!tip) return;
+      event.preventDefault();
+      event.stopPropagation();
+      tip.focus();
+    });
 
     function getPersonDisplayName(row, fallbackIndex, nameCol) {
       if (nameCol && row && row[nameCol]) {
@@ -15083,7 +15131,8 @@
             if (suffix.toLowerCase() === 'unable to reach') return 'Unable to reach';
             return suffix;
           }
-          if (/^wants[\s_-]*updates$/i.test(col)) return 'Wants updates';
+          if (isSuccessfullyContactedColumn(col)) return 'Successfully contacted';
+          if (isWantsUpdatesColumn(col)) return 'Wants updates';
           if (/^age$/i.test(col)) return 'Approximate Age';
           if (lower === 'last contact date' || lower === 'last outreach attempt date') return 'Last Outreach Attempt';
           return col;
@@ -15091,7 +15140,7 @@
 
         // Omit colon for phone labels and person-tag checkboxes (Renter, Needs Follow-Up, Unable to reach)
         const formatLabelForDisplay = (label) => {
-          if (label === 'Renter' || label === 'Needs Follow-Up' || label === 'Unable to reach' || label === 'Wants updates') return label;
+          if (label === 'Renter' || label === 'Needs Follow-Up' || label === 'Unable to reach' || label === 'Wants updates' || label === 'Successfully contacted') return label;
           return label + ':';
         };
         
@@ -15101,7 +15150,8 @@
           renderedFields.add(col);
           
           const isNotes = col.toLowerCase().includes('note');
-          const isPersonCheckbox = col.startsWith('Person - ') || /^wants[\s_-]*updates$/i.test(col);
+          const isPersonCheckbox = isPersonQuickTagCheckbox(col);
+          const helpTipHtml = isSuccessfullyContactedColumn(col) ? renderSuccessfullyContactedHelpTip() : '';
           const isEmail = isPersonEmailCol(col);
           const isEditable = isSignedIn();
           const value = row[col] || '';
@@ -15155,7 +15205,7 @@
               const isChecked = valueStrLower === 'true' || valueStr === 'TRUE' || 
                                valueStrLower === 'yes' || 
                                (valueStr !== '' && valueStrLower !== 'false' && valueStr !== 'FALSE' && valueStrLower !== 'no');
-              return `<div class="person-info${isInline ? '-item' : ''}">
+              return `<div class="person-info${isInline ? '-item' : ''}${helpTipHtml ? ' person-info--with-tip' : ''}">
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                   <input type="checkbox" 
                          class="editable-checkbox" 
@@ -15168,6 +15218,7 @@
                          style="width: 18px; height: 18px; cursor: pointer;">
                   <strong>${formatLabelForDisplay(displayLabel)}</strong>
                 </label>
+                ${helpTipHtml}
               </div>`;
             } else {
               return `<div class="person-info${isInline ? '-item' : ''}">
@@ -15189,7 +15240,7 @@
               const isChecked = valueStrLower === 'true' || valueStr === 'TRUE' || 
                                valueStrLower === 'yes' || 
                                (valueStr !== '' && valueStrLower !== 'false' && valueStr !== 'FALSE' && valueStrLower !== 'no');
-              return `<div class="person-info${isInline ? '-item' : ''}"><strong>${formatLabelForDisplay(displayLabel)}</strong> ${isChecked ? 'Yes' : 'No'}</div>`;
+              return `<div class="person-info${isInline ? '-item' : ''}${helpTipHtml ? ' person-info--with-tip' : ''}"><strong>${formatLabelForDisplay(displayLabel)}</strong> ${isChecked ? 'Yes' : 'No'}${helpTipHtml}</div>`;
             } else {
               return `<div class="person-info${isInline ? '-item' : ''}">
                 <strong>${formatLabelForDisplay(displayLabel)}</strong> ${value || '(not set)'}
@@ -15242,7 +15293,7 @@
             deferredNotesCols.push(col);
             return;
           }
-          const isPersonCheckbox = col.startsWith('Person - ');
+          const isPersonCheckbox = isPersonQuickTagCheckbox(col);
           const isEmail = isPersonEmailCol(col);
           const isEditable = isSignedIn();
           const displayLabel = formatColumnLabel(col);
@@ -15978,7 +16029,8 @@
         const roleAttr = options.role
           ? ` data-person-modal-role="${escapeHtmlAttr(options.role)}"`
           : '';
-        return `
+        const helpTipHtml = options.helpTip ? renderSuccessfullyContactedHelpTip() : '';
+        const checkboxHtml = `
           <label class="add-record-checkbox-wrap person-details-checkbox">
             <input
               type="checkbox"
@@ -15993,6 +16045,8 @@
             <span${tooltipAttr}>${escapeHtml(label)}</span>
           </label>
         `;
+        if (!helpTipHtml) return checkboxHtml;
+        return `<div class="person-info--with-tip">${checkboxHtml}${helpTipHtml}</div>`;
       };
       // Keep person modal fields opt-in. New sheet columns should not appear
       // just because they contain data.
@@ -16004,7 +16058,9 @@
         return textField(label, col);
       };
 
-      const quickTagsHtml = quickTagCols.map(col => checkboxField(getQuickTagDisplayLabel(col), col)).join('');
+      const quickTagsHtml = quickTagCols.map(col => checkboxField(getQuickTagDisplayLabel(col), col, {
+        helpTip: isSuccessfullyContactedColumn(col)
+      })).join('');
       const modalHTML = `
         <div class="newsletter-modal-overlay" id="personDetailsModalOverlay" data-address="${escapeHtmlAttr(address)}" data-original-row-index="${originalRowIndex}">
           <div class="newsletter-modal person-details-modal" style="max-width:640px;">
@@ -23465,8 +23521,11 @@
       const personSelectedCountEl = document.getElementById('batchPersonSelectedCount');
       const personSelectionSummaryEl = document.getElementById('batchPersonSelectionSummary');
       const personContactedSelect = document.getElementById('batchPersonContacted');
+      const personSuccessfullyContactedSelect = document.getElementById('batchPersonSuccessfullyContacted');
+      const personSuccessfullyContactedHelp = document.getElementById('batchPersonSuccessfullyContactedHelp');
       const personNewsletterSelect = document.getElementById('batchPersonNewsletter');
       const personFormerResidentSelect = document.getElementById('batchPersonFormerResident');
+      const personSuccessfullyContactedWrap = document.getElementById('batchPersonSuccessfullyContactedWrap');
       const personNewsletterWrap = document.getElementById('batchPersonNewsletterWrap');
       const personFormerResidentWrap = document.getElementById('batchPersonFormerResidentWrap');
       if (!listEl || !personListEl || !damageSelect || !addressPlanSelect || !rebuildSelect || !applyBtn || !personApplyBtn || !streetFilter || !searchInput || !contactFilter) return;
@@ -23587,6 +23646,7 @@
         return Boolean(email && email.includes('@'));
       };
       const newsletterCol = findHeaderByNormalizedName(['Wants Updates', 'Newsletter Subscriber']);
+      const successfullyContactedCol = findSuccessfullyContactedColumn(headers);
       const formerResidentCol = findColumn(headers, ['former', 'resident'], ['note']);
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
@@ -23732,8 +23792,13 @@
       }
 
       const missingPersonColumns = [];
+      if (!successfullyContactedCol) missingPersonColumns.push('Successfully Contacted');
       if (!newsletterCol) missingPersonColumns.push('Wants Updates');
       if (!formerResidentCol) missingPersonColumns.push('Former Resident');
+      if (personSuccessfullyContactedWrap) {
+        personSuccessfullyContactedWrap.style.opacity = successfullyContactedCol ? '' : '0.4';
+        personSuccessfullyContactedWrap.style.pointerEvents = successfullyContactedCol ? '' : 'none';
+      }
       if (personNewsletterWrap) {
         personNewsletterWrap.style.opacity = newsletterCol ? '' : '0.4';
         personNewsletterWrap.style.pointerEvents = newsletterCol ? '' : 'none';
@@ -23742,7 +23807,11 @@
         personFormerResidentWrap.style.opacity = formerResidentCol ? '' : '0.4';
         personFormerResidentWrap.style.pointerEvents = formerResidentCol ? '' : 'none';
       }
+      if (personSuccessfullyContactedHelp) {
+        personSuccessfullyContactedHelp.setAttribute('data-tip', SUCCESSFULLY_CONTACTED_HELP_TEXT);
+      }
       if (personContactedSelect) personContactedSelect.value = '';
+      if (personSuccessfullyContactedSelect) personSuccessfullyContactedSelect.value = '';
       if (personNewsletterSelect) personNewsletterSelect.value = '';
       if (personFormerResidentSelect) personFormerResidentSelect.value = '';
       if (personMissingCols) {
@@ -24554,19 +24623,25 @@
         }
 
         const contactAction = personContactedSelect ? (personContactedSelect.value || '').trim() : '';
+        const successfullyContactedValue = personSuccessfullyContactedSelect ? (personSuccessfullyContactedSelect.value || '').trim() : '';
         const newsletterValue = personNewsletterSelect ? (personNewsletterSelect.value || '').trim() : '';
         const formerResidentValue = personFormerResidentSelect ? (personFormerResidentSelect.value || '').trim() : '';
-        // Explicit "No" writes blank (not the word FALSE) into boolean columns
+        // Explicit "No" / Clear writes blank (not the word FALSE) into boolean columns
+        const successfullyContactedWriteValue = successfullyContactedValue === 'FALSE' ? '' : successfullyContactedValue;
         const newsletterWriteValue = newsletterValue === 'FALSE' ? '' : newsletterValue;
         const formerResidentWriteValue = formerResidentValue === 'FALSE' ? '' : formerResidentValue;
 
-        if (!contactAction && !newsletterValue && !formerResidentValue) {
+        if (!contactAction && !successfullyContactedValue && !newsletterValue && !formerResidentValue) {
           if (personStatusMsg) personStatusMsg.textContent = 'Choose at least one person tag to apply.';
           return;
         }
 
         if (contactAction && !contactDateCol) {
           if (personStatusMsg) personStatusMsg.textContent = 'Could not find a Last Outreach Attempt Date column in this sheet.';
+          return;
+        }
+        if (successfullyContactedValue && !successfullyContactedCol) {
+          if (personStatusMsg) personStatusMsg.textContent = 'Could not find a Successfully Contacted column in this sheet.';
           return;
         }
         if (newsletterValue && !newsletterCol) {
@@ -24584,6 +24659,7 @@
         const updates = [];
         const updatesByResidentId = [];
         const contactColIndex = contactDateCol != null ? headers.indexOf(contactDateCol) : -1;
+        const successfullyContactedColIndex = successfullyContactedCol != null ? headers.indexOf(successfullyContactedCol) : -1;
         const newsletterColIndex = newsletterCol != null ? headers.indexOf(newsletterCol) : -1;
         const formerResidentColIndex = formerResidentCol != null ? headers.indexOf(formerResidentCol) : -1;
 
@@ -24592,11 +24668,13 @@
           if (useResidentId && residentId) {
             if (contactAction === 'log' && contactDateCol) updatesByResidentId.push({ resident_id: residentId, column: contactDateCol, value: todayForSheet });
             if (contactAction === 'clear' && contactDateCol) updatesByResidentId.push({ resident_id: residentId, column: contactDateCol, value: '' });
+            if (successfullyContactedValue && successfullyContactedCol) updatesByResidentId.push({ resident_id: residentId, column: successfullyContactedCol, value: successfullyContactedWriteValue });
             if (newsletterValue && newsletterCol) updatesByResidentId.push({ resident_id: residentId, column: newsletterCol, value: newsletterWriteValue });
             if (formerResidentValue && formerResidentCol) updatesByResidentId.push({ resident_id: residentId, column: formerResidentCol, value: formerResidentWriteValue });
           } else if (row && rowNumber > 1) {
             if (contactAction === 'log' && contactColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(contactColIndex) + rowNumber, values: [[todayForSheet]] });
             if (contactAction === 'clear' && contactColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(contactColIndex) + rowNumber, values: [['']] });
+            if (successfullyContactedValue && successfullyContactedColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(successfullyContactedColIndex) + rowNumber, values: [[successfullyContactedWriteValue]] });
             if (newsletterValue && newsletterColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(newsletterColIndex) + rowNumber, values: [[newsletterWriteValue]] });
             if (formerResidentValue && formerResidentColIndex !== -1) updates.push({ range: 'Sheet1!' + indexToColumnLetter(formerResidentColIndex) + rowNumber, values: [[formerResidentWriteValue]] });
           }
@@ -24638,6 +24716,9 @@
             } else if (contactAction === 'clear') {
               if (person) person.lastContactRaw = '';
               if (row && contactDateCol) row[contactDateCol] = '';
+            }
+            if (successfullyContactedValue && successfullyContactedCol && row) {
+              row[successfullyContactedCol] = successfullyContactedWriteValue;
             }
             if (newsletterValue && newsletterCol && row) {
               row[newsletterCol] = newsletterWriteValue;
