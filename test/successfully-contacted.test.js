@@ -32,6 +32,13 @@ test('Batch Tagging exposes Successfully contacted separately from outreach stat
 
 test('Successfully contacted help uses a hover tip, not campaign progress UI', () => {
   assert.match(css, /\.field-help-tip:hover::after,\s*\.field-help-tip:focus::after \{[\s\S]*?content: attr\(data-tip\)/);
+  assert.match(css, /\.person-details-modal \.field-help-tip:hover::after,[\s\S]*?top: calc\(100% \+ 8px\)/);
   assert.match(html, /class="field-help-tip"/);
   assert.doesNotMatch(html, /saveReviewRecord\(/);
+});
+
+test('details panel does not treat Successfully Contacted as an outreach date', () => {
+  assert.match(html, /const personTagCols = quickTagCols\.filter\(col => personLevelCols\.includes\(col\)\)/);
+  assert.match(html, /const outreachDateCol = typeof findOutreachDateColumn === 'function'[\s\S]*?isSuccessfullyContactedColumn\(col\)/);
+  assert.match(html, /html \+= '<\/div><\/section>';[\s\S]*?findOutreachDateColumn\(headers\)[\s\S]*?const outreachLogCol/);
 });

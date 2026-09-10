@@ -14945,15 +14945,18 @@
       // Always close the address-section body + section wrapper
       html += '</div></section>';
 
-      const lastContactCol = headers.find(h => 
-        h.toLowerCase() === 'last contact date' ||
-        h.toLowerCase() === 'last outreach attempt date' ||
-        h.toLowerCase().includes('last contact') || 
-        h.toLowerCase().includes('last outreach') || 
-        h.toLowerCase().includes('contact date') ||
-        h.toLowerCase().includes('outreach date') ||
-        h.toLowerCase().includes('contacted')
-      );
+      const lastContactCol = typeof findOutreachDateColumn === 'function'
+        ? findOutreachDateColumn(headers)
+        : headers.find(h => {
+            if (isSuccessfullyContactedColumn(h)) return false;
+            const lower = h.toLowerCase();
+            return lower === 'last contact date' ||
+              lower === 'last outreach attempt date' ||
+              lower.includes('last contact') ||
+              lower.includes('last outreach') ||
+              lower.includes('contact date') ||
+              lower.includes('outreach date');
+          });
       const outreachLogCol = headers.find(h => {
         const lower = h.toLowerCase();
         return (lower.includes('contact') && lower.includes('note')) ||
@@ -15098,16 +15101,18 @@
           return (lower.includes('cell') || lower.includes('mobile')) && 
                  (lower.includes('phone') || lower.includes('cell') || lower.includes('mobile'));
         });
-        const outreachDateCol = personLevelCols.find(col => {
-          const lower = col.toLowerCase();
-          return lower === 'last contact date' ||
-            lower === 'last outreach attempt date' ||
-            lower.includes('last contact') ||
-            lower.includes('last outreach') ||
-            lower.includes('contact date') ||
-            lower.includes('outreach date') ||
-            lower.includes('contacted');
-        });
+        const outreachDateCol = typeof findOutreachDateColumn === 'function'
+          ? findOutreachDateColumn(headers)
+          : personLevelCols.find(col => {
+              if (isSuccessfullyContactedColumn(col)) return false;
+              const lower = col.toLowerCase();
+              return lower === 'last contact date' ||
+                lower === 'last outreach attempt date' ||
+                lower.includes('last contact') ||
+                lower.includes('last outreach') ||
+                lower.includes('contact date') ||
+                lower.includes('outreach date');
+            });
         
         const renderedFields = new Set(); // Track which fields have been rendered
         if (ageCol) renderedFields.add(ageCol);
@@ -15271,7 +15276,7 @@
         }
 
         // Quick Tags sub-section: Renter, Needs Follow-Up, Unable to reach (keep checkboxes)
-        const personTagCols = personLevelCols.filter(col => quickTagCols.includes(col));
+        const personTagCols = quickTagCols.filter(col => personLevelCols.includes(col));
         if (personTagCols.length > 0) {
           html += '<div class="person-card__section person-card__tags">';
           html += '<p class="person-card__tags-label">Quick tags</p>';
@@ -21663,15 +21668,18 @@
       const activeRealResidentData = activeData.filter(row => !isAddressPlaceholder(row, headers));
 
       // Find relevant columns
-      const lastContactCol = headers.find(h => 
-        h.toLowerCase() === 'last contact date' ||
-        h.toLowerCase() === 'last outreach attempt date' ||
-        h.toLowerCase().includes('last contact') || 
-        h.toLowerCase().includes('last outreach') || 
-        h.toLowerCase().includes('contact date') ||
-        h.toLowerCase().includes('outreach date') ||
-        h.toLowerCase().includes('contacted')
-      );
+      const lastContactCol = typeof findOutreachDateColumn === 'function'
+        ? findOutreachDateColumn(headers)
+        : headers.find(h => {
+            if (isSuccessfullyContactedColumn(h)) return false;
+            const lower = h.toLowerCase();
+            return lower === 'last contact date' ||
+              lower === 'last outreach attempt date' ||
+              lower.includes('last contact') ||
+              lower.includes('last outreach') ||
+              lower.includes('contact date') ||
+              lower.includes('outreach date');
+          });
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
 
@@ -22499,15 +22507,18 @@
     function getAddressesContactedData(headers, data) {
       const formerResidentCol = getFormerResidentColumn(headers);
       const activeData = (data || []).filter(row => !isFormerResidentRow(row, formerResidentCol));
-      const lastContactCol = headers.find(h => 
-        h.toLowerCase() === 'last contact date' ||
-        h.toLowerCase() === 'last outreach attempt date' ||
-        h.toLowerCase().includes('last contact') || 
-        h.toLowerCase().includes('last outreach') || 
-        h.toLowerCase().includes('contact date') ||
-        h.toLowerCase().includes('outreach date') ||
-        h.toLowerCase().includes('contacted')
-      );
+      const lastContactCol = typeof findOutreachDateColumn === 'function'
+        ? findOutreachDateColumn(headers)
+        : headers.find(h => {
+            if (isSuccessfullyContactedColumn(h)) return false;
+            const lower = h.toLowerCase();
+            return lower === 'last contact date' ||
+              lower === 'last outreach attempt date' ||
+              lower.includes('last contact') ||
+              lower.includes('last outreach') ||
+              lower.includes('contact date') ||
+              lower.includes('outreach date');
+          });
       const addressColumns = findAddressColumns(headers);
 
       const households = new Set();
