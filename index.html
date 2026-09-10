@@ -1137,6 +1137,16 @@
 
         <div class="recruitment-bento">
           <div class="recruitment-column">
+            <section class="recruitment-card" id="recruitmentNominateCard">
+              <div class="recruitment-card-header">
+                <h3>Nominate a Captain</h3>
+                <p>Do you know someone who would make a great Neighborhood Captain? Maybe someone who's already playing that role in their neighborhood, who you think we should know? Nominate them and we'll reach out!</p>
+              </div>
+              <div class="recruitment-card-links">
+                <a class="tool-link-btn" href="https://altagether.org/nominate-a-captain" target="_blank" rel="noopener noreferrer">Nominate a Captain</a>
+              </div>
+            </section>
+
             <section class="recruitment-card" id="recruitmentPhoneBankCard">
               <div class="recruitment-card-header">
                 <h3>Join a phone bank</h3>
@@ -1148,13 +1158,13 @@
               <div class="recruitment-resources" id="recruitmentPhoneBankResources"></div>
             </section>
 
-            <section class="recruitment-card" id="recruitmentNominateCard">
+            <section class="recruitment-card" id="recruitmentSocialCard">
               <div class="recruitment-card-header">
-                <h3>Nominate a Captain</h3>
-                <p>Do you know someone who would make a great Neighborhood Captain? Maybe someone who's already playing that role in their neighborhood, who you think we should know? Nominate them and we'll reach out!</p>
+                <h3>Post on social media</h3>
+                <p>Help us reach people we might not know. Share the Captain recruitment drive with friends, neighbors, or local groups.</p>
               </div>
               <div class="recruitment-card-links">
-                <a class="tool-link-btn" href="https://altagether.org/nominate-a-captain" target="_blank" rel="noopener noreferrer">Nominate a Captain</a>
+                <button class="tool-link-btn" type="button" id="recruitmentShareOpen"></button>
               </div>
             </section>
           </div>
@@ -1205,6 +1215,36 @@
                 <li class="recruitment-feed-empty">Loading…</li>
               </ul>
             </section>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recruitment-share-overlay hidden" id="recruitmentShareModal" role="dialog" aria-modal="true" aria-labelledby="recruitmentShareTitle">
+      <div class="recruitment-share-modal" role="document">
+        <button class="recruitment-share-close" type="button" id="recruitmentShareClose" aria-label="Close share dialog">×</button>
+        <div class="recruitment-share-heading">
+          <p class="recruitment-kicker">Quick action</p>
+          <h2 id="recruitmentShareTitle">Spread the word</h2>
+        </div>
+        <div class="recruitment-share-grid">
+          <section class="recruitment-share-image-panel" aria-labelledby="recruitmentShareImageHeading">
+            <h3 id="recruitmentShareImageHeading">Recruitment image</h3>
+            <img id="recruitmentShareImage" alt="Altagether Neighborhood Captain recruitment graphic">
+            <a class="recruitment-share-action recruitment-share-download" id="recruitmentShareDownload"></a>
+          </section>
+          <div class="recruitment-share-copy-panel">
+            <section class="recruitment-share-section" aria-labelledby="recruitmentSharePostHeading">
+              <h3 id="recruitmentSharePostHeading">Suggested post</h3>
+              <div class="recruitment-share-post" id="recruitmentSharePost"></div>
+              <button class="recruitment-share-action" type="button" id="recruitmentShareCopyPost"></button>
+            </section>
+            <section class="recruitment-share-section" aria-labelledby="recruitmentShareLinkHeading">
+              <h3 id="recruitmentShareLinkHeading">Recruitment link</h3>
+              <p class="recruitment-share-link" id="recruitmentShareLink"></p>
+              <button class="recruitment-share-action" type="button" id="recruitmentShareCopyLink"></button>
+            </section>
+            <p class="recruitment-share-status" id="recruitmentShareStatus" role="status" aria-live="polite"></p>
           </div>
         </div>
       </div>
