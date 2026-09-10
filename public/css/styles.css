@@ -14633,6 +14633,41 @@ body.recruitment-share-open {
   background: #f7f2e8;
 }
 
+.recruitment-share-post-toggle {
+  display: inline-flex;
+  max-width: 100%;
+  margin-bottom: 14px;
+  border: 1px solid var(--rule-neutral);
+  background: var(--bg-paper);
+}
+
+.recruitment-share-post-toggle button {
+  min-width: 0;
+  padding: 7px 10px;
+  border: 0;
+  border-right: 1px solid var(--rule-neutral);
+  background: transparent;
+  color: var(--brand-primary-dark);
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.recruitment-share-post-toggle button:last-child {
+  border-right: 0;
+}
+
+.recruitment-share-post-toggle button[aria-pressed="true"] {
+  background: var(--brand-primary-dark);
+  color: #fff;
+}
+
+.recruitment-share-post-toggle button:focus-visible {
+  outline: 3px solid var(--accent-gold);
+  outline-offset: 2px;
+}
+
 .recruitment-share-copy-panel {
   display: flex;
   min-width: 0;
@@ -14655,6 +14690,7 @@ body.recruitment-share-open {
 
 .recruitment-share-post p {
   margin: 0 0 10px;
+  white-space: pre-line;
 }
 
 .recruitment-share-post p:last-child {

@@ -8,12 +8,23 @@
   var SHARE_DRIVE_CONFIG = {
     imagePath: '/public/images/recruitment-drive-share.png',
     downloadFilename: 'altagether-recruitment-drive.png',
-    suggestedPost: [
-      'Altagether is looking for new Neighborhood Captains across Altadena. Captains help keep their neighbors connected, share useful information and resources, and strengthen their neighborhoods as recovery continues.',
-      'You don’t need any special expertise, just a willingness to help your neighbors.',
-      'Learn more: https://altagether.org/join'
-    ].join('\n\n'),
+    defaultPostVariant: 'altagether',
+    postVariants: {
+      altagether: {
+        label: 'Altagether post',
+        text: [
+          'Altagether is looking for new Neighborhood Captains across Altadena. Captains help keep their neighbors connected, share useful information and resources, and strengthen their neighborhoods as recovery continues.',
+          'You don’t need any special expertise, just a willingness to help your neighbors.',
+          'Learn more: altagether.org/join'
+        ].join('\n\n')
+      },
+      captain: {
+        label: 'Captain post',
+        text: 'I’m a Neighborhood Captain with Altagether, and we’re looking for more people to help support neighborhoods across Altadena. If you care about your neighborhood and want a practical way to help your neighbors stay connected, take a look:\naltagether.org/join'
+      }
+    },
     recruitmentUrl: 'https://altagether.org/join',
+    recruitmentUrlLabel: 'altagether.org/join',
     labels: {
       open: 'Share Recruitment Drive',
       download: 'Download image',
@@ -30,6 +41,7 @@
   var bound = false;
   var shareBound = false;
   var shareLastFocused = null;
+  var sharePostVariant = SHARE_DRIVE_CONFIG.defaultPostVariant;
   var config = {
     enabled: CLIENT_ENABLED,
     sheetConfigured: false
@@ -128,6 +140,33 @@
       p.textContent = paragraph;
       container.appendChild(p);
     });
+  }
+
+  function getActiveSharePost() {
+    var variant = SHARE_DRIVE_CONFIG.postVariants[sharePostVariant];
+    return variant ? variant.text : '';
+  }
+
+  function selectSharePostVariant(variantName) {
+    if (!SHARE_DRIVE_CONFIG.postVariants[variantName]) return;
+    sharePostVariant = variantName;
+    var post = document.getElementById('recruitmentSharePost');
+    var copyPost = document.getElementById('recruitmentShareCopyPost');
+    var status = document.getElementById('recruitmentShareStatus');
+    var variantButtons = document.querySelectorAll('[data-recruitment-post-variant]');
+    Array.prototype.forEach.call(variantButtons, function (button) {
+      button.setAttribute(
+        'aria-pressed',
+        button.getAttribute('data-recruitment-post-variant') === sharePostVariant ? 'true' : 'false'
+      );
+    });
+    renderSharePost(post, getActiveSharePost());
+    if (copyPost) {
+      if (copyPost._recruitmentResetTimer) clearTimeout(copyPost._recruitmentResetTimer);
+      copyPost._recruitmentResetTimer = null;
+      copyPost.textContent = SHARE_DRIVE_CONFIG.labels.copyPost;
+    }
+    if (status) status.textContent = '';
   }
 
   function fallbackCopyText(text) {
@@ -236,6 +275,7 @@
     var copyPost = document.getElementById('recruitmentShareCopyPost');
     var copyLink = document.getElementById('recruitmentShareCopyLink');
     if (!modal || !openButton || !closeButton) return;
+    var variantButtons = modal.querySelectorAll('[data-recruitment-post-variant]');
 
     openButton.textContent = SHARE_DRIVE_CONFIG.labels.open;
     if (image) image.src = SHARE_DRIVE_CONFIG.imagePath;
@@ -244,8 +284,16 @@
       download.download = SHARE_DRIVE_CONFIG.downloadFilename;
       download.textContent = SHARE_DRIVE_CONFIG.labels.download;
     }
-    renderSharePost(post, SHARE_DRIVE_CONFIG.suggestedPost);
-    if (link) link.textContent = SHARE_DRIVE_CONFIG.recruitmentUrl;
+    Array.prototype.forEach.call(variantButtons, function (button) {
+      var variantName = button.getAttribute('data-recruitment-post-variant');
+      var variant = SHARE_DRIVE_CONFIG.postVariants[variantName];
+      if (variant) button.textContent = variant.label;
+      button.addEventListener('click', function () {
+        selectSharePostVariant(variantName);
+      });
+    });
+    selectSharePostVariant(SHARE_DRIVE_CONFIG.defaultPostVariant);
+    if (link) link.textContent = SHARE_DRIVE_CONFIG.recruitmentUrlLabel;
     if (copyPost) copyPost.textContent = SHARE_DRIVE_CONFIG.labels.copyPost;
     if (copyLink) copyLink.textContent = SHARE_DRIVE_CONFIG.labels.copyLink;
 
@@ -257,7 +305,7 @@
     modal.addEventListener('keydown', handleShareModalKeydown);
     if (copyPost) {
       copyPost.addEventListener('click', function () {
-        handleShareCopy(copyPost, SHARE_DRIVE_CONFIG.suggestedPost, SHARE_DRIVE_CONFIG.labels.copyPost);
+        handleShareCopy(copyPost, getActiveSharePost(), SHARE_DRIVE_CONFIG.labels.copyPost);
       });
     }
     if (copyLink) {
