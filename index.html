@@ -14231,7 +14231,12 @@
 
       function hideFieldHelpTooltip() {
         if (!tooltipEl) return;
+        if (activeBtn && document.activeElement === activeBtn) {
+          activeBtn.blur();
+        }
         tooltipEl.hidden = true;
+        tooltipEl.style.display = 'none';
+        tooltipEl.style.visibility = '';
         activeBtn = null;
       }
 
@@ -14270,10 +14275,10 @@
       });
 
       document.addEventListener('mouseout', (event) => {
-        const btn = event.target.closest('.field-help-tip[data-tip]');
-        if (!btn || btn !== activeBtn) return;
+        if (!activeBtn) return;
+        if (event.target !== activeBtn && !activeBtn.contains(event.target)) return;
         const related = event.relatedTarget;
-        if (related && btn.contains(related)) return;
+        if (related && activeBtn.contains(related)) return;
         hideFieldHelpTooltip();
       });
 
