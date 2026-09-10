@@ -14313,6 +14313,14 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
+  align-items: start;
+}
+
+.recruitment-column {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .recruitment-card {
@@ -14324,10 +14332,6 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-}
-
-.recruitment-card--wide {
-  grid-column: 1 / -1;
 }
 
 .recruitment-card-header h3 {
@@ -14502,7 +14506,7 @@
 .recruitment-phonebank-option {
   min-width: 0;
   padding: 10px;
-  border: 2px solid var(--brand-primary-dark);
+  border: 1px solid #dedbd3;
   background: #f4f1ea;
 }
 
@@ -14520,6 +14524,11 @@
   font-size: 0.9rem;
   line-height: 1.4;
   overflow-wrap: anywhere;
+}
+
+#recruitmentPhoneBankList {
+  max-height: none;
+  overflow: visible;
 }
 
 .recruitment-feed-empty {

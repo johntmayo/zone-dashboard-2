@@ -1132,73 +1132,80 @@
         <header class="recruitment-hero">
           <p class="recruitment-kicker">Limited-time drive</p>
           <h2 class="page-title">Recruitment</h2>
-          <p class="recruitment-lead">Help grow the Neighborhood Captain network. Claim a place to flyer, take a meeting, or jump on a phone bank — then see what other captains have already picked up.</p>
+          <p class="recruitment-lead">Help grow the Neighborhood Captain network. Share flyers, make a pitch at an event or meeting, join a phone bank—there are lots of ways to help.</p>
         </header>
 
         <div class="recruitment-bento">
-          <section class="recruitment-card recruitment-card--wide" id="recruitmentPlacesCard">
-            <div class="recruitment-card-header">
-              <h3>Post flyers</h3>
-              <p>Can you think of a business or a community space where Altagether should have a recruitment flyer? Claim it here! Then print the flyer and post it (with permission.)</p>
-            </div>
-            <form class="recruitment-form" id="recruitmentPlaceForm">
-              <label class="recruitment-label" for="recruitmentPlaceCaptain">Your name</label>
-              <input class="recruitment-input" id="recruitmentPlaceCaptain" type="text" readonly>
-              <label class="recruitment-label" for="recruitmentPlaceName">Business or community space</label>
-              <div class="recruitment-form-row">
-                <input class="recruitment-input" id="recruitmentPlaceName" type="text" maxlength="160" placeholder="e.g. Fox's, Altadena Library, community center" required>
-                <button type="submit" class="btn-save btn-save-small" id="recruitmentPlaceSubmit">Add</button>
+          <div class="recruitment-column">
+            <section class="recruitment-card" id="recruitmentPhoneBankCard">
+              <div class="recruitment-card-header">
+                <h3>Join a phone bank</h3>
+                <p>Join us for a recruitment phone bank. We will be calling former captains, people who have expressed interest, and following up on nominations. Join virtually on Zoom or in-person at the EFC. <strong>This is a paid opportunity!</strong></p>
               </div>
-              <p class="recruitment-status" id="recruitmentPlaceStatus"></p>
-            </form>
-            <div class="recruitment-resources" id="recruitmentPlaceResources"></div>
-            <h4 class="recruitment-feed-heading">Places captains have claimed</h4>
-            <ul class="recruitment-feed" id="recruitmentPlaceFeed">
-              <li class="recruitment-feed-empty">Loading…</li>
-            </ul>
-          </section>
+              <ul class="recruitment-feed" id="recruitmentPhoneBankList">
+                <li class="recruitment-feed-empty">Loading…</li>
+              </ul>
+              <div class="recruitment-resources" id="recruitmentPhoneBankResources"></div>
+            </section>
 
-          <section class="recruitment-card recruitment-card--wide" id="recruitmentEventsCard">
-            <div class="recruitment-card-header">
-              <h3>Recruit at a community event or meeting</h3>
-              <p>If you are already going somewhere you can make a short pitch, claim it so others know it is covered.</p>
-            </div>
-            <form class="recruitment-form" id="recruitmentEventForm">
-              <label class="recruitment-label" for="recruitmentEventCaptain">Your name</label>
-              <input class="recruitment-input" id="recruitmentEventCaptain" type="text" readonly>
-              <label class="recruitment-label" for="recruitmentEventName">Event or meeting</label>
-              <input class="recruitment-input" id="recruitmentEventName" type="text" maxlength="160" placeholder="e.g. Rotary Club" required>
-              <label class="recruitment-label" for="recruitmentEventWhen">When</label>
-              <div class="recruitment-form-row">
-                <input class="recruitment-input" id="recruitmentEventWhen" type="text" maxlength="160" placeholder="e.g. Wednesday, September 9" required>
-                <button type="submit" class="btn-save btn-save-small" id="recruitmentEventSubmit">Add</button>
+            <section class="recruitment-card" id="recruitmentNominateCard">
+              <div class="recruitment-card-header">
+                <h3>Nominate a Captain</h3>
+                <p>Do you know someone who would make a great Neighborhood Captain? Maybe someone who's already playing that role in their neighborhood, who you think we should know? Nominate them and we'll reach out!</p>
               </div>
-              <p class="recruitment-status" id="recruitmentEventStatus"></p>
-            </form>
-            <div class="recruitment-resources" id="recruitmentEventResources"></div>
-            <h4 class="recruitment-feed-heading">Events captains have claimed</h4>
-            <ul class="recruitment-feed" id="recruitmentEventFeed">
-              <li class="recruitment-feed-empty">Loading…</li>
-            </ul>
-          </section>
+              <div class="recruitment-card-links">
+                <a class="tool-link-btn" href="https://altagether.org/nominate-a-captain" target="_blank" rel="noopener noreferrer">Nominate a Captain</a>
+              </div>
+            </section>
+          </div>
 
-          <section class="recruitment-card" id="recruitmentPhoneBankCard">
-            <div class="recruitment-card-header">
-              <h3>Join a phone bank</h3>
-              <p>Join us for a recruitment phone bank. We will be calling former captains, people who have expressed interest, and following up on nominations. Join virtually on Zoom or in-person at the EFC. <strong>This is a paid opportunity!</strong></p>
-            </div>
-            <div class="recruitment-resources" id="recruitmentPhoneBankResources"></div>
-            <ul class="recruitment-feed" id="recruitmentPhoneBankList">
-              <li class="recruitment-feed-empty">Loading…</li>
-            </ul>
-          </section>
+          <div class="recruitment-column">
+            <section class="recruitment-card" id="recruitmentEventsCard">
+              <div class="recruitment-card-header">
+                <h3>Recruit at a community event or meeting</h3>
+                <p>If you are already going somewhere you can make a short pitch, claim it so others know it is covered.</p>
+              </div>
+              <form class="recruitment-form" id="recruitmentEventForm">
+                <label class="recruitment-label" for="recruitmentEventCaptain">Your name</label>
+                <input class="recruitment-input" id="recruitmentEventCaptain" type="text" readonly>
+                <label class="recruitment-label" for="recruitmentEventName">Event or meeting</label>
+                <input class="recruitment-input" id="recruitmentEventName" type="text" maxlength="160" placeholder="e.g. Rotary Club" required>
+                <label class="recruitment-label" for="recruitmentEventWhen">When</label>
+                <div class="recruitment-form-row">
+                  <input class="recruitment-input" id="recruitmentEventWhen" type="text" maxlength="160" placeholder="e.g. Wednesday, September 9" required>
+                  <button type="submit" class="btn-save btn-save-small" id="recruitmentEventSubmit">Add</button>
+                </div>
+                <p class="recruitment-status" id="recruitmentEventStatus"></p>
+              </form>
+              <div class="recruitment-resources" id="recruitmentEventResources"></div>
+              <h4 class="recruitment-feed-heading">Events captains have claimed</h4>
+              <ul class="recruitment-feed" id="recruitmentEventFeed">
+                <li class="recruitment-feed-empty">Loading…</li>
+              </ul>
+            </section>
 
-          <section class="recruitment-card" id="recruitmentNominateCard">
-            <div class="recruitment-card-header">
-              <h3>Nominate a Captain</h3>
-              <p>Do you know someone who would make a great Neighborhood Captain? Maybe someone who's already playing that role in their neighborhood, who you think we should know? Nominate them and we'll reach out!</p>
-            </div>
-          </section>
+            <section class="recruitment-card" id="recruitmentPlacesCard">
+              <div class="recruitment-card-header">
+                <h3>Post flyers</h3>
+                <p>Can you think of a business or a community space where Altagether should have a recruitment flyer? Claim it here! Then print the flyer and post it (with permission.)</p>
+              </div>
+              <form class="recruitment-form" id="recruitmentPlaceForm">
+                <label class="recruitment-label" for="recruitmentPlaceCaptain">Your name</label>
+                <input class="recruitment-input" id="recruitmentPlaceCaptain" type="text" readonly>
+                <label class="recruitment-label" for="recruitmentPlaceName">Business or community space</label>
+                <div class="recruitment-form-row">
+                  <input class="recruitment-input" id="recruitmentPlaceName" type="text" maxlength="160" placeholder="e.g. Fox's, Altadena Library, community center" required>
+                  <button type="submit" class="btn-save btn-save-small" id="recruitmentPlaceSubmit">Add</button>
+                </div>
+                <p class="recruitment-status" id="recruitmentPlaceStatus"></p>
+              </form>
+              <div class="recruitment-resources" id="recruitmentPlaceResources"></div>
+              <h4 class="recruitment-feed-heading">Places captains have claimed</h4>
+              <ul class="recruitment-feed" id="recruitmentPlaceFeed">
+                <li class="recruitment-feed-empty">Loading…</li>
+              </ul>
+            </section>
+          </div>
         </div>
       </div>
     </div>
