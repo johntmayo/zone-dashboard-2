@@ -1,475 +1,542 @@
-# EPIC-LA Data Integration Plan (Dashboard-Only Enrichment)
+# EPIC-LA Data Integration: Current-State Audit and Decision Plan
 
-**Created:** April 21, 2026  
-**Status:** Backend/data plumbing, Address Details modal EPIC UI, and EPIC presence filtering are live in production (updated April 27, 2026).  
-**Scope:** Add EPIC-LA permitting/rebuild data to the dashboard details panel without expanding the captain/master spreadsheets.
-
----
-
-## 0) Implementation Status (updated April 27, 2026)
-
-What is complete:
-
-- [x] Backend EPIC modules shipped (`epic/config.js`, `epic/arcgis.js`, `epic/normalize.js`, `epic/cache.js`, `epic/sync.js`, `epic/lookup.js`, `epic/routes.js`)
-- [x] Endpoints live in production:
-  - `GET /api/epic/by-apn`
-  - `POST /api/epic/by-apns`
-  - `GET /api/epic/sync-status`
-  - `POST /api/admin/sync-epic`
-- [x] Production sync env vars configured in Vercel (`EPIC_FEATURE_SERVICE_URL`, `EPIC_CACHE_SHEET_ID`, `EPIC_SYNC_TOKEN`)
-- [x] First production sync completed successfully (`rows_fetched: 5647`, `inserted: 5147`, `updated: 500`)
-- [x] GitHub Actions daily scheduler added and manually validated (`.github/workflows/epic-sync.yml`)
-- [x] APN lookup path verified against production cache
-- [x] Address Details modal now shows EPIC records, APN editing support, and move-pin tooling
-- [x] Address-level UI now uses always-open modal sections for parcel, address data, EPIC records, and tools (accordion behavior intentionally removed)
-- [x] Person quick-tag label **Subscribe to updates** is live and mapped to `Wants_Updates` in both person card and person details modal
-- [x] EPIC filter dropdown shipped in the persistent filter bar:
-  - `EPIC: All addresses` (default)
-  - `EPIC: Has permitting records`
-- [x] EPIC filter fetch strategy shipped as designed:
-  - Lazy load only when EPIC filter is activated (no extra traffic by default)
-  - APN normalization + dedupe + batched `POST /api/epic/by-apns` requests
-  - In-memory session caching (`apn -> hasEpicRecords`) to avoid repeated lookups
-  - Shared predicate applied consistently to table, list, and map marker rendering
-- [x] EPIC filter failure handling shipped:
-  - Non-blocking status message in filter bar
-  - Automatic fallback to normal filtering if EPIC lookup fails
-
-What is not complete:
-
-- [ ] Build-status suggestion box is intentionally hidden in UI pending field validation with captains
+**Created:** April 21, 2026
+**Last audited:** September 10, 2026
+**Status:** Production integration is operating, but its data model is not yet reliable enough for longitudinal trends or authoritative milestone statistics.
+**Scope:** What Altagether pulls from EPIC-LA, how it is transformed and surfaced, what it omits, and which decisions should be revisited before building captain-facing intelligence.
 
 ---
 
-## 1) Goal in One Sentence
+## 0. Executive assessment
 
-Surface daily-refreshed EPIC-LA Fire Recovery case data (matched by APN) inside the address details workflow so captains can see permitting progress at a glance, while keeping EPIC as a separate data source from their operational sheets.
+The integration has a sound basic shape: it uses the county's fire-recovery-specific public dataset, keeps county data separate from captain-owned sheets, joins by APN, refreshes daily, and never overwrites captain knowledge.
 
----
+The main limitation is no longer access to data. It is that the current model flattens a rich current-state source into a smaller record, then uses one "latest progress" field for summaries even though the county explicitly says that field should not be used for statistics.
 
-## 2) Product Decisions Already Settled
+The most important findings are:
 
-1. **Not live-live.** Daily refresh is sufficient.
-2. **No spreadsheet bloat.** EPIC data should not be written into captain sheets or the core master sheet.
-3. **Dashboard-only augmentation.** EPIC appears in UI as an additional panel section.
-4. **Join key:** APN (`MAIN_AIN` from EPIC to `APN` in dashboard data after normalization).
-5. **Captain language first.** County labels can be shown, but internal 5-stage model should be present and clear.
-6. **Captain stage is authoritative.** EPIC-derived stage is advisory/suggested only, never auto-overwriting captain-entered stage.
+1. **The source is legitimately fire-related, but not strictly post-fire by application date.** The official dataset is a curated subset of EPIC-LA cases associated with Eaton or Palisades recovery. Our exact `DISASTER_TYPE` filter is the strongest fire-relationship signal available. On September 10, 2026, four Eaton/SD-5 records had application dates before January 7, 2025; they appear to be pre-existing projects subsequently associated with recovery.
+2. **We pull 17 of the 57 fields exposed by the layer.** Important omissions include the seven cumulative phase flags, project grouping, plan-versus-permit module, case type, completion and expiration dates, source progress ordinal, stable case ID, spatial fallback ID, and useful structure classifications.
+3. **The homepage milestone distribution is not county-compatible statistics.** It uses `REBUILD_PROGRESS`, assigns each APN/address to only its most advanced case, and produces mutually exclusive buckets. The county says a case can belong to multiple phases and provides separate phase fields specifically for that reason.
+4. **There is no trustworthy history for trends.** Each sync overwrites the current row for a case. `sync_run_at` records only the latest observation. Rows that disappear are retained but not marked inactive, so they are stale data, not an event history.
+5. **The cache can silently overstate current activity.** Records absent from a later source pull remain queryable forever. A successful zero-row or sharply reduced source result would still mark the sync successful and make old records appear freshly checked.
+6. **The production case links are broken.** The source field is `CSSLink`, but normalization reads `CSSLINK`; ArcGIS returns the canonical mixed-case key. The real value is also a relative fragment such as `permit/<case-id>`, not a complete URL. Production API responses currently show `css_link: ""`.
+7. **Actionable workflow states are pulled but underused.** As of the audit, the Eaton/SD-5 source included 730 cases in `Waiting for Applicant`, 91 on `Hold`, 43 `On Hold`, and 4 `Withdrawn`. Status appears only inside individual case cards; it is not available as a zone queue or summary.
+8. **The browser now eagerly performs zone-wide EPIC lookups on Home.** The April plan still says EPIC is lazy-loaded only when its filter is selected. Since July, the Building & Rebuilding panel calls the batch endpoint on page rendering and receives full case payloads, including descriptions, to compute a small summary.
+9. **"Last refreshed" means Altagether sync completion, not source freshness.** The county source edit timestamp is captured in sync metadata but is not returned in lookup payloads. Weekend syncs can therefore say county data refreshed today even when the county source did not change.
+10. **Several original decisions remain good and should be preserved:** separate county cache, advisory-only county interpretation, no automatic captain-stage writes, one-to-many APN retrieval, and visible distinction between captain and county data.
 
----
-
-## 3) Recommended Architecture
-
-## 3.1 High-level flow
-
-1. A scheduled daily sync pulls EPIC-LA rows for Altadena (`DISASTER_TYPE='Eaton Fire (01-2025)'`, `SUP_DIST='5'`).
-2. Data is normalized and cached in a separate EPIC data store.
-3. Dashboard reads captain sheet data as it does today.
-4. When an address is selected, dashboard requests EPIC cases for that APN from a backend endpoint.
-5. UI displays all matching cases, split into rebuild vs temporary housing, plus a computed headline stage.
-
-## 3.2 Data store choice (v1)
-
-Use a **separate Google Sheet as EPIC cache** for v1 because:
-- It matches the existing operating model.
-- It is easy to inspect/debug manually.
-- It avoids adding a database right now.
-
-Keep open the option to migrate the EPIC cache to SQLite/Postgres later if scale or query complexity grows.
+These issues do not mean the source is unusable. They define the work needed to turn it into defensible captain intelligence.
 
 ---
 
-## 4) EPIC Cache Schema (v1)
+## 1. Authoritative source
 
-Create a dedicated sheet (example tab name: `epic_cases`) with one row per EPIC case (upsert key: `casenumber`).
+Official ArcGIS item:
 
-Suggested columns:
+- Title: **EPIC-LA Fire Recovery Cases**
+- Item ID: `e87c8fcf5a2c4f7e87198b0c208d3d9f`
+- Owner: `dpwgis_lacounty`
+- Item metadata: <https://www.arcgis.com/sharing/rest/content/items/e87c8fcf5a2c4f7e87198b0c208d3d9f?f=pjson>
+- Feature layer: <https://services.arcgis.com/RmCCgQtiZLDCtblq/arcgis/rest/services/EPICLA_Eaton_Palisades/FeatureServer/0>
+- County catalog page: <https://data.lacounty.gov/datasets/lacounty::epic-la-fire-recovery-cases/about>
+- County metric definitions: <https://file.lacounty.gov/SDSInter/dpw/recovery/1203584_2025FireRebuildingMetricDefinitions.pdf>
 
-- `casenumber` (primary key)
-- `main_ain_raw`
-- `main_ain_norm` (digits only)
-- `main_address`
-- `workclass_name`
-- `status`
-- `rebuild_progress`
-- `rebuild_progress_num`
-- `apply_date_iso`
-- `issuance_date_iso`
-- `last_inspection_date_iso`
-- `permit_valuation`
-- `struct_type_disp`
-- `new_dwelling_units`
-- `description`
-- `css_link`
-- `disaster_type`
-- `sup_dist`
-- `is_temporary_housing` (boolean)
-- `suggested_stage_num` (derived, advisory)
-- `suggested_stage_label` (derived, advisory)
-- `suggestion_confidence` (`high` | `medium` | `low`)
-- `suggestion_reason` (short text for explainability)
-- `sync_run_at` (timestamp)
-- `source_last_edit_date` (layer-level metadata value at pull time)
+The item description says:
 
-Optional second tab:
-- `epic_sync_meta` for run status, row counts, duration, errors.
+- It is a **subset** of plans and permits related to Eaton and Palisades recovery.
+- It includes rebuild and temporary-housing cases, focused on residential properties in unincorporated LA County.
+- It is refreshed each business day, Monday-Friday, by around 9 a.m.
+- `MODULENAME` distinguishes `PlanManagement` from `PermitManagement`.
+- Cases can be grouped into projects.
+- Duplicate case numbers are possible because of multiple geometries or history versions.
+- A case can belong to multiple rebuilding phases.
+- `REBUILD_PROGRESS` is the latest stage display and **should not be used for statistics**.
+- Separate phase fields are supplied for phase counts.
 
----
+### Live source snapshot on September 10, 2026
 
-## 5) Stage Suggestion Strategy (Advisory Only)
+The following are point-in-time observations, not hardcoded product assumptions:
 
-Map county values into the internal model as a suggestion signal while preserving county text.
+- 7,066 rows across both fires.
+- 6,641 rows tagged `Eaton Fire (01-2025)`.
+- 6,640 rows matching our additional `SUP_DIST='5'` filter.
+- 3,715 distinct `MAIN_AIN` values in the Eaton/SD-5 subset, including one null value.
+- 1,949 APNs with multiple cases; the largest had 8 cases.
+- 5,143 permit-module rows and 1,497 plan-module rows.
+- 6,640 distinct case numbers at that moment, despite the source warning that duplicates are possible.
+- 4 records applied before January 7, 2025; the earliest was May 12, 2023.
+- 1 record had no `MAIN_AIN` but did have parcel `SPATIALID=5833010011` and point geometry.
+- 19 additional rows had different `MAIN_AIN` and `SPATIALID` values.
+- Spatial comparison found 6,633 filtered rows in Altadena, 5 in Kinneloa Mesa, 1 in Agua Dulce, and 1 associated with the City of Pasadena.
+- The one Eaton row excluded by `SUP_DIST='5'` is a confirmed Altadena rebuild at 410 E Pine Street; it has `SUP_DIST='1'`, `DISTRICT_DISPLAY='SD-5'`, and Altadena geometry.
+- Source layer `editingInfo.lastEditDate`: `2026-09-10T11:46:27.800Z`.
 
-### Proposed suggestion mapping (default)
+The layer's categorical fields have no coded-value domains. Status, progress, and classification monitoring must therefore tolerate and detect new open-text values.
 
-- `Rebuild Applications Received` -> Stage 2 (early)
-- `Zoning Reviews Cleared` -> Stage 2
-- `Full Building Plans Received` -> Stage 2
-- `Building Plans Approved` -> Stage 2
-- `Building Permits Issued` -> Stage 2/3 boundary (default suggestion Stage 2 unless local policy says Stage 3)
-- `Rebuild In Construction` -> Stage 3
-- `Construction Completed` -> Stage 4 candidate (never auto-suggest Stage 5)
-- `Temporary Housing - ...` -> Parallel track (not merged into stage headline unless explicitly desired)
+Current-status counts included:
 
-### Important guardrails
+- Issued: 3,263
+- Open: 1,379
+- Waiting for Applicant: 730
+- In Review: 404
+- Finaled: 269
+- Approved Pending Clearances: 235
+- Approved Ready for Permit: 184
+- Hold: 91
+- On Hold: 43
+- Withdrawn: 4
 
-- Stage 1 remains captain knowledge (county cannot infer it).
-- Stage 4 and Stage 5 remain captain-confirmed reality.
-- **Do not auto-write suggested stage into captain stage field.**
-- UI should show both:
-  - county status/progress text
-  - EPIC suggested stage + confidence + rationale
-
-### Confidence model (v1)
-
-- **High:** clear rebuild signal (e.g., `Rebuild In Construction`, approved plans path)
-- **Medium:** boundary/ambiguous transitions (e.g., `Building Permits Issued`)
-- **Low:** conflicting multi-case signals, temporary-only signals, or sparse records
-
-### Current product decision (April 2026)
-
-The backend still computes and stores `suggested_stage_*` fields, but the
-frontend suggestion box is currently hidden. Reason: the heuristic is useful
-as telemetry but not yet trusted enough for captain-facing guidance without
-additional validation on real addresses.
+These counts are **case rows**, not unique parcels, addresses, projects, structures, or households.
 
 ---
 
-## 6) Performance Plan (Captain Experience)
+## 2. Current production data flow
 
-Captain zones are small (typically 10-150 addresses), so performance is controlled by **query strategy**, not total EPIC dataset size.
+1. GitHub Actions calls `POST /api/admin/sync-epic` once per day with `x-epic-sync-token`.
+2. `epic/config.js` builds an explicit source field list and reads source/cache settings.
+3. `epic/arcgis.js` queries ArcGIS with:
+   - `DISASTER_TYPE='Eaton Fire (01-2025)'`
+   - `SUP_DIST='5'`
+   - no date constraint
+   - no status constraint
+   - no geometry
+   - `OBJECTID ASC` pagination
+4. `epic/normalize.js` renames fields, converts dates, normalizes APNs, detects temporary housing, and computes advisory captain-stage fields.
+5. `epic/cache.js` rewrites every source record into a dedicated Google Sheet, upserting by `casenumber`.
+6. Rows not seen in the current run remain in the sheet indefinitely and have no active/stale flag.
+7. `epic/lookup.js` reads the entire cache into server memory for 60 seconds, indexes it by normalized APN, and builds one- or many-APN responses.
+8. `index.html`:
+   - fetches all EPIC cases for a selected APN in Address Details;
+   - fetches full EPIC payloads for every zone APN on Home;
+   - derives exclusive homepage milestone buckets;
+   - powers EPIC filters for table, list, and map.
 
-### Do this
+Production status at the time of audit:
 
-- Query EPIC by APN on demand (or small batch prefetch for visible addresses).
-- Return only matching rows for selected APN(s), not full cache.
-- Normalize APN once at sync time and once at request input.
-- Keep response payload focused to fields needed by UI.
-- Cache in browser memory for the session to avoid repeat fetches.
-
-### Avoid this
-
-- Loading the full EPIC dataset into the browser per login.
-- Doing global client-side joins across all EPIC rows.
+- Last successful sync: `2026-09-10T14:55:52.875Z`
+- Source rows fetched: 6,640
+- Rows inserted: 4
+- Rows rewritten as updates: 6,636
+- Duration: 14.7 seconds
+- Pages: 4
+- Max-page cap reached: no
 
 ---
 
-## 7) Backend Endpoints (Implemented)
+## 3. What is pulled
+
+`epic/config.js` requests these 17 source fields:
+
+- Identity/location: `OBJECTID`, `CASENUMBER`, `MAIN_AIN`, `MAIN_ADDRESS`
+- Classification: `WORKCLASS_NAME`, `STRUCT_TYPE_DISP`
+- State/progress: `STATUS`, `REBUILD_PROGRESS`
+- Dates: `APPLY_DATE`, `ISSUANCE_DATE`, `LAST_INSPECTION_DATE`
+- Scale/content: `PERMIT_VALUATION`, `NEW_DWELLING_UNITS`, `DESCRIPTION`
+- Linking/scope: `CSSLink` (requested as `CSSLINK`), `DISASTER_TYPE`, `SUP_DIST`
+
+### Normalized cache schema
+
+The cache has 25 columns:
+
+`casenumber`, `main_ain_raw`, `main_ain_norm`, `main_address`,
+`workclass_name`, `status`, `rebuild_progress`, `rebuild_progress_num`,
+`apply_date_iso`, `issuance_date_iso`, `last_inspection_date_iso`,
+`permit_valuation`, `struct_type_disp`, `new_dwelling_units`, `description`,
+`css_link`, `disaster_type`, `sup_dist`, `is_temporary_housing`,
+`suggested_stage_num`, `suggested_stage_label`, `suggestion_confidence`,
+`suggestion_reason`, `sync_run_at`, `objectid`.
+
+Important transformation details:
+
+- `main_ain_norm` removes every non-digit character; it does not validate length or format.
+- `rebuild_progress_num` is recomputed from an exact text map. The source's own `REBUILD_PROGRESS_NUM` is not pulled.
+- ArcGIS dates become UTC ISO strings.
+- Temporary housing is inferred from `WORKCLASS_NAME` or `REBUILD_PROGRESS` text.
+- Suggested captain stages are derived from the latest-progress label and stored even though their UI box is hidden.
+- `CSSLink` is currently lost because JavaScript property access is case-sensitive.
+
+### What the frontend actually displays or uses
+
+Address Details displays:
+
+- case number
+- work class
+- status
+- latest county progress
+- valuation
+- application, issuance, and last-inspection dates
+- structure type
+- description
+- case link when nonblank
+- sync completion time
+
+Address Details does **not** display `new_dwelling_units`, source address, source object ID, disaster tag, supervisor district, or advisory suggestion fields.
+
+Home and filters use:
+
+- APN
+- total case presence
+- temporary-housing presence
+- recomputed progress ordinal/latest milestone
+- sync completion time
+
+They currently receive full case records even though they use only a few values.
+
+---
+
+## 4. Important source fields not pulled
+
+### Priority 0: required before defensible trends or phase statistics
+
+- `CASEID`: stable system case identifier; safer than assuming `CASENUMBER` is unique forever.
+- `MODULENAME`: tells captains and analytics whether a row is a plan or permit.
+- `CASENAME`: distinguishes recovery permits, residential permits, express cases, commercial, multifamily, and mixed use.
+- `PROJECT_NUMBER`, `PROJECT_NAME`, and/or `PROJECTID`: groups multiple permits/cases belonging to one rebuild project.
+- `STYLE_CATEGORY`: contains all phase labels associated with a row.
+- `REBUILD_APP_RECEIVED`
+- `ZONING_REV_CLEARED`
+- `BUILD_PLAN_REV_PROC`
+- `BUILD_PLAN_APPROVED`
+- `BUILD_PERMIT_ISSUED`
+- `REBUILD_IN_CONS`
+- `CONS_COMPLETED`
+- `REBUILD_PROGRESS_NUM`: county-supplied latest ordinal.
+- `COMPLETE_DATE`: completion/final date; distinct from last inspection.
+- `EXPIRE_DATE`: useful for expired/at-risk permit review.
+- `SPATIALTYPE`, `SPATIALID`, and source geometry: fallback and diagnostic path when `MAIN_AIN` is missing or wrong.
+
+### Priority 1: valuable captain context and segmentation
+
+- `STAT_CLASS`: detailed construction class such as SFR, garage/carport, other residential, repair, or commercial.
+- `DISASTER_LOSS`: source flag that may help explain why a pre-existing permit is included; semantics need county confirmation before use.
+- `ACCESSORY_DWELLING_UNIT` and `JUNIOR_ADU`: distinguish ADU/JADU work.
+- `MAIN_PARTIAL_ADDR`: useful for address reconciliation without city/ZIP noise.
+- `DISTRICT_DISPLAY`: diagnostic confirmation of district assignment.
+- `AFFORDABLE_HOUSING`: sparse but potentially important context.
+
+### Priority 2: retain only if a defined use appears
+
+- `USE_CURR*`, `USE_STATUS*`, `USE_PROPOSED*`
+- duplicate project-name variants
+- internal queue/spatial identifiers beyond those needed for stable identity
+
+Do not ingest every field merely because it exists. Add fields when they support identity, correct statistics, matching, explainability, or an agreed captain workflow.
+
+---
+
+## 5. Current derived semantics
+
+### Temporary housing
+
+A record is treated as temporary housing when work class or latest progress contains phrases such as `temporary housing`, `temp housing`, or a narrower `temp` pattern. Current source labels match this approach, but the source also provides `STYLE_CATEGORY`; future classification should use explicit source values first and text heuristics only as fallback.
+
+### Suggested captain stage
+
+Current mapping:
+
+- Rebuild application / zoning / plans / plan approval -> Stage 2
+- Permit issued -> Stage 2 boundary
+- Rebuild in construction -> Stage 3
+- Construction completed -> Stage 4 candidate
+- Temporary housing -> no rebuild stage
+
+This mapping is advisory and never writes to captain sheets. That guardrail is correct.
+
+The mapping should not become a trend model without:
+
+- storing source transitions over time;
+- distinguishing plan and permit records;
+- grouping related project cases;
+- handling withdrawn, expired, hold, and waiting-for-applicant states;
+- explaining conflicts between multiple active cases;
+- validating the county-to-captain stage relationship with captains.
+
+### Homepage milestone rollup
+
+Current logic assigns each address to one exclusive bucket based on the most advanced rebuild case on its APN:
+
+- application or plans under review
+- permit issued
+- construction underway
+- construction completed
+
+Limitations:
+
+- It ignores cumulative phase flags.
+- "Application or plans under review" can include approved plans, held cases, withdrawn applications, and waiting-for-applicant cases.
+- Missing or unrecognized progress ordinals default to the application/plans bucket in the browser.
+- It treats the highest-progress case as representative of the parcel even when SFR, ADU, accessory, or repair projects differ.
+- Two dashboard addresses sharing one APN each count the same parcel activity.
+- The denominator is every address in the zone, not fire-damaged addresses, eligible parcels, households, or unique APNs.
+- A stale retained cache row counts as present.
+
+The current chart is best described as **"most advanced EPIC activity matched to each dashboard address"**, not as county phase statistics or recovery rates.
+
+---
+
+## 6. Matching and coverage
+
+### Current join
+
+- County: `MAIN_AIN`
+- Dashboard: first row's `APN` value for an address
+- Normalization: digits only
+- Relationship: one dashboard APN to zero or many EPIC case rows
+
+### Known blind spots
+
+- Missing APN means no lookup.
+- Invalid APNs are not rejected by length or checksum/format rules.
+- If multiple resident rows under one address disagree on APN, only the first row is read.
+- Multi-parcel properties are unsupported.
+- Multiple dashboard addresses on one parcel duplicate parcel-level activity in address counts.
+- County `MAIN_AIN` can be null even when `SPATIALID` or geometry identifies a parcel.
+- County `MAIN_AIN` and `SPATIALID` can disagree; 19 current rows require an explicit conflict policy.
+- Address text and geometry are not used to verify a surprising APN match.
+- EPIC recognizes only an exact dashboard header named `APN`; unlike the sales integration, it does not accept aliases such as `AIN` or `Parcel`.
+- Editing an APN updates in-memory sheet data, but the zone-wide EPIC presence map is not reset; Home/filter results can remain stale until zone data reloads.
+
+### Filter decision: `SUP_DIST='5'`
+
+This filter currently excludes only one of 6,641 Eaton-tagged source rows, but that row is a confirmed Altadena Eaton rebuild. Conversely, seven included rows fall outside the formal Altadena boundary. `SUP_DIST` is therefore neither a reliable Altadena boundary nor a reliable inclusion rule.
+
+Recommended decision:
+
+- Keep `DISASTER_TYPE='Eaton Fire (01-2025)'`.
+- Evaluate removing `SUP_DIST` from ingestion and scoping at lookup by dashboard APNs.
+- If geographic scoping is needed, validate against the dashboard APN universe and/or an agreed Altadena-plus-adjacent-community geometry.
+- If `SUP_DIST` is retained temporarily, monitor and report Eaton rows outside SD-5 rather than silently ignoring them.
+
+### Date decision
+
+Do not add `APPLY_DATE >= 2025-01-07` without product review. Four current rows predate the fire but were deliberately included by the county and completed or issued after the fire. Add an `applied_before_fire` diagnostic flag and inspect their meaning before deciding whether they belong in captain-facing rebuild statistics.
+
+---
+
+## 7. Persistence, freshness, and trend readiness
+
+### Current behavior
+
+- Upsert key: `casenumber`
+- Every fetched record is rewritten every day, even when unchanged.
+- Missing source records are retained indefinitely.
+- No `active`, `last_seen_at`, or `missing_since` field exists.
+- No snapshot or field-level change event is stored.
+- Sync success metadata survives later failures.
+- Lookup freshness is based on `last_success_finished_at`.
+
+### Why this cannot support trends
+
+After each sync, only the latest value remains. It is impossible to reliably answer:
+
+- Which addresses received a new application this week?
+- Which moved from review to permit issued?
+- Which entered or left `Waiting for Applicant`?
+- How long has a case been at a stage?
+- Which cases disappeared, were replaced, or were withdrawn?
+- What changed since a captain's last visit?
+
+Rows left behind after disappearance cannot answer those questions because they are not labeled as historical, inactive, deleted, or current.
+
+### Required model before trend work
+
+Use three logical datasets, whether implemented in Sheets or a database:
+
+1. **Current cases**
+   - one current source observation per stable source row/case identity;
+   - `first_seen_at`, `last_seen_at`, `active`, `missing_since`;
+   - source and ingestion timestamps kept separately.
+2. **Case snapshots or change events**
+   - append-only observations or field-level changes for status, phase flags, dates, APN, project, structure type, and key classifications;
+   - sync run ID and source edit timestamp on every observation.
+3. **Sync runs**
+   - source row count, distinct cases/APNs/projects, insert/change/disappearance counts, validation results, duration, and failure details.
+
+Do not call retained stale rows "history." History requires explicit observation time and state.
+
+### Feasibility and storage scale
+
+A trustworthy current-zone snapshot is feasible without a new large database. The source has enough present-state information; Phase A below is primarily ingestion, reconciliation, aggregation, and UI work. A useful first release is likely several days to roughly two weeks, depending on the captain-facing presentation and validation required.
+
+The current cache is small: about 6,640 rows by 25 columns, or roughly 166,000 cells. The storage problem appears only if every full state is copied every day. That design would produce about 2.4 million rows and 61 million cells per year, far beyond a single Google Sheet's 10-million-cell ceiling.
+
+Prefer a tiered design:
+
+- keep one current-state cache;
+- store compact field-level change events rather than unchanged daily copies;
+- store small daily zone/phase/status aggregates for charting;
+- use a modest managed relational database, such as Postgres, if detailed event history or cross-project queries outgrow Sheets.
+
+This is not "massive database" scale. Google Sheets can remain viable for current state and compact aggregates, but it should not be treated as an unlimited full-snapshot warehouse. A reliable trend foundation is directionally one to three weeks of additional engineering after metric definitions; polished alerts, comparisons, and captain action queues would be subsequent product work.
+
+History begins when explicit observations are retained. Earlier transitions generally cannot be reconstructed from the overwritten cache, although dated county fields can support limited retrospective counts.
+
+---
+
+## 8. API and performance audit
 
 Implemented endpoints:
 
-1. `GET /api/epic/by-apn?apn=<value>`
-   - Returns rebuild cases, temporary housing cases, and advisory suggestion fields for one APN.
+- `GET /api/epic/by-apn`
+- `POST /api/epic/by-apns` (maximum 500 submitted APNs)
+- `GET /api/epic/sync-status`
+- `POST /api/admin/sync-epic`
 
-2. `POST /api/epic/by-apns`
-   - Input: `{ apns: ["...","..."] }`
-   - Returns a keyed object by normalized APN (useful for prefetch and table badges).
+Current backend behavior:
 
-Current response shape includes:
-- `cases_rebuild`
-- `cases_temp_housing`
-- `suggested_stage`
-- `suggestion_confidence`
-- `suggestion_reason`
-- `last_synced_at`
+- Every cold/expired lookup reads the entire Google Sheet and builds an APN map.
+- Cache TTL is 60 seconds per server process.
+- The batch endpoint returns full case bodies, including long descriptions.
+- Home requests the full payload for every unique zone APN to calculate counts and milestones.
+- Address Details performs a fresh browser request every time the modal opens; it has no client session cache.
 
----
+Recommended API split:
 
-## 8) Frontend UX Integration (Address Details Panel)
+- Keep detailed `by-apn` for Address Details.
+- Add a compact zone/APN-summary endpoint returning only match state, phase flags/counts, action statuses, project/case counts, latest activity dates, match confidence, and source freshness.
+- Compute source-compatible rollups on the server from explicit phase fields.
+- Include `source_last_edit_at`, `sync_finished_at`, and stale/active state separately.
 
-### Current shipped UI state (April 2026)
+### Operational scaling concerns
 
-- EPIC records are shown in the **Address details** modal (opened by clicking the address name in the details panel), not inline in the main panel.
-- The EPIC "build status suggestion" UI block is intentionally hidden right now pending additional field validation.
-- Address details sections are currently always open (non-collapsible) by product decision.
-- A persistent EPIC filter is available in map/people filter bars for fast triage of addresses with county permitting activity.
-
-Inside the address details experience, include an `EPIC-LA` section:
-
-1. **Suggestion row (advisory)**
-   - EPIC suggested stage (not authoritative)
-   - confidence + rationale
-   - Last refreshed timestamp
-   - Optional `Apply suggestion` action (manual, never automatic)
-
-2. **Rebuild cases**
-   - Case number (linked via `CSSLink`)
-   - Work class
-   - County status
-   - County rebuild progress + internal mapped stage
-   - Apply / issue / last inspection dates
-   - Valuation
-   - Structure type
-   - Description
-
-3. **Temporary housing (separate subsection)**
-   - Same formatting, separate visual grouping
-
-4. **Empty state**
-   - "No county cases found for this APN yet"
-   - Clarify that Stage 1 and move-in status rely on captain outreach
-
-### Existing person quick-tag mapping note
-
-The person quick-tag checkbox labeled **Subscribe to updates** maps to the
-boolean sheet column `Wants_Updates` (legacy variants like `wants updates`
-and `wants-updates` are treated equivalently by the UI matcher).
+- A September production sync rewrote 6,636 rows and took 14.7 seconds.
+- Google Sheets writes are chunked, but unchanged rows are still rewritten.
+- Concurrent manual and scheduled syncs have no lock and can race on append ranges and metadata.
+- No minimum-row, row-drop, schema, duplicate-key, or missing-APN validation gates a "successful" sync.
+- Header repair can overwrite a changed header order without migrating existing row cells.
+- Duplicate case-number rows already present in the sheet remain duplicated in lookup output because cache reads retain every row even though the upsert index points only to the last duplicate.
+- Reaching `EPIC_MAX_PAGES` still returns sync status `ok`; truncation appears only as a metadata flag.
+- The public status endpoint exposes configuration shape and old failure details; this is probably acceptable operationally but should be intentional.
+- All EPIC read endpoints are unauthenticated. The underlying county source is public, but the dashboard also makes address, valuation, and description data easy to enumerate by APN; decide explicitly whether dashboard-session gating is appropriate.
+- Admin-email query authorization proves only that an email is on the admin list, not that the caller controls that email. The token path is the appropriate scheduler mechanism; manual admin triggering should use authenticated session identity.
 
 ---
 
-## 9) Sync Cadence and Operations
+## 9. Decisions to preserve
 
-## 9.1 Cadence
-
-- Daily scheduled sync (recommended early morning, before captain activity).
-- Optional manual "Run sync now" admin action.
-
-## 9.2 Sync method
-
-- Pull filtered EPIC rows using ArcGIS pagination (`resultOffset`, `resultRecordCount`, stable order by).
-- Upsert by `casenumber`.
-- Mark rows not seen in current run as stale/inactive if needed.
-
-## 9.3 Monitoring basics
-
-Track per run:
-- start/end time
-- row count pulled
-- row count upserted
-- error summary
-- source metadata timestamps
-
-Display last successful run timestamp in UI/API.
-
----
-
-## 10) Risks and Edge Cases
-
-1. **One APN, many cases** - expected; show all, not just latest.
-2. **Multi-APN property reality** - initial match may miss linked secondary parcels.
-3. **APN formatting drift** - normalize aggressively (digits only).
-4. **Case duplication nuances** - use `casenumber` as key; retain source fields for troubleshooting.
-5. **Source outages** - keep last successful cache available; show staleness warning only when needed.
-
----
-
-## 11) Phased Rollout Plan
-
-## Phase 1 - Foundation (fastest path) [COMPLETE]
-
-- Create EPIC cache sheet and sync script.
-- Add backend endpoints for APN lookup and sync status.
-- Add manual sync trigger with token auth support.
-- Ship daily refresh automation via GitHub Actions.
-- Validate production sync + lookup behavior.
-
-## Phase 2 - Better captain signal [IN PROGRESS]
-
-- Add grouped case cards and temporary-housing split.
-- Improve suggestion logic and tie-break rules.
-- Add lightweight APN-miss diagnostics.
-- Keep EPIC filter UX lightweight while evaluating optional enhancements (for example, result counts or recency filters).
-
-## Phase 3 - Data quality and advanced logic
-
-- Add multi-APN handling strategy (junction/override).
-- Add explicit "apply suggestion" audit trail (`stage_set_by`, `stage_last_changed_at`).
-- Evaluate migration from EPIC cache sheet to database if needed.
-
----
-
-## 12) Acceptance Criteria (v1)
-
-1. Captain opens address details and sees an EPIC section within 1-2 seconds on normal connection.
-2. Cases shown are APN-matched and include county link + status + dates.
-3. Temporary housing is separated from rebuild cases.
-4. EPIC suggestion logic does not auto-overwrite captain stage, and any future suggestion UI remains clearly informational/manual.
-5. Captain/master spreadsheets remain unchanged by EPIC sync.
-6. "Last refreshed" timestamp is visible and accurate.
-
----
-
-## 13) Out of Scope for v1
-
-- Full cross-zone analytics over EPIC data
-- Automated Stage 4/5 resident move-in confirmation
-- Complete parcel topology reconciliation for all multi-APN properties
-- Public-facing EPIC dashboards
-
----
-
-## 14) Implementation Note for This Repo
-
-Given the current architecture (Express backend + large frontend script + Google Sheets operational model), this plan is intentionally designed to:
-
-- minimize invasive refactors,
-- avoid loading large county payloads client-side,no one's here.
-- and preserve current captain sheet workflows.
-
-That keeps risk low while adding high demo value and day-to-day utility for recovery work.
-
----
-
-## 15) Agent Handoff Prompt: Plumbing-Only (No UI Yet)
-
-Copy/paste prompt:
-
-Implement **EPIC-LA plumbing only** from `EPIC_DATA_INTEGRATION_PLAN.md`.  
-Do **not** build or modify the UI display yet.
-
-### Goal
-Set up all backend/data pipeline infrastructure for EPIC-LA integration so frontend UI can be designed later with confidence.
-
-### Scope (in)
-1. **Data ingestion + cache**
-   - Build a sync job that pulls EPIC-LA rows filtered to:
-     - `DISASTER_TYPE='Eaton Fire (01-2025)'`
-     - `SUP_DIST='5'`
-   - Implement pagination and stable ordering.
-   - Normalize APN to `digits-only`.
-   - Upsert records by `casenumber`.
-   - Store in separate EPIC cache source (v1 can be a dedicated Google Sheet cache).
-
-2. **Derived fields**
-   - Compute and store:
-     - temporary-housing flag
-     - advisory suggestion fields (stage/confidence/reason)
-     - sync timestamp metadata
-
-3. **API endpoints (no UI usage yet)**
-   - Add:
-     - `GET /api/epic/by-apn?apn=...`
-     - `POST /api/epic/by-apns`
-   - Return normalized, structured payload suitable for future UI.
-
-4. **Operational controls**
-   - Add a manual sync trigger endpoint (admin-safe) OR script command.
-   - Add basic sync status endpoint (last successful run, row counts, error summary).
-
-5. **Resilience + observability**
-   - Handle source failures without destroying last good cache.
-   - Add clear logs and run metadata.
-   - Keep backward compatibility with existing dashboard behavior.
-
-6. **Documentation**
-   - Update/add docs covering:
-     - env vars
-     - sync schedule setup
-     - cache schema
-     - endpoint contracts
-     - manual runbook
-
-### Scope (out)
-- No address panel or other UI rendering
-- No visual components
-- No feature flags in UI needed yet (unless required for safe backend rollout)
-
-### Constraints
 - Keep EPIC data out of captain/master operational sheets.
-- Avoid loading full EPIC dataset client-side.
-- No unrelated refactors.
-- Never auto-write EPIC suggested stage into captain-owned stage columns.
+- Keep the county source visibly distinct from captain-entered knowledge.
+- Never auto-overwrite captain stages or plans.
+- Preserve all legitimately distinct cases for an APN.
+- Separate temporary housing from rebuild work.
+- Continue daily rather than live request-through to ArcGIS.
+- Keep the last good cache available during a source outage.
+- Keep clear empty, loading, and error states.
 
-### Validation / acceptance
-- Can run a sync and verify cache populated.
-- Can query one APN and receive correct structured data.
-- Can query multiple APNs efficiently.
-- Can fetch sync status metadata.
-- Existing dashboard behavior remains unchanged.
-
-### Deliverables
-- Code changes
-- Setup instructions (including schedule)
-- API contract summary with sample responses
-- Test evidence for:
-  - sync success
-  - APN normalization
-  - one-to-many APN case retrieval
-  - failure fallback behavior
+Preserving the last good cache does **not** require treating records missing from a successful current source pull as active.
 
 ---
 
-## 16) Agent Handoff Prompt: UI Design-Only (Post-Plumbing)
+## 10. Decisions that should be reopened
 
-Copy/paste prompt:
+1. `casenumber` as the only primary key, despite the source's duplicate warning.
+2. `SUP_DIST='5'` as an ingestion filter.
+3. No source geometry or `SPATIALID` fallback.
+4. Recomputed ordinal instead of source `REBUILD_PROGRESS_NUM`.
+5. Latest-progress field as the basis for statistics.
+6. Highest case progress as the single parcel headline.
+7. Retain-forever cache rows with no active/stale state.
+8. Google Sheets as the future snapshot/event store.
+9. Full case payloads for zone summary/filter use.
+10. Daily scheduling regardless of the source's business-day cadence.
+11. Sync completion shown as county freshness.
+12. Free-form digits-only APN normalization without validation or match confidence.
+13. Address counts that duplicate one parcel across multiple addresses.
+14. Hidden advisory-stage computation that consumes schema and API surface without a validated use.
+15. Email query parameter as manual-sync authorization.
+16. Public unauthenticated lookup endpoints versus signed-in dashboard-session access.
+17. Exact `APN` header requirement versus the alias handling used by other parcel integrations.
 
-Design and implement the **EPIC-LA UI layer only** using the existing EPIC plumbing endpoints.  
-Do **not** modify sync logic or cache schema unless absolutely required for display.
+---
 
-### Goal
-Create a clear, captain-friendly EPIC section in Address Details that handles dense data without overwhelming users.
+## 11. Recommended sequence before captain-facing trends
 
-### Inputs
-- Use this plan: `EPIC_DATA_INTEGRATION_PLAN.md`
-- Assume plumbing endpoints already exist:
-  - `GET /api/epic/by-apn`
-  - `POST /api/epic/by-apns`
-  - sync status metadata
+### Phase A: make current state trustworthy
 
-### UX requirements
-1. Add an `EPIC-LA` section in Address Details with:
-   - advisory EPIC suggested stage
-   - confidence + rationale
-   - last refresh timestamp
-   - optional manual `Apply suggestion` action
-2. Separate:
-   - rebuild cases
-   - temporary housing cases
-3. Each case card should show:
-   - case number (link)
-   - work class
-   - county status
-   - county progress + advisory suggested stage context
-   - key dates
-   - valuation, structure type
-   - description
-4. Add strong empty/loading/error states.
-5. Keep visual density manageable:
-   - progressive disclosure
-   - compact defaults
-   - readable hierarchy
+- Fix `CSSLink` ingestion and construct the correct EPIC-LA SelfService URL.
+- Pull stable identity, module/case/project fields, source ordinal, phase flags, completion/expiration dates, structure classification, and spatial fallback fields.
+- Add source schema validation and row-count/drop anomaly checks.
+- Add `active`, `last_seen_at`, and disappearance handling.
+- Add APN format validation and conflict diagnostics.
+- Separate source edit time from Altagether sync time in API and UI.
+- Add a sync lock and safer authenticated manual trigger.
+- Correct the homepage's statistical label or replace its calculation.
 
-### Non-goals
-- No changes to daily sync pipeline
-- No changes to source filters
-- No large architecture refactor
-- No automatic overwrite of captain-entered stage fields
+### Phase B: create a trend-capable store
 
-### Performance and behavior
-- Lazy load EPIC section on address open.
-- Cache APN results in-session to avoid repeat calls.
-- Avoid blocking existing details panel rendering.
+- Record append-only snapshots or field-level events.
+- Establish stable identity and project-grouping rules.
+- Decide retention, compaction, and backfill strategy.
+- Prefer a database over Sheets if snapshots materially multiply row count or query complexity.
+- Add tests for transitions, disappearances, duplicate cases, project grouping, and source-schema changes.
 
-### Validation
-- Works on addresses with:
-  - no EPIC cases
-  - one case
-  - many cases
-  - mixed rebuild + temporary housing
-- Maintains current panel performance and usability.
+### Phase C: validate useful captain signals
 
-### Deliverables
-- UI code changes
-- brief UX rationale
-- before/after screenshots or notes
-- manual test checklist/results
+Candidate signals, in priority order:
+
+1. Waiting for applicant / hold / expired-or-near-expiry review queue.
+2. New application, permit issuance, construction, final inspection, or completion since prior sync.
+3. County progress ahead of captain record, shown as a reconciliation prompt.
+4. Captain knowledge ahead of or absent from county data, preserved as local knowledge.
+5. Missing/invalid APN and uncertain-match queue.
+6. Parallel SFR/ADU/accessory/repair projects on one parcel.
+7. Meaningful inactivity windows, only after defining fair status-specific thresholds.
+
+All signals must expose the source fields and rule that produced them. "Potentially stalled" should never be inferred from elapsed time alone without accounting for `Waiting for Applicant`, hold, project type, and county process expectations.
+
+---
+
+## 12. Test and evidence gaps
+
+The current `npm run test:epic` suite passes 10 tests and covers helper logic, basic upsert, APN lookup, and source-failure cache preservation.
+
+It does not cover:
+
+- live source schema/canonical field casing;
+- relative case-link construction;
+- ArcGIS pagination against the real service;
+- duplicate case numbers or stable identity;
+- stale/disappeared records;
+- partial Google Sheets batch writes and retry behavior;
+- concurrent syncs;
+- zero-row or major-row-drop validation;
+- source phase flags and cumulative statistics;
+- frontend Home/filter calculations;
+- APN edits invalidating zone EPIC state;
+- malformed but digit-bearing APNs;
+- source freshness versus ingestion freshness;
+- project grouping;
+- trend snapshots/events.
+- continuous integration: no GitHub workflow currently runs the test suite on code changes.
+
+Other repository documentation also drifted: `PRIORITY_ROADMAP.md` still describes a two-option, filter-only lazy EPIC experience, and `ZONE_DASHBOARD_STYLE_GUIDE.md` refers to EPIC map markers that are not implemented.
+
+The homepage aggregation tested in `epic/normalize.js` is not the implementation used by `index.html`; similar logic is duplicated client-side. Tests can pass while the shipped browser logic diverges.
+
+---
+
+## 13. Acceptance criteria for the next data-foundation release
+
+Before building trends, require:
+
+1. Current cases can be distinguished from disappeared/inactive cases.
+2. Every observation has source freshness and ingestion time.
+3. Stable identity behavior is documented and tested.
+4. County cumulative phase counts use the source phase flags.
+5. Exclusive "current/latest stage" views are labeled as such.
+6. Project and structure type prevent unrelated parallel permits from being flattened into one unexplained status.
+7. APN matches expose missing, invalid, fallback, and ambiguous states.
+8. Changes between successful syncs are queryable.
+9. Address Details links reach the real county case.
+10. Sync anomalies fail closed or alert operators without replacing current state.
+11. Zone summary endpoints avoid sending descriptions and other detail fields unnecessarily.
+12. Captain-facing interpretations have been reviewed with captains and remain advisory.
+
+---
+
+## 14. Bottom line
+
+The integration already captures a useful county-curated set of fire-recovery cases. The highest-value next move is not to pull every remaining EPIC field or add another chart. It is to preserve identity, cumulative phases, operational status, project context, source freshness, and change over time.
+
+Once those foundations are trustworthy, the dashboard can answer the questions captains actually need: **what changed, who may be waiting on something, where county and local knowledge disagree, and which neighbor may benefit from a check-in.**
