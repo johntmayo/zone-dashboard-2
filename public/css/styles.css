@@ -14351,6 +14351,16 @@
   line-height: 1.45;
 }
 
+.recruitment-highlight {
+  color: #BC5839;
+  font-weight: 900;
+}
+
+.recruitment-highlight--block {
+  display: block;
+  margin-top: 8px;
+}
+
 .recruitment-form {
   display: flex;
   flex-direction: column;

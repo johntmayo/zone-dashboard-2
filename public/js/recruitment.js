@@ -111,6 +111,16 @@
     });
   }
 
+  function mergeUniqueLinks(primary, secondary) {
+    var seen = {};
+    return (primary || []).concat(secondary || []).filter(function (item) {
+      var key = item.id || item.url;
+      if (seen[key]) return false;
+      seen[key] = true;
+      return true;
+    });
+  }
+
   function renderResourceLinks(containerId, items) {
     var el = document.getElementById(containerId);
     if (!el) return;
@@ -127,8 +137,10 @@
   }
 
   function renderLinks() {
-    renderResourceLinks('recruitmentPlaceResources', linksForSection('places'));
-    renderResourceLinks('recruitmentEventResources', linksForSection('events'));
+    var flyerLinks = linksForSection('places');
+    var eventLinks = linksForSection('events');
+    renderResourceLinks('recruitmentPlaceResources', flyerLinks);
+    renderResourceLinks('recruitmentEventResources', mergeUniqueLinks(eventLinks, flyerLinks));
     renderResourceLinks('recruitmentPhoneBankResources', linksForSection('phonebank'));
   }
 
