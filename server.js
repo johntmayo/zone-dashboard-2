@@ -1644,6 +1644,9 @@ app.get('/outreach-helper.html', (req, res) => {
 app.get('/renewal26.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'renewal26.html'));
 });
+app.get('/permitting-delays.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'permitting-delays.html'));
+});
 
 // Serve index.html for all other routes (SPA fallback)
 app.get('*', (req, res) => {
