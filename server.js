@@ -519,8 +519,10 @@ function logUsersConfigStatusAtStartup() {
     });
 }
 
-app.get('/api/user-sheets', async (req, res) => {
-  const emailParam = (req.query.email || '').toString().trim().toLowerCase();
+app.get('/api/user-sheets', requireAppSession, async (req, res) => {
+  // Identity comes from the signed session cookie, never a client-supplied email.
+  // This prevents enumerating other users' zone sheet URLs.
+  const emailParam = req.sessionEmail;
   if (!emailParam) {
     return res.status(400).json({ error: 'no_email' });
   }
@@ -554,13 +556,8 @@ app.get('/api/user-sheets', async (req, res) => {
   }
 });
 
-app.post('/api/admin/refresh-users', async (req, res) => {
-  const emailParam = (req.query.email || '').toString().trim().toLowerCase();
-  if (!emailParam) return res.status(401).json({ error: 'no_email' });
-
+app.post('/api/admin/refresh-users', requireAdminSession, async (req, res) => {
   try {
-    if (!await isAdminEmail(emailParam)) return res.status(401).json({ error: 'not_admin' });
-
     cachedUsersMap = null;
     cachedAt = 0;
     const fresh = await readUsersMap();
@@ -575,13 +572,9 @@ app.post('/api/admin/refresh-users', async (req, res) => {
   }
 });
 
-app.get('/api/admin/export-users-json', async (req, res) => {
-  const emailParam = (req.query.email || '').toString().trim().toLowerCase();
-  if (!emailParam) return res.status(401).json({ error: 'no_email' });
-
+app.get('/api/admin/export-users-json', requireAdminSession, async (req, res) => {
   try {
     const usersMap = await readUsersMap();
-    if (!await isAdminEmail(emailParam)) return res.status(401).json({ error: 'not_admin' });
 
     const legacy = {
       _note: `FROZEN SNAPSHOT exported ${new Date().toISOString()} from Access Sheet. See USER_ACCESS_SHEET_MIGRATION.md -> Rollback Plan.`
@@ -600,13 +593,8 @@ app.get('/api/admin/export-users-json', async (req, res) => {
   }
 });
 
-app.get('/api/admin/user-activity', async (req, res) => {
-  const emailParam = (req.query.email || '').toString().trim().toLowerCase();
-  if (!emailParam) return res.status(401).json({ error: 'no_email' });
-
+app.get('/api/admin/user-activity', requireAdminSession, async (req, res) => {
   try {
-    if (!await isAdminEmail(emailParam)) return res.status(401).json({ error: 'not_admin' });
-
     const rows = await readUserActivityRows();
     const activeRows = rows.filter((row) => row.active);
     const seenRows = activeRows.filter((row) => row.last_seen_at);
@@ -700,6 +688,48 @@ const { createSessionAuth } = require('./session-auth');
 const sessionAuth = createSessionAuth({
   verifyGoogleAccessToken
 });
+
+// --- Server-side identity from the durable session cookie ---
+// SECURITY: never trust a client-supplied ?email= for authorization. These
+// helpers derive the caller's identity from the signed httpOnly session cookie.
+function getSessionEmail(req, res) {
+  const session = sessionAuth.readSession(req);
+  if (!session || !session.email) return '';
+  if (res) sessionAuth.maybeSlideSession(req, res, session);
+  return session.email;
+}
+
+// Require any signed-in app session. Sets req.sessionEmail.
+function requireAppSession(req, res, next) {
+  const email = getSessionEmail(req, res);
+  if (!email) {
+    res.set('Cache-Control', 'no-store');
+    return res.status(401).json({ error: 'auth_required', message: 'Please sign in.' });
+  }
+  req.sessionEmail = email;
+  return next();
+}
+
+// Require a signed-in app session whose email is an admin. Sets req.sessionEmail.
+async function requireAdminSession(req, res, next) {
+  const email = getSessionEmail(req, res);
+  if (!email) {
+    res.set('Cache-Control', 'no-store');
+    return res.status(401).json({ error: 'auth_required', message: 'Please sign in.' });
+  }
+  try {
+    if (!await isAdminEmail(email)) {
+      res.set('Cache-Control', 'no-store');
+      return res.status(403).json({ error: 'not_admin', message: 'Admin access required.' });
+    }
+  } catch (err) {
+    console.error('Admin session check failed:', err.message);
+    res.set('Cache-Control', 'no-store');
+    return res.status(500).json({ error: 'auth_check_failed', message: 'Could not verify access.' });
+  }
+  req.sessionEmail = email;
+  return next();
+}
 
 const sheetsWriteAuthEnabled = String(process.env.SHEETS_WRITE_AUTH || '1').trim() !== '0';
 const requireSheetsWriteAuth = createRequireSheetsWriteAuth({
@@ -1327,8 +1357,11 @@ async function getResidentRowLookup(sheets, sheetId, sheetName = 'Sheet1') {
   return entry;
 }
 
-// GET/POST /api/sheets/values - read range
-app.get('/api/sheets/values', async (req, res) => {
+// GET/POST /api/sheets/values - read range.
+// SECURITY: requires a valid app session. Without this, anyone who knows a
+// spreadsheet ID could read it through the service account (resident PII, and
+// the NC Directory sheet — bypassing the directory's own gate).
+app.get('/api/sheets/values', requireAppSession, async (req, res) => {
   const sheetId = req.query.sheetId;
   const range = req.query.range || 'A1:ZZ1000';
   const sheetName = req.query.sheetName || null;
@@ -1352,7 +1385,7 @@ app.get('/api/sheets/values', async (req, res) => {
   }
 });
 
-app.post('/api/sheets/values', async (req, res) => {
+app.post('/api/sheets/values', requireAppSession, async (req, res) => {
   const { sheetId, range = 'A1:ZZ1000', sheetName } = req.body || {};
   if (!sheetId) {
     return res.status(400).json({ error: 'sheetId required' });
@@ -1600,7 +1633,8 @@ try {
   const { registerLotWeedingRoutes } = require('./lot-weeding/routes');
   registerLotWeedingRoutes(app, {
     getSheetsClient,
-    hasLotWeedingAdminAccess
+    hasLotWeedingAdminAccess,
+    getSessionEmail
   });
   console.log('Lot weeding routes registered.');
 } catch (err) {
@@ -1624,7 +1658,8 @@ try {
   const { registerEpicRoutes } = require('./epic/routes');
   registerEpicRoutes(app, {
     getSheetsClient,
-    isAdminEmail
+    isAdminEmail,
+    getSessionEmail
   });
   console.log('EPIC-LA routes registered.');
 } catch (err) {
@@ -1636,7 +1671,8 @@ try {
   const { registerGodmodeRoutes } = require('./godmode/routes');
   registerGodmodeRoutes(app, {
     getSheetsClient,
-    isAdminEmail
+    isAdminEmail,
+    getSessionEmail
   });
   console.log('Godmode routes registered.');
 } catch (err) {
@@ -1646,7 +1682,7 @@ try {
 // --- Contact Check-In (AddressReview progress store) ---
 try {
   const { registerContactCheckinRoutes, getContactCheckinConfig } = require('./contact-checkin/routes');
-  registerContactCheckinRoutes(app, { getSheetsClient, isAdminEmail });
+  registerContactCheckinRoutes(app, { getSheetsClient, isAdminEmail, getSessionEmail });
   const checkinConfig = getContactCheckinConfig();
   console.log(`Contact Check-In routes registered (sheet: ${checkinConfig.sheetId || 'not configured'}).`);
 } catch (err) {
