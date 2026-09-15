@@ -130,6 +130,7 @@
         <button class="nav-item" data-view="meetups" id="navMeetups">Actions</button>
         <button class="nav-item" data-view="tools" id="navTools">Tools</button>
         <button class="nav-item" data-view="resources" id="navResources">Resources</button>
+        <button class="nav-item" type="button" id="navDirectory">NC Directory ↗</button>
         <button class="nav-item" data-view="profile" id="navProfile">My NC Profile</button>
         <button class="nav-item hidden" type="button" id="navSwitchZone">Switch Zone</button>
         <button class="nav-item hidden" data-view="godmode" id="navGodmode">Admin Mode</button>
@@ -1456,6 +1457,9 @@
         </button>
         <button class="mobile-more-item" data-view="resources">
           <span>Resources</span><span class="mobile-more-item-arrow">›</span>
+        </button>
+        <button class="mobile-more-item" type="button" id="mobileMoreDirectory">
+          <span>NC Directory ↗</span><span class="mobile-more-item-arrow">›</span>
         </button>
         <button class="mobile-more-item" data-view="profile">
           <span>My NC Profile</span><span class="mobile-more-item-arrow">›</span>
@@ -16937,6 +16941,17 @@
         }
         switchView(viewName);
       });
+    });
+
+    // NC Directory opens the gated standalone directory in a new tab (not an in-app view).
+    ['navDirectory', 'mobileMoreDirectory'].forEach((id) => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          window.open('nc-directory.html', '_blank', 'noopener,noreferrer');
+        });
+      }
     });
     
     // Initialize with saved view or home view after durable session restore.
