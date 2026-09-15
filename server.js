@@ -1152,10 +1152,69 @@ app.get('/api/actions-feed', async (req, res) => {
   }
 });
 
-// API Route: NC Directory (Sheet1 only - for standalone directory site)
-app.get('/api/nc-directory', async (req, res) => {
+// Read a sheet via the service account (works on RESTRICTED sheets that are
+// shared with the service account). Returns the same { headers, rows } shape as
+// fetchPublicSheet so callers don't need to change. rows are objects keyed by header.
+async function fetchSheetViaServiceAccount(sheetId, range = 'A1:ZZ1000', sheetName = null) {
+  const sheets = await getSheetsClient();
+  const rangeStr = sheetName ? `${sheetName}!${range}` : range;
+  const result = await withSheetsApiRetry(() => sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: rangeStr
+  }));
+  const values = (result.data && result.data.values) ? result.data.values : [];
+  if (values.length === 0) return { headers: [], rows: [] };
+  const headers = (values[0] || []).map((h) => String(h == null ? '' : h).trim());
+  const rows = values.slice(1).map((rowValues) => {
+    const row = {};
+    headers.forEach((header, index) => {
+      row[header] = rowValues[index] != null ? String(rowValues[index]) : '';
+    });
+    return row;
+  });
+  return { headers, rows };
+}
+
+// Gate the NC Directory to signed-in Neighborhood Captains only.
+// Requires a valid app session (httpOnly cookie) AND that the email is present
+// in the Access sheet (any role/zone assignment). Emergency bypass: NC_DIRECTORY_AUTH=0.
+const ncDirectoryAuthEnabled = String(process.env.NC_DIRECTORY_AUTH || '1').trim() !== '0';
+if (!ncDirectoryAuthEnabled) {
+  console.warn('NC_DIRECTORY_AUTH=0 — NC Directory is publicly readable (emergency bypass).');
+}
+
+async function requireNcDirectoryCaptain(req, res, next) {
+  if (!ncDirectoryAuthEnabled) return next();
   try {
-    const { headers, rows } = await fetchPublicSheet(NC_DIRECTORY_SHEET_ID, 'A1:ZZ500', 'Sheet1');
+    const session = sessionAuth.readSession(req);
+    if (!session || !session.email) {
+      res.set('Cache-Control', 'no-store');
+      return res.status(401).json({ error: 'auth_required', message: 'Please sign in to view the directory.' });
+    }
+    sessionAuth.maybeSlideSession(req, res, session);
+    const rows = await getAccessRowsForEmail(session.email);
+    const roles = collectAccessRoles(rows);
+    const registered = (Array.isArray(rows) && rows.length > 0) || roles.length > 0;
+    if (!registered) {
+      res.set('Cache-Control', 'no-store');
+      return res.status(403).json({ error: 'not_registered', message: 'This email is not a registered Neighborhood Captain.' });
+    }
+    return next();
+  } catch (err) {
+    console.error('NC Directory auth check failed:', err.message);
+    res.set('Cache-Control', 'no-store');
+    return res.status(500).json({ error: 'auth_check_failed', message: 'Could not verify access.' });
+  }
+}
+
+// API Route: NC Directory (Sheet1 only - for standalone directory site)
+// Reads via the service account so the underlying sheet can stay RESTRICTED
+// (no "anyone with the link can view"). The sheet must be shared with the
+// service account. See NC_DIRECTORY_SETUP.md.
+app.get('/api/nc-directory', requireNcDirectoryCaptain, async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    const { headers, rows } = await fetchSheetViaServiceAccount(NC_DIRECTORY_SHEET_ID, 'A1:ZZ500', 'Sheet1');
     res.json({ headers, rows });
   } catch (error) {
     console.error('Error fetching NC Directory:', error);
