@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Lora:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     :root {
       --bg-paper: #FDFBF7;
@@ -22,6 +23,46 @@
     }
     * { box-sizing: border-box; }
     .hidden { display: none !important; }
+    /* Sign-in gate (directory is private to Neighborhood Captains) */
+    .signin-gate {
+      min-height: calc(100vh - 96px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .signin-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      max-width: 460px;
+      width: 100%;
+      padding: 2rem 1.75rem;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(31, 41, 55, 0.08);
+    }
+    .signin-card h2 { margin: 0 0 0.75rem; color: var(--brand-primary-dark); font-size: 1.35rem; }
+    .signin-card p { font-family: 'Lora', serif; color: var(--text-secondary); line-height: 1.55; margin: 0 0 1.25rem; }
+    .gate-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: var(--brand-primary-dark);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 1.5rem;
+      font-family: 'Chivo', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: opacity 0.15s ease;
+    }
+    .gate-btn:hover { opacity: 0.9; }
+    .gate-btn:disabled { opacity: 0.6; cursor: default; }
+    .gate-sub { font-size: 0.85rem; margin-top: 1rem !important; margin-bottom: 0 !important; }
+    .gate-error { color: var(--accent-clay); }
     /* Structural/data UI defaults to Chivo; genuine reading blocks (bios, intro) opt back into Lora below. */
     html, body { margin: 0; padding: 0; min-height: 100%; font-family: 'Chivo', sans-serif; background: var(--bg-paper); color: var(--text-primary); }
     h1, h2, h3, .nav-item, .btn { font-family: 'Chivo', sans-serif; font-weight: 700; }
@@ -254,9 +295,17 @@
     <img src="public/images/logo_white_transparent.png" alt="Altagether" />
     <h1>Neighborhood Captain Directory</h1>
   </header>
-  <main class="container">
+  <section class="signin-gate" id="signinGate">
+    <div class="signin-card">
+      <h2>Captains only</h2>
+      <p id="gateMessage">This directory is private to Altagether Neighborhood Captains. Please sign in with the Google account you use for the zone dashboard.</p>
+      <button type="button" class="gate-btn" id="gateSignInBtn">Sign in with Google</button>
+      <p class="gate-sub" id="gateSub"></p>
+    </div>
+  </section>
+  <main class="container hidden" id="directoryMain">
     <div class="intro-blurb"><strong>Dear Neighborhood Captains,</strong> this directory is intended for your use only so that you can find each other to coordinate and collaborate. To protect the privacy of your fellow captains, please do not share this directory outside of Altagether.</div>
-    <p class="intro-instructions"><strong>To use:</strong> Search by name, zone, skills, or interests, and use the filters below to narrow your results.<br><br><strong>To update your profile:</strong> Make changes in the zone dashboard under My NC Profile, or the old fashioned way in <a href="#" id="spreadsheetLink" target="_blank" rel="noopener noreferrer">this spreadsheet</a>.</p>
+    <p class="intro-instructions"><strong>To use:</strong> Search by name, zone, skills, or interests, and use the filters below to narrow your results.<br><br><strong>To update your profile:</strong> Make changes in the zone dashboard under My NC Profile.</p>
     <div class="toolbar">
       <div class="search-wrap">
         <input type="search" id="searchInput" placeholder="Search by name, zone, skills, interests…" aria-label="Search directory" />
@@ -326,7 +375,7 @@
     (function () {
       const API_URL = '/api/nc-directory';
       const WORKING_GROUPS_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdvEGTteFPiOmV3FRRwdumpAQCJt-g-eyxPon4q5n7ZF1HY7Q/viewform?usp=dialog';
-      const NC_DIRECTORY_SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1E77qmT4eGtyokaDvD2wlK3q2NeMcS4itmkbYp6Rz0qM/edit?gid=0#gid=0';
+      const OAUTH_CLIENT_ID = '633926045450-3214il5eg7emu5e0fp8am1g26jdfnoh7.apps.googleusercontent.com';
       const GOOGLE_EMAIL_KEY = 'Google email';
       const PREFERRED_EMAIL_KEY = 'Preferred email';
       const NAME_KEY = 'Name';
@@ -833,8 +882,18 @@
         err.classList.remove('hidden');
       }
 
-      fetch(API_URL)
+      function loadDirectory() {
+        const loadingEl = document.getElementById('loading');
+        if (loadingEl) loadingEl.classList.remove('hidden');
+        const errEl = document.getElementById('error');
+        if (errEl) errEl.classList.add('hidden');
+        return fetch(API_URL, { credentials: 'include' })
         .then(r => {
+          if (r.status === 401 || r.status === 403) {
+            const err = new Error(r.status === 403 ? 'not_registered' : 'auth_required');
+            err.authStatus = r.status;
+            throw err;
+          }
           if (!r.ok) throw new Error(r.statusText || 'Failed to load directory');
           return r.json();
         })
@@ -850,8 +909,6 @@
           buildChips('workingGroupChips', WORKING_GROUP_KEY, activeWorkingGroups);
           const wgFormLink = document.getElementById('workingGroupsFormLink');
           if (wgFormLink) wgFormLink.href = WORKING_GROUPS_FORM_URL;
-          const spreadsheetLink = document.getElementById('spreadsheetLink');
-          if (spreadsheetLink) spreadsheetLink.href = NC_DIRECTORY_SPREADSHEET_URL;
           buildInterestAccordion();
           document.getElementById('searchInput').addEventListener('input', applyFilters);
           document.getElementById('filterZone').addEventListener('change', applyFilters);
@@ -883,7 +940,109 @@
           });
           applyFilters();
         })
-        .catch(e => showError('Could not load directory. Make sure the server is running and the NC Directory sheet is shared correctly. ' + (e.message || '')));
+        .catch(e => {
+          if (e && (e.authStatus === 401 || e.authStatus === 403)) {
+            showGate(e.authStatus === 403 ? 'not_registered' : 'signed_out');
+            return;
+          }
+          showError('Could not load directory. Make sure the server is running and the NC Directory sheet is shared correctly. ' + (e.message || ''));
+        });
+      }
+
+      // ---------- Sign-in gate (Captains only) ----------
+      const gateEl = document.getElementById('signinGate');
+      const mainEl = document.getElementById('directoryMain');
+      const gateBtn = document.getElementById('gateSignInBtn');
+      const gateMsg = document.getElementById('gateMessage');
+      const gateSub = document.getElementById('gateSub');
+      let tokenClient = null;
+      let directoryLoaded = false;
+
+      function showApp() {
+        if (gateEl) gateEl.classList.add('hidden');
+        if (mainEl) mainEl.classList.remove('hidden');
+        if (!directoryLoaded) {
+          directoryLoaded = true;
+          loadDirectory();
+        }
+      }
+
+      function showGate(reason) {
+        directoryLoaded = false;
+        if (mainEl) mainEl.classList.add('hidden');
+        if (gateEl) gateEl.classList.remove('hidden');
+        if (gateBtn) gateBtn.disabled = false;
+        if (gateSub) { gateSub.textContent = ''; gateSub.classList.remove('gate-error'); }
+        if (reason === 'not_registered') {
+          if (gateMsg) gateMsg.textContent = 'That Google account is not a registered Neighborhood Captain. Sign in with the account Altagether has on file, or contact your admin for access.';
+          if (gateBtn) gateBtn.textContent = 'Try a different account';
+        } else {
+          if (gateMsg) gateMsg.textContent = 'This directory is private to Altagether Neighborhood Captains. Please sign in with the Google account you use for the zone dashboard.';
+          if (gateBtn) gateBtn.textContent = 'Sign in with Google';
+        }
+      }
+
+      function setGateError(msg) {
+        if (gateSub) { gateSub.textContent = msg; gateSub.classList.add('gate-error'); }
+        if (gateBtn) gateBtn.disabled = false;
+      }
+
+      function getTokenClient() {
+        if (tokenClient) return tokenClient;
+        tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: OAUTH_CLIENT_ID,
+          scope: 'https://www.googleapis.com/auth/userinfo.email openid',
+          callback: async (response) => {
+            if (response.error) {
+              setGateError('Sign in was cancelled or failed. Please try again.');
+              return;
+            }
+            try {
+              const res = await fetch('/api/auth/session', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accessToken: response.access_token })
+              });
+              if (!res.ok) throw new Error('session_failed');
+              showApp();
+            } catch (err) {
+              setGateError('Could not complete sign in. Please try again.');
+            }
+          }
+        });
+        return tokenClient;
+      }
+
+      function startSignIn(selectAccount) {
+        if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+          setGateError('Google sign-in is still loading. Please wait a moment and try again.');
+          return;
+        }
+        if (gateSub) { gateSub.textContent = ''; gateSub.classList.remove('gate-error'); }
+        if (gateBtn) gateBtn.disabled = true;
+        try {
+          getTokenClient().requestAccessToken({ prompt: selectAccount ? 'select_account' : '' });
+        } catch (err) {
+          setGateError('Could not start sign in. Please try again.');
+        }
+      }
+
+      if (gateBtn) {
+        gateBtn.addEventListener('click', () => {
+          const selectAccount = (gateBtn.textContent || '').indexOf('different') !== -1;
+          startSignIn(selectAccount);
+        });
+      }
+
+      // On load: if a valid app session already exists, go straight in; else show the gate.
+      (async function bootAuth() {
+        try {
+          const res = await fetch('/api/auth/me', { credentials: 'include' });
+          if (res.ok) { showApp(); return; }
+        } catch (err) { /* fall through to gate */ }
+        showGate('signed_out');
+      })();
     })();
   </script>
 </body>
