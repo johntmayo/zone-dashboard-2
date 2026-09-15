@@ -88,18 +88,21 @@ function clearGodmodeCache() {
 }
 
 function registerGodmodeRoutes(app, deps) {
-  const { getSheetsClient, isAdminEmail } = deps;
+  const { getSheetsClient, isAdminEmail, getSessionEmail } = deps;
   if (typeof getSheetsClient !== 'function') {
     throw new Error('registerGodmodeRoutes: deps.getSheetsClient is required');
   }
 
   app.get('/api/admin/godmode-master', async (req, res) => {
-    const emailParam = String((req.query && req.query.email) || '').trim().toLowerCase();
-    if (!emailParam) return res.status(401).json({ error: 'no_email' });
+    // Identity from the signed session cookie, never a client-supplied ?email=.
+    const emailParam = typeof getSessionEmail === 'function'
+      ? String(getSessionEmail(req, res) || '').trim().toLowerCase()
+      : '';
+    if (!emailParam) return res.status(401).json({ error: 'auth_required' });
 
     try {
       const adminAllowed = Boolean(typeof isAdminEmail === 'function' && await isAdminEmail(emailParam));
-      if (!adminAllowed) return res.status(401).json({ error: 'not_admin' });
+      if (!adminAllowed) return res.status(403).json({ error: 'not_admin' });
 
       const config = getGodmodeConfig();
       const sheetsClient = await getSheetsClient();
