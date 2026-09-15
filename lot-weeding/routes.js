@@ -663,10 +663,14 @@ function indexToColumnLetter(index) {
 }
 
 function registerLotWeedingRoutes(app, deps) {
-  const { getSheetsClient, hasLotWeedingAdminAccess } = deps;
+  const { getSheetsClient, hasLotWeedingAdminAccess, getSessionEmail } = deps;
   if (typeof getSheetsClient !== 'function') {
     throw new Error('registerLotWeedingRoutes: deps.getSheetsClient is required');
   }
+  // Identity from the signed session cookie, never a client-supplied ?email=.
+  const resolveAdminEmail = (req, res) => (typeof getSessionEmail === 'function'
+    ? String(getSessionEmail(req, res) || '').trim().toLowerCase()
+    : '');
 
   app.get('/api/lot-weeding/values', async (req, res) => {
     const config = getLotWeedingConfig();
@@ -694,12 +698,12 @@ function registerLotWeedingRoutes(app, deps) {
   });
 
   app.get('/api/lot-weeding-admin/requests', async (req, res) => {
-    const emailParam = String((req.query && req.query.email) || '').trim().toLowerCase();
-    if (!emailParam) return res.status(401).json({ error: 'no_email' });
+    const emailParam = resolveAdminEmail(req, res);
+    if (!emailParam) return res.status(401).json({ error: 'auth_required' });
 
     try {
       const allowed = Boolean(typeof hasLotWeedingAdminAccess === 'function' && await hasLotWeedingAdminAccess(emailParam));
-      if (!allowed) return res.status(401).json({ error: 'not_lot_weeding_admin' });
+      if (!allowed) return res.status(403).json({ error: 'not_lot_weeding_admin' });
 
       const config = getLotWeedingConfig();
       const sheetsClient = await getSheetsClient();
@@ -717,12 +721,12 @@ function registerLotWeedingRoutes(app, deps) {
   });
 
   app.patch('/api/lot-weeding-admin/request-row', async (req, res) => {
-    const emailParam = String((req.query && req.query.email) || '').trim().toLowerCase();
-    if (!emailParam) return res.status(401).json({ error: 'no_email' });
+    const emailParam = resolveAdminEmail(req, res);
+    if (!emailParam) return res.status(401).json({ error: 'auth_required' });
 
     try {
       const allowed = Boolean(typeof hasLotWeedingAdminAccess === 'function' && await hasLotWeedingAdminAccess(emailParam));
-      if (!allowed) return res.status(401).json({ error: 'not_lot_weeding_admin' });
+      if (!allowed) return res.status(403).json({ error: 'not_lot_weeding_admin' });
 
       const rowNumber = Number.parseInt(String(req.body && req.body.rowNumber), 10);
       if (!Number.isInteger(rowNumber) || rowNumber < 2) {

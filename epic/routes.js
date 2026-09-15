@@ -19,7 +19,7 @@ const { normalizeApn } = require('./normalize');
 const { getEpicConfig } = require('./config');
 
 function registerEpicRoutes(app, deps) {
-  const { getSheetsClient, isAdminEmail } = deps;
+  const { getSheetsClient, isAdminEmail, getSessionEmail } = deps;
   if (typeof getSheetsClient !== 'function') {
     throw new Error('registerEpicRoutes: deps.getSheetsClient is required');
   }
@@ -90,14 +90,17 @@ function registerEpicRoutes(app, deps) {
 
   app.post('/api/admin/sync-epic', async (req, res) => {
     const tokenHeader = String(req.headers['x-epic-sync-token'] || '').trim();
-    const emailParam = String((req.query && req.query.email) || '').trim().toLowerCase();
+    // Admin identity from the signed session cookie, never a client-supplied ?email=.
+    const emailParam = typeof getSessionEmail === 'function'
+      ? String(getSessionEmail(req, res) || '').trim().toLowerCase()
+      : '';
 
     const cfg = getEpicConfig();
     const tokenAllowed = Boolean(cfg.syncToken && tokenHeader && tokenHeader === cfg.syncToken);
     const adminAllowed = Boolean(emailParam && typeof isAdminEmail === 'function' && await safeIsAdmin(isAdminEmail, emailParam));
 
     if (!tokenAllowed && !adminAllowed) {
-      return res.status(401).json({ error: 'not_authorized', message: 'Admin email or x-epic-sync-token required.' });
+      return res.status(401).json({ error: 'not_authorized', message: 'Admin session or x-epic-sync-token required.' });
     }
 
     try {

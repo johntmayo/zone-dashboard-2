@@ -608,6 +608,7 @@ function buildAdminReport(rows, { checkInId } = {}) {
 function registerContactCheckinRoutes(app, deps) {
   const getSheetsClient = deps && deps.getSheetsClient;
   const isAdminEmail = deps && deps.isAdminEmail;
+  const getSessionEmail = deps && deps.getSessionEmail;
   if (typeof getSheetsClient !== 'function') {
     throw new Error('registerContactCheckinRoutes requires getSheetsClient');
   }
@@ -649,11 +650,14 @@ function registerContactCheckinRoutes(app, deps) {
 
   app.get('/api/contact-checkin/admin', async (req, res) => {
     try {
-      const emailParam = String((req.query && req.query.email) || '').trim().toLowerCase();
-      if (!emailParam) return res.status(401).json({ error: 'no_email' });
+      // Identity from the signed session cookie, never a client-supplied ?email=.
+      const emailParam = typeof getSessionEmail === 'function'
+        ? String(getSessionEmail(req, res) || '').trim().toLowerCase()
+        : '';
+      if (!emailParam) return res.status(401).json({ error: 'auth_required' });
 
       const adminAllowed = Boolean(typeof isAdminEmail === 'function' && await isAdminEmail(emailParam));
-      if (!adminAllowed) return res.status(401).json({ error: 'not_admin' });
+      if (!adminAllowed) return res.status(403).json({ error: 'not_admin' });
 
       const config = getContactCheckinConfig();
       if (!config.sheetId) {
