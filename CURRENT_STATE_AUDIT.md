@@ -344,6 +344,8 @@ Local branches `claude/plan-login-system-k95Rc`, `staging`, `test-preview-workfl
 
 ### Critical Security Issues
 
+> ⚠️ **STALE — do not rely on this section.** Several issues below (e.g. "no server-side email verification," unauthenticated write/read endpoints) were remediated in the 2026-09 security hardening. See **[`SECURITY.md`](SECURITY.md)** for the current, authoritative security posture.
+
 1. **Secrets committed to `.env.local` in the repo.** This file contains:
    - Full Google service account private key (JSON and base64)
    - All user email addresses with their sheet URL mappings
