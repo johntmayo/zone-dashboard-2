@@ -2072,6 +2072,11 @@
           if (zoneMap) loadZoneBoundary();
           if (homeMap) loadHomeZoneBoundary();
         }
+        // Refresh Zone Leadership so it upgrades from the spreadsheet fallback to
+        // the Mapbox "Altagether Zones" dataset now that the token is ready.
+        if (typeof updateZoneLeadership === 'function') {
+          updateZoneLeadership();
+        }
         if (additionalMapboxLayerVisible) {
           setAdditionalMapboxLayerVisible(true);
         }
@@ -22638,42 +22643,83 @@
     }
     
     // Panel E: Zone Leadership
-    function updateZoneLeadership() {
+    // Primary source is the Mapbox "Altagether Zones" dataset (same source as the
+    // zone boundary + Altagether Zones map layer). Falls back to the zone
+    // spreadsheet only if Mapbox data isn't available yet.
+    function getZoneLeadershipFromSheet() {
       if (!sheetData || !sheetData.headers || !sheetData.data || sheetData.data.length === 0) {
-        const content = document.getElementById('zoneLeadershipContent');
-        if (content) {
-          content.innerHTML = '<div class="empty">No zone leadership data available</div>';
-        }
-        return;
+        return [];
       }
-      
-      const content = document.getElementById('zoneLeadershipContent');
-      if (!content) return;
-      
       const headers = sheetData.headers;
-      const allRows = sheetData.data;
-      
+      const firstRow = sheetData.data[0];
+      if (!firstRow) return [];
+
       // Find NC columns (case-insensitive)
       const ncNameCol = findColumn(headers, 'nc name');
       const ncPhoneCol = findColumn(headers, 'nc phone');
       const ncEmailCol = findColumn(headers, 'nc email');
-      
-      // Get captain data from first row (should be the same for all rows in a zone)
-      const firstRow = allRows[0];
-      if (!firstRow) {
-        content.innerHTML = '<div class="empty">No zone leadership data available</div>';
-        return;
-      }
-      
+
       const ncName = ncNameCol ? (firstRow[ncNameCol] || '').trim() : '';
       const ncPhone = ncPhoneCol ? (firstRow[ncPhoneCol] || '').trim() : '';
       const ncEmail = ncEmailCol ? (firstRow[ncEmailCol] || '').trim() : '';
-      
-      // Parse captains
-      const captains = parseCaptains(ncName, ncPhone, ncEmail);
-      
-      if (captains.length === 0) {
-        content.innerHTML = '<div class="empty">No neighborhood captains assigned to this zone</div>';
+
+      return parseCaptains(ncName, ncPhone, ncEmail);
+    }
+
+    async function getZoneLeadershipFromMapbox(zoneName) {
+      if (!zoneName || !zoneName.trim()) return [];
+      if (!isAdditionalMapboxLayerEnabled()) return [];
+
+      let fc;
+      try {
+        fc = await fetchAdditionalMapboxFeatureCollection();
+      } catch (e) {
+        console.warn('Zone leadership: Mapbox fetch failed:', e);
+        return [];
+      }
+      if (!fc || !Array.isArray(fc.features)) return [];
+
+      const cfg = MAPBOX_ADDITIONAL_LAYER_CONFIG;
+      const getProp = (props, keys) => {
+        for (const key of keys || []) {
+          const value = props?.[key];
+          if (value != null && String(value).trim()) return String(value).trim();
+        }
+        return '';
+      };
+
+      const needle = zoneName.trim();
+      const needleLower = needle.toLowerCase();
+      // Prefer an exact match (as the boundary loader does), then fall back to
+      // a case-insensitive match to be forgiving of minor casing differences.
+      const feature =
+        fc.features.find(f => getProp(f?.properties || {}, cfg.zonePropertyKeys) === needle) ||
+        fc.features.find(f => getProp(f?.properties || {}, cfg.zonePropertyKeys).toLowerCase() === needleLower);
+      if (!feature) return [];
+
+      const props = feature.properties || {};
+      const names = getProp(props, cfg.contactNamePropertyKeys);
+      const phones = getProp(props, cfg.contactPhonePropertyKeys);
+      const emails = getProp(props, cfg.contactEmailPropertyKeys);
+
+      return parseCaptains(names, phones, emails);
+    }
+
+    async function updateZoneLeadership() {
+      const content = document.getElementById('zoneLeadershipContent');
+      if (!content) return;
+
+      // Pull leadership from Mapbox first (same source as the zone boundary).
+      let captains = await getZoneLeadershipFromMapbox(currentZoneName);
+
+      // Fall back to the zone spreadsheet if Mapbox has nothing (e.g. token not
+      // ready yet, or the zone isn't present in the dataset).
+      if (!captains || captains.length === 0) {
+        captains = getZoneLeadershipFromSheet();
+      }
+
+      if (!captains || captains.length === 0) {
+        content.innerHTML = '<div class="empty">No zone leadership data available</div>';
         return;
       }
       
