@@ -182,10 +182,6 @@
           <button class="mobile-map-layer-row" id="mobileLayerCensus">Census Tracts</button>
           <button class="mobile-map-layer-row" id="mobileLayerFire">Eaton Fire Perimeter</button>
           <button class="mobile-map-layer-row" id="mobileLayerWaterDistricts">Altadena Water Districts</button>
-          <button class="mobile-map-layer-row" id="mobileLayerSceLines">SCE Undergrounding Projects</button>
-          <p class="map-reference-note">
-            Structure shapes update periodically and may be inaccurate.
-          </p>
         </div>
 
         <div class="mobile-map-sheet-section">
@@ -1885,6 +1881,7 @@
     function isAdditionalMapboxLayerEnabled() {
       return !!(MAPBOX_CONFIG.accessToken && MAPBOX_ADDITIONAL_LAYER_CONFIG.tilesetId);
     }
+    const SCE_LINES_OVERLAY_ENABLED = false;
     const SCE_LINES_OVERLAY_CONFIG = {
       displayName: 'SCE Undergrounding Projects',
       geojsonUrl: 'public/data/sce_lines.geojson',
@@ -19365,7 +19362,7 @@
     }
 
     async function setSceLinesVisible(isVisible) {
-      if (!zoneMap) return;
+      if (!SCE_LINES_OVERLAY_ENABLED || !zoneMap) return;
       sceLinesVisible = !!isVisible;
       if (!sceLinesVisible) {
         if (sceLinesLayer && zoneMap.hasLayer(sceLinesLayer)) zoneMap.removeLayer(sceLinesLayer);
@@ -20632,7 +20629,7 @@
         }
         syncDatasetOverlayLabelVisibility(overlayKey);
       });
-      syncSceLineLabelVisibility();
+      if (SCE_LINES_OVERLAY_ENABLED) syncSceLineLabelVisibility();
     }
 
     async function setDatasetOverlayVisible(overlayKey, isVisible) {
@@ -21163,14 +21160,21 @@
             datasetOverlayButtons[overlayKey] = overlayBtn;
           });
 
-          const sceLinesBtn = L.DomUtil.create('a', 'map-layer-item-btn', panel);
-          sceLinesBtn.id = 'sceLinesLayerToggleBtn';
-          sceLinesBtn.href = '#';
-          sceLinesBtn.innerHTML = SCE_LINES_OVERLAY_CONFIG.displayName;
-          sceLinesBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
+          if (SCE_LINES_OVERLAY_ENABLED) {
+            const sceLinesBtn = L.DomUtil.create('a', 'map-layer-item-btn', panel);
+            sceLinesBtn.id = 'sceLinesLayerToggleBtn';
+            sceLinesBtn.href = '#';
+            sceLinesBtn.innerHTML = SCE_LINES_OVERLAY_CONFIG.displayName;
+            sceLinesBtn.style.cssText = 'min-width: 180px; height: 30px; line-height: 30px; text-align: left; text-decoration: none; display: block; padding: 0 10px; font-size: 12px; white-space: nowrap;';
 
-          const referenceNote = L.DomUtil.create('p', 'map-reference-note', panel);
-          referenceNote.textContent = 'Structure shapes update periodically and may be inaccurate.';
+            const referenceNote = L.DomUtil.create('p', 'map-reference-note', panel);
+            referenceNote.textContent = 'Structure shapes update periodically and may be inaccurate.';
+
+            L.DomEvent.on(sceLinesBtn, 'click', L.DomEvent.stop);
+            L.DomEvent.on(sceLinesBtn, 'click', async () => {
+              await setSceLinesVisible(!sceLinesVisible);
+            });
+          }
 
           L.DomEvent.disableClickPropagation(container);
           L.DomEvent.on(expandBtn, 'click', L.DomEvent.stop);
@@ -21195,11 +21199,6 @@
             await setAdditionalMapboxLayerVisible(!additionalMapboxLayerVisible);
           });
 
-          L.DomEvent.on(sceLinesBtn, 'click', L.DomEvent.stop);
-          L.DomEvent.on(sceLinesBtn, 'click', async () => {
-            await setSceLinesVisible(!sceLinesVisible);
-          });
-
           Object.entries(datasetOverlayButtons).forEach(([overlayKey, overlayBtn]) => {
             L.DomEvent.on(overlayBtn, 'click', L.DomEvent.stop);
             L.DomEvent.on(overlayBtn, 'click', async () => {
@@ -21213,7 +21212,7 @@
           MAPBOX_DATASET_OVERLAY_ORDER.forEach((overlayKey) => {
             updateDatasetOverlayToggleButton(overlayKey, !!datasetOverlayVisibility[overlayKey]);
           });
-          updateSceLinesToggleButton();
+          if (SCE_LINES_OVERLAY_ENABLED) updateSceLinesToggleButton();
           return container;
         }
       });
@@ -21226,7 +21225,9 @@
         setAdditionalMapboxLayerVisible(true);
       }
       scheduleLotLinesRefresh(0);
-      setSceLinesVisible(!!SCE_LINES_OVERLAY_CONFIG.defaultVisible);
+      if (SCE_LINES_OVERLAY_ENABLED) {
+        setSceLinesVisible(!!SCE_LINES_OVERLAY_CONFIG.defaultVisible);
+      }
     }
 
     const ZONE_BOUNDARY_STYLE = {
