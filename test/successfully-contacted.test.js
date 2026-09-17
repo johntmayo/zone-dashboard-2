@@ -48,4 +48,6 @@ test('findOutreachDateColumn ignores Successfully Contacted headers', () => {
   const utils = fs.readFileSync(path.join(root, 'public/js/utils.js'), 'utf8');
   assert.match(utils, /function isSuccessfullyContactedHeader\(header\)/);
   assert.match(utils, /filter\(h => !isSuccessfullyContactedHeader\(h\)\)/);
+  assert.match(utils, /function hasPersonOutreachAttempt\(row, headers\)/);
+  assert.match(utils, /successfullyContactedCol && isSuccessfullyContactedValue\(row\[successfullyContactedCol\]\)/);
 });

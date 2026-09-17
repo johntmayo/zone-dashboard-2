@@ -36,7 +36,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <link rel="stylesheet" href="public/css/styles.css?v=3">
-  <script src="public/js/utils.js?v=2"></script>
+  <script src="public/js/utils.js?v=3"></script>
   <script src="public/js/address-id.js"></script>
   <script src="public/js/resident-placeholder.js"></script>
   <script src="public/js/contact-checkin.js"></script>
@@ -3810,6 +3810,7 @@
       renter: ['person - renter', 'renter'],
       outreachDate: ['last outreach attempt date', 'last contact date', 'last outreach'],
       outreachLog: ['outreach log', 'contact notes'],
+      successfullyContacted: ['successfully contacted'],
       outreach: ['last outreach attempt date', 'last contact date', 'outreach log', 'contact notes', 'last outreach'],
       sourceSheet: ['source sheet', 'source_sheet_url', 'source sheet url', 'sheet_url', 'zone sheet url'],
       syncedAt: ['last_synced_at', 'last synced at', 'sync timestamp', 'source_last_seen_at']
@@ -4019,7 +4020,8 @@
     function hasGodmodeOutreach(row) {
       return Boolean(
         getGodmodeValue(row, GODMODE_FIELD_ALIASES.outreachDate) ||
-        getGodmodeValue(row, GODMODE_FIELD_ALIASES.outreachLog)
+        getGodmodeValue(row, GODMODE_FIELD_ALIASES.outreachLog) ||
+        hasGodmodeTruthyValue(getGodmodeValue(row, GODMODE_FIELD_ALIASES.successfullyContacted))
       );
     }
 
@@ -9598,20 +9600,28 @@
       return captains;
     }
 
-    // Check if an address has any contacted people
+    // Check if an address has been reached out to (date, log, or Successfully Contacted)
     function isAddressContacted(address) {
-      const contactDateCol = findOutreachDateColumn(sheetData.headers);
-      if (!contactDateCol) return false;
-      
-      const formerResidentCol = getFormerResidentColumn(sheetData.headers);
-      const rows = getActiveRealResidentRows(sheetData.addressMap.get(address), sheetData.headers, formerResidentCol);
+      if (!sheetData || !sheetData.headers || typeof hasPersonOutreachAttempt !== 'function') return false;
+
+      const headers = sheetData.headers;
+      const formerResidentCol = getFormerResidentColumn(headers);
+      const rows = getActiveRealResidentRows(sheetData.addressMap.get(address), headers, formerResidentCol);
       if (!rows || rows.length === 0) return false;
-      
-      // Check if any person at this address has a contact date
-      return rows.some(row => {
-        const contactDate = row[contactDateCol];
-        return contactDate !== undefined && contactDate !== null && String(contactDate).trim() !== '';
-      });
+
+      return rows.some(row => hasPersonOutreachAttempt(row, headers));
+    }
+
+    function addressMatchesOutreachVisibility(address) {
+      const headers = sheetData && sheetData.headers;
+      const canMeasure = typeof canMeasureOutreachAttempt === 'function'
+        ? canMeasureOutreachAttempt(headers)
+        : Boolean(typeof findOutreachDateColumn === 'function' && findOutreachDateColumn(headers));
+      if (!canMeasure) return true;
+      const isContacted = isAddressContacted(address);
+      if (isContacted && !showContactedAddresses) return false;
+      if (!isContacted && !showUncontactedAddresses) return false;
+      return true;
     }
 
     // Check if an address needs follow-up
@@ -10626,55 +10636,27 @@
       const headers = sheetData.headers;
       const addressMap = sheetData.addressMap;
       const lotWeedingRequests = getLotWeedingOpenRequests();
-      
-      // Find contact columns (same logic as Zone Overview)
-      const contactStatusCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return lower.includes('contact status') || lower.includes('outreach status');
-      });
-      const contactDateCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return (lower.includes('contact') && lower.includes('date')) ||
-               (lower.includes('outreach') && lower.includes('date')) ||
-               lower.includes('last contact') ||
-               lower.includes('last outreach');
-      });
-      
-      // Find follow-up column
+
       const followupCol = headers.find(h => {
         const lower = h.toLowerCase();
         return lower.includes('follow') && (lower.includes('up') || lower.includes('-up'));
       });
-      
+
       // Find resident name column (same pattern as displayAddressDetails)
-      const nameCol = headers.find(h => 
-        h.toLowerCase().includes('resident name') || 
-        (h.toLowerCase().includes('name') && !h.toLowerCase().includes('nc name') && 
-         !h.toLowerCase().includes('first') && !h.toLowerCase().includes('last') && 
+      const nameCol = headers.find(h =>
+        h.toLowerCase().includes('resident name') ||
+        (h.toLowerCase().includes('name') && !h.toLowerCase().includes('nc name') &&
+         !h.toLowerCase().includes('first') && !h.toLowerCase().includes('last') &&
          !h.toLowerCase().includes('middle'))
       );
-      
+
       let uncontactedCount = 0;
       let noDamageStatusCount = 0;
       const followupPeople = [];
 
       addressMap.forEach((rows, address) => {
-        // Count uncontacted addresses using exact same logic as Zone Overview
-        const row = rows[0];
-        let isContacted = false;
-        
-        if (contactStatusCol && row[contactStatusCol]) {
-          const status = String(row[contactStatusCol]).toLowerCase().trim();
-          isContacted = status &&
-            !status.includes('uncontacted') &&
-            !status.includes('no outreach') &&
-            status !== 'no';
-        } else if (contactDateCol && row[contactDateCol]) {
-          const date = String(row[contactDateCol]).trim();
-          isContacted = date.length > 0;
-        }
-        
-        if (!isContacted) {
+        // Count uncontacted addresses using the same "been in touch" rule as Zone Overview.
+        if (!isAddressContacted(address)) {
           uncontactedCount++;
         }
 
@@ -12750,6 +12732,9 @@
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const remediationStatusCol = findColumn(headers, ['remediation', 'status'], ['note']);
       const contactDateCol = findOutreachDateColumn(headers);
+      const canFilterOutreach = typeof canMeasureOutreachAttempt === 'function'
+        ? canMeasureOutreachAttempt(headers)
+        : Boolean(contactDateCol);
       const hasLotWeedingRequestData = getLotWeedingRequests().length > 0 ||
         Boolean(findLotWeedingRequestColumns(headers).requestedCol) ||
         Boolean(findLotWeedingRequestColumns(headers).statusCol);
@@ -12847,14 +12832,14 @@
             <option value="" ${currentCaptainFilter === '' ? 'selected' : ''}>(not specified)</option>
             ${captainNames.map(name => `<option value="${escapeHtml(name).replace(/"/g, '&quot;')}" ${currentCaptainFilter === name ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}
           </select>` : ''}
-          ${(contactDateCol || hasCentralSalesData) ? `
+          ${(canFilterOutreach || hasCentralSalesData) ? `
           <div class="contact-filter-group filter-more-checkboxes">
-            ${contactDateCol ? `
-            <label class="contact-filter-checkbox" title="View only addresses where at least one outreach attempt has been logged.">
+            ${canFilterOutreach ? `
+            <label class="contact-filter-checkbox" title="View addresses you've already reached out to, including people marked Successfully Contacted.">
               <input type="checkbox" id="persistentShowContactedCheckbox" ${showContactedAddresses ? 'checked' : ''}>
               <span>Show outreach-tried addresses</span>
             </label>
-            <label class="contact-filter-checkbox" title="View addresses where no outreach attempt has been logged yet.">
+            <label class="contact-filter-checkbox" title="View addresses with no outreach attempt and no successful contact yet.">
               <input type="checkbox" id="persistentShowUncontactedCheckbox" ${showUncontactedAddresses ? 'checked' : ''}>
               <span>Show no-outreach-yet addresses</span>
             </label>
@@ -13111,12 +13096,7 @@
             }
           }
         }
-        // Contact status filter
-        if (contactDateCol) {
-          const isContacted = isAddressContacted(addr);
-          if (isContacted && !showContactedAddresses) return false;
-          if (!isContacted && !showUncontactedAddresses) return false;
-        }
+        if (!addressMatchesOutreachVisibility(addr)) return false;
         if (currentEpicFilter !== 'all' && !addressMatchesEpicFilter(addr)) {
           return false;
         }
@@ -13468,7 +13448,6 @@
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const remediationStatusCol = findColumn(headers, ['remediation', 'status'], ['note']);
-      const contactDateCol = findOutreachDateColumn(headers);
       const captainAssignedCol = findColumn(headers, 'captain assigned');
       
       return addresses.filter(addr => {
@@ -13517,11 +13496,7 @@
             if (currentCaptainFilter !== '') return false;
           }
         }
-        if (contactDateCol) {
-          const isContacted = isAddressContacted(addr);
-          if (isContacted && !showContactedAddresses) return false;
-          if (!isContacted && !showUncontactedAddresses) return false;
-        }
+        if (!addressMatchesOutreachVisibility(addr)) return false;
         if (currentEpicFilter !== 'all' && !addressMatchesEpicFilter(addr)) {
           return false;
         }
@@ -14013,7 +13988,6 @@
       const headers = sheetData.headers;
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const remediationStatusCol = findColumn(headers, ['remediation', 'status'], ['note']);
-      const contactDateCol = findOutreachDateColumn(headers);
       
       const filteredAddresses = addresses.filter(addr => {
         // Street filter
@@ -14085,12 +14059,7 @@
             }
           }
         }
-        // Contact status filter
-        if (contactDateCol) {
-          const isContacted = isAddressContacted(addr);
-          if (isContacted && !showContactedAddresses) return false;
-          if (!isContacted && !showUncontactedAddresses) return false;
-        }
+        if (!addressMatchesOutreachVisibility(addr)) return false;
         if (currentEpicFilter !== 'all' && !addressMatchesEpicFilter(addr)) {
           return false;
         }
@@ -21508,7 +21477,6 @@
       // Get filtered addresses (same logic as displayAddressTable)
       const addresses = Array.from(sheetData.addressMap.keys());
       const headers = sheetData.headers;
-      const contactDateCol = findOutreachDateColumn(headers);
       const filteredAddresses = addresses.filter(address => {
         // Street filter
         if (currentStreetFilter !== 'all') {
@@ -21582,11 +21550,7 @@
         }
         
         // Contact status filter
-        if (contactDateCol) {
-          const isContacted = isAddressContacted(address);
-          if (isContacted && !showContactedAddresses) return false;
-          if (!isContacted && !showUncontactedAddresses) return false;
-        }
+        if (!addressMatchesOutreachVisibility(address)) return false;
         if (currentEpicFilter !== 'all' && !addressMatchesEpicFilter(address)) {
           return false;
         }
@@ -21938,20 +21902,6 @@
       const formerResidentCol = getFormerResidentColumn(headers);
       const activeData = data.filter(row => !isFormerResidentRow(row, formerResidentCol));
       const activeRealResidentData = activeData.filter(row => !isAddressPlaceholder(row, headers));
-
-      // Find relevant columns
-      const lastContactCol = typeof findOutreachDateColumn === 'function'
-        ? findOutreachDateColumn(headers)
-        : headers.find(h => {
-            if (isSuccessfullyContactedColumn(h)) return false;
-            const lower = h.toLowerCase();
-            return lower === 'last contact date' ||
-              lower === 'last outreach attempt date' ||
-              lower.includes('last contact') ||
-              lower.includes('last outreach') ||
-              lower.includes('contact date') ||
-              lower.includes('outreach date');
-          });
       const damageCol = findColumn(headers, 'damage');
       const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
 
@@ -21959,7 +21909,9 @@
       let peopleContacted = 0;
       let peopleNotContacted = 0;
       activeRealResidentData.forEach(row => {
-        const hasContact = lastContactCol && row[lastContactCol] && String(row[lastContactCol]).trim().length > 0;
+        const hasContact = typeof hasPersonOutreachAttempt === 'function'
+          ? hasPersonOutreachAttempt(row, headers)
+          : false;
         if (hasContact) {
           peopleContacted++;
         } else {
@@ -22016,7 +21968,7 @@
         const address = buildAddressString(row, addressColumns);
         if (address) {
           households.add(address);
-          const hasContact = lastContactCol && row[lastContactCol] && String(row[lastContactCol]).trim().length > 0;
+          const hasContact = typeof hasPersonOutreachAttempt === 'function' && hasPersonOutreachAttempt(row, headers);
           if (hasContact) {
             householdsContacted.add(address);
           }
@@ -22818,33 +22770,30 @@
 
     // Get chart data functions
     function getAddressesContactedData(headers, data) {
+      const addressMap = sheetData && sheetData.addressMap;
+      if (addressMap && addressMap.size > 0) {
+        let contacted = 0;
+        addressMap.forEach((_rows, address) => {
+          if (isAddressContacted(address)) contacted++;
+        });
+        return {
+          contacted,
+          notContacted: addressMap.size - contacted
+        };
+      }
+
       const formerResidentCol = getFormerResidentColumn(headers);
       const activeData = (data || []).filter(row => !isFormerResidentRow(row, formerResidentCol));
-      const lastContactCol = typeof findOutreachDateColumn === 'function'
-        ? findOutreachDateColumn(headers)
-        : headers.find(h => {
-            if (isSuccessfullyContactedColumn(h)) return false;
-            const lower = h.toLowerCase();
-            return lower === 'last contact date' ||
-              lower === 'last outreach attempt date' ||
-              lower.includes('last contact') ||
-              lower.includes('last outreach') ||
-              lower.includes('contact date') ||
-              lower.includes('outreach date');
-          });
       const addressColumns = findAddressColumns(headers);
-
       const households = new Set();
       const householdsContacted = new Set();
 
       activeData.forEach(row => {
         const address = buildAddressString(row, addressColumns);
-        if (address) {
-          households.add(address);
-          const hasContact = lastContactCol && row[lastContactCol] && String(row[lastContactCol]).trim().length > 0;
-          if (hasContact) {
-            householdsContacted.add(address);
-          }
+        if (!address) return;
+        households.add(address);
+        if (typeof hasPersonOutreachAttempt === 'function' && hasPersonOutreachAttempt(row, headers)) {
+          householdsContacted.add(address);
         }
       });
 
@@ -23309,17 +23258,6 @@
       const addressMap = sheetData.addressMap;
       const totalAddresses = addressMap.size;
 
-      // Locate relevant columns
-      const contactCol = findColumn(headers, ['last', 'contact']) ||
-                         findColumn(headers, ['last', 'outreach']) ||
-                         headers.find(h => {
-                           const l = h.toLowerCase();
-                           return l === 'last contact date' ||
-                                  l === 'last outreach attempt date' ||
-                                  l === 'contacted' ||
-                                  l.includes('contacted') ||
-                                  l.includes('outreach');
-                         }) || null;
       const damageCol = findColumn(headers, 'damage');
       const formerResidentCol = getFormerResidentColumn(headers);
       const centralSalesAvailable = salesCentralState.configured && salesCentralState.loaded;
@@ -23335,14 +23273,7 @@
         const activeResidents = getActiveRealResidentRows(residents, headers, formerResidentCol);
         totalPeople += activeResidents.length;
 
-        // Outreach attempted: any resident has a non-empty outreach date
-        if (contactCol) {
-          const hasContact = activeResidents.some(row => {
-            const val = (row[contactCol] || '').trim();
-            return val !== '' && val !== '—';
-          });
-          if (hasContact) contactedCount++;
-        }
+        if (isAddressContacted(address)) contactedCount++;
 
         // Damage status buckets from address-level value.
         if (damageCol) {
@@ -23364,7 +23295,10 @@
       const contactedPct = totalAddresses > 0
         ? Math.round((contactedCount / totalAddresses) * 100)
         : 0;
-      const contactedDisplay = contactCol
+      const canMeasureOutreach = typeof canMeasureOutreachAttempt === 'function'
+        ? canMeasureOutreachAttempt(headers)
+        : true;
+      const contactedDisplay = canMeasureOutreach
         ? `${contactedCount} of ${totalAddresses} (${contactedPct}%)`
         : '—';
 
@@ -23987,6 +23921,9 @@
           const displayName = getBatchPersonDisplayName(row, rowIndex);
           const residentId = row && row['resident_id'] != null ? String(row['resident_id']).trim() : '';
           const lastContactRaw = getTrimmedCellValue(row, contactDateCol);
+          const hasOutreachAttempt = typeof hasPersonOutreachAttempt === 'function'
+            ? hasPersonOutreachAttempt(row, headers)
+            : Boolean(lastContactRaw);
           const isFormerResident = formerResidentCol ? isTruthySheetCheckbox(row[formerResidentCol]) : false;
           return {
             key: String(originalIndex),
@@ -23997,6 +23934,7 @@
             originalIndex,
             residentId,
             lastContactRaw,
+            hasOutreachAttempt,
             isFormerResident,
             hasEmail: rowHasEmail(row)
           };
@@ -24198,7 +24136,7 @@
             const addressMatch = person.address.toLowerCase().includes(searchText);
             if (!nameMatch && !addressMatch) return false;
           }
-          const hasContact = Boolean(person.lastContactRaw);
+          const hasContact = Boolean(person.hasOutreachAttempt);
           if (contactStatus === 'contacted' && !hasContact) return false;
           if (contactStatus === 'not_contacted' && hasContact) return false;
           if (emailOnly && !person.hasEmail) return false;
@@ -25044,6 +24982,11 @@
             if (successfullyContactedValue && successfullyContactedCol && row) {
               row[successfullyContactedCol] = successfullyContactedWriteValue;
             }
+            if (person && row) {
+              person.hasOutreachAttempt = typeof hasPersonOutreachAttempt === 'function'
+                ? hasPersonOutreachAttempt(row, headers)
+                : Boolean(person.lastContactRaw);
+            }
             if (newsletterValue && newsletterCol && row) {
               row[newsletterCol] = newsletterWriteValue;
             }
@@ -25542,9 +25485,9 @@
           let include = false;
           
           if (type === 'uncontacted') {
-            // Check if this person/household is uncontacted
-            const hasContactDate = contactDateCol && row[contactDateCol] && String(row[contactDateCol]).trim() !== '';
-            include = !hasContactDate;
+            include = typeof hasPersonOutreachAttempt === 'function'
+              ? !hasPersonOutreachAttempt(row, headers)
+              : !(contactDateCol && row[contactDateCol] && String(row[contactDateCol]).trim() !== '');
           } else if (type === 'followup') {
             // Check if this person needs follow-up
             if (followupCol) {
@@ -25673,10 +25616,12 @@
           }
           
           // Filter by contact status
-          if (contactFilter !== 'all' && contactDateCol) {
-            const hasContactDate = row[contactDateCol] && String(row[contactDateCol]).trim() !== '';
-            if (contactFilter === 'contacted' && !hasContactDate) return;
-            if (contactFilter === 'uncontacted' && hasContactDate) return;
+          if (contactFilter !== 'all') {
+            const hasContact = typeof hasPersonOutreachAttempt === 'function'
+              ? hasPersonOutreachAttempt(row, headers)
+              : Boolean(contactDateCol && row[contactDateCol] && String(row[contactDateCol]).trim() !== '');
+            if (contactFilter === 'contacted' && !hasContact) return;
+            if (contactFilter === 'uncontacted' && hasContact) return;
           }
           
           // Filter by follow-up
@@ -26406,12 +26351,9 @@
             const damage = getAddressDamage(address);
             const addressPlan = getAddressPlan(address);
             const statusDisplay = addressPlan || '';
-            const isContacted = rows.some(row => {
-              if (contactDateCol && row[contactDateCol]) {
-                return String(row[contactDateCol]).trim() !== '';
-              }
-              return false;
-            });
+            const isContacted = typeof isAddressContacted === 'function'
+              ? isAddressContacted(address)
+              : rows.some(row => typeof hasPersonOutreachAttempt === 'function' && hasPersonOutreachAttempt(row, headers));
             
             return `
               <div class="zone-report-subsection" style="margin-bottom: 24px; padding: 16px; background: rgba(96, 108, 56, 0.03); border-radius: 6px;">
@@ -26535,14 +26477,17 @@
         }
         
         // Contact analysis
-        let isContacted = false;
+        let isContacted = activeRows.some(row =>
+          typeof hasPersonOutreachAttempt === 'function'
+            ? hasPersonOutreachAttempt(row, headers)
+            : Boolean(contactDateCol && row[contactDateCol] && String(row[contactDateCol]).trim())
+        );
         let lastContactDate = null;
         
         activeRows.forEach(row => {
           if (contactDateCol && row[contactDateCol]) {
             const dateStr = String(row[contactDateCol]).trim();
             if (dateStr) {
-              isContacted = true;
               const contactDate = parseDate(dateStr);
               if (contactDate && (!lastContactDate || contactDate > lastContactDate)) {
                 lastContactDate = contactDate;

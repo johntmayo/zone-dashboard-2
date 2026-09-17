@@ -519,6 +519,54 @@ function findOutreachLogColumn(headers) {
   }) || null;
 }
 
+function isBlankOutreachValue(value) {
+  const text = String(value == null ? '' : value).trim();
+  return text === '' || text === '—' || text === '-';
+}
+
+function isSuccessfullyContactedValue(value) {
+  if (value === true || value === 1) return true;
+  const normalized = String(value == null ? '' : value).trim().toLowerCase();
+  return normalized === 'true' || normalized === 'yes' || normalized === 'y' || normalized === '1';
+}
+
+function findSuccessfullyContactedHeader(headers) {
+  if (!headers || !Array.isArray(headers)) return null;
+  return headers.find(isSuccessfullyContactedHeader) || null;
+}
+
+/**
+ * Volunteer-facing "have we been in touch?" check for one person.
+ * Counts as outreach if Successfully Contacted is checked, or if an
+ * outreach date or log note is present. Does not write any fields.
+ *
+ * @param {Object} row
+ * @param {string[]} headers
+ * @returns {boolean}
+ */
+function hasPersonOutreachAttempt(row, headers) {
+  if (!row || !Array.isArray(headers)) return false;
+
+  const dateCol = findOutreachDateColumn(headers);
+  if (dateCol && !isBlankOutreachValue(row[dateCol])) return true;
+
+  const logCol = findOutreachLogColumn(headers);
+  if (logCol && !isBlankOutreachValue(row[logCol])) return true;
+
+  const successfullyContactedCol = findSuccessfullyContactedHeader(headers);
+  if (successfullyContactedCol && isSuccessfullyContactedValue(row[successfullyContactedCol])) return true;
+
+  return false;
+}
+
+function canMeasureOutreachAttempt(headers) {
+  return Boolean(
+    findOutreachDateColumn(headers) ||
+    findOutreachLogColumn(headers) ||
+    findSuccessfullyContactedHeader(headers)
+  );
+}
+
 /**
  * Show an element by removing hidden class or setting display style
  * @param {string|HTMLElement} element - Element ID or element reference
@@ -576,5 +624,18 @@ function toggleElement(element, force = null, displayType = 'block') {
   } else {
     hideElement(el);
   }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    isSuccessfullyContactedHeader,
+    isSuccessfullyContactedValue,
+    isBlankOutreachValue,
+    findOutreachDateColumn,
+    findOutreachLogColumn,
+    findSuccessfullyContactedHeader,
+    hasPersonOutreachAttempt,
+    canMeasureOutreachAttempt
+  };
 }
 
