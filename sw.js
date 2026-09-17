@@ -4,7 +4,7 @@
  */
 'use strict';
 
-const SW_VERSION = 'zd-shell-v7';
+const SW_VERSION = 'zd-shell-v8';
 const SHELL_CACHE = `shell-${SW_VERSION}`;
 
 // Same-origin assets safe to precache. Do NOT precache `/` (the dashboard HTML) —
@@ -12,7 +12,7 @@ const SHELL_CACHE = `shell-${SW_VERSION}`;
 const PRECACHE_URLS = [
   '/manifest.webmanifest',
   '/public/css/styles.css?v=3',
-  '/public/js/utils.js?v=2',
+  '/public/js/utils.js?v=3',
   '/public/js/address-id.js',
   '/public/js/resident-placeholder.js',
   '/public/js/contact-checkin.js',
