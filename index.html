@@ -290,6 +290,14 @@
                       <span class="zone-stat-number" id="statSoldSinceFire">—</span>
                       <span class="zone-stat-label">Sold Since Fire</span>
                     </div>
+                    <div class="zone-stat-item zone-stat-item--epic">
+                      <span class="zone-stat-number" id="statDamagedWithEpic">—</span>
+                      <span class="zone-stat-label">Damaged with County Records</span>
+                    </div>
+                    <div class="zone-stat-item zone-stat-item--epic">
+                      <span class="zone-stat-number" id="statEpicAttention">—</span>
+                      <span class="zone-stat-label">Addresses Needing Attention</span>
+                    </div>
                   </div>
                 </div>
                 <div class="zone-overview-charts hidden" id="zoneOverviewCharts">
@@ -332,8 +340,8 @@
                           <canvas id="zoneOverviewRightDamageChart"></canvas>
                         </div>
                         <div class="chart-container-small chart-carousel-slide" data-chart-index="1">
-                          <div class="chart-title">Build Status</div>
-                          <canvas id="zoneOverviewRightRebuildChart"></canvas>
+                          <div class="chart-title">Damaged + County Records</div>
+                          <canvas id="zoneOverviewRightEpicCoverageChart"></canvas>
                         </div>
                         <div class="chart-container-small chart-carousel-slide" data-chart-index="2">
                           <div class="chart-title">Address Plan</div>
@@ -1613,6 +1621,7 @@
       byApnHasRecords: new Map(),
       byApnMilestone: new Map(),
       byApnHasTempHousing: new Map(),
+      byApnPayload: new Map(),
       lastSyncedAt: '',
       summary: null
     };
@@ -12345,6 +12354,7 @@
       epicPresenceState.byApnHasRecords = new Map();
       epicPresenceState.byApnMilestone = new Map();
       epicPresenceState.byApnHasTempHousing = new Map();
+      epicPresenceState.byApnPayload = new Map();
       epicPresenceState.lastSyncedAt = '';
       epicPresenceState.summary = null;
     }
@@ -12388,6 +12398,37 @@
       });
     }
 
+    function isEpicDateWithinDays(value, days) {
+      if (!value) return false;
+      const time = new Date(value).getTime();
+      if (!Number.isFinite(time)) return false;
+      const age = Date.now() - time;
+      return age >= 0 && age <= days * 86400000;
+    }
+
+    function isFireDamagedAddress(address) {
+      const damage = String(getAddressDamage(address) || '').trim().toLowerCase();
+      return damage === 'total loss' || damage === 'partial loss';
+    }
+
+    function getEpicFactsForApn(apn) {
+      const payload = epicPresenceState.byApnPayload.get(apn) || null;
+      const rebuildCases = Array.isArray(payload && payload.cases_rebuild) ? payload.cases_rebuild : [];
+      const tempCases = Array.isArray(payload && payload.cases_temp_housing) ? payload.cases_temp_housing : [];
+      const cases = rebuildCases.concat(tempCases);
+      const statuses = cases.map((record) => String(record && record.status || '').trim().toLowerCase());
+      return {
+        hasRecords: cases.length > 0,
+        hasTempHousing: tempCases.length > 0,
+        milestone: epicPresenceState.byApnMilestone.get(apn) || '',
+        needsAttention: statuses.some((status) => status.includes('waiting for applicant') || status.includes('hold')),
+        hasIssuedPermit: cases.some((record) => Boolean(record && record.issuance_date_iso)),
+        appliedLast30: cases.some((record) => isEpicDateWithinDays(record && record.apply_date_iso, 30)),
+        issuedLast30: cases.some((record) => isEpicDateWithinDays(record && record.issuance_date_iso, 30)),
+        inspectedLast30: cases.some((record) => isEpicDateWithinDays(record && record.last_inspection_date_iso, 30))
+      };
+    }
+
     function computeEpicHomepageSummaryFromState() {
       const addressApns = collectZoneAddressApns();
       const milestoneCounts = {};
@@ -12397,18 +12438,57 @@
       let withAnyEpic = 0;
       let withRebuildEpic = 0;
       let withTempHousing = 0;
+      let damagedAddresses = 0;
+      let damagedWithEpic = 0;
+      let damagedWithoutEpic = 0;
+      let damagedMissingApn = 0;
+      let damagedWithIssuedPermit = 0;
+      let damagedConstruction = 0;
+      let damagedCompleted = 0;
+      let attentionAddresses = 0;
+      let damagedAttention = 0;
+      let issuedPermitAddresses = 0;
+      let appliedLast30 = 0;
+      let issuedLast30 = 0;
+      let inspectedLast30 = 0;
+      let recentActivityAddresses = 0;
 
-      addressApns.forEach(({ apn }) => {
+      addressApns.forEach(({ address, apn }) => {
+        const isDamaged = isFireDamagedAddress(address);
+        if (isDamaged) damagedAddresses += 1;
         if (!apn) {
           missingApn += 1;
+          if (isDamaged) damagedMissingApn += 1;
           return;
         }
         withApn += 1;
-        if (epicPresenceState.byApnHasRecords.get(apn) === true) withAnyEpic += 1;
-        if (epicPresenceState.byApnHasTempHousing.get(apn) === true) withTempHousing += 1;
-        const milestone = epicPresenceState.byApnMilestone.get(apn) || '';
+        const facts = getEpicFactsForApn(apn);
+        if (facts.hasRecords) {
+          withAnyEpic += 1;
+          if (isDamaged) damagedWithEpic += 1;
+        } else if (isDamaged) {
+          damagedWithoutEpic += 1;
+        }
+        if (facts.hasTempHousing) withTempHousing += 1;
+        if (facts.needsAttention) {
+          attentionAddresses += 1;
+          if (isDamaged) damagedAttention += 1;
+        }
+        if (facts.hasIssuedPermit) {
+          issuedPermitAddresses += 1;
+          if (isDamaged) damagedWithIssuedPermit += 1;
+        }
+        if (facts.appliedLast30) appliedLast30 += 1;
+        if (facts.issuedLast30) issuedLast30 += 1;
+        if (facts.inspectedLast30) inspectedLast30 += 1;
+        if (facts.appliedLast30 || facts.issuedLast30 || facts.inspectedLast30) {
+          recentActivityAddresses += 1;
+        }
+        const milestone = facts.milestone;
         if (milestone) {
           withRebuildEpic += 1;
+          if (isDamaged && milestone === 'construction_underway') damagedConstruction += 1;
+          if (isDamaged && milestone === 'construction_completed') damagedCompleted += 1;
           if (Object.prototype.hasOwnProperty.call(milestoneCounts, milestone)) {
             milestoneCounts[milestone] += 1;
           }
@@ -12424,6 +12504,21 @@
         withRebuildEpic,
         withTempHousing,
         pctOfZone: totalAddresses > 0 ? Math.round((withAnyEpic / totalAddresses) * 100) : 0,
+        damagedAddresses,
+        damagedWithEpic,
+        damagedWithoutEpic,
+        damagedMissingApn,
+        damagedWithIssuedPermit,
+        damagedConstruction,
+        damagedCompleted,
+        damagedAttention,
+        attentionAddresses,
+        issuedPermitAddresses,
+        appliedLast30,
+        issuedLast30,
+        inspectedLast30,
+        recentActivityAddresses,
+        damagedCoveragePct: damagedAddresses > 0 ? Math.round((damagedWithEpic / damagedAddresses) * 100) : 0,
         milestones: HOMEPAGE_EPIC_MILESTONES.map((m) => ({
           key: m.key,
           label: m.label,
@@ -12443,6 +12538,7 @@
         epicPresenceState.byApnHasRecords = new Map();
         epicPresenceState.byApnMilestone = new Map();
         epicPresenceState.byApnHasTempHousing = new Map();
+        epicPresenceState.byApnPayload = new Map();
         epicPresenceState.summary = computeEpicHomepageSummaryFromState();
         return;
       }
@@ -12463,6 +12559,7 @@
       epicPresenceState.byApnHasRecords = new Map();
       epicPresenceState.byApnMilestone = new Map();
       epicPresenceState.byApnHasTempHousing = new Map();
+      epicPresenceState.byApnPayload = new Map();
       epicPresenceState.lastSyncedAt = '';
       epicPresenceState.summary = null;
 
@@ -12485,6 +12582,7 @@
           }
           const results = payload && payload.results ? payload.results : {};
           Object.entries(results).forEach(([apn, data]) => {
+            epicPresenceState.byApnPayload.set(apn, data || {});
             const total = data && data.counts ? Number(data.counts.total) || 0 : 0;
             const rebuildCount = data && data.counts ? Number(data.counts.rebuild) || 0 : ((data.cases_rebuild || []).length);
             const tempCount = data && data.counts ? Number(data.counts.temp_housing) || 0 : ((data.cases_temp_housing || []).length);
@@ -12520,12 +12618,42 @@
       if (currentEpicFilter === 'all') return true;
       if (!epicPresenceState.ready) return true;
       const apn = getAddressApnDigits(address);
+      if (currentEpicFilter === 'epic_missing_apn') return !apn;
       if (!apn) return false;
+      const facts = getEpicFactsForApn(apn);
+      const isDamaged = isFireDamagedAddress(address);
       if (currentEpicFilter === 'has_epic') {
-        return epicPresenceState.byApnHasRecords.get(apn) === true;
+        return facts.hasRecords;
+      }
+      if (currentEpicFilter === 'epic_damaged_has_epic') {
+        return isDamaged && facts.hasRecords;
+      }
+      if (currentEpicFilter === 'epic_damaged_no_epic') {
+        return isDamaged && !facts.hasRecords;
+      }
+      if (currentEpicFilter === 'epic_attention') {
+        return facts.needsAttention;
+      }
+      if (currentEpicFilter === 'epic_issued_any') {
+        return facts.hasIssuedPermit;
+      }
+      if (currentEpicFilter === 'epic_damaged_issued') {
+        return isDamaged && facts.hasIssuedPermit;
+      }
+      if (currentEpicFilter === 'epic_damaged_construction') {
+        return isDamaged && facts.milestone === 'construction_underway';
+      }
+      if (currentEpicFilter === 'epic_recent_application_30') {
+        return facts.appliedLast30;
+      }
+      if (currentEpicFilter === 'epic_recent_issuance_30') {
+        return facts.issuedLast30;
+      }
+      if (currentEpicFilter === 'epic_recent_inspection_30') {
+        return facts.inspectedLast30;
       }
       if (currentEpicFilter === 'epic_temp_housing') {
-        return epicPresenceState.byApnHasTempHousing.get(apn) === true;
+        return facts.hasTempHousing;
       }
       if (String(currentEpicFilter).indexOf('epic_') === 0) {
         const key = String(currentEpicFilter).slice(5);
@@ -12549,6 +12677,16 @@
       if (value === 'completed') return 'Cleaned requests';
       if (value === 'all_requests') return 'All requests';
       if (value === 'has_epic') return 'Has permitting records';
+      if (value === 'epic_damaged_has_epic') return 'Damaged + county record';
+      if (value === 'epic_damaged_no_epic') return 'Damaged + no county record';
+      if (value === 'epic_attention') return 'Waiting for applicant / hold';
+      if (value === 'epic_issued_any') return 'Issued permit on file';
+      if (value === 'epic_damaged_issued') return 'Damaged + issued permit';
+      if (value === 'epic_damaged_construction') return 'Damaged + construction label';
+      if (value === 'epic_recent_application_30') return 'Application filed in last 30 days';
+      if (value === 'epic_recent_issuance_30') return 'Permit issued in last 30 days';
+      if (value === 'epic_recent_inspection_30') return 'Latest inspection in last 30 days';
+      if (value === 'epic_missing_apn') return 'Missing APN';
       if (value === 'epic_application_or_plans') return 'Application / plans';
       if (value === 'epic_permit_issued') return 'Permit issued';
       if (value === 'epic_construction_underway') return 'Construction underway';
@@ -12816,11 +12954,21 @@
           <select id="persistentEpicFilter" class="${currentEpicFilter !== 'all' ? 'filter-active' : ''}" title="Filter addresses by EPIC-LA permitting records.">
             <option value="all" ${currentEpicFilter === 'all' ? 'selected' : ''}>All EPIC</option>
             <option value="has_epic" ${currentEpicFilter === 'has_epic' ? 'selected' : ''}>Has permitting records</option>
+            <option value="epic_damaged_has_epic" ${currentEpicFilter === 'epic_damaged_has_epic' ? 'selected' : ''}>Damaged + county record</option>
+            <option value="epic_damaged_no_epic" ${currentEpicFilter === 'epic_damaged_no_epic' ? 'selected' : ''}>Damaged + no county record</option>
+            <option value="epic_damaged_issued" ${currentEpicFilter === 'epic_damaged_issued' ? 'selected' : ''}>Damaged + issued permit</option>
+            <option value="epic_damaged_construction" ${currentEpicFilter === 'epic_damaged_construction' ? 'selected' : ''}>Damaged + construction label</option>
+            <option value="epic_attention" ${currentEpicFilter === 'epic_attention' ? 'selected' : ''}>Waiting for applicant / hold</option>
+            <option value="epic_issued_any" ${currentEpicFilter === 'epic_issued_any' ? 'selected' : ''}>Issued permit on file</option>
+            <option value="epic_recent_application_30" ${currentEpicFilter === 'epic_recent_application_30' ? 'selected' : ''}>Application filed in last 30 days</option>
+            <option value="epic_recent_issuance_30" ${currentEpicFilter === 'epic_recent_issuance_30' ? 'selected' : ''}>Permit issued in last 30 days</option>
+            <option value="epic_recent_inspection_30" ${currentEpicFilter === 'epic_recent_inspection_30' ? 'selected' : ''}>Latest inspection in last 30 days</option>
             <option value="epic_application_or_plans" ${currentEpicFilter === 'epic_application_or_plans' ? 'selected' : ''}>Application / plans under review</option>
             <option value="epic_permit_issued" ${currentEpicFilter === 'epic_permit_issued' ? 'selected' : ''}>Permit issued</option>
             <option value="epic_construction_underway" ${currentEpicFilter === 'epic_construction_underway' ? 'selected' : ''}>Construction underway</option>
             <option value="epic_construction_completed" ${currentEpicFilter === 'epic_construction_completed' ? 'selected' : ''}>Construction completed</option>
             <option value="epic_temp_housing" ${currentEpicFilter === 'epic_temp_housing' ? 'selected' : ''}>Temporary housing</option>
+            <option value="epic_missing_apn" ${currentEpicFilter === 'epic_missing_apn' ? 'selected' : ''}>Missing APN</option>
           </select>
           <span id="persistentEpicFilterStatus" class="filter-more-status">
             ${epicPresenceState.error
@@ -22181,20 +22329,20 @@
       }
     }
 
-    // Building & Rebuilding homepage panel (captain build status + EPIC + Address Plan)
+    // Building & Rebuilding homepage panel (EPIC-LA + zone damage data)
     function formatEpicSyncLabel(iso) {
-      if (!iso) return 'County data refresh time unavailable';
+      if (!iso) return 'EPIC-LA check time unavailable';
       const d = new Date(iso);
-      if (Number.isNaN(d.getTime())) return 'County data refresh time unavailable';
+      if (Number.isNaN(d.getTime())) return 'EPIC-LA check time unavailable';
       const now = new Date();
       const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const startThat = new Date(d.getFullYear(), d.getMonth(), d.getDate());
       const dayDiff = Math.round((startToday - startThat) / 86400000);
-      if (dayDiff <= 0) return 'County data refreshed today';
-      if (dayDiff === 1) return 'County data refreshed yesterday';
+      if (dayDiff <= 0) return 'Dashboard checked EPIC-LA today';
+      if (dayDiff === 1) return 'Dashboard checked EPIC-LA yesterday';
       const label = d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
       const stale = dayDiff >= 3 ? ' — sync may be behind' : '';
-      return 'County data last refreshed ' + label + stale;
+      return 'Dashboard last checked EPIC-LA ' + label + stale;
     }
 
     function escapeBrHtml(text) {
@@ -22289,7 +22437,7 @@
       }
     }
 
-    function renderBuildingRebuildingEpicSection(mount, captain) {
+    function renderBuildingRebuildingEpicSection(mount) {
       if (!mount) return;
       if (epicPresenceState.loading && !epicPresenceState.ready) {
         mount.innerHTML = '<p class="br-muted">Loading county permitting data…</p>';
@@ -22301,20 +22449,9 @@
       }
 
       const summary = epicPresenceState.summary || computeEpicHomepageSummaryFromState();
-      const total = captain.total || summary.totalAddresses || 0;
-
-      if (!summary.withAnyEpic) {
-        mount.innerHTML = [
-          '<p class="br-headline"><strong>No EPIC-LA permitting records</strong> are currently matched to addresses in this zone.</p>',
-          '<p class="br-note">County records are matched by APN and may not reflect all rebuilding activity.</p>',
-          summary.missingApn
-            ? '<p class="br-note">' + summary.missingApn + ' address' + (summary.missingApn === 1 ? '' : 'es') + ' could not be checked (missing APN).</p>'
-            : '',
-          '<p class="br-sync">' + escapeBrHtml(formatEpicSyncLabel(summary.lastSyncedAt)) + '</p>'
-        ].join('');
-        return;
-      }
-
+      const damagedTotal = summary.damagedAddresses || 0;
+      const damagedMatched = summary.damagedWithEpic || 0;
+      const coveragePct = summary.damagedCoveragePct || 0;
       const maxMilestone = Math.max(1, ...summary.milestones.map((m) => m.count));
       const rows = summary.milestones.map((m) => {
         const width = Math.round((m.count / maxMilestone) * 100);
@@ -22327,20 +22464,94 @@
         ].join('');
       }).join('');
 
+      const signalCard = (filter, value, label, detail, tone) => [
+        '<button type="button" class="br-signal-card br-signal-card--' + tone + '" data-br-epic="' + filter + '">',
+        '  <span class="br-signal-value">' + value + '</span>',
+        '  <span class="br-signal-label">' + label + '</span>',
+        '  <span class="br-signal-detail">' + detail + '</span>',
+        '</button>'
+      ].join('');
+
+      const activityCard = (filter, value, label) => [
+        '<button type="button" class="br-activity-card" data-br-epic="' + filter + '">',
+        '  <span class="br-activity-value">' + value + '</span>',
+        '  <span class="br-activity-label">' + label + '</span>',
+        '</button>'
+      ].join('');
+
       mount.innerHTML = [
-        '<button type="button" class="br-headline br-headline-btn" data-br-epic="has_epic">',
-        '  <strong>' + summary.withAnyEpic + ' of ' + total + ' addresses</strong> have county permitting records',
-        '  <span class="br-pct">' + summary.pctOfZone + '% of zone</span>',
-        '</button>',
-        '<div class="br-metric-list">' + rows + '</div>',
-        '<button type="button" class="br-temp-housing" data-br-epic="epic_temp_housing">',
-        '  <strong>Temporary housing permits:</strong> ' + summary.withTempHousing + ' address' + (summary.withTempHousing === 1 ? '' : 'es'),
-        '</button>',
-        '<p class="br-note">Matched by APN; absence of a record does not mean rebuilding is not happening.</p>',
+        '<div class="br-hero">',
+        '  <div class="br-hero-copy">',
+        '    <div class="br-kicker">County records × zone damage map</div>',
+        damagedTotal
+          ? (
+            '    <button type="button" class="br-hero-headline" data-br-epic="epic_damaged_has_epic">' +
+            '      <strong>' + damagedMatched + ' of ' + damagedTotal + ' damaged addresses</strong>' +
+            '      <span>have a matched EPIC-LA recovery case</span>' +
+            '    </button>'
+          )
+          : '    <p class="br-hero-headline"><strong>No addresses are currently marked Total or Partial Loss.</strong></p>',
+        '    <p class="br-hero-context">' + summary.withAnyEpic + ' of ' + summary.totalAddresses + ' addresses across the full zone have a matched county record.</p>',
+        '  </div>',
+        '  <button type="button" class="br-coverage-dial" data-br-epic="epic_damaged_has_epic" style="--br-coverage:' + coveragePct + '%" aria-label="View damaged addresses with county records">',
+        '    <strong>' + coveragePct + '%</strong>',
+        '    <span>damage<br>coverage</span>',
+        '  </button>',
+        '</div>',
+        '<div class="br-signal-grid">',
+        signalCard(
+          'epic_damaged_issued',
+          summary.damagedWithIssuedPermit,
+          'Issued permit on file',
+          'damaged address' + (summary.damagedWithIssuedPermit === 1 ? '' : 'es'),
+          'issued'
+        ),
+        signalCard(
+          'epic_damaged_construction',
+          summary.damagedConstruction,
+          'County-labeled construction',
+          'damaged address' + (summary.damagedConstruction === 1 ? '' : 'es'),
+          'construction'
+        ),
+        signalCard(
+          'epic_attention',
+          summary.attentionAddresses,
+          'May need attention',
+          'waiting for applicant or on hold',
+          summary.attentionAddresses ? 'attention' : 'quiet'
+        ),
+        '</div>',
+        '<div class="br-detail-grid">',
+        '  <section class="br-detail-section">',
+        '    <div class="br-section-heading">',
+        '      <div><span class="br-eyebrow">Recent dated activity</span><h3>Past 30 days</h3></div>',
+        '      <span class="br-section-note">Addresses, not case rows</span>',
+        '    </div>',
+        '    <div class="br-activity-grid">',
+        activityCard('epic_recent_application_30', summary.appliedLast30, 'Applications filed'),
+        activityCard('epic_recent_issuance_30', summary.issuedLast30, 'Permits issued'),
+        activityCard('epic_recent_inspection_30', summary.inspectedLast30, 'Latest inspection'),
+        '    </div>',
+        '  </section>',
+        '  <section class="br-detail-section">',
+        '    <div class="br-section-heading">',
+        '      <div><span class="br-eyebrow">Current snapshot</span><h3>Latest county label</h3></div>',
+        '      <span class="br-section-note">Advisory, not cumulative statistics</span>',
+        '    </div>',
+        '    <div class="br-metric-list">' + rows + '</div>',
+        '  </section>',
+        '</div>',
+        '<div class="br-utility-row">',
+        '  <button type="button" class="br-utility-link" data-br-epic="epic_damaged_no_epic"><strong>' + summary.damagedWithoutEpic + '</strong> damaged address' + (summary.damagedWithoutEpic === 1 ? '' : 'es') + ' with no matched record</button>',
+        '  <button type="button" class="br-utility-link" data-br-epic="epic_temp_housing"><strong>' + summary.withTempHousing + '</strong> temporary housing address' + (summary.withTempHousing === 1 ? '' : 'es') + '</button>',
         summary.missingApn
-          ? '<p class="br-note">' + summary.missingApn + ' address' + (summary.missingApn === 1 ? '' : 'es') + ' could not be checked (missing APN).</p>'
+          ? '  <button type="button" class="br-utility-link" data-br-epic="epic_missing_apn"><strong>' + summary.missingApn + '</strong> address' + (summary.missingApn === 1 ? '' : 'es') + ' not checked — missing APN</button>'
           : '',
-        '<p class="br-sync">' + escapeBrHtml(formatEpicSyncLabel(summary.lastSyncedAt)) + '</p>'
+        '</div>',
+        '<div class="br-data-note">',
+        '  <span>Matched by APN. No county match does not mean rebuilding is not happening.</span>',
+        '  <span>' + escapeBrHtml(formatEpicSyncLabel(summary.lastSyncedAt)) + '</span>',
+        '</div>'
       ].join('');
 
       Array.prototype.forEach.call(mount.querySelectorAll('[data-br-epic]'), (btn) => {
@@ -22354,7 +22565,7 @@
       const root = document.getElementById('buildingRebuildingContent');
       if (!root) return;
       if (!sheetData || !sheetData.data || !sheetData.addressMap || sheetData.data.length === 0) {
-        root.innerHTML = '<div class="empty">Load a spreadsheet to see building &amp; rebuilding status</div>';
+        root.innerHTML = '<div class="empty">Load a spreadsheet to see county rebuilding activity</div>';
         return;
       }
 
@@ -22362,85 +22573,31 @@
       if (rebuildStatusChart) { rebuildStatusChart.destroy(); rebuildStatusChart = null; }
       if (rebuildStatusFunnelChart) { rebuildStatusFunnelChart.destroy(); rebuildStatusFunnelChart = null; }
 
-      const captain = collectCaptainBuildSummary();
-      const maxStage = Math.max(1, ...captain.stages.map((s) => s.count));
-      const stageRows = captain.stages.map((s) => {
-        const width = Math.round((s.count / maxStage) * 100);
-        const filterVal = s.label === 'Not Started' ? s.label : s.label;
-        return [
-          '<button type="button" class="br-metric-row" data-br-rebuild="' + escapeBrHtml(filterVal) + '">',
-          '  <span class="br-metric-label">' + escapeBrHtml(s.label) + '</span>',
-          '  <span class="br-metric-track"><span class="br-metric-fill br-metric-fill--zone" style="width:' + width + '%"></span></span>',
-          '  <span class="br-metric-count">' + s.count + '</span>',
-          '</button>'
-        ].join('');
-      }).join('');
-
-      const planEntries = Object.keys(captain.planCounts).sort((a, b) => {
-        if (a === 'Not set') return 1;
-        if (b === 'Not set') return -1;
-        return captain.planCounts[b] - captain.planCounts[a];
-      });
-      const planChips = captain.addressPlanCol
-        ? planEntries.map((label) => {
-          return '<button type="button" class="br-plan-chip" data-br-plan="' + escapeBrHtml(label === 'Not set' ? '' : label) + '">' +
-            escapeBrHtml(label) + ' <strong>' + captain.planCounts[label] + '</strong></button>';
-        }).join('')
-        : '<span class="br-muted">Address Plan column not found in this zone sheet.</span>';
-
       root.innerHTML = [
-        '<div class="br-panel">',
-        '  <div class="br-columns">',
-        '    <section class="br-band br-band--zone">',
-        '      <div class="br-kicker">What you\'ve shared</div>',
-        captain.rebuildCol
-          ? (
-            '      <button type="button" class="br-headline br-headline-btn" data-br-rebuild="__known__">' +
-            '        <strong>' + captain.known + ' of ' + captain.total + ' addresses</strong> have a known build status' +
-            '        <span class="br-pct">' + captain.pctKnown + '% of zone</span>' +
-            '      </button>' +
-            '      <div class="br-metric-list">' + stageRows + '</div>'
-          )
-          : '      <p class="br-muted">Build Status column not found in this zone sheet.</p>',
-        '      <div class="br-plan-block">',
-        '        <div class="br-plan-label">Address Plan</div>',
-        '        <div class="br-plan-strip">' + planChips + '</div>',
-        '      </div>',
-        '    </section>',
-        '    <section class="br-band br-band--epic">',
-        '      <div class="br-kicker">What the county shows · EPIC-LA</div>',
-        '      <div id="brEpicSection"><p class="br-muted">Loading county permitting data…</p></div>',
-        '    </section>',
-        '  </div>',
+        '<div class="br-panel br-panel--county">',
+        '  <div id="brEpicSection"><p class="br-muted">Loading county permitting data…</p></div>',
         '  <div class="br-footer">',
-        '    <button type="button" class="br-explore" id="brExploreBuild">Explore build status →</button>',
+        '    <button type="button" class="br-explore" id="brExploreBuild">Explore county records →</button>',
         '  </div>',
         '</div>'
       ].join('');
 
-      Array.prototype.forEach.call(root.querySelectorAll('[data-br-rebuild]'), (btn) => {
-        btn.addEventListener('click', () => {
-          applyBuildingRebuildingExplore({ rebuildFilter: btn.getAttribute('data-br-rebuild') });
-        });
-      });
-      Array.prototype.forEach.call(root.querySelectorAll('[data-br-plan]'), (btn) => {
-        btn.addEventListener('click', () => {
-          applyBuildingRebuildingExplore({ addressPlanFilter: btn.getAttribute('data-br-plan') });
-        });
-      });
       const explore = document.getElementById('brExploreBuild');
       if (explore) {
         explore.addEventListener('click', () => {
-          applyBuildingRebuildingExplore({ rebuildFilter: '__known__', view: 'people' });
+          applyBuildingRebuildingExplore({ epicFilter: 'has_epic', view: 'people' });
         });
       }
 
       const epicMount = document.getElementById('brEpicSection');
-      renderBuildingRebuildingEpicSection(epicMount, captain);
+      renderBuildingRebuildingEpicSection(epicMount);
       ensureEpicPresenceMapLoaded().then(() => {
-        renderBuildingRebuildingEpicSection(document.getElementById('brEpicSection'), captain);
+        renderBuildingRebuildingEpicSection(document.getElementById('brEpicSection'));
+        updateZoneStatCards();
+        updateZoneOverviewCharts();
       }).catch(() => {
-        renderBuildingRebuildingEpicSection(document.getElementById('brEpicSection'), captain);
+        renderBuildingRebuildingEpicSection(document.getElementById('brEpicSection'));
+        updateZoneStatCards();
       });
     }
 
@@ -23150,19 +23307,29 @@
           }
         },
         {
-          canvasId: 'zoneOverviewRebuildChart',
+          canvasId: 'zoneOverviewEpicCoverageChart',
           render: () => {
-            const rebuildData = getRebuildStatusData(headers, addressMap);
-            if (rebuildData.labels.length === 0) return null;
-            const rebuildColors = rebuildData.labels.map((label, index) => getRebuildStageColor(label, index));
-            const labelsWithCount = rebuildData.labels.map((label, i) => `${label} (${rebuildData.data[i]})`);
+            if (!epicPresenceState.ready) return null;
+            const summary = epicPresenceState.summary || computeEpicHomepageSummaryFromState();
+            if (!summary.damagedAddresses) return null;
+            const labels = [
+              `County record (${summary.damagedWithEpic})`,
+              `No matched record (${summary.damagedWithoutEpic})`
+            ];
+            const values = [summary.damagedWithEpic, summary.damagedWithoutEpic];
+            const colors = ['#347072', '#e4e6e3'];
+            if (summary.damagedMissingApn) {
+              labels.push(`Missing APN (${summary.damagedMissingApn})`);
+              values.push(summary.damagedMissingApn);
+              colors.push('#d7956d');
+            }
             return {
               type: 'doughnut',
               data: {
-                labels: labelsWithCount,
+                labels,
                 datasets: [{
-                  data: rebuildData.data,
-                  backgroundColor: rebuildColors.slice(0, rebuildData.labels.length),
+                  data: values,
+                  backgroundColor: colors,
                   borderWidth: 2,
                   borderColor: '#fff'
                 }]
@@ -23177,10 +23344,10 @@
 
       // Map chart definitions to the correct canvas IDs for each carousel
       // LEFT: Addresses with Outreach Attempt (0), Streets Distribution (3), People per Address (4)
-      // RIGHT: Damage Status (1), Build Status (5), Address Plan (2)
+      // RIGHT: Damage Status (1), damaged-address EPIC coverage (5), Address Plan (2)
       const chartIndexMap = {
         'left': [0, 3, 4],  // Addresses with Outreach Attempt, Streets Distribution, People per Address
-        'right': [1, 5, 2]  // Damage Status, Build Status, Address Plan
+        'right': [1, 5, 2]  // Damage Status, EPIC coverage, Address Plan
       };
       
       const canvasIdMap = {
@@ -23191,7 +23358,7 @@
         ],
         'right': [
           'zoneOverviewRightDamageChart',
-          'zoneOverviewRightRebuildChart',
+          'zoneOverviewRightEpicCoverageChart',
           'zoneOverviewRightHouseholdChart'
         ]
       };
@@ -23309,6 +23476,21 @@
       document.getElementById('statStanding').textContent       = damageCol ? standingCount : '—';
       document.getElementById('statDamageNotSet').textContent   = damageCol ? damageNotSetCount : '—';
       document.getElementById('statSoldSinceFire').textContent  = centralSalesAvailable ? soldSinceFireCount : '—';
+      const epicSummary = epicPresenceState.ready
+        ? (epicPresenceState.summary || computeEpicHomepageSummaryFromState())
+        : null;
+      const damagedEpicEl = document.getElementById('statDamagedWithEpic');
+      const epicAttentionEl = document.getElementById('statEpicAttention');
+      if (damagedEpicEl) {
+        damagedEpicEl.textContent = epicSummary
+          ? `${epicSummary.damagedWithEpic} of ${epicSummary.damagedAddresses}`
+          : (epicPresenceState.error ? '—' : '…');
+      }
+      if (epicAttentionEl) {
+        epicAttentionEl.textContent = epicSummary
+          ? epicSummary.attentionAddresses
+          : (epicPresenceState.error ? '—' : '…');
+      }
 
       container.classList.remove('hidden');
     }
@@ -27319,14 +27501,22 @@
           if (d.labels.length === 0) return null;
           return { type: 'bar', data: { labels: d.labels, datasets: [{ label: 'Addresses', data: d.data, backgroundColor: '#afc892', borderColor: '#606C38', borderWidth: 1 }] }, options: { scales: { x: { ticks: { font: { size: 10 } } }, y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0, font: { size: 10 } } } } } };
         },
-        function() { // 5: Build Status
-          const d = getRebuildStatusData(headers, addressMap);
-          if (d.labels.length === 0) return null;
-          const c = d.labels.map(function(label, i) { return getRebuildStageColor(label, i); });
-          return { type: 'doughnut', data: { labels: d.labels.map(function(l, i) { return l + ' (' + d.data[i] + ')'; }), datasets: [{ data: d.data, backgroundColor: c.slice(0, d.labels.length), borderWidth: 2, borderColor: '#fff' }] }, options: { cutout: '60%' } };
+        function() { // 5: Damaged-address EPIC coverage
+          if (!epicPresenceState.ready) return null;
+          const s = epicPresenceState.summary || computeEpicHomepageSummaryFromState();
+          if (!s.damagedAddresses) return null;
+          const labels = ['County record (' + s.damagedWithEpic + ')', 'No matched record (' + s.damagedWithoutEpic + ')'];
+          const values = [s.damagedWithEpic, s.damagedWithoutEpic];
+          const colors = ['#347072', '#e4e6e3'];
+          if (s.damagedMissingApn) {
+            labels.push('Missing APN (' + s.damagedMissingApn + ')');
+            values.push(s.damagedMissingApn);
+            colors.push('#d7956d');
+          }
+          return { type: 'doughnut', data: { labels: labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] }, options: { cutout: '60%' } };
         }
       ];
-      // Mobile slot order: Contacted(0), Damage(1), Build(5), Plan(2), Streets(3), People(4)
+      // Mobile slot order: Contacted(0), Damage(1), EPIC coverage(5), Plan(2), Streets(3), People(4)
       const builderOrder = [0, 1, 5, 2, 3, 4];
       const builderIndex = builderOrder[slotIndex];
       if (builderIndex === undefined) return;
@@ -27517,7 +27707,7 @@
       var mobileChartTitles = [
         'Addresses with Outreach Attempt',
         'Damage Status',
-        'Build Status',
+        'Damaged + County Records',
         'Address Plan',
         'Streets Distribution',
         'People per Address'
