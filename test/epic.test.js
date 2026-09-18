@@ -219,7 +219,8 @@ test('homepage uses EPIC and damage signals instead of captain build-status repo
 
   assert.ok(panelStart > 0 && panelEnd > panelStart);
   assert.match(panel, /Explore county records/);
-  assert.match(html, /damaged addresses<\/strong>[\s\S]*?matched EPIC-LA recovery case/);
+  assert.match(html, /damaged addresses<\/strong>[\s\S]*?matched[\s\S]*?EPIC-LA[\s\S]*?recovery case/);
+  assert.match(html, /EPIC-LA<br>match rate/);
   assert.match(html, /Recent dated activity[\s\S]*?Past 30 days/);
   assert.match(html, /Waiting \/ on hold/);
   assert.match(html, /How matching works/);
@@ -238,11 +239,15 @@ test('homepage actions and Neighbors table surface address-level data', () => {
   const tableEnd = html.indexOf('// Setup export button handler', tableStart);
   const table = html.slice(tableStart, tableEnd);
 
-  assert.match(html, /id="statDamageNotSetAction"/);
+  assert.match(html, /id="zoneDamageLegend"/);
+  assert.match(html, /Partial Damage/);
+  assert.match(html, /id="zoneAddressPlanStrip"/);
+  assert.match(html, /id="zoneBuildStatusStrip"/);
   assert.match(html, /id="statMissingApnAction"/);
   assert.doesNotMatch(html, /id="zoneOverviewCharts"/);
   assert.doesNotMatch(html, /id="mobileZoneChartCarousel"/);
-  assert.match(table, />EPIC-LA<\/th>/);
+  assert.match(table, /data-source-tooltip="County Records">EPIC-LA<\/span>/);
+  assert.match(table, /data-source-tooltip="Your records">Address Plan<\/span>/);
   assert.doesNotMatch(table, />Apprx Age|>Phone<\/th>|>Email<\/th>/);
   assert.match(table, /getEpicTableDisplay\(addr\)/);
 });

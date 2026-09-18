@@ -731,7 +731,9 @@ test('service-worker ownership and automatic lot-line integration stay aligned',
   const root = path.join(__dirname, '..');
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const worker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
-  assert.match(worker, /const SW_VERSION = 'zd-shell-v6'/);
+  assert.match(worker, /const SW_VERSION = 'zd-shell-v9'/);
+  assert.match(html, /public\/css\/styles\.css\?v=4/);
+  assert.match(worker, /'\/public\/css\/styles\.css\?v=4'/);
   assert.match(worker, /'\/public\/js\/resident-placeholder\.js'/);
   assert.doesNotMatch(html, /shell-zd-shell-v4/);
   assert.doesNotMatch(html, /key !== 'shell-zd-shell-/);
@@ -760,8 +762,7 @@ test('service-worker ownership and automatic lot-line integration stay aligned',
 
   const referenceWording = 'Structure shapes update periodically and may be inaccurate.';
   const normalizedHtml = html.replace(/\s+/g, ' ');
-  assert.equal(normalizedHtml.split(referenceWording).length - 1, 2);
-  assert.match(html, /<p class="map-reference-note">[\s\S]*Structure shapes update periodically/);
+  assert.equal(normalizedHtml.split(referenceWording).length - 1, 1);
   assert.match(html,
     /L\.DomUtil\.create\('p', 'map-reference-note', panel\)[\s\S]*Structure shapes update periodically/);
 });
