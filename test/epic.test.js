@@ -221,12 +221,30 @@ test('homepage uses EPIC and damage signals instead of captain build-status repo
   assert.match(panel, /Explore county records/);
   assert.match(html, /damaged addresses<\/strong>[\s\S]*?matched EPIC-LA recovery case/);
   assert.match(html, /Recent dated activity[\s\S]*?Past 30 days/);
-  assert.match(html, /waiting for applicant or on hold/);
+  assert.match(html, /Waiting \/ on hold/);
+  assert.match(html, /How matching works/);
+  assert.match(html, /Without an APN, we cannot check the county data/);
+  assert.match(html, /Construction completed/);
   assert.match(html, /epic_recent_application_30/);
   assert.match(html, /epic_recent_issuance_30/);
   assert.match(html, /epic_recent_inspection_30/);
   assert.doesNotMatch(panel, /collectCaptainBuildSummary|data-br-rebuild|Address Plan/);
   assert.doesNotMatch(html, /<div class="chart-title">Build Status<\/div>/);
+});
+
+test('homepage actions and Neighbors table surface address-level data', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const tableStart = html.indexOf('// Display address table view for Addresses & People page');
+  const tableEnd = html.indexOf('// Setup export button handler', tableStart);
+  const table = html.slice(tableStart, tableEnd);
+
+  assert.match(html, /id="statDamageNotSetAction"/);
+  assert.match(html, /id="statMissingApnAction"/);
+  assert.doesNotMatch(html, /id="zoneOverviewCharts"/);
+  assert.doesNotMatch(html, /id="mobileZoneChartCarousel"/);
+  assert.match(table, />EPIC-LA<\/th>/);
+  assert.doesNotMatch(table, />Apprx Age|>Phone<\/th>|>Email<\/th>/);
+  assert.match(table, /getEpicTableDisplay\(addr\)/);
 });
 
 // --- Sync orchestrator with an in-memory Sheets fake ------------------------
