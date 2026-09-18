@@ -35,7 +35,7 @@
   <script src="https://unpkg.com/leaflet-kml@1.0.0/dist/leaflet-kml.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <link rel="stylesheet" href="public/css/styles.css?v=3">
+  <link rel="stylesheet" href="public/css/styles.css?v=4">
   <script src="public/js/utils.js?v=3"></script>
   <script src="public/js/address-id.js"></script>
   <script src="public/js/resident-placeholder.js"></script>
@@ -271,19 +271,13 @@
                       <span class="zone-stat-label">Addresses with Outreach Attempt</span>
                     </div>
                   </div>
-                  <div class="zone-stat-column">
-                    <div class="zone-stat-item">
-                      <span class="zone-stat-number" id="statTotalLoss">—</span>
-                      <span class="zone-stat-label">Total Loss</span>
+                  <div class="zone-stat-column zone-stat-column--damage">
+                    <div class="zone-damage-heading">
+                      <span>Fire Damage</span>
+                      <span id="zoneDamageAccounted">—</span>
                     </div>
-                    <div class="zone-stat-item">
-                      <span class="zone-stat-number" id="statStanding">—</span>
-                      <span class="zone-stat-label">Standing</span>
-                    </div>
-                    <button type="button" class="zone-stat-item zone-stat-item--action" id="statDamageNotSetAction">
-                      <span class="zone-stat-number" id="statDamageNotSet">—</span>
-                      <span class="zone-stat-label">Damage Not Set</span>
-                    </button>
+                    <div class="zone-damage-bar" id="zoneDamageBar" aria-label="Damage status across all zone addresses"></div>
+                    <div class="zone-damage-legend" id="zoneDamageLegend"></div>
                   </div>
                   <div class="zone-stat-column">
                     <div class="zone-stat-item">
@@ -292,13 +286,37 @@
                     </div>
                     <button type="button" class="zone-stat-item zone-stat-item--epic zone-stat-item--action" id="statDamagedWithEpicAction">
                       <span class="zone-stat-number" id="statDamagedWithEpic">—</span>
-                      <span class="zone-stat-label">Damaged with County Records</span>
+                      <span class="zone-stat-label"><span class="data-source-term" data-source-tooltip="County Records">EPIC-LA</span> · Damaged with County Records</span>
                     </button>
                     <button type="button" class="zone-stat-item zone-stat-item--action" id="statMissingApnAction">
                       <span class="zone-stat-number" id="statMissingApn">—</span>
                       <span class="zone-stat-label">APN Not Set</span>
                     </button>
                   </div>
+                </div>
+                <div class="zone-record-distributions hidden" id="zoneRecordDistributions">
+                  <section class="zone-distribution-card">
+                    <div class="zone-distribution-heading">
+                      <div>
+                        <h3><span class="data-source-term" tabindex="0" data-source-tooltip="Your records">Address Plan</span></h3>
+                        <p>Damaged addresses</p>
+                      </div>
+                      <span id="zoneAddressPlanTotal">—</span>
+                    </div>
+                    <div class="zone-distribution-strip" id="zoneAddressPlanStrip"></div>
+                    <div class="zone-distribution-legend" id="zoneAddressPlanLegend"></div>
+                  </section>
+                  <section class="zone-distribution-card">
+                    <div class="zone-distribution-heading">
+                      <div>
+                        <h3><span class="data-source-term" tabindex="0" data-source-tooltip="Your records">Build Status</span></h3>
+                        <p>Addresses planning to build</p>
+                      </div>
+                      <span id="zoneBuildStatusTotal">—</span>
+                    </div>
+                    <div class="zone-distribution-strip" id="zoneBuildStatusStrip"></div>
+                    <div class="zone-distribution-legend" id="zoneBuildStatusLegend"></div>
+                  </section>
                 </div>
 
                 <div class="zone-overview-footer hidden" id="zoneOverviewFooter" style="display:none;">
@@ -9635,6 +9653,18 @@
       return null;
     }
 
+    function addressMatchesDamageFilter(address, filterValue) {
+      const filter = filterValue == null ? currentDamageFilter : filterValue;
+      if (filter === 'all') return true;
+      const damage = String(getAddressDamage(address) || '').trim();
+      if (filter === '') return !damage || damage === '(not set)';
+      if (filter === '__fire_damaged__') {
+        const normalized = damage.toLowerCase();
+        return normalized === 'total loss' || normalized === 'partial loss';
+      }
+      return damage === filter;
+    }
+
     // Get Address Plan value for an address (only applies when Damage = Partial/Total Loss)
     function getAddressPlan(address) {
       const addressPlanCol = findColumn(sheetData.headers, ['address', 'plan'], ['note']);
@@ -12661,6 +12691,7 @@
 
     function formatFilterChipValue(value) {
       if (value === '') return '(not set)';
+      if (value === '__fire_damaged__') return 'Total or partial loss';
       if (value === '__known__') return 'Has known build status';
       if (value === 'sold_since_fire') return 'Sold since fire';
       if (value === 'pending') return 'Pending requests';
@@ -12905,6 +12936,7 @@
           </select>
           <select id="persistentDamageFilter" class="${currentDamageFilter !== 'all' ? 'filter-active' : ''}" title="The highest level of damage to any structure on this property (e.g., mark 'Partial' if a garage or ADU was lost but the house stands).">
             <option value="all" ${currentDamageFilter === 'all' ? 'selected' : ''}>All damage</option>
+            <option value="__fire_damaged__" ${currentDamageFilter === '__fire_damaged__' ? 'selected' : ''}>Total or partial loss</option>
             <option value="" ${currentDamageFilter === '' ? 'selected' : ''}>(not set)</option>
             ${damages.map(damage => `<option value="${damage.replace(/"/g, '&quot;')}" ${currentDamageFilter === damage ? 'selected' : ''}>${damage}</option>`).join('')}
           </select>
@@ -13186,15 +13218,7 @@
       const filteredAddresses = addresses.filter(addr => {
         if (currentStreetFilter !== 'all' && extractStreet(addr) !== currentStreetFilter) return false;
         if (!addressMatchesPersonSearch(addr, headers)) return false;
-        if (currentDamageFilter !== 'all') {
-          if (currentDamageFilter === '') {
-            // Filter for "(not set)" - addresses with no damage status
-            const damage = getAddressDamage(addr);
-            if (damage && damage.trim() !== '' && damage !== '(not set)') return false;
-          } else {
-            if (getAddressDamage(addr) !== currentDamageFilter) return false;
-          }
-        }
+        if (!addressMatchesDamageFilter(addr)) return false;
         if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(addr)) return false;
         if (!addressMatchesLotWeedingFilter(addr)) return false;
         if (currentAddressPlanFilter !== 'all') {
@@ -13281,9 +13305,9 @@
                 <th class="sortable" data-sort="residents" title="Click to sort">People ${tableSortColumn === 'residents' ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>
                 <th class="sortable" data-sort="address" title="Click to sort">Address ${tableSortColumn === 'address' ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>
                 ${damageCol ? `<th class="sortable" data-sort="${damageCol.toLowerCase()}" title="Click to sort">Damage ${tableSortColumn === damageCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
-                ${addressPlanCol ? `<th class="sortable" data-sort="${addressPlanCol.toLowerCase()}" title="Click to sort">Address Plan ${tableSortColumn === addressPlanCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
-                ${rebuildCol ? `<th class="address-table__build sortable" data-sort="${rebuildCol.toLowerCase()}" title="Click to sort">Build Status ${tableSortColumn === rebuildCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
-                <th class="address-table__epic">EPIC-LA</th>
+                ${addressPlanCol ? `<th class="sortable" data-sort="${addressPlanCol.toLowerCase()}" title="Click to sort"><span class="data-source-term data-source-term--on-dark" tabindex="0" data-source-tooltip="Your records">Address Plan</span> ${tableSortColumn === addressPlanCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
+                ${rebuildCol ? `<th class="address-table__build sortable" data-sort="${rebuildCol.toLowerCase()}" title="Click to sort"><span class="data-source-term data-source-term--on-dark" tabindex="0" data-source-tooltip="Your records">Build Status</span> ${tableSortColumn === rebuildCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
+                <th class="address-table__epic"><span class="data-source-term data-source-term--on-dark" tabindex="0" data-source-tooltip="County Records">EPIC-LA</span></th>
                 ${contactDateCol ? `<th class="address-table__outreach sortable" data-sort="${contactDateCol.toLowerCase()}" title="Click to sort">Last Outreach Attempt ${tableSortColumn === contactDateCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
               </tr>
             </thead>
@@ -13389,7 +13413,7 @@
         parts.push('Street: ' + (currentStreetFilter || '(not set)'));
       }
       if (currentDamageFilter !== 'all') {
-        parts.push('Damage: ' + (currentDamageFilter === '' ? '(not set)' : currentDamageFilter));
+        parts.push('Damage: ' + formatFilterChipValue(currentDamageFilter));
       }
       if (currentSalesFilter !== 'all') {
         parts.push('Sales: Sold Since Fire');
@@ -13590,14 +13614,7 @@
       return addresses.filter(addr => {
         if (currentStreetFilter !== 'all' && extractStreet(addr) !== currentStreetFilter) return false;
         if (!addressMatchesPersonSearch(addr, headers)) return false;
-        if (currentDamageFilter !== 'all') {
-          if (currentDamageFilter === '') {
-            const damage = getAddressDamage(addr);
-            if (damage && damage.trim() !== '' && damage !== '(not set)') return false;
-          } else {
-            if (getAddressDamage(addr) !== currentDamageFilter) return false;
-          }
-        }
+        if (!addressMatchesDamageFilter(addr)) return false;
         if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(addr)) return false;
         if (!addressMatchesLotWeedingFilter(addr)) return false;
         if (currentAddressPlanFilter !== 'all') {
@@ -14135,19 +14152,7 @@
           return false;
         }
         // Damage filter
-        if (currentDamageFilter !== 'all') {
-          const addrDamage = getAddressDamage(addr);
-          if (currentDamageFilter === '') {
-            // Filter for "(not set)" - addresses with no damage status
-            if (addrDamage && addrDamage.trim() !== '' && addrDamage !== '(not set)') {
-              return false;
-            }
-          } else {
-            if (addrDamage !== currentDamageFilter) {
-              return false;
-            }
-          }
-        }
+        if (!addressMatchesDamageFilter(addr)) return false;
         if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(addr)) {
           return false;
         }
@@ -21623,15 +21628,7 @@
         if (!addressMatchesPersonSearch(address, headers)) return false;
         
         // Damage filter
-        if (currentDamageFilter !== 'all') {
-          const damage = getAddressDamage(address);
-          if (currentDamageFilter === '') {
-            // Filter for "(not set)" - addresses with no damage status
-            if (damage && damage.trim() !== '' && damage !== '(not set)') return false;
-          } else {
-            if (damage !== currentDamageFilter) return false;
-          }
-        }
+        if (!addressMatchesDamageFilter(address)) return false;
         if (currentSalesFilter === 'sold_since_fire' && !getAddressSoldSinceFire(address)) {
           return false;
         }
@@ -22491,15 +22488,15 @@
           ? (
             '    <button type="button" class="br-hero-headline" data-br-epic="epic_damaged_has_epic">' +
             '      <strong>' + damagedMatched + ' of ' + damagedTotal + ' damaged addresses</strong>' +
-            '      <span>have a matched EPIC-LA recovery case</span>' +
+            '      <span>have a matched <span class="data-source-term data-source-term--on-dark" data-source-tooltip="County Records">EPIC-LA</span> recovery case</span>' +
             '    </button>'
           )
           : '    <p class="br-hero-headline"><strong>No addresses are currently marked Total or Partial Loss.</strong></p>',
         '    <p class="br-hero-context">' + summary.withAnyEpic + ' of ' + summary.totalAddresses + ' addresses across the full zone have a matched county record.</p>',
         '  </div>',
-        '  <button type="button" class="br-coverage-dial" data-br-epic="epic_damaged_has_epic" style="--br-coverage:' + coveragePct + '%" aria-label="View damaged addresses with county records">',
+        '  <button type="button" class="br-coverage-dial" data-br-epic="epic_damaged_has_epic" style="--br-coverage:' + coveragePct + '%" aria-label="' + damagedMatched + ' of ' + damagedTotal + ' damaged addresses have matched EPIC-LA records. View those addresses.">',
         '    <strong>' + coveragePct + '%</strong>',
-        '    <span>damage<br>coverage</span>',
+        '    <span>EPIC-LA<br>match rate</span>',
         '  </button>',
         '</div>',
         '<div class="br-signal-grid">',
@@ -23426,7 +23423,46 @@
       }
     }
 
-    // Update Zone Overview charts with carousel
+    function renderZoneDistribution(config) {
+      const strip = document.getElementById(config.stripId);
+      const legend = document.getElementById(config.legendId);
+      if (!strip || !legend) return;
+      const items = (config.items || []).filter((item) => item.count > 0 || config.keepZero);
+      const total = Number(config.total) || 0;
+
+      strip.innerHTML = total > 0
+        ? items.map((item, index) => {
+            const disabled = item.count <= 0 || !item.filters;
+            return '<button type="button" class="zone-distribution-segment" data-zone-distribution-index="' + index + '"' +
+              ' style="--zone-segment-color:' + item.color + ';--zone-segment-flex:' + item.count + '"' +
+              ' title="' + escapeBrHtml(item.count + ' ' + item.label + (disabled ? '' : ' — click to view')) + '"' +
+              ' aria-label="' + escapeBrHtml(item.label + ': ' + item.count) + '"' +
+              (disabled ? ' disabled' : '') + '></button>';
+          }).join('')
+        : '<span class="zone-distribution-empty">No records</span>';
+
+      legend.innerHTML = items.map((item, index) => {
+        const disabled = item.count <= 0 || !item.filters;
+        return '<button type="button" class="zone-distribution-legend-item' +
+          (item.action ? ' zone-distribution-legend-item--action' : '') +
+          '" data-zone-distribution-index="' + index + '"' + (disabled ? ' disabled' : '') + '>' +
+          '<span class="zone-distribution-swatch" style="--zone-segment-color:' + item.color + '"></span>' +
+          '<span class="zone-distribution-label">' + escapeBrHtml(item.label) + '</span>' +
+          '<strong>' + item.count + '</strong></button>';
+      }).join('');
+
+      [strip, legend].forEach((container) => {
+        container.querySelectorAll('[data-zone-distribution-index]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const item = items[Number(button.getAttribute('data-zone-distribution-index'))];
+            if (!item || !item.filters) return;
+            applyBuildingRebuildingExplore(Object.assign({ clearExisting: true }, item.filters));
+          });
+        });
+      });
+    }
+
+    // Update the Zone Overview metrics and compact visual distributions.
     function updateZoneStatCards() {
       const container = document.getElementById('zoneStatCards');
       if (!container) return;
@@ -23447,9 +23483,15 @@
       let totalPeople = 0;
       let contactedCount = 0;
       let totalLossCount = 0;
+      let partialLossCount = 0;
       let standingCount = 0;
       let damageNotSetCount = 0;
+      let otherDamageCount = 0;
       let soldSinceFireCount = 0;
+      const addressPlanCounts = {};
+      const buildStatusCounts = {};
+      let damagedAddressCount = 0;
+      let buildingPlanCount = 0;
 
       addressMap.forEach((residents, address) => {
         const activeResidents = getActiveRealResidentRows(residents, headers, formerResidentCol);
@@ -23465,8 +23507,23 @@
             damageNotSetCount++;
           } else if (dmgLower === 'total loss') {
             totalLossCount++;
+          } else if (dmgLower === 'partial loss') {
+            partialLossCount++;
           } else if (dmgLower.includes('standing')) {
             standingCount++;
+          } else {
+            otherDamageCount++;
+          }
+
+          if (dmgLower === 'total loss' || dmgLower === 'partial loss') {
+            damagedAddressCount++;
+            const plan = getAddressPlan(address) || 'Not set';
+            addressPlanCounts[plan] = (addressPlanCounts[plan] || 0) + 1;
+            if (plan.toLowerCase() === 'building') {
+              buildingPlanCount++;
+              const buildStatus = getAddressRebuildStatus(address) || 'Not set';
+              buildStatusCounts[buildStatus] = (buildStatusCounts[buildStatus] || 0) + 1;
+            }
           }
         }
 
@@ -23487,10 +23544,75 @@
       document.getElementById('statTotalAddresses').textContent = totalAddresses;
       document.getElementById('statTotalPeople').textContent    = totalPeople;
       document.getElementById('statContacted').textContent      = contactedDisplay;
-      document.getElementById('statTotalLoss').textContent      = damageCol ? totalLossCount : '—';
-      document.getElementById('statStanding').textContent       = damageCol ? standingCount : '—';
-      document.getElementById('statDamageNotSet').textContent   = damageCol ? damageNotSetCount : '—';
       document.getElementById('statSoldSinceFire').textContent  = centralSalesAvailable ? soldSinceFireCount : '—';
+
+      const damageAccounted = document.getElementById('zoneDamageAccounted');
+      if (damageAccounted) damageAccounted.textContent = damageCol ? totalAddresses + ' addresses' : 'Not available';
+      renderZoneDistribution({
+        stripId: 'zoneDamageBar',
+        legendId: 'zoneDamageLegend',
+        total: totalAddresses,
+        keepZero: true,
+        items: [
+          { label: 'Total Loss', count: totalLossCount, color: '#bc455a', filters: { damageFilter: 'Total Loss' } },
+          { label: 'Partial Damage', count: partialLossCount, color: '#dda15e', filters: { damageFilter: 'Partial Loss' } },
+          { label: 'Standing', count: standingCount, color: '#81bdc3', filters: { damageFilter: 'Standing' } },
+          { label: 'Damage Not Set', count: damageNotSetCount, color: '#b9b9b4', filters: { damageFilter: '' }, action: true },
+          ...(otherDamageCount ? [{ label: 'Other', count: otherDamageCount, color: '#8872b1', filters: null }] : [])
+        ]
+      });
+
+      const orderedPlanLabels = [...ADDRESS_PLAN_OPTIONS, 'Not set'];
+      Object.keys(addressPlanCounts).sort().forEach((label) => {
+        if (!orderedPlanLabels.includes(label)) orderedPlanLabels.push(label);
+      });
+      const planColors = ['#3cb2bd', '#73984d', '#dda15e', '#8872b1', '#8b7f74', '#b9b9b4'];
+      renderZoneDistribution({
+        stripId: 'zoneAddressPlanStrip',
+        legendId: 'zoneAddressPlanLegend',
+        total: damagedAddressCount,
+        items: orderedPlanLabels.map((label, index) => ({
+          label,
+          count: addressPlanCounts[label] || 0,
+          color: planColors[index % planColors.length],
+          filters: {
+            damageFilter: '__fire_damaged__',
+            addressPlanFilter: label === 'Not set' ? '' : label
+          },
+          action: label === 'Not set'
+        }))
+      });
+
+      const orderedBuildLabels = [...REBUILD_STAGES_SEQUENTIAL, 'Not Started', 'Not set'];
+      Object.keys(buildStatusCounts).sort().forEach((label) => {
+        if (!orderedBuildLabels.includes(label)) orderedBuildLabels.push(label);
+      });
+      const buildColors = ['#314059', '#3c7d7b', '#3cb2bd', '#73984d', '#afc892', '#c9943c', '#b9b9b4'];
+      renderZoneDistribution({
+        stripId: 'zoneBuildStatusStrip',
+        legendId: 'zoneBuildStatusLegend',
+        total: buildingPlanCount,
+        items: orderedBuildLabels.map((label, index) => ({
+          label,
+          count: buildStatusCounts[label] || 0,
+          color: buildColors[index % buildColors.length],
+          filters: {
+            damageFilter: '__fire_damaged__',
+            addressPlanFilter: 'Building',
+            rebuildFilter: label === 'Not set' ? '' : label
+          },
+          action: label === 'Not set'
+        }))
+      });
+
+      const planTotal = document.getElementById('zoneAddressPlanTotal');
+      const buildTotal = document.getElementById('zoneBuildStatusTotal');
+      if (planTotal) planTotal.textContent = damagedAddressCount + ' addresses';
+      if (buildTotal) buildTotal.textContent = buildingPlanCount + ' addresses';
+      const recordDistributions = document.getElementById('zoneRecordDistributions');
+      if (recordDistributions) {
+        recordDistributions.classList.toggle('hidden', !damageCol);
+      }
       const epicSummary = epicPresenceState.ready
         ? (epicPresenceState.summary || computeEpicHomepageSummaryFromState())
         : null;
@@ -23513,9 +23635,6 @@
         element.dataset.actionBound = 'true';
         element.addEventListener('click', handler);
       };
-      bindStatAction('statDamageNotSetAction', () => {
-        applyBuildingRebuildingExplore({ damageFilter: '', clearExisting: true });
-      });
       bindStatAction('statDamagedWithEpicAction', () => {
         applyBuildingRebuildingExplore({ epicFilter: 'epic_damaged_has_epic', clearExisting: true });
       });
