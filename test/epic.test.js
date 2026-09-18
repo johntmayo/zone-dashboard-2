@@ -233,6 +233,21 @@ test('homepage uses EPIC and damage signals instead of captain build-status repo
   assert.doesNotMatch(html, /<div class="chart-title">Build Status<\/div>/);
 });
 
+test('Building and Permitting explainer identifies sources and APN matching limits', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+  assert.match(html, /id="buildingPermittingHelpButton"[\s\S]*?How does this work\?/);
+  assert.match(html, /id="buildingPermittingHelpModal"[\s\S]*?aria-modal="true"/);
+  assert.match(html, /Eaton Fire \(01-2025\)/);
+  assert.match(html, /Supervisor District 5/);
+  assert.match(html, /EPIC-LA supplies case numbers, case status, the latest rebuild-progress label/);
+  assert.match(html, /Your zone records supply the addresses, APNs, and fire-damage categories/);
+  assert.match(html, /No match does not mean no rebuilding/);
+  assert.match(html, /id="buildingPermittingMissingApnButton"/);
+  assert.match(html, /epicFilter: 'epic_missing_apn'/);
+  assert.match(html, /data\.lacounty\.gov\/datasets\/lacounty::epic-la-fire-recovery-cases\/about/);
+});
+
 test('homepage actions and Neighbors table surface address-level data', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const tableStart = html.indexOf('// Display address table view for Addresses & People page');

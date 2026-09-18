@@ -35,7 +35,7 @@
   <script src="https://unpkg.com/leaflet-kml@1.0.0/dist/leaflet-kml.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <link rel="stylesheet" href="public/css/styles.css?v=5">
+  <link rel="stylesheet" href="public/css/styles.css?v=6">
   <script src="public/js/utils.js?v=3"></script>
   <script src="public/js/address-id.js"></script>
   <script src="public/js/resident-placeholder.js"></script>
@@ -443,8 +443,12 @@
           
           <!-- Panel: Building & Permitting (EPIC-LA + zone damage data) -->
           <div class="home-panel home-panel-wide home-panel--build">
-            <div class="home-panel-header">
+            <div class="home-panel-header home-panel-header--with-action">
               <h2>Building &amp; Permitting</h2>
+              <button type="button" class="br-help-trigger" id="buildingPermittingHelpButton" aria-haspopup="dialog" aria-controls="buildingPermittingHelpModal" aria-expanded="false">
+                <span aria-hidden="true">?</span>
+                How does this work?
+              </button>
             </div>
             <div class="home-panel-content" id="buildingRebuildingContent">
               <div class="loading">Loading build status…</div>
@@ -1436,6 +1440,52 @@
   <!-- Mobile: floating button to reopen address list on map/people view -->
   <button class="mobile-list-fab hidden" id="mobileListFab">Details</button>
 
+  <!-- Building & Permitting data-source explainer -->
+  <div class="br-help-overlay hidden" id="buildingPermittingHelpModal" role="dialog" aria-modal="true" aria-labelledby="buildingPermittingHelpTitle" aria-describedby="buildingPermittingHelpIntro">
+    <div class="br-help-modal" role="document">
+      <button type="button" class="br-help-close" id="buildingPermittingHelpClose" aria-label="Close Building and Permitting explanation">×</button>
+      <div class="br-help-heading">
+        <span class="br-help-kicker">About this panel</span>
+        <h2 id="buildingPermittingHelpTitle">How Building &amp; Permitting works</h2>
+        <p id="buildingPermittingHelpIntro">This panel combines public county permitting data with the address information maintained for your zone.</p>
+      </div>
+
+      <div class="br-help-source">
+        <span class="br-help-source-badge br-help-source-badge--county">County records</span>
+        <div>
+          <h3>What comes from EPIC-LA</h3>
+          <p>We retrieve selected fields from LA County’s public EPIC-LA Fire Recovery Cases dataset. The current import includes records tagged <strong>Eaton Fire (01-2025)</strong> and <strong>Supervisor District 5</strong>. We rely on the county’s fire tag rather than applying a separate post-fire date cutoff.</p>
+          <p>EPIC-LA supplies case numbers, case status, the latest rebuild-progress label, application dates, permit-issuance dates, inspection dates, and labels used to identify temporary-housing cases.</p>
+        </div>
+      </div>
+
+      <div class="br-help-source">
+        <span class="br-help-source-badge br-help-source-badge--zone">Your records</span>
+        <div>
+          <h3>What comes from your zone</h3>
+          <p>Your zone records supply the addresses, APNs, and fire-damage categories. Addresses marked <strong>Total Loss</strong> or <strong>Partial Loss</strong> are treated as damaged in this panel.</p>
+        </div>
+      </div>
+
+      <div class="br-help-match">
+        <h3>How the match works</h3>
+        <p>We compare each address’s APN with the APN on EPIC-LA cases. An address needs an APN before we can check for a county match. One address can have several county cases, but the panel counts addresses—not case rows.</p>
+        <p><strong>No match does not mean no rebuilding.</strong> It only means we did not find a matching EPIC-LA case for the APN currently in your records.</p>
+        <button type="button" class="br-help-apn-action" id="buildingPermittingMissingApnButton">See addresses missing an APN →</button>
+      </div>
+
+      <div class="br-help-note">
+        <p>The headline, match rate, and permit/construction cards focus on damaged addresses. Recent activity, current county labels, waiting/on-hold, and temporary-housing counts cover matched addresses across the full zone.</p>
+        <p>These are current snapshots and advisory county labels—not historical trends or a determination that work is or is not happening.</p>
+      </div>
+
+      <div class="br-help-footer">
+        <a href="https://data.lacounty.gov/datasets/lacounty::epic-la-fire-recovery-cases/about" target="_blank" rel="noopener noreferrer">View the LA County source ↗</a>
+        <button type="button" class="br-help-done" id="buildingPermittingHelpDone">Got it</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Lightweight onboarding tour modal -->
   <div id="onboardingTourModal" class="onboarding-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="onboardingTourTitle">
     <div class="onboarding-modal" role="document">
@@ -1460,6 +1510,46 @@
     const signInBtn = document.getElementById("signInBtn");
     const signOutBtn = document.getElementById("signOutBtn");
     const signinPrompt = document.getElementById("signinPrompt");
+
+    const buildingPermittingHelpButton = document.getElementById('buildingPermittingHelpButton');
+    const buildingPermittingHelpModal = document.getElementById('buildingPermittingHelpModal');
+    const buildingPermittingHelpClose = document.getElementById('buildingPermittingHelpClose');
+    const buildingPermittingHelpDone = document.getElementById('buildingPermittingHelpDone');
+    const buildingPermittingMissingApnButton = document.getElementById('buildingPermittingMissingApnButton');
+    let buildingPermittingHelpPreviousFocus = null;
+
+    function showBuildingPermittingHelp() {
+      if (!buildingPermittingHelpModal) return;
+      buildingPermittingHelpPreviousFocus = document.activeElement;
+      buildingPermittingHelpModal.classList.remove('hidden');
+      buildingPermittingHelpButton?.setAttribute('aria-expanded', 'true');
+      buildingPermittingHelpClose?.focus();
+    }
+
+    function hideBuildingPermittingHelp({ restoreFocus = true } = {}) {
+      if (!buildingPermittingHelpModal) return;
+      buildingPermittingHelpModal.classList.add('hidden');
+      buildingPermittingHelpButton?.setAttribute('aria-expanded', 'false');
+      if (restoreFocus && buildingPermittingHelpPreviousFocus instanceof HTMLElement) {
+        buildingPermittingHelpPreviousFocus.focus();
+      }
+    }
+
+    buildingPermittingHelpButton?.addEventListener('click', showBuildingPermittingHelp);
+    buildingPermittingHelpClose?.addEventListener('click', () => hideBuildingPermittingHelp());
+    buildingPermittingHelpDone?.addEventListener('click', () => hideBuildingPermittingHelp());
+    buildingPermittingHelpModal?.addEventListener('click', (event) => {
+      if (event.target === buildingPermittingHelpModal) hideBuildingPermittingHelp();
+    });
+    buildingPermittingMissingApnButton?.addEventListener('click', () => {
+      hideBuildingPermittingHelp({ restoreFocus: false });
+      applyBuildingRebuildingExplore({ epicFilter: 'epic_missing_apn', view: 'people', clearExisting: true });
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && buildingPermittingHelpModal && !buildingPermittingHelpModal.classList.contains('hidden')) {
+        hideBuildingPermittingHelp();
+      }
+    });
 
     // Navigation state
     let currentView = 'home'; // Default view
