@@ -9,6 +9,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const {
   normalizeApn,
@@ -207,6 +209,62 @@ test('buildWhereClause: escapes single quotes safely', () => {
   const where = buildWhereClause({ disasterType: `Eaton's Fire`, supDist: '5' });
   assert.ok(where.includes(`DISASTER_TYPE='Eaton''s Fire'`), `got: ${where}`);
   assert.ok(where.includes(`SUP_DIST='5'`));
+});
+
+test('homepage uses EPIC and damage signals instead of captain build-status reporting', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const panelStart = html.indexOf('function updateRebuildProgressCharts()');
+  const panelEnd = html.indexOf('// Home Dashboard Functions', panelStart);
+  const panel = html.slice(panelStart, panelEnd);
+
+  assert.ok(panelStart > 0 && panelEnd > panelStart);
+  assert.match(panel, /Explore county records/);
+  assert.match(html, /damaged addresses<\/strong>[\s\S]*?matched[\s\S]*?EPIC-LA[\s\S]*?recovery case/);
+  assert.match(html, /EPIC-LA<br>match rate/);
+  assert.match(html, /Recent dated activity[\s\S]*?Past 30 days/);
+  assert.match(html, /Waiting \/ on hold/);
+  assert.match(html, /How matching works/);
+  assert.match(html, /Without an APN, we cannot check the county data/);
+  assert.match(html, /Construction completed/);
+  assert.match(html, /epic_recent_application_30/);
+  assert.match(html, /epic_recent_issuance_30/);
+  assert.match(html, /epic_recent_inspection_30/);
+  assert.doesNotMatch(panel, /collectCaptainBuildSummary|data-br-rebuild|Address Plan/);
+  assert.doesNotMatch(html, /<div class="chart-title">Build Status<\/div>/);
+});
+
+test('Building and Permitting explainer identifies sources and APN matching limits', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+  assert.match(html, /id="buildingPermittingHelpButton"[\s\S]*?How does this work\?/);
+  assert.match(html, /id="buildingPermittingHelpModal"[\s\S]*?aria-modal="true"/);
+  assert.match(html, /Eaton Fire \(01-2025\)/);
+  assert.match(html, /Supervisor District 5/);
+  assert.match(html, /EPIC-LA supplies case numbers, case status, the latest rebuild-progress label/);
+  assert.match(html, /Your zone records supply the addresses, APNs, and fire-damage categories/);
+  assert.match(html, /No match does not mean no rebuilding/);
+  assert.match(html, /id="buildingPermittingMissingApnButton"/);
+  assert.match(html, /epicFilter: 'epic_missing_apn'/);
+  assert.match(html, /data\.lacounty\.gov\/datasets\/lacounty::epic-la-fire-recovery-cases\/about/);
+});
+
+test('homepage actions and Neighbors table surface address-level data', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const tableStart = html.indexOf('// Display address table view for Addresses & People page');
+  const tableEnd = html.indexOf('// Setup export button handler', tableStart);
+  const table = html.slice(tableStart, tableEnd);
+
+  assert.match(html, /id="zoneDamageLegend"/);
+  assert.match(html, /Partial Damage/);
+  assert.match(html, /id="zoneAddressPlanStrip"/);
+  assert.match(html, /id="zoneBuildStatusStrip"/);
+  assert.match(html, /id="statMissingApnAction"/);
+  assert.doesNotMatch(html, /id="zoneOverviewCharts"/);
+  assert.doesNotMatch(html, /id="mobileZoneChartCarousel"/);
+  assert.match(table, /data-source-tooltip="County Records">EPIC-LA<\/span>/);
+  assert.match(table, /data-source-tooltip="Your records">Address Plan<\/span>/);
+  assert.doesNotMatch(table, />Apprx Age|>Phone<\/th>|>Email<\/th>/);
+  assert.match(table, /getEpicTableDisplay\(addr\)/);
 });
 
 // --- Sync orchestrator with an in-memory Sheets fake ------------------------
