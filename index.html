@@ -35,7 +35,7 @@
   <script src="https://unpkg.com/leaflet-kml@1.0.0/dist/leaflet-kml.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <link rel="stylesheet" href="public/css/styles.css?v=4">
+  <link rel="stylesheet" href="public/css/styles.css?v=5">
   <script src="public/js/utils.js?v=3"></script>
   <script src="public/js/address-id.js"></script>
   <script src="public/js/resident-placeholder.js"></script>
@@ -441,10 +441,10 @@
             </div>
           </div>
           
-          <!-- Panel: Building & Rebuilding (captain build status + EPIC + Address Plan) -->
+          <!-- Panel: Building & Permitting (EPIC-LA + zone damage data) -->
           <div class="home-panel home-panel-wide home-panel--build">
             <div class="home-panel-header">
-              <h2>Building &amp; Rebuilding</h2>
+              <h2>Building &amp; Permitting</h2>
             </div>
             <div class="home-panel-content" id="buildingRebuildingContent">
               <div class="loading">Loading build status…</div>
@@ -22315,7 +22315,7 @@
       }
     }
 
-    // Building & Rebuilding homepage panel (EPIC-LA + zone damage data)
+    // Building & Permitting homepage panel (EPIC-LA + zone damage data)
     function formatEpicSyncLabel(iso) {
       if (!iso) return 'EPIC-LA check time unavailable';
       const d = new Date(iso);

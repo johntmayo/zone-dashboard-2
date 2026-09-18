@@ -1629,6 +1629,12 @@
       gap: 22px;
     }
 
+    .br-panel--county #brEpicSection {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
     .br-panel--county button {
       font: inherit;
     }
@@ -1979,6 +1985,10 @@
     }
 
     @media (max-width: 720px) {
+      .br-panel--county #brEpicSection {
+        gap: 16px;
+      }
+
       .br-hero {
         grid-template-columns: minmax(0, 1fr) 82px;
         gap: 12px;
