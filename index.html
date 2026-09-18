@@ -280,94 +280,24 @@
                       <span class="zone-stat-number" id="statStanding">—</span>
                       <span class="zone-stat-label">Standing</span>
                     </div>
-                    <div class="zone-stat-item">
+                    <button type="button" class="zone-stat-item zone-stat-item--action" id="statDamageNotSetAction">
                       <span class="zone-stat-number" id="statDamageNotSet">—</span>
                       <span class="zone-stat-label">Damage Not Set</span>
-                    </div>
+                    </button>
                   </div>
                   <div class="zone-stat-column">
                     <div class="zone-stat-item">
                       <span class="zone-stat-number" id="statSoldSinceFire">—</span>
                       <span class="zone-stat-label">Sold Since Fire</span>
                     </div>
-                    <div class="zone-stat-item zone-stat-item--epic">
+                    <button type="button" class="zone-stat-item zone-stat-item--epic zone-stat-item--action" id="statDamagedWithEpicAction">
                       <span class="zone-stat-number" id="statDamagedWithEpic">—</span>
                       <span class="zone-stat-label">Damaged with County Records</span>
-                    </div>
-                    <div class="zone-stat-item zone-stat-item--epic">
-                      <span class="zone-stat-number" id="statEpicAttention">—</span>
-                      <span class="zone-stat-label">Addresses Needing Attention</span>
-                    </div>
-                  </div>
-                </div>
-                <div class="zone-overview-charts hidden" id="zoneOverviewCharts">
-                  <!-- Left Chart Carousel -->
-                  <div class="chart-carousel-wrapper">
-                    <div class="chart-carousel-container">
-                      <button class="chart-carousel-arrow chart-carousel-arrow-left" aria-label="Previous chart">
-                        <span class="chart-carousel-arrow-symbol">‹</span>
-                      </button>
-                      <div class="chart-carousel-track">
-                        <div class="chart-container-small chart-carousel-slide active" data-chart-index="0">
-                          <div class="chart-title">Addresses with Outreach Attempt</div>
-                          <canvas id="zoneOverviewLeftAddressesChart"></canvas>
-                        </div>
-                        <div class="chart-container-small chart-carousel-slide" data-chart-index="1">
-                          <div class="chart-title">Streets Distribution</div>
-                          <canvas id="zoneOverviewLeftStreetsChart"></canvas>
-                        </div>
-                        <div class="chart-container-small chart-carousel-slide" data-chart-index="2">
-                          <div class="chart-title">People per Address</div>
-                          <canvas id="zoneOverviewLeftPeopleChart"></canvas>
-                        </div>
-                      </div>
-                      <button class="chart-carousel-arrow chart-carousel-arrow-right" aria-label="Next chart">
-                        <span class="chart-carousel-arrow-symbol">›</span>
-                      </button>
-                      <div class="chart-carousel-dots" data-carousel="left"></div>
-                    </div>
-                  </div>
-                  
-                  <!-- Right Chart Carousel -->
-                  <div class="chart-carousel-wrapper">
-                    <div class="chart-carousel-container">
-                      <button class="chart-carousel-arrow chart-carousel-arrow-left" aria-label="Previous chart">
-                        <span class="chart-carousel-arrow-symbol">‹</span>
-                      </button>
-                      <div class="chart-carousel-track">
-                        <div class="chart-container-small chart-carousel-slide active" data-chart-index="0">
-                          <div class="chart-title">Damage Status</div>
-                          <canvas id="zoneOverviewRightDamageChart"></canvas>
-                        </div>
-                        <div class="chart-container-small chart-carousel-slide" data-chart-index="1">
-                          <div class="chart-title">Damaged + County Records</div>
-                          <canvas id="zoneOverviewRightEpicCoverageChart"></canvas>
-                        </div>
-                        <div class="chart-container-small chart-carousel-slide" data-chart-index="2">
-                          <div class="chart-title">Address Plan</div>
-                          <canvas id="zoneOverviewRightHouseholdChart"></canvas>
-                        </div>
-                      </div>
-                      <button class="chart-carousel-arrow chart-carousel-arrow-right" aria-label="Next chart">
-                        <span class="chart-carousel-arrow-symbol">›</span>
-                      </button>
-                      <div class="chart-carousel-dots" data-carousel="right"></div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Mobile-only: single 6-chart carousel replaces the dual desktop carousels -->
-                <div class="mobile-chart-carousel" id="mobileZoneChartCarousel">
-                  <div class="mobile-chart-header">
-                    <button class="mobile-chart-nav" id="mobileChartPrev" aria-label="Previous chart">&#8249;</button>
-                    <div class="mobile-chart-meta">
-                      <div class="mobile-chart-title" id="mobileChartTitle">Addresses with Outreach Attempt</div>
-                      <div class="mobile-chart-counter" id="mobileChartCounter">1 / 6</div>
-                    </div>
-                    <button class="mobile-chart-nav" id="mobileChartNext" aria-label="Next chart">&#8250;</button>
-                  </div>
-                  <div class="mobile-chart-canvas-wrap">
-                    <canvas id="mobileZoneChart"></canvas>
+                    </button>
+                    <button type="button" class="zone-stat-item zone-stat-item--action" id="statMissingApnAction">
+                      <span class="zone-stat-number" id="statMissingApn">—</span>
+                      <span class="zone-stat-label">APN Not Set</span>
+                    </button>
                   </div>
                 </div>
 
@@ -12417,15 +12347,66 @@
       const tempCases = Array.isArray(payload && payload.cases_temp_housing) ? payload.cases_temp_housing : [];
       const cases = rebuildCases.concat(tempCases);
       const statuses = cases.map((record) => String(record && record.status || '').trim().toLowerCase());
+      const waitingForApplicant = statuses.some((status) => status.includes('waiting for applicant'));
+      const onHold = statuses.some((status) => status.includes('hold'));
       return {
         hasRecords: cases.length > 0,
+        caseCount: cases.length,
         hasTempHousing: tempCases.length > 0,
         milestone: epicPresenceState.byApnMilestone.get(apn) || '',
-        needsAttention: statuses.some((status) => status.includes('waiting for applicant') || status.includes('hold')),
+        needsAttention: waitingForApplicant || onHold,
+        attentionLabel: waitingForApplicant ? 'Waiting for applicant' : (onHold ? 'On hold' : ''),
         hasIssuedPermit: cases.some((record) => Boolean(record && record.issuance_date_iso)),
         appliedLast30: cases.some((record) => isEpicDateWithinDays(record && record.apply_date_iso, 30)),
         issuedLast30: cases.some((record) => isEpicDateWithinDays(record && record.issuance_date_iso, 30)),
         inspectedLast30: cases.some((record) => isEpicDateWithinDays(record && record.last_inspection_date_iso, 30))
+      };
+    }
+
+    function getEpicTableDisplay(address) {
+      const apn = getAddressApnDigits(address);
+      if (!apn) {
+        return {
+          label: 'APN missing',
+          detail: 'Cannot match EPIC-LA',
+          tone: 'missing'
+        };
+      }
+      if (!epicPresenceState.ready) {
+        return {
+          label: epicPresenceState.error ? 'County check unavailable' : 'Checking county records…',
+          detail: '',
+          tone: 'muted'
+        };
+      }
+      const facts = getEpicFactsForApn(apn);
+      if (!facts.hasRecords) {
+        return {
+          label: 'No matched record',
+          detail: 'APN checked',
+          tone: 'muted'
+        };
+      }
+
+      const milestoneLabels = {
+        application_or_plans: 'Application / plans',
+        permit_issued: 'Permit issued',
+        construction_underway: 'Construction underway',
+        construction_completed: 'Construction completed'
+      };
+      const milestoneLabel = milestoneLabels[facts.milestone] || (facts.hasTempHousing ? 'Temporary housing' : 'County record found');
+      const label = facts.attentionLabel || milestoneLabel;
+      const details = [];
+      details.push(facts.caseCount + ' county case' + (facts.caseCount === 1 ? '' : 's'));
+      if (facts.attentionLabel && milestoneLabel !== facts.attentionLabel) details.push(milestoneLabel);
+      return {
+        label,
+        detail: details.join(' · '),
+        tone: facts.attentionLabel
+          ? 'status'
+          : (facts.milestone === 'construction_completed'
+              ? 'complete'
+              : (facts.milestone === 'construction_underway' ? 'construction' : 'record'))
       };
     }
 
@@ -12452,9 +12433,12 @@
       let issuedLast30 = 0;
       let inspectedLast30 = 0;
       let recentActivityAddresses = 0;
+      let damageMissingAddresses = 0;
 
       addressApns.forEach(({ address, apn }) => {
+        const damage = String(getAddressDamage(address) || '').trim();
         const isDamaged = isFireDamagedAddress(address);
+        if (!damage || damage === '(not set)') damageMissingAddresses += 1;
         if (isDamaged) damagedAddresses += 1;
         if (!apn) {
           missingApn += 1;
@@ -12518,6 +12502,7 @@
         issuedLast30,
         inspectedLast30,
         recentActivityAddresses,
+        damageMissingAddresses,
         damagedCoveragePct: damagedAddresses > 0 ? Math.round((damagedWithEpic / damagedAddresses) * 100) : 0,
         milestones: HOMEPAGE_EPIC_MILESTONES.map((m) => ({
           key: m.key,
@@ -12540,6 +12525,7 @@
         epicPresenceState.byApnHasTempHousing = new Map();
         epicPresenceState.byApnPayload = new Map();
         epicPresenceState.summary = computeEpicHomepageSummaryFromState();
+        if (currentView === 'people') displayAddressTable();
         return;
       }
 
@@ -12606,6 +12592,7 @@
       } finally {
         epicPresenceState.loading = false;
       }
+      if (currentView === 'people') displayAddressTable();
     }
 
     function addressHasEpicRecords(address) {
@@ -12642,6 +12629,9 @@
       }
       if (currentEpicFilter === 'epic_damaged_construction') {
         return isDamaged && facts.milestone === 'construction_underway';
+      }
+      if (currentEpicFilter === 'epic_damaged_completed') {
+        return isDamaged && facts.milestone === 'construction_completed';
       }
       if (currentEpicFilter === 'epic_recent_application_30') {
         return facts.appliedLast30;
@@ -12683,6 +12673,7 @@
       if (value === 'epic_issued_any') return 'Issued permit on file';
       if (value === 'epic_damaged_issued') return 'Damaged + issued permit';
       if (value === 'epic_damaged_construction') return 'Damaged + construction label';
+      if (value === 'epic_damaged_completed') return 'Damaged + completion label';
       if (value === 'epic_recent_application_30') return 'Application filed in last 30 days';
       if (value === 'epic_recent_issuance_30') return 'Permit issued in last 30 days';
       if (value === 'epic_recent_inspection_30') return 'Latest inspection in last 30 days';
@@ -12958,6 +12949,7 @@
             <option value="epic_damaged_no_epic" ${currentEpicFilter === 'epic_damaged_no_epic' ? 'selected' : ''}>Damaged + no county record</option>
             <option value="epic_damaged_issued" ${currentEpicFilter === 'epic_damaged_issued' ? 'selected' : ''}>Damaged + issued permit</option>
             <option value="epic_damaged_construction" ${currentEpicFilter === 'epic_damaged_construction' ? 'selected' : ''}>Damaged + construction label</option>
+            <option value="epic_damaged_completed" ${currentEpicFilter === 'epic_damaged_completed' ? 'selected' : ''}>Damaged + completion label</option>
             <option value="epic_attention" ${currentEpicFilter === 'epic_attention' ? 'selected' : ''}>Waiting for applicant / hold</option>
             <option value="epic_issued_any" ${currentEpicFilter === 'epic_issued_any' ? 'selected' : ''}>Issued permit on file</option>
             <option value="epic_recent_application_30" ${currentEpicFilter === 'epic_recent_application_30' ? 'selected' : ''}>Application filed in last 30 days</option>
@@ -13151,6 +13143,9 @@
         }
         return;
       }
+      if (!epicPresenceState.ready && !epicPresenceState.loading && !epicPresenceState.error) {
+        ensureEpicPresenceMapLoaded().catch(() => {});
+      }
       
       const addresses = Array.from(sheetData.addressMap.keys()).sort();
       const tableView = document.getElementById('peopleTableView');
@@ -13167,9 +13162,6 @@
       const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
       const remediationStatusCol = findColumn(headers, ['remediation', 'status'], ['note']);
       const residentNameCol = getResidentNameColumn(headers);
-      const ageCol = headers.find(h => h.toLowerCase() === 'age');
-      const phoneCol = findColumn(headers, 'phone', ['nc']);
-      const emailCol = findColumn(headers, 'email');
       const contactDateCol = findOutreachDateColumn(headers);
       const formerResidentCol = getFormerResidentColumn(headers);
       
@@ -13291,9 +13283,7 @@
                 ${damageCol ? `<th class="sortable" data-sort="${damageCol.toLowerCase()}" title="Click to sort">Damage ${tableSortColumn === damageCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${addressPlanCol ? `<th class="sortable" data-sort="${addressPlanCol.toLowerCase()}" title="Click to sort">Address Plan ${tableSortColumn === addressPlanCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
                 ${rebuildCol ? `<th class="address-table__build sortable" data-sort="${rebuildCol.toLowerCase()}" title="Click to sort">Build Status ${tableSortColumn === rebuildCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
-                ${ageCol ? `<th class="sortable" data-sort="${ageCol.toLowerCase()}" title="Click to sort">Apprx Age ${tableSortColumn === ageCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
-                ${phoneCol ? `<th class="address-table__phone">Phone</th>` : ''}
-                ${emailCol ? `<th class="address-table__email">Email</th>` : ''}
+                <th class="address-table__epic">EPIC-LA</th>
                 ${contactDateCol ? `<th class="address-table__outreach sortable" data-sort="${contactDateCol.toLowerCase()}" title="Click to sort">Last Outreach Attempt ${tableSortColumn === contactDateCol.toLowerCase() ? (tableSortDirection === 'asc' ? '↑' : '↓') : ''}</th>` : ''}
               </tr>
             </thead>
@@ -13313,10 +13303,8 @@
                 const damage = damageCol && displayRows[0] ? (displayRows[0][damageCol] || '').trim() : '';
                 const addressPlan = addressPlanCol && displayRows[0] ? (displayRows[0][addressPlanCol] || '').trim() : '';
                 const rebuild = rebuildCol && displayRows[0] ? normalizeRebuildStatusLabel((displayRows[0][rebuildCol] || '').trim()) : '';
-                const age = ageCol && displayRows[0] ? (displayRows[0][ageCol] || '').trim() : '';
-                const phone = phoneCol && displayRows[0] ? (displayRows[0][phoneCol] || '').trim() : '';
-                const email = emailCol && displayRows[0] ? (displayRows[0][emailCol] || '').trim() : '';
                 const contactDate = contactDateCol && displayRows[0] ? (displayRows[0][contactDateCol] || '').trim() : '';
+                const epicDisplay = getEpicTableDisplay(addr);
                 
                 // Show every community member — the Neighbors tab lists people first
                 const residentsDisplay = residents.length > 0 ? residents.join(', ') : '-';
@@ -13328,9 +13316,10 @@
                     ${damageCol ? `<td>${damage || '-'}</td>` : ''}
                     ${addressPlanCol ? `<td>${addressPlan || '-'}</td>` : ''}
                     ${rebuildCol ? `<td class="address-table__build">${rebuild || '-'}</td>` : ''}
-                    ${ageCol ? `<td>${age || '-'}</td>` : ''}
-                    ${phoneCol ? `<td class="address-table__phone">${phone || '-'}</td>` : ''}
-                    ${emailCol ? `<td class="address-table__email">${email || '-'}</td>` : ''}
+                    <td class="address-table__epic">
+                      <span class="address-table__epic-status address-table__epic-status--${epicDisplay.tone}">${escapeBrHtml(epicDisplay.label)}</span>
+                      ${epicDisplay.detail ? `<span class="address-table__epic-detail">${escapeBrHtml(epicDisplay.detail)}</span>` : ''}
+                    </td>
                     ${contactDateCol ? `<td class="address-table__outreach">${contactDate || '-'}</td>` : ''}
                   </tr>
                 `;
@@ -22417,6 +22406,21 @@
 
     async function applyBuildingRebuildingExplore(opts) {
       opts = opts || {};
+      if (opts.clearExisting) {
+        currentStreetFilter = 'all';
+        currentDamageFilter = 'all';
+        currentSalesFilter = 'all';
+        currentLotWeedingFilter = 'all';
+        currentAddressPlanFilter = 'all';
+        currentRebuildFilter = 'all';
+        currentRemediationFilter = 'all';
+        currentEpicFilter = 'all';
+        currentCaptainFilter = 'all';
+        currentPersonSearch = '';
+        showContactedAddresses = true;
+        showUncontactedAddresses = true;
+      }
+      if (opts.damageFilter != null) currentDamageFilter = opts.damageFilter;
       if (opts.rebuildFilter != null) currentRebuildFilter = opts.rebuildFilter;
       if (opts.addressPlanFilter != null) currentAddressPlanFilter = opts.addressPlanFilter;
       if (opts.epicFilter != null) {
@@ -22509,16 +22513,23 @@
         signalCard(
           'epic_damaged_construction',
           summary.damagedConstruction,
-          'County-labeled construction',
-          'damaged address' + (summary.damagedConstruction === 1 ? '' : 'es'),
+          'Construction underway',
+          'latest county label',
           'construction'
+        ),
+        signalCard(
+          'epic_damaged_completed',
+          summary.damagedCompleted,
+          'Construction completed',
+          'latest county label',
+          'complete'
         ),
         signalCard(
           'epic_attention',
           summary.attentionAddresses,
-          'May need attention',
-          'waiting for applicant or on hold',
-          summary.attentionAddresses ? 'attention' : 'quiet'
+          'Waiting / on hold',
+          'current county status',
+          'status'
         ),
         '</div>',
         '<div class="br-detail-grid">',
@@ -22541,22 +22552,38 @@
         '    <div class="br-metric-list">' + rows + '</div>',
         '  </section>',
         '</div>',
+        '<aside class="br-match-guide">',
+        '  <div class="br-match-guide__copy">',
+        '    <strong>How matching works</strong>',
+        '    <span>EPIC-LA records are matched by APN. Without an APN, we cannot check the county data; no match does not mean rebuilding is not happening.</span>',
+        '  </div>',
+        '  <div class="br-match-guide__actions">',
+        summary.missingApn
+          ? '    <button type="button" data-br-epic="epic_missing_apn">Add APNs for ' + summary.missingApn + ' address' + (summary.missingApn === 1 ? '' : 'es') + ' →</button>'
+          : '    <span>All addresses have an APN</span>',
+        summary.damageMissingAddresses
+          ? '    <button type="button" data-br-damage="">Add damage for ' + summary.damageMissingAddresses + ' address' + (summary.damageMissingAddresses === 1 ? '' : 'es') + ' →</button>'
+          : '    <span>Damage is set for all addresses</span>',
+        '  </div>',
+        '</aside>',
         '<div class="br-utility-row">',
         '  <button type="button" class="br-utility-link" data-br-epic="epic_damaged_no_epic"><strong>' + summary.damagedWithoutEpic + '</strong> damaged address' + (summary.damagedWithoutEpic === 1 ? '' : 'es') + ' with no matched record</button>',
         '  <button type="button" class="br-utility-link" data-br-epic="epic_temp_housing"><strong>' + summary.withTempHousing + '</strong> temporary housing address' + (summary.withTempHousing === 1 ? '' : 'es') + '</button>',
-        summary.missingApn
-          ? '  <button type="button" class="br-utility-link" data-br-epic="epic_missing_apn"><strong>' + summary.missingApn + '</strong> address' + (summary.missingApn === 1 ? '' : 'es') + ' not checked — missing APN</button>'
-          : '',
         '</div>',
         '<div class="br-data-note">',
-        '  <span>Matched by APN. No county match does not mean rebuilding is not happening.</span>',
+        '  <span>County progress labels are advisory and are not cumulative statistics.</span>',
         '  <span>' + escapeBrHtml(formatEpicSyncLabel(summary.lastSyncedAt)) + '</span>',
         '</div>'
       ].join('');
 
       Array.prototype.forEach.call(mount.querySelectorAll('[data-br-epic]'), (btn) => {
         btn.addEventListener('click', () => {
-          applyBuildingRebuildingExplore({ epicFilter: btn.getAttribute('data-br-epic') });
+          applyBuildingRebuildingExplore({ epicFilter: btn.getAttribute('data-br-epic'), clearExisting: true });
+        });
+      });
+      Array.prototype.forEach.call(mount.querySelectorAll('[data-br-damage]'), (btn) => {
+        btn.addEventListener('click', () => {
+          applyBuildingRebuildingExplore({ damageFilter: btn.getAttribute('data-br-damage'), clearExisting: true });
         });
       });
     }
@@ -22585,7 +22612,7 @@
       const explore = document.getElementById('brExploreBuild');
       if (explore) {
         explore.addEventListener('click', () => {
-          applyBuildingRebuildingExplore({ epicFilter: 'has_epic', view: 'people' });
+          applyBuildingRebuildingExplore({ epicFilter: 'has_epic', view: 'people', clearExisting: true });
         });
       }
 
@@ -22594,7 +22621,6 @@
       ensureEpicPresenceMapLoaded().then(() => {
         renderBuildingRebuildingEpicSection(document.getElementById('brEpicSection'));
         updateZoneStatCards();
-        updateZoneOverviewCharts();
       }).catch(() => {
         renderBuildingRebuildingEpicSection(document.getElementById('brEpicSection'));
         updateZoneStatCards();
@@ -22677,12 +22703,6 @@
         displayActionsPage();
       }
       
-      // Update Zone Overview charts after a short delay to ensure DOM is ready
-      setTimeout(() => {
-        if (sheetData && sheetData.addressMap) {
-          updateZoneOverviewCharts();
-        }
-      }, 100);
     }
     
     // Panel A: Zone Overview
@@ -22733,14 +22753,9 @@
       
       content.innerHTML = '';
       
-      // Show stat cards and charts container and render charts
+      // Show the compact Zone Overview metrics.
       updateZoneStatCards();
-      const chartsContainer = document.getElementById('zoneOverviewCharts');
       const footerContainer = document.getElementById('zoneOverviewFooter');
-      if (chartsContainer) {
-        chartsContainer.classList.remove('hidden');
-        updateZoneOverviewCharts();
-      }
       
       // Update footer with last updated
       if (footerContainer) {
@@ -23480,17 +23495,33 @@
         ? (epicPresenceState.summary || computeEpicHomepageSummaryFromState())
         : null;
       const damagedEpicEl = document.getElementById('statDamagedWithEpic');
-      const epicAttentionEl = document.getElementById('statEpicAttention');
+      const missingApnEl = document.getElementById('statMissingApn');
       if (damagedEpicEl) {
         damagedEpicEl.textContent = epicSummary
           ? `${epicSummary.damagedWithEpic} of ${epicSummary.damagedAddresses}`
           : (epicPresenceState.error ? '—' : '…');
       }
-      if (epicAttentionEl) {
-        epicAttentionEl.textContent = epicSummary
-          ? epicSummary.attentionAddresses
-          : (epicPresenceState.error ? '—' : '…');
+      if (missingApnEl) {
+        missingApnEl.textContent = epicSummary
+          ? epicSummary.missingApn
+          : collectZoneAddressApns().filter((item) => !item.apn).length;
       }
+
+      const bindStatAction = (id, handler) => {
+        const element = document.getElementById(id);
+        if (!element || element.dataset.actionBound === 'true') return;
+        element.dataset.actionBound = 'true';
+        element.addEventListener('click', handler);
+      };
+      bindStatAction('statDamageNotSetAction', () => {
+        applyBuildingRebuildingExplore({ damageFilter: '', clearExisting: true });
+      });
+      bindStatAction('statDamagedWithEpicAction', () => {
+        applyBuildingRebuildingExplore({ epicFilter: 'epic_damaged_has_epic', clearExisting: true });
+      });
+      bindStatAction('statMissingApnAction', () => {
+        applyBuildingRebuildingExplore({ epicFilter: 'epic_missing_apn', clearExisting: true });
+      });
 
       container.classList.remove('hidden');
     }
@@ -27701,52 +27732,6 @@
           childList: true, characterData: true, subtree: true
         });
         syncZoneNames();
-      }
-
-      // ---- Mobile 6-chart carousel ----
-      var mobileChartTitles = [
-        'Addresses with Outreach Attempt',
-        'Damage Status',
-        'Damaged + County Records',
-        'Address Plan',
-        'Streets Distribution',
-        'People per Address'
-      ];
-      var mobileChartIndex = 0;
-
-      function renderMobileChart(index) {
-        if (window.innerWidth > 767) return;
-        if (!window._renderZoneChartForMobile) return;
-        mobileChartIndex = index;
-        window._renderZoneChartForMobile(mobileChartIndex, 'mobileZoneChart');
-        var title = document.getElementById('mobileChartTitle');
-        if (title) title.textContent = mobileChartTitles[mobileChartIndex];
-        var counter = document.getElementById('mobileChartCounter');
-        if (counter) counter.textContent = (mobileChartIndex + 1) + ' / 6';
-      }
-
-      var mobileChartPrev = document.getElementById('mobileChartPrev');
-      var mobileChartNext = document.getElementById('mobileChartNext');
-      if (mobileChartPrev) {
-        mobileChartPrev.addEventListener('click', function() {
-          renderMobileChart((mobileChartIndex - 1 + 6) % 6);
-        });
-      }
-      if (mobileChartNext) {
-        mobileChartNext.addEventListener('click', function() {
-          renderMobileChart((mobileChartIndex + 1) % 6);
-        });
-      }
-
-      // Watch #zoneOverviewCharts: when it loses 'hidden', data is ready — render first chart
-      var zoneChartsEl = document.getElementById('zoneOverviewCharts');
-      if (zoneChartsEl) {
-        new MutationObserver(function(mutations, obs) {
-          if (!zoneChartsEl.classList.contains('hidden')) {
-            renderMobileChart(0);
-            obs.disconnect();
-          }
-        }).observe(zoneChartsEl, { attributes: true, attributeFilter: ['class'] });
       }
 
       // ---- Mobile map controls bottom sheet ----
