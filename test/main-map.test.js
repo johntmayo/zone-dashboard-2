@@ -731,9 +731,9 @@ test('service-worker ownership and automatic lot-line integration stay aligned',
   const root = path.join(__dirname, '..');
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const worker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
-  assert.match(worker, /const SW_VERSION = 'zd-shell-v9'/);
-  assert.match(html, /public\/css\/styles\.css\?v=4/);
-  assert.match(worker, /'\/public\/css\/styles\.css\?v=4'/);
+  assert.match(worker, /const SW_VERSION = 'zd-shell-v10'/);
+  assert.match(html, /public\/css\/styles\.css\?v=5/);
+  assert.match(worker, /'\/public\/css\/styles\.css\?v=5'/);
   assert.match(worker, /'\/public\/js\/resident-placeholder\.js'/);
   assert.doesNotMatch(html, /shell-zd-shell-v4/);
   assert.doesNotMatch(html, /key !== 'shell-zd-shell-/);
