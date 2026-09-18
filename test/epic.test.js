@@ -9,6 +9,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const {
   normalizeApn,
@@ -207,6 +209,24 @@ test('buildWhereClause: escapes single quotes safely', () => {
   const where = buildWhereClause({ disasterType: `Eaton's Fire`, supDist: '5' });
   assert.ok(where.includes(`DISASTER_TYPE='Eaton''s Fire'`), `got: ${where}`);
   assert.ok(where.includes(`SUP_DIST='5'`));
+});
+
+test('homepage uses EPIC and damage signals instead of captain build-status reporting', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const panelStart = html.indexOf('function updateRebuildProgressCharts()');
+  const panelEnd = html.indexOf('// Home Dashboard Functions', panelStart);
+  const panel = html.slice(panelStart, panelEnd);
+
+  assert.ok(panelStart > 0 && panelEnd > panelStart);
+  assert.match(panel, /Explore county records/);
+  assert.match(html, /damaged addresses<\/strong>[\s\S]*?matched EPIC-LA recovery case/);
+  assert.match(html, /Recent dated activity[\s\S]*?Past 30 days/);
+  assert.match(html, /waiting for applicant or on hold/);
+  assert.match(html, /epic_recent_application_30/);
+  assert.match(html, /epic_recent_issuance_30/);
+  assert.match(html, /epic_recent_inspection_30/);
+  assert.doesNotMatch(panel, /collectCaptainBuildSummary|data-br-rebuild|Address Plan/);
+  assert.doesNotMatch(html, /<div class="chart-title">Build Status<\/div>/);
 });
 
 // --- Sync orchestrator with an in-memory Sheets fake ------------------------
