@@ -232,7 +232,8 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
+      white-space: nowrap;
     }
 
     .nav-feedback-sep {
