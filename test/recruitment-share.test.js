@@ -9,16 +9,37 @@ const root = path.join(__dirname, '..');
 
 test('recruitment actions keep the requested two-column order', () => {
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const firstColumnIndex = html.indexOf('<div class="recruitment-column">');
+  const secondColumnIndex = html.indexOf('<div class="recruitment-column">', firstColumnIndex + 1);
   const nominateIndex = html.indexOf('id="recruitmentNominateCard"');
-  const phoneBankIndex = html.indexOf('id="recruitmentPhoneBankCard"');
   const socialIndex = html.indexOf('id="recruitmentSocialCard"');
   const eventsIndex = html.indexOf('id="recruitmentEventsCard"');
+  const placesIndex = html.indexOf('id="recruitmentPlacesCard"');
 
-  assert.ok(nominateIndex > 0);
-  assert.ok(phoneBankIndex > nominateIndex);
-  assert.ok(socialIndex > phoneBankIndex);
+  assert.ok(firstColumnIndex > 0);
+  assert.ok(nominateIndex > firstColumnIndex);
+  assert.ok(socialIndex > nominateIndex);
   assert.ok(eventsIndex > socialIndex);
+  assert.ok(eventsIndex < secondColumnIndex);
+  assert.ok(placesIndex > secondColumnIndex);
+  assert.equal(html.indexOf('id="recruitmentPhoneBankCard"'), -1);
   assert.match(html, /<h3>Post on social media<\/h3>/);
+  assert.match(
+    html,
+    /class="recruitment-card recruitment-card--double-height" id="recruitmentPlacesCard"/
+  );
+});
+
+test('onboarding tour does not reference the retired Actions tab', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const tourStart = html.indexOf('const ONBOARDING_TOUR_CARDS = [');
+  const tourEnd = html.indexOf('let onboardingTourIndex = 0;', tourStart);
+  const tourCards = html.slice(tourStart, tourEnd);
+
+  assert.ok(tourStart > 0);
+  assert.ok(tourEnd > tourStart);
+  assert.doesNotMatch(tourCards, /ACTIONS.*tab/i);
+  assert.match(tourCards, /QUICK ACTIONS.*HOME/);
 });
 
 test('recruitment share dialog exposes the expected accessible controls', () => {
