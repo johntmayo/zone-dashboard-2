@@ -719,7 +719,7 @@ test('shared branded basemap is lifecycle-safe and limited to approved maps', ()
 
   assert.match(html, /addRecordMinimap = L\.map[\s\S]*?createStreetBasemap\(\{ maxZoom: 19 \}\)\.addTo\(addRecordMinimap\)/);
   assert.match(html, /mpMap = L\.map\('movePinMap'[\s\S]*?createStreetBasemap\(\{ maxZoom: 20 \}\)\.addTo\(mpMap\)/);
-  assert.match(html, /function initializeBatchTagging\(\) \{[\s\S]*?batchTaggingTileLayer = createStreetBasemap\(\{ maxZoom: 22 \}\)/);
+  assert.match(html, /function initializeBatchTagging\(force\) \{[\s\S]*?batchTaggingTileLayer = createStreetBasemap\(\{ maxZoom: 22 \}\)/);
   assert.doesNotMatch(html, /createBrandedStreetBasemap\(\{\s*targetMap: (?:addRecordMinimap|mpMap|mapContainer)/);
 
   assert.match(css, /#zoneMap \.leaflet-control-attribution,\s*#homeMap \.leaflet-control-attribution,\s*#lotWeedingAdminMap \.leaflet-control-attribution\s*\{[\s\S]*?display: block !important/);
