@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prototype B · Field Handbook · Tools &amp; Resources</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Lora:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #F7F3EA;
+      --cream: #FDFBF7;
+      --navy: #314059;
+      --ink: #1A1F27;
+      --muted: #5B5346;
+      --gold: #F59E0B;
+      --clay: #BC5838;
+      --rule: #C9C1B2;
+      --ui: "Chivo", sans-serif;
+      --read: "Lora", Georgia, serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: var(--ui);
+      color: var(--ink);
+      background: var(--paper);
+    }
+    .hidden { display: none !important; }
+    button, a { font-family: inherit; }
+
+    .proto-banner {
+      position: sticky; top: 0; z-index: 40;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 8px 16px;
+      background: var(--navy); color: #F3F4F6;
+      font-size: 13px;
+    }
+    .proto-banner a { color: #FDE68A; font-weight: 700; }
+    .proto-banner nav { display: flex; gap: 14px; }
+
+    .app { display: flex; height: calc(100vh - 38px); }
+    .nav {
+      width: 200px; flex-shrink: 0;
+      background: #243044; color: #E8E4DA;
+      display: flex; flex-direction: column;
+      padding: 20px 0;
+    }
+    .nav-zone { padding: 0 18px 16px; border-bottom: 1px solid rgba(255,255,255,0.12); margin-bottom: 10px; }
+    .nav-zone b { display: block; font-size: 22px; font-weight: 900; }
+    .nav-zone span { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.65; }
+    .nav-item {
+      background: none; border: 0; color: inherit;
+      text-align: left; padding: 9px 18px; font-weight: 700; cursor: pointer;
+    }
+    .nav-item.is-active { color: #fff; background: rgba(245,158,11,0.16); }
+    .nav-item[disabled] { opacity: 0.4; cursor: default; }
+    .nav-foot { margin-top: auto; padding: 12px 18px; font-size: 11px; opacity: 0.55; }
+
+    .main { flex: 1; min-width: 0; overflow: auto; padding: 0; background: var(--cream); }
+
+    .handbook { max-width: 840px; margin: 0 auto; padding: 28px 28px 56px; }
+    .running {
+      display: flex; justify-content: space-between;
+      font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 18px;
+    }
+    .page-title {
+      margin: 0 0 6px;
+      font-size: 42px; font-weight: 900; line-height: 0.95;
+      color: var(--navy);
+    }
+    .lede {
+      font-family: var(--read); font-size: 17px; color: var(--muted);
+      margin: 0 0 22px; max-width: 54ch;
+    }
+
+    .command {
+      width: 100%;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      background: var(--navy); color: #F8F4EA;
+      border: 0; padding: 16px 18px; cursor: pointer; text-align: left;
+    }
+    .command:hover { filter: brightness(1.06); }
+    .command small { display: block; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #FDE68A; margin-bottom: 4px; }
+    .command b { display: block; font-size: 22px; font-weight: 900; }
+    .command span { font-size: 14px; opacity: 0.85; }
+    .command-go { font-weight: 900; font-size: 14px; white-space: nowrap; }
+
+    .group { margin: 28px 0 0; }
+    .group-h {
+      display: grid; grid-template-columns: 48px 1fr;
+      gap: 12px; align-items: baseline;
+      border-top: 2px solid var(--ink);
+      padding-top: 8px; margin-bottom: 4px;
+    }
+    .group-h em {
+      font-style: normal; font-size: 22px; font-weight: 900; color: var(--gold);
+    }
+    .group-h h2 { margin: 0; font-size: 16px; font-weight: 900; }
+    .entry {
+      width: 100%;
+      display: grid; grid-template-columns: 1fr auto;
+      gap: 16px; align-items: baseline;
+      background: none; border: 0; border-bottom: 1px dotted var(--rule);
+      padding: 11px 0; cursor: pointer; text-align: left; color: inherit;
+    }
+    .entry:hover strong { text-decoration: underline; text-underline-offset: 3px; }
+    .entry strong { font-size: 16px; font-weight: 700; }
+    .entry p { margin: 2px 0 0; font-family: var(--read); font-size: 14px; color: var(--muted); }
+    .meta { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+
+    .urgent .entry:first-of-type strong { color: var(--clay); }
+
+    .ws { max-width: 1040px; margin: 0 auto; padding: 20px 28px 48px; }
+    .ws-head {
+      display: flex; align-items: baseline; gap: 16px;
+      border-bottom: 2px solid var(--ink);
+      padding-bottom: 10px; margin-bottom: 18px;
+    }
+    .ws-head h2 { margin: 0; font-size: 28px; font-weight: 900; }
+    .back { background: none; border: 0; font-weight: 700; cursor: pointer; color: var(--navy); }
+    .back:hover { text-decoration: underline; }
+
+    .batch { display: grid; grid-template-columns: 1fr 260px; gap: 18px; }
+    .sheet { background: #fff; border: 1px solid var(--rule); padding: 12px; }
+    .tabs { display: flex; gap: 0; margin-bottom: 10px; border-bottom: 2px solid var(--ink); }
+    .tab { background: none; border: 0; padding: 8px 12px; font-weight: 700; cursor: pointer; }
+    .tab.is-on { box-shadow: inset 0 -3px 0 var(--gold); }
+    .item { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px dotted var(--rule); font-size: 14px; }
+    .item.is-on { background: #FFF6DC; margin: 0 -8px; padding-left: 8px; padding-right: 8px; }
+    .count { font-size: 26px; font-weight: 900; }
+    .btn {
+      display: inline-block; padding: 9px 14px;
+      background: var(--navy); color: #fff; border: 0;
+      font-weight: 700; cursor: pointer; text-decoration: none;
+    }
+    .btn-line { background: transparent; color: var(--navy); border: 1px solid var(--navy); }
+
+    .fund { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+    .path h3 { margin: 0 0 8px; font-size: 20px; }
+    .path p, .path li { font-family: var(--read); line-height: 1.55; }
+    .callout { background: #FFF6DC; border-left: 4px solid var(--gold); padding: 10px 12px; margin-bottom: 12px; }
+
+    .gallery { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-top: 2px solid var(--ink); }
+    .tpl {
+      display: grid; grid-template-columns: 88px 1fr;
+      gap: 14px; padding: 14px 8px;
+      border-bottom: 1px solid var(--rule);
+    }
+    .thumb {
+      height: 88px; background: #E8DFC8;
+      border: 1px solid var(--ink);
+      display: grid; place-items: end start; padding: 6px;
+      font-size: 11px; font-weight: 900;
+    }
+    .tpl h3 { margin: 0 0 4px; font-size: 16px; }
+    .tpl p { margin: 0 0 8px; font-family: var(--read); font-size: 13px; color: var(--muted); }
+    .cal { height: 380px; border: 1px dashed var(--rule); display: grid; place-items: center; color: var(--muted); background: #fff; }
+
+    .toast {
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      background: var(--ink); color: #fff; padding: 10px 14px; font-size: 13px;
+    }
+
+    @media (max-width: 980px) {
+      .batch, .fund { grid-template-columns: 1fr; }
+      .gallery { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 820px) {
+      .app { flex-direction: column; height: auto; min-height: calc(100vh - 38px); }
+      .nav { width: 100%; flex-direction: row; flex-wrap: wrap; padding: 8px; }
+      .nav-zone, .nav-foot { display: none; }
+      .page-title { font-size: 32px; }
+      .handbook, .ws { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="proto-banner">
+    <div><strong>Prototype B — Field Handbook.</strong> Sequential hierarchy: Batch Tagging is a command. Everything else is a numbered index.</div>
+    <nav>
+      <a href="index.html">All prototypes</a>
+      <a href="prototype-a.html">Open Prototype A</a>
+    </nav>
+  </div>
+
+  <div class="app">
+    <aside class="nav">
+      <div class="nav-zone"><b>Zone 14</b><span>Altagether</span></div>
+      <button class="nav-item" disabled>Home</button>
+      <button class="nav-item" disabled>Map</button>
+      <button class="nav-item" disabled>Neighbors</button>
+      <button class="nav-item is-active" data-nav="tools">Tools</button>
+      <button class="nav-item" data-nav="resources">Resources</button>
+      <button class="nav-item" disabled>NC Directory ↗</button>
+      <div class="nav-foot">Design prototype · no live data</div>
+    </aside>
+
+    <main class="main">
+      <section id="toolsDir" class="handbook">
+        <div class="running"><span>Altagether Zone Dashboard</span><span>Tools · Zone 14</span></div>
+        <h1 class="page-title">Tools</h1>
+        <p class="lede">Work you do for the zone. Start with Batch Tagging; use the index below when you need to communicate or report.</p>
+
+        <button class="command" type="button" data-open="batch">
+          <div>
+            <small>Start here</small>
+            <b>Batch Tagging</b>
+            <span>Tag many addresses or people at once — damage, plans, build status, outreach.</span>
+          </div>
+          <div class="command-go">Open →</div>
+        </button>
+
+        <div class="group">
+          <div class="group-h"><em>01</em><h2>Manage your zone</h2></div>
+          <button class="entry" type="button" data-open="analysis">
+            <span><strong>Zone Analysis</strong><p>Printable PDF of zone statistics and progress.</p></span>
+            <span class="meta">Open</span>
+          </button>
+        </div>
+
+        <div class="group">
+          <div class="group-h"><em>02</em><h2>Create &amp; communicate</h2></div>
+          <button class="entry" type="button" data-open="templates">
+            <span><strong>Event Planning Templates</strong><p>Checklists for gatherings. PDF download or Google Docs copy.</p></span>
+            <span class="meta">Open gallery</span>
+          </button>
+          <button class="entry" type="button" data-ext="Flyer Creator">
+            <span><strong>Flyer Creator</strong><p>Print and social flyers for zone events.</p></span>
+            <span class="meta">New tab</span>
+          </button>
+          <button class="entry" type="button" data-ext="Newsletter Builder">
+            <span><strong>Newsletter Builder</strong><p>Combine Altagether news with your own updates.</p></span>
+            <span class="meta">New tab</span>
+          </button>
+          <button class="entry" type="button" data-ext="Outreach Helper">
+            <span><strong>Outreach Helper</strong><p>Language for text, email, phone, and letters.</p></span>
+            <span class="meta">New tab</span>
+          </button>
+        </div>
+      </section>
+
+      <section id="resourcesDir" class="handbook hidden">
+        <div class="running"><span>Altagether Zone Dashboard</span><span>Resources · Zone 14</span></div>
+        <h1 class="page-title">Resources</h1>
+        <p class="lede">Help to offer neighbors, and reference for yourself. The referral form is the one action that should not get lost.</p>
+
+        <div class="group urgent">
+          <div class="group-h"><em>01</em><h2>Help your neighbors</h2></div>
+          <button class="entry" type="button" data-ext="Disaster Case Management Referral">
+            <span><strong>Disaster Case Management Referral</strong><p>Refer a neighbor who needs coordinated recovery support.</p></span>
+            <span class="meta">New tab</span>
+          </button>
+          <button class="entry" type="button" data-ext="PostFire Rebuild Calculator">
+            <span><strong>PostFire Rebuild Calculator</strong><p>Rough building-budget estimate to share.</p></span>
+            <span class="meta">New tab</span>
+          </button>
+          <button class="entry" type="button" data-ext="SCE Compensation Estimator">
+            <span><strong>SCE Compensation Estimator</strong><p>Volunteer tool for evaluating SCE’s program.</p></span>
+            <span class="meta">New tab</span>
+          </button>
+        </div>
+
+        <div class="group">
+          <div class="group-h"><em>02</em><h2>Information &amp; guidance</h2></div>
+          <button class="entry" type="button" data-open="funding">
+            <span><strong>Reimbursements for Events &amp; Outreach</strong><p>Altagether gathering funds and the Rotary grant.</p></span>
+            <span class="meta">Open</span>
+          </button>
+          <button class="entry" type="button" data-open="calendar">
+            <span><strong>Neighborhood Captain Calendar</strong><p>Altagether dates for captains.</p></span>
+            <span class="meta">Open</span>
+          </button>
+          <button class="entry" type="button" data-ext="WhatsApp Community">
+            <span><strong>WhatsApp Community</strong><p>Captain groups for questions and coordination.</p></span>
+            <span class="meta">New tab</span>
+          </button>
+          <button class="entry" type="button" data-open="communityCal">
+            <span><strong>Community Recovery Calendar</strong><p>Public events from Courage and Altadena Rising.</p></span>
+            <span class="meta">Open</span>
+          </button>
+          <button class="entry" type="button" data-ext="Permitting Delays">
+            <span><strong>Permitting Delays</strong><p>What to do when a permit stalls.</p></span>
+            <span class="meta">New tab</span>
+          </button>
+          <button class="entry" type="button" data-ext="Recovery Wiki">
+            <span><strong>Altadena Recovery Wiki</strong><p>Rebuilding, permits, relief, and support.</p></span>
+            <span class="meta">New tab</span>
+          </button>
+          <button class="entry" type="button" data-ext="LA County resources">
+            <span><strong>LA County</strong><p>Permitting dashboard, EPIC-LA, and recovery data.</p></span>
+            <span class="meta">New tab</span>
+          </button>
+        </div>
+      </section>
+
+      <section id="ws-batch" class="ws hidden" data-ws>
+        <div class="ws-head">
+          <button class="back" type="button" data-back="tools">← Tools</button>
+          <h2>Batch Tagging</h2>
+        </div>
+        <div class="batch">
+          <div class="sheet">
+            <div class="tabs">
+              <button class="tab is-on" type="button">Addresses</button>
+              <button class="tab" type="button">People</button>
+            </div>
+            <div id="batchList"></div>
+            <p style="font-size:12px;color:var(--muted)">Selections persist if you return to Tools and reopen this workspace during the session.</p>
+          </div>
+          <aside class="sheet">
+            <div class="meta">Selected</div>
+            <div class="count" id="batchCount">0</div>
+            <p><select><option>Damage — no change</option><option>Destroyed</option><option>Major</option></select></p>
+            <p><select><option>Address plan — no change</option><option>Rebuild</option></select></p>
+            <button class="btn" type="button" id="batchApply">Apply tags</button>
+          </aside>
+        </div>
+      </section>
+
+      <section id="ws-analysis" class="ws hidden">
+        <div class="ws-head">
+          <button class="back" type="button" data-back="tools">← Tools</button>
+          <h2>Zone Analysis</h2>
+        </div>
+        <p>Workspace chrome for the existing report generator. Production keeps the current generate/export flow.</p>
+        <button class="btn" type="button" data-ext="Generate Zone Analysis">Generate report</button>
+      </section>
+
+      <section id="ws-templates" class="ws hidden">
+        <div class="ws-head">
+          <button class="back" type="button" data-back="tools">← Tools</button>
+          <h2>Event Planning Templates</h2>
+        </div>
+        <p style="font-family:var(--read);color:var(--muted);max-width:60ch">A compact index, not a card wall. Each template has a preview, a PDF, and a Google Docs copy.</p>
+        <div class="gallery" id="templateGallery"></div>
+      </section>
+
+      <section id="ws-funding" class="ws hidden">
+        <div class="ws-head">
+          <button class="back" type="button" data-back="resources">← Resources</button>
+          <h2>Reimbursements</h2>
+        </div>
+        <div class="fund">
+          <section class="path">
+            <h3>Altagether reimbursement</h3>
+            <div class="callout">
+              Request funds with the
+              <button class="btn" type="button" data-ext="Reimbursement Request Form">reimbursement form</button>
+            </div>
+            <p>Up to <strong>$5 per person in your zone per year</strong> for gatherings. A zone of 40 people may request up to $200. Receipts required.</p>
+            <p>Eligible: space rental, snacks, drinks, ice, activity supplies. Not eligible: transportation, or anything without a receipt.</p>
+          </section>
+          <section class="path">
+            <h3>Rotary block-party grant</h3>
+            <p>Up to <strong>$300 in gift cards</strong> from Altadena Rotary and Grocery Outlet. Apply at least two weeks ahead and email Deb Halberstadt.</p>
+            <button class="btn btn-line" type="button" data-ext="Rotary application PDF">Download application</button>
+          </section>
+        </div>
+      </section>
+
+      <section id="ws-calendar" class="ws hidden">
+        <div class="ws-head">
+          <button class="back" type="button" data-back="resources">← Resources</button>
+          <h2>Captain Calendar</h2>
+        </div>
+        <div class="cal">Calendar iframe loads only when this workspace opens.</div>
+      </section>
+
+      <section id="ws-communityCal" class="ws hidden">
+        <div class="ws-head">
+          <button class="back" type="button" data-back="resources">← Resources</button>
+          <h2>Community Recovery Calendar</h2>
+        </div>
+        <div class="cal">Public calendar iframe would load here.</div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+  <script>
+    const panes = {
+      tools: document.getElementById("toolsDir"),
+      resources: document.getElementById("resourcesDir"),
+      batch: document.getElementById("ws-batch"),
+      analysis: document.getElementById("ws-analysis"),
+      templates: document.getElementById("ws-templates"),
+      funding: document.getElementById("ws-funding"),
+      calendar: document.getElementById("ws-calendar"),
+      communityCal: document.getElementById("ws-communityCal")
+    };
+    const navBtns = document.querySelectorAll("[data-nav]");
+    function show(id) {
+      Object.values(panes).forEach((el) => el.classList.add("hidden"));
+      panes[id].classList.remove("hidden");
+      const section = ["resources","funding","calendar","communityCal"].includes(id) ? "resources" : "tools";
+      navBtns.forEach((btn) => btn.classList.toggle("is-active", btn.dataset.nav === section));
+      document.querySelector(".main").scrollTop = 0;
+    }
+    navBtns.forEach((btn) => btn.addEventListener("click", () => show(btn.dataset.nav)));
+    document.querySelectorAll("[data-open]").forEach((btn) => btn.addEventListener("click", () => show(btn.dataset.open)));
+    document.querySelectorAll("[data-back]").forEach((btn) => btn.addEventListener("click", () => show(btn.dataset.back)));
+
+    const toast = document.getElementById("toast");
+    let t;
+    function ping(msg) {
+      toast.textContent = msg;
+      toast.classList.remove("hidden");
+      clearTimeout(t);
+      t = setTimeout(() => toast.classList.add("hidden"), 2800);
+    }
+    document.querySelectorAll("[data-ext]").forEach((btn) => {
+      btn.addEventListener("click", () => ping("Prototype: “" + btn.dataset.ext + "” would open in a new tab."));
+    });
+
+    const addresses = ["2146 Marengo Ave","2158 Marengo Ave","320 Calaveras St","334 Calaveras St","401 E Las Flores Dr","418 E Las Flores Dr","509 Windsor Ave","522 Windsor Ave"];
+    const selected = new Set();
+    const list = document.getElementById("batchList");
+    const count = document.getElementById("batchCount");
+    function render() {
+      list.innerHTML = addresses.map((addr, i) =>
+        `<label class="item${selected.has(i) ? " is-on" : ""}"><input type="checkbox" data-i="${i}" ${selected.has(i) ? "checked" : ""}> ${addr}</label>`
+      ).join("");
+      count.textContent = selected.size;
+    }
+    list.addEventListener("change", (e) => {
+      const i = Number(e.target.dataset.i);
+      if (e.target.checked) selected.add(i); else selected.delete(i);
+      render();
+    });
+    document.getElementById("batchApply").addEventListener("click", () => {
+      ping(selected.size ? "Prototype only — would save tags for " + selected.size + " addresses." : "Select at least one address.");
+    });
+    render();
+
+    const templates = [
+      ["Block Party", "Checklist and run-of-show for a larger gathering."],
+      ["Coffee Meetup", "Low-pressure first event."],
+      ["Framing Party", "Roles, safety, and supply list."],
+      ["Lot-Clearing Day", "Crew plan and neighbor outreach."],
+      ["Welcome Gathering", "Greeting returning or new neighbors."],
+      ["Zone Update Meeting", "Agenda and follow-up notes."]
+    ];
+    document.getElementById("templateGallery").innerHTML = templates.map(([title, blurb]) => `
+      <article class="tpl">
+        <div class="thumb">${title}</div>
+        <div>
+          <h3>${title}</h3>
+          <p>${blurb}</p>
+          <button class="btn btn-line" type="button" data-ext="${title} PDF">PDF</button>
+          <button class="btn" type="button" data-ext="${title} Google Doc">Make a copy</button>
+        </div>
+      </article>
+    `).join("");
+    document.getElementById("templateGallery").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-ext]");
+      if (btn) ping("Prototype: “" + btn.dataset.ext + "” would open in a new tab.");
+    });
+  </script>
+</body>
+</html>
