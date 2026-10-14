@@ -8542,37 +8542,21 @@
 
     .dir-ico {
       display: block;
-      width: 20px;
-      height: 20px;
+      width: 36px;
+      height: 36px;
       margin: 0;
+      object-fit: contain;
     }
 
     svg.dir-ico {
+      width: 22px;
+      height: 22px;
       fill: none;
       stroke: currentColor;
       stroke-width: 1.7;
       stroke-linecap: round;
       stroke-linejoin: round;
     }
-
-    span.dir-ico {
-      background-color: currentColor;
-      -webkit-mask: var(--dir-ico) center / contain no-repeat;
-      mask: var(--dir-ico) center / contain no-repeat;
-      mask-mode: alpha;
-    }
-
-    .dir-ico--batch-data-entry { --dir-ico: url('../images/dir-icons/batch-data-entry.svg'); }
-    .dir-ico--zone-analysis { --dir-ico: url('../images/dir-icons/zone-analysis.svg'); }
-    .dir-ico--newsletter-builder { --dir-ico: url('../images/dir-icons/newsletter-builder.svg'); }
-    .dir-ico--event-planning-templates { --dir-ico: url('../images/dir-icons/event-planning-templates.svg'); }
-    .dir-ico--outreach-helper { --dir-ico: url('../images/dir-icons/outreach-helper.svg'); }
-    .dir-ico--flyer-creator { --dir-ico: url('../images/dir-icons/flyer-creator.svg'); }
-    .dir-ico--referral { --dir-ico: url('../images/dir-icons/referral.svg'); }
-    .dir-ico--reimbursement { --dir-ico: url('../images/dir-icons/reimbursement.svg'); }
-    .dir-ico--whatsapp { --dir-ico: url('../images/dir-icons/whatsapp.svg'); }
-    .dir-ico--calendar { --dir-ico: url('../images/dir-icons/calendar.svg'); }
-    .dir-ico--calculator-estimator { --dir-ico: url('../images/dir-icons/calculator-estimator.svg'); }
 
     .dir-featured {
       display: flex;
@@ -8622,8 +8606,9 @@
     }
 
     .dir-featured__icon .dir-ico {
-      width: 26px;
-      height: 26px;
+      width: 40px;
+      height: 40px;
+      filter: brightness(0) invert(1);
     }
 
     .dir-featured__copy {
@@ -8706,8 +8691,8 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 36px;
-      height: 36px;
+      width: 48px;
+      height: 48px;
       color: var(--brand-primary-dark);
       background: rgba(49, 64, 89, 0.08);
     }
