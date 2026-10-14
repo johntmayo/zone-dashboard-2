@@ -993,12 +993,16 @@
         </div>
 
         <div id="ws-eventTemplates" class="dir-ws-pane hidden">
-          <p class="dir-ws-lead">Download a print-ready PDF, or make an editable Google Docs copy you can customize for your zone.</p>
+          <p class="dir-ws-lead">Download a print-ready PDF, or make an editable Google Docs copy you can customize for your zone. Click a preview to open it larger.</p>
           <div class="dir-template-gallery" id="eventTemplateGallery">
             <article class="dir-template">
-              <div class="dir-template__preview">
+              <button type="button" class="dir-template__preview" data-template-open
+                data-title="Framing Party"
+                data-img="public/docs/event-templates/framing-party.png"
+                data-pdf="public/docs/event-templates/framing-party.pdf"
+                data-docs="https://docs.google.com/document/d/1u3ltpx4AmnqHUP9YR3hHoGfCNxliw3Bsd4Ax67PHLDs/copy">
                 <img src="public/docs/event-templates/framing-party.png" alt="Framing Party template preview">
-              </div>
+              </button>
               <h3>Framing Party</h3>
               <p>A volunteer build-day plan for decorating and signing the studs.</p>
               <p class="dir-template__actions">
@@ -1007,9 +1011,13 @@
               </p>
             </article>
             <article class="dir-template">
-              <div class="dir-template__preview">
+              <button type="button" class="dir-template__preview" data-template-open
+                data-title="Coffee in the Driveway"
+                data-img="public/docs/event-templates/coffee-driveway.png"
+                data-pdf="public/docs/event-templates/coffee-driveway.pdf"
+                data-docs="https://docs.google.com/document/d/1ko0IipRuva-oHSyb5NW5D0TlZqYx8URoQzwVGHYnSGA/copy">
                 <img src="public/docs/event-templates/coffee-driveway.png" alt="Coffee in the Driveway template preview">
-              </div>
+              </button>
               <h3>Coffee in the Driveway</h3>
               <p>A simple plan for a low-pressure first gathering.</p>
               <p class="dir-template__actions">
@@ -1018,9 +1026,13 @@
               </p>
             </article>
             <article class="dir-template">
-              <div class="dir-template__preview">
+              <button type="button" class="dir-template__preview" data-template-open
+                data-title="Bring-Your-Own Blanket Picnic"
+                data-img="public/docs/event-templates/picnic.png"
+                data-pdf="public/docs/event-templates/picnic.pdf"
+                data-docs="https://docs.google.com/document/d/1AecWgesOEypidDwqlwgL7-FfczoiMqrqRbSlhZjMhT0/copy">
                 <img src="public/docs/event-templates/picnic.png" alt="Bring-Your-Own Blanket Picnic template preview">
-              </div>
+              </button>
               <h3>Bring-Your-Own Blanket Picnic</h3>
               <p>A casual outdoor gathering neighbors can join with their own blankets.</p>
               <p class="dir-template__actions">
@@ -1029,9 +1041,13 @@
               </p>
             </article>
             <article class="dir-template">
-              <div class="dir-template__preview">
+              <button type="button" class="dir-template__preview" data-template-open
+                data-title="Neighborhood Walk"
+                data-img="public/docs/event-templates/neighborhood-walk.png"
+                data-pdf="public/docs/event-templates/neighborhood-walk.pdf"
+                data-docs="https://docs.google.com/document/d/1LOZht0rbfDpVCKOq0XD0pDxiue67LIbcoC1Rxsa5_7w/copy">
                 <img src="public/docs/event-templates/neighborhood-walk.png" alt="Neighborhood Walk template preview">
-              </div>
+              </button>
               <h3>Neighborhood Walk</h3>
               <p>A short route and talking points for walking the zone together.</p>
               <p class="dir-template__actions">
@@ -1040,9 +1056,13 @@
               </p>
             </article>
             <article class="dir-template">
-              <div class="dir-template__preview">
+              <button type="button" class="dir-template__preview" data-template-open
+                data-title="Potluck Dinner"
+                data-img="public/docs/event-templates/potluck-dinner.png"
+                data-pdf="public/docs/event-templates/potluck-dinner.pdf"
+                data-docs="https://docs.google.com/document/d/1I1csbpELwmOgQ2Mkbxvi1JkGrP_kT-CE6DAbYejD8Yw/copy">
                 <img src="public/docs/event-templates/potluck-dinner.png" alt="Potluck Dinner template preview">
-              </div>
+              </button>
               <h3>Potluck Dinner</h3>
               <p>A shared-meal plan for bringing neighbors together.</p>
               <p class="dir-template__actions">
@@ -1050,6 +1070,17 @@
                 <a href="https://docs.google.com/document/d/1I1csbpELwmOgQ2Mkbxvi1JkGrP_kT-CE6DAbYejD8Yw/copy" target="_blank" rel="noopener noreferrer">Make a Google Docs copy</a>
               </p>
             </article>
+          </div>
+        </div>
+        <div id="eventTemplateModal" class="dir-template-modal hidden" role="dialog" aria-modal="true" aria-labelledby="eventTemplateModalTitle">
+          <div class="dir-template-modal__dialog" role="document">
+            <button type="button" class="dir-template-modal__close" id="eventTemplateModalClose" aria-label="Close template preview">×</button>
+            <h3 id="eventTemplateModalTitle"></h3>
+            <img id="eventTemplateModalImg" alt="">
+            <p class="dir-template-modal__actions">
+              <a id="eventTemplateModalPdf" href="#" target="_blank" rel="noopener noreferrer">Download PDF</a>
+              <a id="eventTemplateModalDocs" href="#" target="_blank" rel="noopener noreferrer">Make a Google Docs copy</a>
+            </p>
           </div>
         </div>
       </div>
@@ -27681,6 +27712,47 @@
     document.querySelectorAll('[data-close-workspace]').forEach((el) => {
       el.addEventListener('click', () => closeDirectoryWorkspace(el.dataset.closeWorkspace));
     });
+
+    (function initEventTemplateModal() {
+      const modal = document.getElementById('eventTemplateModal');
+      const titleEl = document.getElementById('eventTemplateModalTitle');
+      const imgEl = document.getElementById('eventTemplateModalImg');
+      const pdfEl = document.getElementById('eventTemplateModalPdf');
+      const docsEl = document.getElementById('eventTemplateModalDocs');
+      const closeBtn = document.getElementById('eventTemplateModalClose');
+      if (!modal || !titleEl || !imgEl || !pdfEl || !docsEl || !closeBtn) return;
+      let lastOpener = null;
+
+      function closeEventTemplateModal() {
+        modal.classList.add('hidden');
+        if (lastOpener && typeof lastOpener.focus === 'function') lastOpener.focus();
+        lastOpener = null;
+      }
+
+      function openEventTemplateModal(btn) {
+        lastOpener = btn;
+        titleEl.textContent = btn.dataset.title || '';
+        imgEl.src = btn.dataset.img || '';
+        imgEl.alt = (btn.dataset.title || 'Template') + ' preview';
+        pdfEl.href = btn.dataset.pdf || '#';
+        docsEl.href = btn.dataset.docs || '#';
+        modal.classList.remove('hidden');
+        closeBtn.focus();
+      }
+
+      document.querySelectorAll('[data-template-open]').forEach((btn) => {
+        btn.addEventListener('click', () => openEventTemplateModal(btn));
+      });
+      closeBtn.addEventListener('click', closeEventTemplateModal);
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) closeEventTemplateModal();
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
+          closeEventTemplateModal();
+        }
+      });
+    })();
 
     document.getElementById('copyNeighborReferralUrl')?.addEventListener('click', async (event) => {
       const btn = event.currentTarget;
