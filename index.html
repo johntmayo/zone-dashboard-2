@@ -1072,10 +1072,9 @@
             </article>
           </div>
         </div>
-        <div id="eventTemplateModal" class="dir-template-modal hidden" role="dialog" aria-modal="true" aria-labelledby="eventTemplateModalTitle">
+        <div id="eventTemplateModal" class="dir-template-modal hidden" role="dialog" aria-modal="true" aria-label="Event template preview">
           <div class="dir-template-modal__dialog" role="document">
             <button type="button" class="dir-template-modal__close" id="eventTemplateModalClose" aria-label="Close template preview">×</button>
-            <h3 id="eventTemplateModalTitle"></h3>
             <img id="eventTemplateModalImg" alt="">
             <p class="dir-template-modal__actions">
               <a id="eventTemplateModalPdf" href="#" target="_blank" rel="noopener noreferrer">Download PDF</a>
@@ -27715,12 +27714,11 @@
 
     (function initEventTemplateModal() {
       const modal = document.getElementById('eventTemplateModal');
-      const titleEl = document.getElementById('eventTemplateModalTitle');
       const imgEl = document.getElementById('eventTemplateModalImg');
       const pdfEl = document.getElementById('eventTemplateModalPdf');
       const docsEl = document.getElementById('eventTemplateModalDocs');
       const closeBtn = document.getElementById('eventTemplateModalClose');
-      if (!modal || !titleEl || !imgEl || !pdfEl || !docsEl || !closeBtn) return;
+      if (!modal || !imgEl || !pdfEl || !docsEl || !closeBtn) return;
       let lastOpener = null;
 
       function closeEventTemplateModal() {
@@ -27731,9 +27729,10 @@
 
       function openEventTemplateModal(btn) {
         lastOpener = btn;
-        titleEl.textContent = btn.dataset.title || '';
+        const title = btn.dataset.title || 'Template';
         imgEl.src = btn.dataset.img || '';
-        imgEl.alt = (btn.dataset.title || 'Template') + ' preview';
+        imgEl.alt = title + ' preview';
+        modal.setAttribute('aria-label', title + ' template preview');
         pdfEl.href = btn.dataset.pdf || '#';
         docsEl.href = btn.dataset.docs || '#';
         modal.classList.remove('hidden');
