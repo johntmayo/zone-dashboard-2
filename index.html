@@ -12326,6 +12326,7 @@
             zoneMap.invalidateSize({ pan: false });
             resizeZoneMapLibre();
             scheduleLotLinesRefresh(0);
+            scheduleDeferredZoneMapFit();
           }
         });
       });
@@ -17016,6 +17017,7 @@
           if (zoneMap) {
             resyncMapLayoutAfterFilterBar({ immediate: true, followUpMs: 100 });
             zoneMap.invalidateSize({ pan: false });
+            scheduleDeferredZoneMapFit();
             resizeZoneMapLibre();
             scheduleLotLinesRefresh(0);
             // Ensure control still exists after invalidation
@@ -18618,6 +18620,44 @@
     const ZONE_MAP_MIN_ZOOM = 16;
     function clampZoneMapZoom() {
       if (zoneMap && zoneMap.getZoom() < ZONE_MAP_MIN_ZOOM) zoneMap.setZoom(ZONE_MAP_MIN_ZOOM);
+    }
+
+    // fitBounds while #zoneMap is display:none measures a 0×0 container and pins the
+    // zone to the top-left. Hold the bounds and fit only once the Map tab has a size.
+    let zoneMapDeferredFitBounds = null;
+    let zoneMapDeferredFitTimer = null;
+
+    function zoneMapCanFitNow() {
+      if (!zoneMap || currentView !== 'map') return false;
+      const mapDiv = document.getElementById('zoneMap');
+      return !!(mapDiv && mapDiv.offsetParent !== null && mapDiv.clientWidth > 1 && mapDiv.clientHeight > 1);
+    }
+
+    function rememberZoneMapFit(bounds) {
+      if (!bounds || typeof bounds.isValid !== 'function' || !bounds.isValid()) return;
+      zoneMapDeferredFitBounds = L.latLngBounds(bounds.getSouthWest(), bounds.getNorthEast());
+      scheduleDeferredZoneMapFit();
+    }
+
+    function scheduleDeferredZoneMapFit() {
+      if (!zoneMapDeferredFitBounds) return;
+      if (zoneMapDeferredFitTimer) clearTimeout(zoneMapDeferredFitTimer);
+      zoneMapDeferredFitTimer = setTimeout(runDeferredZoneMapFit, 120);
+    }
+
+    function runDeferredZoneMapFit() {
+      zoneMapDeferredFitTimer = null;
+      if (!zoneMapDeferredFitBounds || !zoneMapCanFitNow()) return;
+      const bounds = zoneMapDeferredFitBounds;
+      zoneMapDeferredFitBounds = null;
+      try {
+        zoneMap.invalidateSize({ pan: false });
+        zoneMap.fitBounds(bounds, { padding: [20, 20], maxZoom: 17 });
+        setTimeout(clampZoneMapZoom, 350);
+      } catch (error) {
+        zoneMapDeferredFitBounds = bounds;
+        console.error('Error fitting zone map:', error);
+      }
     }
 
     function ensureSoldTagPane() {
@@ -21472,8 +21512,7 @@
         }
         kmlLayer = L.geoJSON(zoneFc, { style: ZONE_BOUNDARY_STYLE }).addTo(zoneMap);
         if (kmlLayer.getBounds && kmlLayer.getBounds().isValid()) {
-          zoneMap.fitBounds(kmlLayer.getBounds(), { padding: [20, 20], maxZoom: 17 });
-          setTimeout(clampZoneMapZoom, 350);
+          rememberZoneMapFit(kmlLayer.getBounds());
         }
         return true;
       } catch (e) {
@@ -21651,10 +21690,9 @@
           style: ZONE_BOUNDARY_STYLE
         }).addTo(zoneMap);
         
-        // Fit map to boundary
+        // Fit map to boundary once the Map tab has a real size.
         if (kmlLayer.getBounds && kmlLayer.getBounds().isValid()) {
-          zoneMap.fitBounds(kmlLayer.getBounds(), { padding: [20, 20], maxZoom: 17 });
-          setTimeout(clampZoneMapZoom, 350);
+          rememberZoneMapFit(kmlLayer.getBounds());
         }
       } catch (error) {
         console.error('Error loading KML:', error);
