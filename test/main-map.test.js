@@ -727,6 +727,27 @@ test('shared branded basemap is lifecycle-safe and limited to approved maps', ()
   assert.match(css, /\.leaflet-control-attribution \{\s*display: none !important;/);
 });
 
+test('zone map fits its boundary only after the Map tab has a real size', () => {
+  const root = path.join(__dirname, '..');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+
+  assert.match(html, /function rememberZoneMapFit\(bounds\)/);
+  assert.match(html, /function zoneMapCanFitNow\(\)[\s\S]*?offsetParent !== null && mapDiv\.clientWidth > 1 && mapDiv\.clientHeight > 1/);
+  assert.match(html, /zoneMap\.invalidateSize\(\{ pan: false \}\);\s*zoneMap\.fitBounds\(bounds, \{ padding: \[20, 20\], maxZoom: 17 \}\)/);
+
+  const mapboxBoundary = html.match(/async function loadMapboxBoundary\(zoneName\) \{([\s\S]*?)async function loadMapboxBoundaryForHome/);
+  assert.ok(mapboxBoundary);
+  assert.match(mapboxBoundary[1], /rememberZoneMapFit\(kmlLayer\.getBounds\(\)\)/);
+  assert.doesNotMatch(mapboxBoundary[1], /zoneMap\.fitBounds/);
+
+  const kmlBoundary = html.match(/async function loadKMLBoundary\(kmlUrl\) \{([\s\S]*?)function highlightSelectedMarker/);
+  assert.ok(kmlBoundary);
+  assert.match(kmlBoundary[1], /rememberZoneMapFit\(kmlLayer\.getBounds\(\)\)/);
+  assert.doesNotMatch(kmlBoundary[1], /zoneMap\.fitBounds/);
+
+  assert.match(html, /scheduleLotLinesRefresh\(0\);\s*scheduleDeferredZoneMapFit\(\);/);
+});
+
 test('service-worker ownership and automatic lot-line integration stay aligned', () => {
   const root = path.join(__dirname, '..');
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
