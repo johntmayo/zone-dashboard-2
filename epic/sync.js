@@ -63,12 +63,14 @@ async function runSync({ sheetsClient, logger = console, reason = 'manual' } = {
   let pages = 0;
   let hitMaxPages = false;
   let layerMeta = null;
+  let supDistApplied = false;
   try {
     layerMeta = await arcgis.fetchLayerMetadata(cfg);
-    const result = await arcgis.fetchAllEpicFeatures(cfg);
+    const result = await arcgis.fetchAllEpicFeatures(cfg, layerMeta);
     features = result.features;
     pages = result.pages;
     hitMaxPages = result.hitMaxPages;
+    supDistApplied = Boolean(result.supDistApplied);
   } catch (err) {
     const msg = `ArcGIS fetch failed: ${err.message}`;
     logger.error(`[epic-sync] ${msg}`);
@@ -156,7 +158,9 @@ async function runSync({ sheetsClient, logger = console, reason = 'manual' } = {
     last_success_hit_max_pages: hitMaxPages ? 'TRUE' : 'FALSE',
     last_success_source_last_edit_date: layerMeta && layerMeta.lastEditDate ? String(layerMeta.lastEditDate) : '',
     last_success_disaster_type: cfg.disasterType,
-    last_success_sup_dist: cfg.supDist
+    // Empty when the county layer no longer has SUP_DIST. The configured
+    // EPIC_SUP_DIST value is not applied in that case.
+    last_success_sup_dist: supDistApplied ? cfg.supDist : ''
   });
 
   logger.log(`[epic-sync] ok inserted=${upsertResult.inserted} updated=${upsertResult.updated} duration_ms=${durationMs}`);
