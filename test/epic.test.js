@@ -24,7 +24,7 @@ const {
   CACHE_COLUMNS
 } = require('../epic/normalize');
 
-const { buildWhereClause } = require('../epic/arcgis');
+const { buildWhereClause, selectOutFields } = require('../epic/arcgis');
 
 // --- Pure helpers -----------------------------------------------------------
 
@@ -205,10 +205,36 @@ test('buildLookupPayload: splits rebuild vs temp, picks most-progressed headline
   assert.match(empty.suggestion_reason, /No EPIC cases/);
 });
 
-test('buildWhereClause: escapes single quotes safely', () => {
+test('buildWhereClause: escapes single quotes and skips a removed district field', () => {
   const where = buildWhereClause({ disasterType: `Eaton's Fire`, supDist: '5' });
-  assert.ok(where.includes(`DISASTER_TYPE='Eaton''s Fire'`), `got: ${where}`);
-  assert.ok(where.includes(`SUP_DIST='5'`));
+  assert.strictEqual(where, `DISASTER_TYPE='Eaton''s Fire'`);
+
+  const liveFields = ['OBJECTID', 'DISASTER_TYPE', 'CASENUMBER', 'CSSLink'];
+  const withoutDistrict = buildWhereClause({
+    disasterType: 'Eaton Fire (01-2025)',
+    supDist: '5',
+    availableFields: liveFields
+  });
+  assert.strictEqual(withoutDistrict, `DISASTER_TYPE='Eaton Fire (01-2025)'`);
+
+  const withDistrict = buildWhereClause({
+    disasterType: 'Eaton Fire (01-2025)',
+    supDist: '5',
+    availableFields: liveFields.concat('SUP_DIST')
+  });
+  assert.ok(withDistrict.includes(`SUP_DIST='5'`));
+});
+
+test('selectOutFields drops fields the county layer no longer has', () => {
+  const requested = ['OBJECTID', 'CASENUMBER', 'NEW_DWELLING_UNITS', 'CSSLINK', 'SUP_DIST'];
+  assert.deepStrictEqual(
+    selectOutFields(requested, []),
+    ['OBJECTID', 'CASENUMBER', 'CSSLINK']
+  );
+  assert.deepStrictEqual(
+    selectOutFields(requested, ['OBJECTID', 'CASENUMBER', 'CSSLink']),
+    ['OBJECTID', 'CASENUMBER', 'CSSLINK']
+  );
 });
 
 test('homepage uses EPIC and damage signals instead of captain build-status reporting', () => {

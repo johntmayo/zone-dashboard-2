@@ -35,6 +35,10 @@ function getEpicConfig() {
   // Source fields we request from ArcGIS. Using explicit list (not `*`)
   // keeps payloads smaller and the contract stable if the source grows new
   // columns. `OBJECTID` is added for diagnostics.
+  // SUP_DIST and NEW_DWELLING_UNITS are still requested. The county layer
+  // dropped both on 2026-10-20; arcgis.js omits any requested field the live
+  // schema does not have, and it does not put SUP_DIST in the WHERE clause
+  // unless that field is actually present.
   const outFields = [
     'OBJECTID',
     'CASENUMBER',
