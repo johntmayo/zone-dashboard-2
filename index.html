@@ -35,6 +35,8 @@
   <script src="https://unpkg.com/leaflet-kml@1.0.0/dist/leaflet-kml.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <link rel="stylesheet" href="public/css/styles.css?v=9">
   <script src="public/js/utils.js?v=3"></script>
   <script src="public/js/address-id.js"></script>
@@ -994,8 +996,7 @@
                   <button type="button" class="son-report-tab" id="btnSonPreviewDeck" role="tab" aria-selected="false">Meeting deck preview</button>
                 </div>
                 <div class="son-report-export-btns">
-                  <button type="button" class="btn-export" id="btnExportSonOnePager">Download one-pager PDF</button>
-                  <button type="button" class="btn-export btn-export--secondary" id="btnExportSonDeck">Download meeting deck PDF</button>
+                  <button type="button" class="btn-export" id="btnExportSonPdf">Download one-pager PDF</button>
                 </div>
               </div>
               <div class="zone-report-content son-report-preview" id="zoneReportContent"></div>
@@ -26484,7 +26485,7 @@
       data: null,
       onePagerHtml: '',
       deckHtml: '',
-      previewMode: 'deck',
+      previewMode: 'onePager',
       mapDataUrl: '',
       previewResizeBound: false
     };
@@ -26502,8 +26503,7 @@
       };
 
       bindClick('btnGenerateReport', () => { generateZoneReport(); });
-      bindClick('btnExportSonOnePager', () => { exportSonReportPdf('onePager'); });
-      bindClick('btnExportSonDeck', () => { exportSonReportPdf('deck'); });
+      bindClick('btnExportSonPdf', () => { exportSonReportPdf(sonReportState.previewMode || 'onePager'); });
       bindClick('btnSonPreviewOnePager', () => { setSonReportPreviewMode('onePager'); });
       bindClick('btnSonPreviewDeck', () => { setSonReportPreviewMode('deck'); });
 
@@ -26546,6 +26546,12 @@
       if (deckTab) {
         deckTab.classList.toggle('active', sonReportState.previewMode === 'deck');
         deckTab.setAttribute('aria-selected', sonReportState.previewMode === 'deck' ? 'true' : 'false');
+      }
+      const exportBtn = document.getElementById('btnExportSonPdf');
+      if (exportBtn) {
+        exportBtn.textContent = sonReportState.previewMode === 'deck'
+          ? 'Download meeting deck PDF'
+          : 'Download one-pager PDF';
       }
       requestAnimationFrame(() => scaleSonPreviewFrames());
       ensureSonPreviewResizeHandler();
@@ -26608,13 +26614,9 @@
           }
         }
 
-        setSonReportStatus('Loading zone map…', 'loading');
-        const mapDataUrl = await loadSonZoneMapDataUrl();
-        sonReportState.mapDataUrl = mapDataUrl || '';
-
         const data = computeSonReportData();
         data.captainNote = getSonCaptainNote();
-        data.mapDataUrl = sonReportState.mapDataUrl;
+        data.mapDataUrl = '';
         sonReportState.data = data;
         sonReportState.onePagerHtml = buildSonOnePagerHtml(data);
         sonReportState.deckHtml = buildSonDeckHtml(data);
@@ -26623,7 +26625,7 @@
           container.classList.remove('hidden');
           container.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-        setSonReportPreviewMode(sonReportState.previewMode || 'deck');
+        setSonReportPreviewMode(sonReportState.previewMode || 'onePager');
         setSonReportStatus('Briefing ready — preview below, then download a PDF.', '');
         setTimeout(() => {
           const statusEl = document.getElementById('zoneReportStatus');
@@ -27486,8 +27488,78 @@
         </div>`;
     }
 
+    function sonJsPdfCtor() {
+      if (window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
+      if (typeof window.jsPDF === 'function') return window.jsPDF;
+      return null;
+    }
+
+    async function sonCaptureElementToCanvas(sourceEl, width, height) {
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('width', String(width));
+      iframe.setAttribute('height', String(height));
+      iframe.style.cssText = 'position:fixed;left:0;top:0;width:' + width + 'px;height:' + height + 'px;border:0;z-index:2147483000;background:#ffffff;pointer-events:none;';
+      document.body.appendChild(iframe);
+      const doc = iframe.contentDocument;
+      const win = iframe.contentWindow;
+      if (!doc || !win) {
+        iframe.remove();
+        throw new Error('Could not open PDF renderer');
+      }
+      doc.open();
+      doc.write('<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:' + width + 'px;height:' + height + 'px;overflow:hidden;background:#ffffff;}</style></head><body></body></html>');
+      doc.close();
+      Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).forEach((node) => {
+        try { doc.head.appendChild(node.cloneNode(true)); } catch (err) { /* ignore */ }
+      });
+      await new Promise((resolve, reject) => {
+        const script = doc.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('Could not load PDF renderer'));
+        doc.head.appendChild(script);
+      });
+      if (doc.fonts && doc.fonts.ready) {
+        try { await Promise.race([doc.fonts.ready, new Promise((resolve) => setTimeout(resolve, 1500))]); } catch (err) { /* fonts optional */ }
+      }
+      try {
+        const clone = sourceEl.cloneNode(true);
+        clone.style.position = 'relative';
+        clone.style.left = '0';
+        clone.style.top = '0';
+        clone.style.transform = 'none';
+        clone.style.margin = '0';
+        clone.style.boxShadow = 'none';
+        clone.style.borderRadius = '0';
+        clone.style.width = width + 'px';
+        clone.style.height = height + 'px';
+        clone.style.maxWidth = 'none';
+        clone.style.overflow = 'hidden';
+        doc.body.appendChild(clone);
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        if (typeof win.html2canvas !== 'function') throw new Error('Could not render page');
+        const canvas = await win.html2canvas(clone, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+          width,
+          height,
+          windowWidth: width,
+          windowHeight: height,
+          scrollX: 0,
+          scrollY: 0
+        });
+        if (!canvas) throw new Error('Could not render page');
+        return canvas;
+      } finally {
+        iframe.remove();
+      }
+    }
+
     async function exportSonReportPdf(mode) {
-      if (typeof html2pdf === 'undefined') {
+      if (!sonJsPdfCtor()) {
         alert('PDF export library not available. Please refresh and try again, or use browser print.');
         return;
       }
@@ -27497,24 +27569,14 @@
       }
 
       const isDeck = mode === 'deck';
-      const exportBtn = document.getElementById(isDeck ? 'btnExportSonDeck' : 'btnExportSonOnePager');
+      const exportBtn = document.getElementById('btnExportSonPdf');
       if (exportBtn) exportBtn.disabled = true;
       setSonReportStatus(isDeck ? 'Building meeting deck PDF…' : 'Building one-pager PDF…', 'loading');
 
-      const container = document.createElement('div');
-      container.style.cssText = 'position:absolute;left:-99999px;top:0;background:#ffffff;';
-      document.body.appendChild(container);
+      const parse = document.createElement('div');
+      parse.innerHTML = isDeck ? sonReportState.deckHtml : sonReportState.onePagerHtml;
 
       try {
-        const sourceHtml = isDeck ? sonReportState.deckHtml : sonReportState.onePagerHtml;
-        container.innerHTML = sourceHtml;
-        const root = container.firstElementChild;
-        if (!root) throw new Error('Nothing to export');
-
-        // Reset any preview scaling so export captures native slide/page size
-        container.querySelectorAll('.son-slide, .son-one-pager').forEach((el) => {
-          el.style.transform = 'none';
-        });
 
         const zoneSlug = String((sonReportState.data && sonReportState.data.zoneName) || 'zone')
           .toLowerCase()
@@ -27526,92 +27588,26 @@
           ? `state-of-neighborhood-${zoneSlug}-deck-${dateForFile}.pdf`
           : `state-of-neighborhood-${zoneSlug}-one-pager-${dateForFile}.pdf`;
 
-        const pageWmm = 338.67;
-        const pageHmm = 190.5;
-        const canvasOpts = {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-          backgroundColor: '#ffffff'
-        };
+        const JsPDF = sonJsPdfCtor();
+        if (!JsPDF) throw new Error('PDF engine (jsPDF) is not available');
 
         if (isDeck) {
-          const slides = Array.from(container.querySelectorAll('.son-slide'));
+          const slides = Array.from(parse.querySelectorAll('.son-slide'));
           if (!slides.length) throw new Error('No slides to export');
-
-          slides.forEach((slide) => {
-            slide.style.margin = '0';
-            slide.style.boxShadow = 'none';
-            slide.style.borderRadius = '0';
-            slide.style.transform = 'none';
-          });
-
-          // Render each slide to a canvas, then stitch into one PDF.
-          const slideOpt = {
-            margin: 0,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: {
-              ...canvasOpts,
-              width: SON_SLIDE_W,
-              height: SON_SLIDE_H,
-              windowWidth: SON_SLIDE_W
-            },
-            jsPDF: { unit: 'mm', format: [pageWmm, pageHmm], orientation: 'landscape' }
-          };
-
-          const pdf = await html2pdf().set(slideOpt).from(slides[0]).toPdf().get('pdf');
-          if (!pdf) throw new Error('Failed to create PDF from first slide');
-          const pageWidth = pdf.internal.pageSize.getWidth();
-          const pageHeight = pdf.internal.pageSize.getHeight();
-          for (let i = 1; i < slides.length; i += 1) {
-            const canvas = await html2pdf().set(slideOpt).from(slides[i]).toCanvas().get('canvas');
-            if (!canvas) throw new Error('Failed to render slide ' + (i + 1));
-            pdf.addPage();
-            pdf.addImage(
-              canvas.toDataURL('image/jpeg', 0.98),
-              'JPEG',
-              0,
-              0,
-              pageWidth,
-              pageHeight
-            );
+          const pdf = new JsPDF({ unit: 'mm', format: [338.67, 190.5], orientation: 'landscape' });
+          for (let i = 0; i < slides.length; i += 1) {
+            const canvas = await sonCaptureElementToCanvas(slides[i], SON_SLIDE_W, SON_SLIDE_H);
+            if (i > 0) pdf.addPage([338.67, 190.5], 'landscape');
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            pdf.addImage(canvas.toDataURL('image/jpeg', 0.98), 'JPEG', 0, 0, pageWidth, pageHeight);
           }
           pdf.save(filename);
         } else {
-          const pageEl = container.querySelector('.son-one-pager') || root;
-          pageEl.style.transform = 'none';
-          pageEl.style.width = SON_ONE_W + 'px';
-          pageEl.style.height = SON_ONE_H + 'px';
-          pageEl.style.overflow = 'hidden';
-
-          // Capture fixed 720×960 canvas, then place as one image on a letter page
-          const canvas = await html2pdf().set({
-            margin: 0,
-            html2canvas: {
-              ...canvasOpts,
-              width: SON_ONE_W,
-              height: SON_ONE_H,
-              windowWidth: SON_ONE_W
-            }
-          }).from(pageEl).toCanvas().get('canvas');
-          if (!canvas) throw new Error('Failed to render one-pager');
-
-          const pdf = await html2pdf().set({
-            margin: 0,
-            filename,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: {
-              ...canvasOpts,
-              width: SON_ONE_W,
-              height: SON_ONE_H,
-              windowWidth: SON_ONE_W
-            },
-            jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' }
-          }).from(pageEl).toPdf().get('pdf');
-          if (!pdf) throw new Error('Failed to create one-pager PDF');
-
-          // Replace whatever html2pdf paginated with a single fitted image page
+          const pageEl = parse.querySelector('.son-one-pager');
+          if (!pageEl) throw new Error('One-pager is missing');
+          const canvas = await sonCaptureElementToCanvas(pageEl, SON_ONE_W, SON_ONE_H);
+          const pdf = new JsPDF({ unit: 'mm', format: 'letter', orientation: 'portrait' });
           const pageWidth = pdf.internal.pageSize.getWidth();
           const pageHeight = pdf.internal.pageSize.getHeight();
           const margin = 8;
@@ -27626,18 +27622,7 @@
           }
           const x = (pageWidth - drawW) / 2;
           const y = (pageHeight - drawH) / 2;
-          const imgData = canvas.toDataURL('image/jpeg', 0.98);
-
-          // Delete extra pages if any, clear first page, draw once
-          const totalPages = pdf.getNumberOfPages ? pdf.getNumberOfPages() : 1;
-          for (let p = totalPages; p > 1; p -= 1) {
-            pdf.deletePage(p);
-          }
-          pdf.setPage(1);
-          // White wash then draw (avoids leftover fragmented content)
-          pdf.setFillColor(255, 255, 255);
-          pdf.rect(0, 0, pageWidth, pageHeight, 'F');
-          pdf.addImage(imgData, 'JPEG', x, y, drawW, drawH);
+          pdf.addImage(canvas.toDataURL('image/jpeg', 0.98), 'JPEG', x, y, drawW, drawH);
           pdf.save(filename);
         }
 
@@ -27648,7 +27633,6 @@
         setSonReportStatus('PDF export failed — see console for details.', 'error');
         alert('PDF export failed: ' + (error.message || error));
       } finally {
-        if (container.parentNode) container.parentNode.removeChild(container);
         if (exportBtn) exportBtn.disabled = false;
       }
     }
