@@ -10422,6 +10422,52 @@
       max-height: none;
     }
 
+    .son-captain-note-field {
+      margin: 0 0 18px;
+      max-width: 720px;
+    }
+
+    .son-captain-note-field label {
+      display: block;
+      font-family: 'Chivo', sans-serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--primary-dark, #283618);
+      margin-bottom: 6px;
+    }
+
+    .son-captain-note-field label span {
+      font-weight: 400;
+      color: #5f6b4d;
+    }
+
+    .son-captain-note-field textarea {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px dashed #a8b08f;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-family: 'Lora', Georgia, serif;
+      font-size: 1rem;
+      line-height: 1.45;
+      background: #FDFBF7;
+      color: #1F2937;
+      resize: vertical;
+      min-height: 64px;
+    }
+
+    .son-captain-note-field textarea:focus {
+      outline: 2px solid rgba(96, 108, 56, 0.35);
+      border-color: #606c38;
+    }
+
+    .son-captain-note-meta {
+      margin-top: 4px;
+      font-size: 0.8rem;
+      color: #5f6b4d;
+      text-align: right;
+    }
+
     .son-report-preview .son-one-pager,
     .son-report-preview .son-deck {
       margin: 0 auto;
@@ -10429,13 +10475,15 @@
     }
 
     .son-report-preview .son-deck {
-      gap: 16px;
+      gap: 20px;
+      overflow-x: auto;
     }
 
     .son-report-preview .son-slide {
-      box-shadow: 0 2px 10px rgba(40, 54, 24, 0.08);
-      border: 1px solid #d9ddc7;
-      border-radius: 4px;
+      box-shadow: 0 4px 16px rgba(40, 54, 24, 0.12);
+      border: 1px solid #d0cfc8;
+      border-radius: 6px;
+      flex-shrink: 0;
     }
 
     /* Print-friendly styles */
