@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -35,7 +35,7 @@
   <script src="https://unpkg.com/leaflet-kml@1.0.0/dist/leaflet-kml.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <link rel="stylesheet" href="public/css/styles.css?v=6">
+  <link rel="stylesheet" href="public/css/styles.css?v=7">
   <script src="public/js/utils.js?v=3"></script>
   <script src="public/js/address-id.js"></script>
   <script src="public/js/resident-placeholder.js"></script>
@@ -750,11 +750,11 @@
             </span>
             <span class="dir-featured__action">Open</span>
           </button>
-          <button type="button" class="dir-row hidden" data-workspace="zoneAnalysis" data-workspace-page="tools" hidden>
+          <button type="button" class="dir-row" data-workspace="zoneAnalysis" data-workspace-page="tools">
             <span class="dir-row__icon" aria-hidden="true">
               <img class="dir-ico" src="public/images/dir-icons/zone-analysis.svg" alt="">
             </span>
-            <span><strong>Zone Analysis</strong><span>Generate a printable PDF of your zone’s stats and progress.</span></span>
+            <span><strong>State of the Neighborhood</strong><span>A one-pager and short meeting deck about your zone’s recovery — for neighbors and gatherings.</span></span>
             <em>Open</em>
           </button>
         </section>
@@ -976,19 +976,25 @@
 
         <div id="ws-zoneAnalysis" class="dir-ws-pane hidden">
           <div id="zoneReportGenerator">
-              <div class="zone-report-controls">
-                <button class="btn-generate-report" id="btnGenerateReport">Generate Zone Analysis</button>
-                <div class="zone-report-status" id="zoneReportStatus"></div>
-              </div>
-              
-              <div class="zone-report-container hidden" id="zoneReportContainer">
-                <div class="zone-report-actions" style="margin-bottom: 24px; padding: 16px; background: rgba(96, 108, 56, 0.05); border-radius: 8px; border: 2px solid var(--primary);">
-                  <button class="btn-export" id="btnExportReportPDF" style="font-size: 1.1rem; padding: 14px 28px;">📥 Export to PDF</button>
+            <p class="dir-ws-lead">Generate a neighbor-facing briefing for a State of the Neighborhood gathering. Preview below, then download a one-page handout or a short meeting deck.</p>
+            <div class="zone-report-controls">
+              <button type="button" class="btn-generate-report" id="btnGenerateReport">Generate briefing</button>
+              <div class="zone-report-status" id="zoneReportStatus" aria-live="polite"></div>
+            </div>
+
+            <div class="zone-report-container hidden" id="zoneReportContainer">
+              <div class="zone-report-actions son-report-actions">
+                <div class="son-report-preview-tabs" role="tablist" aria-label="Preview format">
+                  <button type="button" class="son-report-tab active" id="btnSonPreviewOnePager" role="tab" aria-selected="true">One-pager preview</button>
+                  <button type="button" class="son-report-tab" id="btnSonPreviewDeck" role="tab" aria-selected="false">Meeting deck preview</button>
                 </div>
-                <div class="zone-report-content" id="zoneReportContent">
-                  <!-- Report will be generated here -->
+                <div class="son-report-export-btns">
+                  <button type="button" class="btn-export" id="btnExportSonOnePager">Download one-pager PDF</button>
+                  <button type="button" class="btn-export btn-export--secondary" id="btnExportSonDeck">Download meeting deck PDF</button>
                 </div>
               </div>
+              <div class="zone-report-content son-report-preview" id="zoneReportContent"></div>
+            </div>
           </div>
         </div>
 
@@ -26431,1227 +26437,656 @@
     // parseDate and escapeHtml moved to js/utils.js
     
     // ============================================
-    // Zone Report Generator Functions
+    // State of the Neighborhood report
+    // Neighbor-facing one-pager + lean meeting deck (PDF)
     // ============================================
-    
-    // Initialize Zone Report Generator
+
+    const SON_REPORT_COLORS = {
+      ink: '#2b3320',
+      muted: '#5f6b4d',
+      accent: '#606c38',
+      accentDark: '#3f4a32',
+      border: '#d9ddc7',
+      soft: '#f4f6ec',
+      white: '#ffffff',
+      totalLoss: '#bc455a',
+      partial: '#dda15e',
+      standing: '#81bdc3',
+      notSet: '#b9b9b4',
+      warnBg: '#fdf3f0',
+      warnBorder: '#e8b4a8',
+      warnInk: '#8a3b2e'
+    };
+
+    const SON_CLOSING_TEXT =
+      'Thank you for being part of this neighborhood’s recovery. Stay connected with your Neighborhood Captains and with Altagether at altagether.org. Together, we rebuild.';
+
+    let sonReportState = {
+      data: null,
+      onePagerHtml: '',
+      deckHtml: '',
+      previewMode: 'onePager'
+    };
+
     function initializeZoneReportGenerator() {
-      const generateBtn = document.getElementById('btnGenerateReport');
-      const exportBtn = document.getElementById('btnExportReportPDF');
-      
-      if (generateBtn) {
-        // Remove existing listeners to avoid duplicates
-        const newGenerateBtn = generateBtn.cloneNode(true);
-        generateBtn.parentNode.replaceChild(newGenerateBtn, generateBtn);
-        newGenerateBtn.addEventListener('click', function(e) {
+      const bindClick = (id, handler) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const next = el.cloneNode(true);
+        el.parentNode.replaceChild(next, el);
+        next.addEventListener('click', (e) => {
           e.preventDefault();
-          generateZoneReport();
+          handler();
         });
+      };
+
+      bindClick('btnGenerateReport', () => { generateZoneReport(); });
+      bindClick('btnExportSonOnePager', () => { exportSonReportPdf('onePager'); });
+      bindClick('btnExportSonDeck', () => { exportSonReportPdf('deck'); });
+      bindClick('btnSonPreviewOnePager', () => { setSonReportPreviewMode('onePager'); });
+      bindClick('btnSonPreviewDeck', () => { setSonReportPreviewMode('deck'); });
+    }
+
+    function setSonReportStatus(text, kind) {
+      const statusEl = document.getElementById('zoneReportStatus');
+      if (!statusEl) return;
+      statusEl.textContent = text || '';
+      statusEl.className = 'zone-report-status' + (kind ? ' ' + kind : '');
+    }
+
+    function setSonReportPreviewMode(mode) {
+      sonReportState.previewMode = mode === 'deck' ? 'deck' : 'onePager';
+      const content = document.getElementById('zoneReportContent');
+      if (content) {
+        content.innerHTML = sonReportState.previewMode === 'deck'
+          ? sonReportState.deckHtml
+          : sonReportState.onePagerHtml;
       }
-      
-      if (exportBtn) {
-        const newExportBtn = exportBtn.cloneNode(true);
-        exportBtn.parentNode.replaceChild(newExportBtn, exportBtn);
-        newExportBtn.addEventListener('click', function(e) {
-          e.preventDefault();
-          exportReportToPDF();
-        });
+      const oneTab = document.getElementById('btnSonPreviewOnePager');
+      const deckTab = document.getElementById('btnSonPreviewDeck');
+      if (oneTab) {
+        oneTab.classList.toggle('active', sonReportState.previewMode === 'onePager');
+        oneTab.setAttribute('aria-selected', sonReportState.previewMode === 'onePager' ? 'true' : 'false');
+      }
+      if (deckTab) {
+        deckTab.classList.toggle('active', sonReportState.previewMode === 'deck');
+        deckTab.setAttribute('aria-selected', sonReportState.previewMode === 'deck' ? 'true' : 'false');
       }
     }
-    
-    // Generate comprehensive zone report
-    function generateZoneReport() {
-      const statusEl = document.getElementById('zoneReportStatus');
+
+    async function generateZoneReport() {
       const container = document.getElementById('zoneReportContainer');
-      const content = document.getElementById('zoneReportContent');
-      
+
       if (!sheetData || !sheetData.addressMap) {
-        if (statusEl) {
-          statusEl.textContent = 'Please load a spreadsheet first.';
-          statusEl.className = 'zone-report-status error';
-        }
-        alert('Please load a spreadsheet first to generate a zone report.');
+        setSonReportStatus('Please load a zone first.', 'error');
+        alert('Please load a zone first to generate a State of the Neighborhood briefing.');
         return;
       }
-      
-      if (statusEl) {
-        statusEl.textContent = 'Generating report...';
-        statusEl.className = 'zone-report-status loading';
-      }
-      
+
+      setSonReportStatus('Preparing briefing…', 'loading');
+
       try {
-        const { html: report, stats } = buildZoneReport();
-        if (content) {
-          content.innerHTML = report;
+        if (typeof ensureEpicPresenceMapLoaded === 'function') {
+          await ensureEpicPresenceMapLoaded();
+          // ensureEpicPresenceMapLoaded returns early while a load is in flight — wait it out
+          const epicWaitStart = Date.now();
+          while (epicPresenceState.loading && (Date.now() - epicWaitStart) < 20000) {
+            await new Promise((resolve) => setTimeout(resolve, 150));
+          }
         }
+        if (typeof loadCentralSalesData === 'function' && !salesCentralState.loaded && !salesCentralState.loading) {
+          try { await loadCentralSalesData(); } catch (err) { /* sales optional */ }
+        } else if (salesCentralState.loading) {
+          const salesWaitStart = Date.now();
+          while (salesCentralState.loading && (Date.now() - salesWaitStart) < 20000) {
+            await new Promise((resolve) => setTimeout(resolve, 150));
+          }
+        }
+
+        const data = computeSonReportData();
+        sonReportState.data = data;
+        sonReportState.onePagerHtml = buildSonOnePagerHtml(data);
+        sonReportState.deckHtml = buildSonDeckHtml(data);
+
         if (container) {
           container.classList.remove('hidden');
-          // Scroll to report
           container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          // Create charts after a short delay to ensure DOM is ready
-          setTimeout(() => {
-            if (typeof Chart !== 'undefined') {
-              createReportCharts(stats);
-            } else {
-              console.error('Chart.js is not loaded');
-            }
-          }, 200);
         }
-        if (statusEl) {
-          statusEl.textContent = 'Report generated successfully!';
-          statusEl.className = 'zone-report-status';
-          setTimeout(() => {
-            statusEl.textContent = '';
-          }, 3000);
-        }
+        setSonReportPreviewMode(sonReportState.previewMode || 'onePager');
+        setSonReportStatus('Briefing ready — preview below, then download a PDF.', '');
+        setTimeout(() => {
+          const statusEl = document.getElementById('zoneReportStatus');
+          if (statusEl && statusEl.textContent.indexOf('Briefing ready') === 0) {
+            setSonReportStatus('', '');
+          }
+        }, 4000);
       } catch (error) {
-        console.error('Error generating report:', error);
-        if (statusEl) {
-          statusEl.textContent = 'Error generating report: ' + error.message;
-          statusEl.className = 'zone-report-status error';
-        }
-        alert('Error generating report: ' + error.message);
+        console.error('State of the Neighborhood generate failed:', error);
+        setSonReportStatus('Error generating briefing: ' + (error.message || error), 'error');
+        alert('Error generating briefing: ' + (error.message || error));
       }
     }
-    
-    // Build the complete zone report HTML
-    function buildZoneReport() {
+
+    function computeSonReportData() {
       const headers = sheetData.headers;
       const addressMap = sheetData.addressMap;
       const allRows = Array.from(addressMap.values()).flat();
-      
-      // Find all relevant columns
-      const nameCol = headers.find(h => 
-        h.toLowerCase().includes('resident name') || 
-        (h.toLowerCase().includes('name') && !h.toLowerCase().includes('nc name') && 
-         !h.toLowerCase().includes('first') && !h.toLowerCase().includes('last') && 
-         !h.toLowerCase().includes('middle'))
-      );
-      const phoneCol = headers.find(h => 
-        h.toLowerCase().includes('phone') && !h.toLowerCase().includes('email')
-      );
-      const emailCol = findColumn(headers, 'email');
+      const formerResidentCol = typeof getFormerResidentColumn === 'function'
+        ? getFormerResidentColumn(headers)
+        : null;
       const damageCol = findColumn(headers, 'damage');
-      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
-      const contactDateCol = headers.find(h => 
-        (h.toLowerCase().includes('contact') && h.toLowerCase().includes('date')) ||
-        h.toLowerCase().includes('last contact') ||
-        (h.toLowerCase().includes('outreach') && h.toLowerCase().includes('date')) ||
-        h.toLowerCase().includes('last outreach')
-      );
-      const followupCol = headers.find(h => 
-        h.toLowerCase().includes('follow') && (h.toLowerCase().includes('up') || h.toLowerCase().includes('-up'))
-      );
-      const notesCol = headers.find(h => 
-        h.toLowerCase().includes('note') && !h.toLowerCase().includes('contact')
-      );
-      const contactNotesCol = headers.find(h => 
-        (h.toLowerCase().includes('contact') && h.toLowerCase().includes('note')) ||
-        (h.toLowerCase().includes('outreach') && (h.toLowerCase().includes('note') || h.toLowerCase().includes('log')))
-      );
+      const centralSalesAvailable = !!(salesCentralState && salesCentralState.configured && salesCentralState.loaded);
+
+      let totalPeople = 0;
+      let totalLossCount = 0;
+      let partialLossCount = 0;
+      let standingCount = 0;
+      let damageNotSetCount = 0;
+      let otherDamageCount = 0;
+      let soldSinceFireCount = 0;
+      const addressPlanCounts = {};
+      const buildStatusCounts = {};
+      let damagedAddressCount = 0;
+      let buildingPlanCount = 0;
+
+      addressMap.forEach((residents, address) => {
+        const activeResidents = typeof getActiveRealResidentRows === 'function'
+          ? getActiveRealResidentRows(residents, headers, formerResidentCol)
+          : (residents || []);
+        totalPeople += activeResidents.length;
+
+        if (damageCol) {
+          const dmg = (getAddressDamage(address) || '').trim();
+          const dmgLower = dmg.toLowerCase();
+          if (!dmgLower) damageNotSetCount += 1;
+          else if (dmgLower === 'total loss') totalLossCount += 1;
+          else if (dmgLower === 'partial loss') partialLossCount += 1;
+          else if (dmgLower.includes('standing')) standingCount += 1;
+          else otherDamageCount += 1;
+
+          if (dmgLower === 'total loss' || dmgLower === 'partial loss') {
+            damagedAddressCount += 1;
+            const plan = getAddressPlan(address) || 'Not set';
+            addressPlanCounts[plan] = (addressPlanCounts[plan] || 0) + 1;
+            if (plan.toLowerCase() === 'building') {
+              buildingPlanCount += 1;
+              const buildStatus = getAddressRebuildStatus(address) || 'Not set';
+              buildStatusCounts[buildStatus] = (buildStatusCounts[buildStatus] || 0) + 1;
+            }
+          }
+        }
+
+        if (centralSalesAvailable && typeof getAddressSoldSinceFire === 'function' && getAddressSoldSinceFire(address)) {
+          soldSinceFireCount += 1;
+        }
+      });
+
+      const orderedPlanLabels = [...ADDRESS_PLAN_OPTIONS, 'Not set'];
+      Object.keys(addressPlanCounts).sort().forEach((label) => {
+        if (!orderedPlanLabels.includes(label)) orderedPlanLabels.push(label);
+      });
+      const planColors = ['#3cb2bd', '#73984d', '#dda15e', '#8872b1', '#8b7f74', '#b9b9b4'];
+      const addressPlanItems = orderedPlanLabels
+        .map((label, index) => ({
+          label,
+          count: addressPlanCounts[label] || 0,
+          color: planColors[index % planColors.length]
+        }))
+        .filter((item) => item.count > 0);
+
+      const orderedBuildLabels = [...REBUILD_STAGES_SEQUENTIAL, 'Not Started', 'Not set'];
+      Object.keys(buildStatusCounts).sort().forEach((label) => {
+        if (!orderedBuildLabels.includes(label)) orderedBuildLabels.push(label);
+      });
+      const buildColors = ['#314059', '#3c7d7b', '#3cb2bd', '#73984d', '#afc892', '#c9943c', '#b9b9b4'];
+      const buildStatusItems = orderedBuildLabels
+        .map((label, index) => ({
+          label,
+          count: buildStatusCounts[label] || 0,
+          color: buildColors[index % buildColors.length]
+        }))
+        .filter((item) => item.count > 0);
+
+      let captains = [];
       const ncNameCol = findColumn(headers, 'nc name');
       const ncPhoneCol = findColumn(headers, 'nc phone');
       const ncEmailCol = findColumn(headers, 'nc email');
-      
-      // Parse captains for display
-      let captains = [];
       if (ncNameCol && allRows.length > 0) {
         const firstRow = allRows[0];
-        const ncName = firstRow[ncNameCol] ? (firstRow[ncNameCol] || '').trim() : '';
-        const ncPhone = ncPhoneCol ? (firstRow[ncPhoneCol] || '').trim() : '';
-        const ncEmail = ncEmailCol ? (firstRow[ncEmailCol] || '').trim() : '';
-        captains = parseCaptains(ncName, ncPhone, ncEmail);
-      }
-      
-      // Calculate statistics
-      const stats = calculateZoneStatistics(headers, addressMap);
-      
-      // Get current date
-      const reportDate = new Date().toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
-      
-      // Get zone name for title
-      const zoneName = currentZoneName ? currentZoneName.trim() : 'Zone';
-      const reportTitle = `${zoneName} Report`;
-      
-      let html = `
-        <div class="zone-report-header">
-          <h1 class="zone-report-title">${escapeHtml(reportTitle)}</h1>
-          <p class="zone-report-subtitle">Comprehensive Zone Analysis & Data Summary</p>
-          <div class="zone-report-meta">Generated: ${reportDate}</div>
-        </div>
-        
-        <!-- Executive Summary -->
-        <div class="zone-report-section">
-          <h2 class="zone-report-section-title">Executive Summary</h2>
-          <div class="zone-report-stats-grid">
-            <div class="zone-report-stat-card">
-              <div class="zone-report-stat-value">${stats.totalAddresses}</div>
-              <div class="zone-report-stat-label">Total Addresses</div>
-            </div>
-            <div class="zone-report-stat-card">
-              <div class="zone-report-stat-value">${stats.totalPeople}</div>
-              <div class="zone-report-stat-label">Total People</div>
-            </div>
-            <div class="zone-report-stat-card">
-              <div class="zone-report-stat-value">${stats.contactedAddresses}</div>
-              <div class="zone-report-stat-label">Outreach Attempted Addresses</div>
-            </div>
-            <div class="zone-report-stat-card">
-              <div class="zone-report-stat-value">${stats.uncontactedAddresses}</div>
-              <div class="zone-report-stat-label">No Outreach Yet Addresses</div>
-            </div>
-            <div class="zone-report-stat-card">
-              <div class="zone-report-stat-value">${stats.contactRate}%</div>
-              <div class="zone-report-stat-label">Outreach Coverage</div>
-            </div>
-            <div class="zone-report-stat-card">
-              <div class="zone-report-stat-value">${stats.followupCount}</div>
-              <div class="zone-report-stat-label">Follow-ups Needed</div>
-            </div>
-            <div class="zone-report-stat-card">
-              <div class="zone-report-stat-value">${stats.uniquePhoneCount}</div>
-              <div class="zone-report-stat-label">Unique Phone Numbers</div>
-            </div>
-            <div class="zone-report-stat-card">
-              <div class="zone-report-stat-value">${stats.uniqueEmailCount}</div>
-              <div class="zone-report-stat-label">Unique Email Addresses</div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Zone Information -->
-        <div class="zone-report-section">
-          <h2 class="zone-report-section-title">Zone Information</h2>
-          <div class="zone-report-subsection">
-            <h3 class="zone-report-subsection-title">Neighborhood Captain${captains.length > 1 ? 's' : ''}</h3>
-            ${captains.length > 0 ? `
-              <div style="display: flex; flex-direction: column; gap: 20px;">
-                ${captains.map((captain, index) => `
-                  <div style="padding: 16px; background: rgba(96, 108, 56, 0.05); border-radius: 8px; border: 2px solid rgba(96, 108, 56, 0.2);">
-                    <div style="font-weight: 700; font-size: 1.1rem; color: var(--primary-dark); margin-bottom: 12px; font-family: 'Chivo', sans-serif;">
-                      ${escapeHtml(captain.name)}
-                    </div>
-                    <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.95rem;">
-                      ${captain.phone !== 'N/A' ? `
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                          <span style="color: var(--text-light); font-weight: 600;">Phone:</span>
-                          <span style="color: var(--primary);">${escapeHtml(captain.phone)}</span>
-                        </div>
-                      ` : ''}
-                      ${captain.email !== 'N/A' ? `
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                          <span style="color: var(--text-light); font-weight: 600;">Email:</span>
-                          <span style="color: var(--primary); word-break: break-word;">${escapeHtml(captain.email)}</span>
-                        </div>
-                      ` : ''}
-                    </div>
-                  </div>
-                `).join('')}
-              </div>
-            ` : '<p>No neighborhood captains assigned to this zone</p>'}
-          </div>
-        </div>
-        
-        <!-- Damage Analysis -->
-        <div class="zone-report-section">
-          <h2 class="zone-report-section-title">Damage Status Analysis</h2>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 24px; align-items: start;">
-            <div>
-              <div class="zone-report-stats-grid">
-                ${Object.entries(stats.damageBreakdown).map(([damage, count]) => `
-                  <div class="zone-report-stat-card">
-                    <div class="zone-report-stat-value">${count}</div>
-                    <div class="zone-report-stat-label">${damage || 'Not Set'}</div>
-                  </div>
-                `).join('')}
-              </div>
-              <div class="zone-report-insight" style="margin-top: 20px;">
-                <div class="zone-report-insight-title">💡 Insight</div>
-                <div class="zone-report-insight-text">
-                  ${stats.damageBreakdown['Standing'] || 0} addresses are standing (${stats.totalAddresses > 0 ? Math.round((stats.damageBreakdown['Standing'] || 0) / stats.totalAddresses * 100) : 0}% of total).
-                  ${stats.damageBreakdown['Total Loss'] || 0} addresses are total losses (${stats.totalAddresses > 0 ? Math.round((stats.damageBreakdown['Total Loss'] || 0) / stats.totalAddresses * 100) : 0}% of total).
-                </div>
-              </div>
-            </div>
-            <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-              <h3 style="margin: 0 0 16px 0; color: var(--primary-dark); font-size: 1.2rem; text-align: center;">Damage Distribution</h3>
-              <canvas id="reportDamageChart" style="max-height: 600px; max-width: 100%; height: 600px !important;"></canvas>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Address Plan Analysis -->
-        <div class="zone-report-section">
-          <h2 class="zone-report-section-title">Address Plan Analysis</h2>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 24px; align-items: start;">
-            <div>
-              <div class="zone-report-stats-grid">
-                ${Object.entries(stats.addressPlanBreakdown || {}).map(([status, count]) => `
-                  <div class="zone-report-stat-card">
-                    <div class="zone-report-stat-value">${count}</div>
-                    <div class="zone-report-stat-label">${status || 'Not Set'}</div>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-            <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-              <h3 style="margin: 0 0 16px 0; color: var(--primary-dark); font-size: 1.2rem; text-align: center;">Address Plan Distribution</h3>
-              <canvas id="reportStatusChart" style="max-height: 600px; max-width: 100%; height: 600px !important;"></canvas>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Build Status Analysis -->
-        <div class="zone-report-section">
-          <h2 class="zone-report-section-title">Build Status</h2>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 24px; align-items: start;">
-            <div>
-              <div class="zone-report-stats-grid">
-                ${Object.entries(stats.rebuildBreakdown || {}).map(([rebuild, count]) => `
-                  <div class="zone-report-stat-card">
-                    <div class="zone-report-stat-value">${count}</div>
-                    <div class="zone-report-stat-label">${rebuild || 'Not Set'}</div>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-            <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-              <h3 style="margin: 0 0 16px 0; color: var(--primary-dark); font-size: 1.2rem; text-align: center;">Build Status Distribution</h3>
-              <canvas id="reportRebuildChart" style="max-height: 800px; max-width: 100%; height: 800px !important;"></canvas>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Outreach Analysis Chart -->
-        <div class="zone-report-section">
-          <h2 class="zone-report-section-title">Outreach Analysis</h2>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 24px; align-items: start;">
-            <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-              <h3 style="margin: 0 0 16px 0; color: var(--primary-dark); font-size: 1.2rem; text-align: center;">Outreach Status</h3>
-              <canvas id="reportContactChart" style="max-height: 600px; max-width: 100%; height: 600px !important;"></canvas>
-            </div>
-            <div>
-              <div class="zone-report-subsection">
-                <h3 class="zone-report-subsection-title">Outreach Timeline</h3>
-                <table class="zone-report-table">
-                  <tr>
-                    <th>Time Period</th>
-                    <th>Addresses with Outreach Attempt</th>
-                  </tr>
-                  ${Object.entries(stats.contactTimeline).map(([period, count]) => `
-                    <tr>
-                      <td>${period}</td>
-                      <td>${count}</td>
-                    </tr>
-                  `).join('')}
-                </table>
-              </div>
-            </div>
-          </div>
-        
-          ${stats.followupPeople.length > 0 ? `
-            <div class="zone-report-subsection" style="margin-top: 24px;">
-              <h3 class="zone-report-subsection-title">Follow-up Needed (${stats.followupPeople.length} people)</h3>
-              <ul class="zone-report-list">
-                ${stats.followupPeople.slice(0, 20).map(person => `
-                  <li class="zone-report-list-item">
-                    <strong>${escapeHtml(person.name)}</strong> - ${escapeHtml(person.address)}
-                  </li>
-                `).join('')}
-                ${stats.followupPeople.length > 20 ? `<li style="padding: 12px; font-style: italic; color: var(--text-light);">... and ${stats.followupPeople.length - 20} more</li>` : ''}
-              </ul>
-            </div>
-          ` : ''}
-        </div>
-        
-        <!-- Street Analysis -->
-        <div class="zone-report-section">
-          <h2 class="zone-report-section-title">Street-by-Street Breakdown</h2>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 24px; align-items: start;">
-            <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-              <h3 style="margin: 0 0 16px 0; color: var(--primary-dark); font-size: 1.2rem; text-align: center;">Addresses by Street</h3>
-              <canvas id="reportStreetChart" style="max-height: 500px; max-width: 100%; height: 500px !important;"></canvas>
-            </div>
-            <div>
-              <table class="zone-report-table">
-                <tr>
-                  <th>Street</th>
-                  <th>Addresses</th>
-                  <th>People</th>
-                  <th>Outreach Attempted</th>
-                  <th>Outreach Coverage</th>
-                </tr>
-                ${Object.entries(stats.streetStats).sort((a, b) => b[1].addresses - a[1].addresses).map(([street, data]) => `
-                  <tr>
-                    <td><strong>${escapeHtml(street || 'Unknown')}</strong></td>
-                    <td>${data.addresses}</td>
-                    <td>${data.people}</td>
-                    <td>${data.contacted}</td>
-                    <td>${data.contactRate}%</td>
-                  </tr>
-                `).join('')}
-              </table>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Data Completeness -->
-        <div class="zone-report-section">
-          <h2 class="zone-report-section-title">Data Completeness Analysis</h2>
-          <table class="zone-report-table">
-            <tr>
-              <th>Field</th>
-              <th>Complete</th>
-              <th>Missing</th>
-              <th>Completion Rate</th>
-            </tr>
-            ${Object.entries(stats.dataCompleteness).map(([field, data]) => `
-              <tr>
-                <td><strong>${field}</strong></td>
-                <td>${data.complete}</td>
-                <td>${data.missing}</td>
-                <td>${data.rate}%</td>
-              </tr>
-            `).join('')}
-          </table>
-        </div>
-        
-        <!-- Additional Insights -->
-        <div class="zone-report-section">
-          <h2 class="zone-report-section-title">Key Insights & Recommendations</h2>
-          ${generateInsights(stats)}
-        </div>
-        
-        <!-- Detailed Address List -->
-        <div class="zone-report-section">
-          <h2 class="zone-report-section-title">Complete Address Directory</h2>
-          ${Array.from(addressMap.keys()).sort().map(address => {
-            const rows = addressMap.get(address);
-            const damage = getAddressDamage(address);
-            const addressPlan = getAddressPlan(address);
-            const statusDisplay = addressPlan || '';
-            const isContacted = typeof isAddressContacted === 'function'
-              ? isAddressContacted(address)
-              : rows.some(row => typeof hasPersonOutreachAttempt === 'function' && hasPersonOutreachAttempt(row, headers));
-            
-            return `
-              <div class="zone-report-subsection" style="margin-bottom: 24px; padding: 16px; background: rgba(96, 108, 56, 0.03); border-radius: 6px;">
-                <h4 style="margin: 0 0 12px 0; color: var(--primary-dark); font-size: 1.2rem; font-family: 'Chivo', sans-serif;">
-                  ${escapeHtml(address)}
-                  ${damage ? `<span class="zone-report-badge ${damage.toLowerCase().replace(/\s+/g, '')}">${escapeHtml(damage)}</span>` : ''}
-                  ${statusDisplay ? `<span class="zone-report-badge ${statusDisplay.toLowerCase().replace(/\s+/g, '').replace(/[•\/]/g, '')}">${escapeHtml(statusDisplay)}</span>` : ''}
-                  ${isContacted ? '<span class="zone-report-badge" style="background: rgba(76, 175, 80, 0.2); color: #2e7d32;">Outreach Attempted</span>' : '<span class="zone-report-badge" style="background: rgba(229, 229, 229, 0.8); color: #4b5563;">No Outreach Yet</span>'}
-                </h4>
-                <table class="zone-report-table" style="font-size: 0.85rem;">
-                  <tr>
-                    ${nameCol ? '<th>Name</th>' : ''}
-                    ${phoneCol ? '<th>Phone</th>' : ''}
-                    ${emailCol ? '<th>Email</th>' : ''}
-                    ${contactDateCol ? '<th>Last Outreach Attempt</th>' : ''}
-                    ${followupCol ? '<th>Follow-up</th>' : ''}
-                    ${notesCol ? '<th>Notes</th>' : ''}
-                  </tr>
-                  ${rows.map(row => `
-                    <tr>
-                      ${nameCol ? `<td>${escapeHtml(row[nameCol] || '')}</td>` : ''}
-                      ${phoneCol ? `<td>${escapeHtml(row[phoneCol] || '')}</td>` : ''}
-                      ${emailCol ? `<td>${escapeHtml(row[emailCol] || '')}</td>` : ''}
-                      ${contactDateCol ? `<td>${escapeHtml(row[contactDateCol] || '')}</td>` : ''}
-                      ${followupCol ? `<td>${(row[followupCol] || '').toString().toLowerCase().includes('yes') || (row[followupCol] || '').toString().toLowerCase().includes('true') ? 'Yes' : 'No'}</td>` : ''}
-                      ${notesCol ? `<td style="max-width: 300px; word-wrap: break-word;">${escapeHtml(row[notesCol] || '')}</td>` : ''}
-                    </tr>
-                  `).join('')}
-                </table>
-                ${contactNotesCol && rows.some(r => r[contactNotesCol]) ? `
-                  <div style="margin-top: 12px; padding: 12px; background: rgba(221, 161, 94, 0.1); border-radius: 4px;">
-                    <strong>Outreach Log:</strong>
-                    ${rows.filter(r => r[contactNotesCol]).map(r => escapeHtml(r[contactNotesCol])).join('; ')}
-                  </div>
-                ` : ''}
-              </div>
-            `;
-          }).join('')}
-        </div>
-      `;
-      
-      return { html, stats };
-    }
-    
-    // Calculate comprehensive zone statistics
-    function calculateZoneStatistics(headers, addressMap) {
-      const stats = {
-        totalAddresses: addressMap.size,
-        totalPeople: 0,
-        contactedAddresses: 0,
-        uncontactedAddresses: 0,
-        contactRate: 0,
-        followupCount: 0,
-        followupPeople: [],
-        damageBreakdown: {},
-        addressPlanBreakdown: {},
-        rebuildBreakdown: {},
-        contactTimeline: {
-          'Last 7 days': 0,
-          'Last 30 days': 0,
-          'Last 90 days': 0,
-          'Over 90 days ago': 0,
-          'No outreach logged yet': 0
-        },
-        streetStats: {},
-        dataCompleteness: {},
-        uniquePhoneCount: 0,
-        uniqueEmailCount: 0
-      };
-      
-      // Find columns
-      const nameCol = headers.find(h => 
-        h.toLowerCase().includes('resident name') || 
-        (h.toLowerCase().includes('name') && !h.toLowerCase().includes('nc name') && 
-         !h.toLowerCase().includes('first') && !h.toLowerCase().includes('last') && 
-         !h.toLowerCase().includes('middle'))
-      );
-      const phoneCol = headers.find(h => 
-        h.toLowerCase().includes('phone') && !h.toLowerCase().includes('email')
-      );
-      const emailCol = findColumn(headers, 'email');
-      const damageCol = findColumn(headers, 'damage');
-      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
-      const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
-      const contactDateCol = headers.find(h => 
-        (h.toLowerCase().includes('contact') && h.toLowerCase().includes('date')) ||
-        h.toLowerCase().includes('last contact') ||
-        (h.toLowerCase().includes('outreach') && h.toLowerCase().includes('date')) ||
-        h.toLowerCase().includes('last outreach')
-      );
-      const followupCol = headers.find(h => 
-        h.toLowerCase().includes('follow') && (h.toLowerCase().includes('up') || h.toLowerCase().includes('-up'))
-      );
-      const formerResidentCol = getFormerResidentColumn(headers);
-      
-      const now = new Date();
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-      
-      addressMap.forEach((rows, address) => {
-        const activeRows = getActiveRealResidentRows(rows, headers, formerResidentCol);
-        stats.totalPeople += activeRows.length;
-        
-        // Damage breakdown
-        const damage = getAddressDamage(address);
-        stats.damageBreakdown[damage || 'Not Set'] = (stats.damageBreakdown[damage || 'Not Set'] || 0) + 1;
-        
-        // Address Plan breakdown (for Partial/Total Loss addresses)
-        const addressPlan = getAddressPlan(address);
-        stats.addressPlanBreakdown = stats.addressPlanBreakdown || {};
-        stats.addressPlanBreakdown[addressPlan || 'Not Set'] = (stats.addressPlanBreakdown[addressPlan || 'Not Set'] || 0) + 1;
-        
-        // Rebuild status breakdown
-        if (rebuildCol && rows.length > 0) {
-          const rebuildValue = (rows[0][rebuildCol] || '').trim();
-          const rebuildStatus = rebuildValue || 'Not Started';
-          stats.rebuildBreakdown[rebuildStatus] = (stats.rebuildBreakdown[rebuildStatus] || 0) + 1;
-        } else {
-          stats.rebuildBreakdown['Not Started'] = (stats.rebuildBreakdown['Not Started'] || 0) + 1;
-        }
-        
-        // Contact analysis
-        let isContacted = activeRows.some(row =>
-          typeof hasPersonOutreachAttempt === 'function'
-            ? hasPersonOutreachAttempt(row, headers)
-            : Boolean(contactDateCol && row[contactDateCol] && String(row[contactDateCol]).trim())
+        captains = parseCaptains(
+          (firstRow[ncNameCol] || '').trim(),
+          ncPhoneCol ? (firstRow[ncPhoneCol] || '').trim() : '',
+          ncEmailCol ? (firstRow[ncEmailCol] || '').trim() : ''
         );
-        let lastContactDate = null;
-        
-        activeRows.forEach(row => {
-          if (contactDateCol && row[contactDateCol]) {
-            const dateStr = String(row[contactDateCol]).trim();
-            if (dateStr) {
-              const contactDate = parseDate(dateStr);
-              if (contactDate && (!lastContactDate || contactDate > lastContactDate)) {
-                lastContactDate = contactDate;
-              }
-            }
-          }
-          
-          // Follow-up tracking
-          if (followupCol) {
-            const followupValue = (row[followupCol] || '').toString().trim().toLowerCase();
-            const needsFollowup = followupValue === 'true' || followupValue === 'yes' || 
-                                 (followupValue !== '' && followupValue !== 'false' && followupValue !== 'no');
-            if (needsFollowup) {
-              stats.followupCount++;
-              const personName = nameCol ? (row[nameCol] || '').trim() : '';
-              if (personName) {
-                stats.followupPeople.push({ name: personName, address: address });
-              }
-            }
-          }
-        });
-        
-        if (isContacted) {
-          stats.contactedAddresses++;
-          if (lastContactDate) {
-            if (lastContactDate >= sevenDaysAgo) {
-              stats.contactTimeline['Last 7 days']++;
-            } else if (lastContactDate >= thirtyDaysAgo) {
-              stats.contactTimeline['Last 30 days']++;
-            } else if (lastContactDate >= ninetyDaysAgo) {
-              stats.contactTimeline['Last 90 days']++;
-            } else {
-              stats.contactTimeline['Over 90 days ago']++;
-            }
-          }
-        } else {
-          stats.uncontactedAddresses++;
-          stats.contactTimeline['No outreach logged yet']++;
-        }
-        
-        // Street statistics
-        const street = extractStreet(address);
-        if (!stats.streetStats[street]) {
-          stats.streetStats[street] = { addresses: 0, people: 0, contacted: 0 };
-        }
-        stats.streetStats[street].addresses++;
-        stats.streetStats[street].people += activeRows.length;
-        if (isContacted) {
-          stats.streetStats[street].contacted++;
-        }
-      });
-      
-      // Calculate contact rates
-      stats.contactRate = stats.totalAddresses > 0 
-        ? Math.round((stats.contactedAddresses / stats.totalAddresses) * 100) 
-        : 0;
-      
-      Object.keys(stats.streetStats).forEach(street => {
-        const streetData = stats.streetStats[street];
-        streetData.contactRate = streetData.addresses > 0 
-          ? Math.round((streetData.contacted / streetData.addresses) * 100) 
-          : 0;
-      });
-      
-      // Data completeness
-      const allRows = Array.from(addressMap.values())
-        .flatMap(rows => getActiveRealResidentRows(rows, headers, formerResidentCol));
-      const totalRows = allRows.length;
-      
-      if (nameCol) {
-        const complete = allRows.filter(r => r[nameCol] && String(r[nameCol]).trim()).length;
-        stats.dataCompleteness['Resident Name'] = {
-          complete,
-          missing: totalRows - complete,
-          rate: totalRows > 0 ? Math.round((complete / totalRows) * 100) : 0
-        };
       }
-      
-      if (phoneCol) {
-        const complete = allRows.filter(r => r[phoneCol] && String(r[phoneCol]).trim()).length;
-        stats.dataCompleteness['Phone'] = {
-          complete,
-          missing: totalRows - complete,
-          rate: totalRows > 0 ? Math.round((complete / totalRows) * 100) : 0
-        };
-      }
-      
-      if (emailCol) {
-        const complete = allRows.filter(r => r[emailCol] && String(r[emailCol]).trim()).length;
-        stats.dataCompleteness['Email'] = {
-          complete,
-          missing: totalRows - complete,
-          rate: totalRows > 0 ? Math.round((complete / totalRows) * 100) : 0
-        };
-      }
-      
-      if (damageCol) {
-        const complete = allRows.filter(r => r[damageCol] && String(r[damageCol]).trim()).length;
-        stats.dataCompleteness['Damage Status'] = {
-          complete,
-          missing: totalRows - complete,
-          rate: totalRows > 0 ? Math.round((complete / totalRows) * 100) : 0
-        };
-      }
-      
-      if (addressPlanCol) {
-        const complete = allRows.filter(r => r[addressPlanCol] && String(r[addressPlanCol]).trim()).length;
-        stats.dataCompleteness['Address Plan'] = {
-          complete,
-          missing: totalRows - complete,
-          rate: totalRows > 0 ? Math.round((complete / totalRows) * 100) : 0
-        };
-      }
-      
-      // Count unique phone numbers from all phone columns
-      const allPhoneCols = headers.filter(h => {
-        const lower = h.toLowerCase();
-        return (lower.includes('phone') || lower.includes('cell') || lower.includes('mobile')) && 
-               !lower.includes('nc phone') && 
-               !lower.includes('email');
-      });
-      const uniquePhones = new Set();
-      allRows.forEach(row => {
-        allPhoneCols.forEach(col => {
-          const phone = row[col] ? String(row[col]).trim() : '';
-          if (phone) {
-            // Normalize phone number (remove common formatting for better uniqueness)
-            const normalized = phone.replace(/[\s\-\(\)\.]/g, '').toLowerCase();
-            if (normalized.length >= 10) { // Only count valid-looking phone numbers
-              uniquePhones.add(normalized);
-            }
-          }
-        });
-      });
-      stats.uniquePhoneCount = uniquePhones.size;
-      
-      // Count unique email addresses from all email columns
-      const allEmailCols = headers.filter(h => {
-        const lower = h.toLowerCase();
-        return lower.includes('email') && !lower.includes('nc email');
-      });
-      const uniqueEmails = new Set();
-      allRows.forEach(row => {
-        allEmailCols.forEach(col => {
-          const email = row[col] ? String(row[col]).trim() : '';
-          if (email && email.includes('@')) { // Basic email validation
-            uniqueEmails.add(email.toLowerCase()); // Case-insensitive
-          }
-        });
-      });
-      stats.uniqueEmailCount = uniqueEmails.size;
-      
-      return stats;
+
+      const epicSummary = epicPresenceState.ready
+        ? (epicPresenceState.summary || computeEpicHomepageSummaryFromState())
+        : (typeof computeEpicHomepageSummaryFromState === 'function'
+          ? computeEpicHomepageSummaryFromState()
+          : null);
+
+      const missingApn = epicSummary
+        ? (epicSummary.missingApn || 0)
+        : (typeof collectZoneAddressApns === 'function'
+          ? collectZoneAddressApns().filter((item) => !item.apn).length
+          : 0);
+
+      const totalAddresses = addressMap.size;
+      const totalLossPct = totalAddresses > 0 ? Math.round((totalLossCount / totalAddresses) * 100) : 0;
+      const damagedPct = totalAddresses > 0 ? Math.round((damagedAddressCount / totalAddresses) * 100) : 0;
+
+      const now = new Date();
+      const reportDate = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      const monthYear = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+      const zoneName = currentZoneName ? currentZoneName.trim() : 'Zone';
+
+      return {
+        zoneName,
+        reportDate,
+        monthYear,
+        captains,
+        totalAddresses,
+        totalPeople,
+        damage: {
+          totalLoss: totalLossCount,
+          partial: partialLossCount,
+          standing: standingCount,
+          notSet: damageNotSetCount,
+          other: otherDamageCount,
+          damaged: damagedAddressCount,
+          totalLossPct,
+          damagedPct,
+          available: !!damageCol
+        },
+        addressPlanItems,
+        buildStatusItems,
+        buildingPlanCount,
+        soldSinceFireCount,
+        salesAvailable: centralSalesAvailable,
+        epic: epicSummary,
+        epicReady: !!(epicPresenceState && epicPresenceState.ready),
+        epicError: (epicPresenceState && epicPresenceState.error) || '',
+        missingApn,
+        syncLabel: epicSummary && epicSummary.lastSyncedAt
+          ? formatEpicSyncLabel(epicSummary.lastSyncedAt)
+          : ''
+      };
     }
-    
-    // Generate insights based on statistics
-    function generateInsights(stats) {
-      const insights = [];
-      
-      if (stats.contactRate < 50) {
-        insights.push({
-          title: 'Low Outreach Coverage',
-          text: `Only ${stats.contactRate}% of addresses have an outreach attempt logged. Consider prioritizing outreach where no attempt is logged yet.`
-        });
+
+    function sonEsc(value) {
+      return typeof escapeHtml === 'function' ? escapeHtml(String(value == null ? '' : value)) : String(value == null ? '' : value);
+    }
+
+    function sonDistributionBar(items, total) {
+      if (!items.length || total <= 0) {
+        return `<div style="height:18px;border-radius:9px;background:${SON_REPORT_COLORS.soft};border:1px solid ${SON_REPORT_COLORS.border};"></div>`;
       }
-      
-      if (stats.uncontactedAddresses > 0) {
-        insights.push({
-          title: 'No-Outreach-Yet Addresses',
-          text: `There are ${stats.uncontactedAddresses} addresses with no outreach attempt logged yet. These should be prioritized for initial outreach.`
-        });
+      const segments = items.map((item) => {
+        const pct = Math.max(0, Math.round((item.count / total) * 1000) / 10);
+        if (pct <= 0) return '';
+        return `<div style="width:${pct}%;background:${item.color};" title="${sonEsc(item.label)}: ${item.count}"></div>`;
+      }).join('');
+      const legend = items.map((item) => {
+        const pct = Math.round((item.count / total) * 100);
+        return `<span style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 6px 0;font-size:11.5px;color:${SON_REPORT_COLORS.ink};">
+          <span style="width:10px;height:10px;border-radius:2px;background:${item.color};display:inline-block;"></span>
+          <strong>${sonEsc(item.label)}</strong>&nbsp;${item.count} (${pct}%)
+        </span>`;
+      }).join('');
+      return `
+        <div style="display:flex;height:18px;border-radius:9px;overflow:hidden;border:1px solid ${SON_REPORT_COLORS.border};">${segments}</div>
+        <div style="margin-top:10px;">${legend}</div>`;
+    }
+
+    function sonStatCard(value, label, note) {
+      return `
+        <div style="flex:1 1 0;min-width:0;background:${SON_REPORT_COLORS.white};border:1px solid ${SON_REPORT_COLORS.border};border-top:4px solid ${SON_REPORT_COLORS.accent};border-radius:12px;padding:14px 12px;text-align:center;">
+          <div style="font-size:28px;font-weight:800;color:${SON_REPORT_COLORS.accent};line-height:1;">${sonEsc(String(value))}</div>
+          <div style="margin-top:7px;font-size:11px;font-weight:700;color:${SON_REPORT_COLORS.ink};text-transform:uppercase;letter-spacing:0.04em;">${sonEsc(label)}</div>
+          ${note ? `<div style="margin-top:4px;font-size:11px;color:${SON_REPORT_COLORS.muted};line-height:1.35;">${sonEsc(note)}</div>` : ''}
+        </div>`;
+    }
+
+    function sonApnCaveatHtml(data, compact) {
+      if (!data.missingApn || data.missingApn <= 0) return '';
+      const homeWord = data.missingApn === 1 ? 'address is' : 'addresses are';
+      const text = `${data.missingApn} ${homeWord} missing APN numbers in our database, which can undercount permitting and sales figures.`;
+      return `
+        <div style="margin-top:${compact ? '10' : '14'}px;padding:${compact ? '10px 12px' : '12px 14px'};background:${SON_REPORT_COLORS.warnBg};border:1px solid ${SON_REPORT_COLORS.warnBorder};border-radius:10px;color:${SON_REPORT_COLORS.warnInk};font-size:${compact ? '11' : '12'}px;line-height:1.45;">
+          <strong>Data note.</strong> ${sonEsc(text)}
+        </div>`;
+    }
+
+    function sonCaptainsBlock(captains, forOnePager) {
+      if (!captains.length) {
+        return `<div style="font-size:12.5px;color:${SON_REPORT_COLORS.muted};">Neighborhood Captain contact not listed for this zone.</div>`;
       }
-      
-      if (stats.followupCount > 0) {
-        insights.push({
-          title: 'Follow-ups Needed',
-          text: `${stats.followupCount} people need follow-up outreach. Review the follow-up list to ensure timely responses.`
-        });
+      return captains.map((captain) => {
+        const phone = captain.phone && captain.phone !== 'N/A' ? captain.phone : '';
+        const email = captain.email && captain.email !== 'N/A' ? captain.email : '';
+        const contactBits = [phone, email].filter(Boolean).map(sonEsc).join(' · ');
+        if (forOnePager) {
+          return `
+            <div style="margin-bottom:8px;">
+              <div style="font-weight:700;color:${SON_REPORT_COLORS.ink};font-size:13px;">${sonEsc(captain.name)}</div>
+              ${contactBits ? `<div style="font-size:12px;color:${SON_REPORT_COLORS.muted};margin-top:2px;">${contactBits}</div>` : ''}
+            </div>`;
+        }
+        return `<div style="font-size:14px;color:${SON_REPORT_COLORS.soft};margin-top:4px;">${sonEsc(captain.name)}${contactBits ? ' · ' + contactBits : ''}</div>`;
+      }).join('');
+    }
+
+    function sonMilestoneStrip(epic) {
+      if (!epic || !Array.isArray(epic.milestones)) {
+        return `<div style="font-size:12px;color:${SON_REPORT_COLORS.muted};">County recovery milestones unavailable.</div>`;
       }
-      
-      if (stats.contactTimeline['Over 90 days ago'] > 0) {
-        insights.push({
-          title: 'Stale Outreach',
-          text: `${stats.contactTimeline['Over 90 days ago']} addresses were last reached over 90 days ago. Consider re-engaging these households.`
-        });
+      const colors = {
+        application_or_plans: '#3cb2bd',
+        permit_issued: '#73984d',
+        construction_underway: '#c9943c',
+        construction_completed: '#314059'
+      };
+      const cards = epic.milestones.map((m) => `
+        <div style="flex:1 1 0;min-width:0;background:${SON_REPORT_COLORS.white};border:1px solid ${SON_REPORT_COLORS.border};border-radius:10px;padding:12px 10px;text-align:center;">
+          <div style="font-size:24px;font-weight:800;color:${colors[m.key] || SON_REPORT_COLORS.accent};">${m.count}</div>
+          <div style="margin-top:6px;font-size:11px;font-weight:600;color:${SON_REPORT_COLORS.ink};line-height:1.3;">${sonEsc(m.label)}</div>
+        </div>`).join('');
+      return `<div style="display:flex;gap:10px;">${cards}</div>`;
+    }
+
+    function buildSonOnePagerHtml(data) {
+      const C = SON_REPORT_COLORS;
+      const epic = data.epic;
+      const damagedWithEpic = epic ? epic.damagedWithEpic : '—';
+      const damagedAddresses = epic ? epic.damagedAddresses : data.damage.damaged;
+      const coveragePct = epic ? epic.damagedCoveragePct : null;
+      const tempHousing = epic ? epic.withTempHousing : '—';
+      const issued = epic ? epic.damagedWithIssuedPermit : '—';
+      const construction = epic ? epic.damagedConstruction : '—';
+      const completed = epic ? epic.damagedCompleted : '—';
+
+      const damageItems = [
+        { label: 'Total Loss', count: data.damage.totalLoss, color: C.totalLoss },
+        { label: 'Partial Damage', count: data.damage.partial, color: C.partial },
+        { label: 'Standing', count: data.damage.standing, color: C.standing },
+        { label: 'Damage Not Set', count: data.damage.notSet, color: C.notSet }
+      ].filter((item) => item.count > 0 || item.label === 'Total Loss' || item.label === 'Standing');
+      if (data.damage.other > 0) {
+        damageItems.push({ label: 'Other', count: data.damage.other, color: '#8872b1' });
       }
-      
-      const standingCount = stats.damageBreakdown['Standing'] || 0;
-      if (standingCount > 0 && standingCount < stats.totalAddresses * 0.5) {
-        insights.push({
-          title: 'Damage Distribution',
-          text: `Only ${standingCount} addresses (${Math.round(standingCount / stats.totalAddresses * 100)}%) are standing. The zone has significant damage requiring attention.`
-        });
-      }
-      
-      const buildingCount = stats.addressPlanBreakdown?.['Building'] || stats.addressPlanBreakdown?.['Rebuilding'] || 0;
-      if (buildingCount > 0) {
-        insights.push({
-          title: 'Building Activity',
-          text: `${buildingCount} households are building. These may need ongoing support and resources.`
-        });
-      }
-      
-      return insights.map(insight => `
-        <div class="zone-report-insight">
-          <div class="zone-report-insight-title">${insight.title}</div>
-          <div class="zone-report-insight-text">${insight.text}</div>
+
+      const recoveryLine = epic
+        ? `Of ${damagedAddresses} damaged lots, ${damagedWithEpic} have a matched county rebuild record${coveragePct != null ? ` (${coveragePct}%)` : ''}.`
+        : (data.epicError
+          ? 'County permitting data could not be loaded for this briefing.'
+          : 'County permitting data is still loading.');
+
+      const soldDisplay = data.salesAvailable ? String(data.soldSinceFireCount) : '—';
+      const soldNote = data.salesAvailable ? 'Since the Eaton Fire' : 'Sales data unavailable';
+
+      return `
+        <div class="son-page son-one-pager" style="font-family:'Helvetica Neue',Arial,sans-serif;color:${C.ink};background:${C.white};padding:28px 32px;width:720px;box-sizing:border-box;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:3px solid ${C.accentDark};padding-bottom:14px;">
+            <div>
+              <div style="text-transform:uppercase;letter-spacing:0.14em;font-size:11px;font-weight:700;color:${C.accent};margin-bottom:6px;">Altagether · State of the Neighborhood</div>
+              <div style="font-size:26px;font-weight:800;line-height:1.15;color:${C.accentDark};">${sonEsc(data.zoneName)}</div>
+              <div style="margin-top:4px;font-size:13px;color:${C.muted};">${sonEsc(data.monthYear)}</div>
+            </div>
+            <div style="text-align:right;min-width:200px;">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:${C.muted};margin-bottom:6px;">Neighborhood Captain${data.captains.length === 1 ? '' : 's'}</div>
+              ${sonCaptainsBlock(data.captains, true)}
+            </div>
+          </div>
+
+          <div style="margin-top:16px;display:flex;gap:12px;">
+            ${sonStatCard(data.totalAddresses, 'Addresses', 'In this zone')}
+            ${sonStatCard(data.totalPeople, 'Neighbors', 'People on record')}
+            ${sonStatCard(data.damage.damaged, 'Damaged lots', data.damage.damagedPct + '% of addresses')}
+            ${sonStatCard(soldDisplay, 'Sold since fire', soldNote)}
+          </div>
+
+          <div style="margin-top:18px;">
+            <div style="font-size:14px;font-weight:800;color:${C.accentDark};margin-bottom:8px;">Fire damage</div>
+            ${sonDistributionBar(damageItems, data.totalAddresses)}
+          </div>
+
+          <div style="margin-top:18px;padding:14px 16px;background:${C.soft};border:1px solid ${C.border};border-radius:12px;">
+            <div style="font-size:14px;font-weight:800;color:${C.accentDark};margin-bottom:6px;">Recovery progress · EPIC-LA county records</div>
+            <div style="font-size:12.5px;color:${C.ink};line-height:1.45;margin-bottom:12px;">${sonEsc(recoveryLine)}</div>
+            ${sonMilestoneStrip(epic)}
+            <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:${C.ink};">
+              <span><strong>${sonEsc(String(issued))}</strong> damaged lots with permits issued</span>
+              <span style="color:${C.border};">·</span>
+              <span><strong>${sonEsc(String(construction))}</strong> under construction</span>
+              <span style="color:${C.border};">·</span>
+              <span><strong>${sonEsc(String(completed))}</strong> construction completed</span>
+              <span style="color:${C.border};">·</span>
+              <span><strong>${sonEsc(String(tempHousing))}</strong> temporary housing</span>
+            </div>
+            ${sonApnCaveatHtml(data, true)}
+          </div>
+
+          <div style="margin-top:16px;display:flex;gap:14px;">
+            <div style="flex:1 1 0;min-width:0;">
+              <div style="font-size:13px;font-weight:800;color:${C.accentDark};margin-bottom:6px;">What neighbors are planning</div>
+              <div style="font-size:11px;color:${C.muted};margin-bottom:8px;">Address plan · damaged lots (${data.damage.damaged})</div>
+              ${sonDistributionBar(data.addressPlanItems, data.damage.damaged || 1)}
+            </div>
+            <div style="flex:1 1 0;min-width:0;">
+              <div style="font-size:13px;font-weight:800;color:${C.accentDark};margin-bottom:6px;">Build status</div>
+              <div style="font-size:11px;color:${C.muted};margin-bottom:8px;">Lots planning to build (${data.buildingPlanCount})</div>
+              ${sonDistributionBar(data.buildStatusItems, data.buildingPlanCount || 1)}
+            </div>
+          </div>
+
+          <div style="margin-top:16px;padding-top:10px;border-top:1px solid ${C.border};font-size:10.5px;color:${C.muted};line-height:1.5;">
+            Generated ${sonEsc(data.reportDate)} · County records matched by APN; no match does not mean no rebuild.
+            ${data.syncLabel ? ' ' + sonEsc(data.syncLabel) + '.' : ''}
+            Altagether Neighborhood Captains.
+          </div>
+        </div>`;
+    }
+
+    function sonSlideShell(inner, isLast) {
+      const C = SON_REPORT_COLORS;
+      return `
+        <div class="son-slide" style="width:720px;min-height:405px;box-sizing:border-box;padding:36px 40px;background:${C.white};color:${C.ink};font-family:'Helvetica Neue',Arial,sans-serif;display:flex;flex-direction:column;${isLast ? '' : 'page-break-after:always;'}">
+          ${inner}
+        </div>`;
+    }
+
+    function buildSonDeckHtml(data) {
+      const C = SON_REPORT_COLORS;
+      const epic = data.epic;
+      const captainLine = data.captains.length
+        ? data.captains.map((c) => c.name).filter(Boolean).join(' · ')
+        : 'Neighborhood Captains';
+
+      const damageItems = [
+        { label: 'Total Loss', count: data.damage.totalLoss, color: C.totalLoss },
+        { label: 'Partial Damage', count: data.damage.partial, color: C.partial },
+        { label: 'Standing', count: data.damage.standing, color: C.standing },
+        { label: 'Damage Not Set', count: data.damage.notSet, color: C.notSet }
+      ];
+      if (data.damage.other > 0) damageItems.push({ label: 'Other', count: data.damage.other, color: '#8872b1' });
+
+      const recoveryLine = epic
+        ? `Of the ${epic.damagedAddresses} damaged lots in our zone, ${epic.damagedWithEpic} already have a matched county rebuild record${epic.damagedCoveragePct != null ? ` (${epic.damagedCoveragePct}%)` : ''}.`
+        : (data.epicError
+          ? 'County permitting data could not be loaded for this briefing.'
+          : 'County permitting data is still loading.');
+
+      const slide1 = sonSlideShell(`
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+          <div style="text-transform:uppercase;letter-spacing:0.16em;font-size:12px;font-weight:700;color:${C.accent};margin-bottom:14px;">Altagether</div>
+          <div style="font-size:38px;font-weight:800;line-height:1.12;color:${C.accentDark};max-width:520px;">State of the Neighborhood</div>
+          <div style="margin-top:14px;font-size:22px;font-weight:700;color:${C.ink};">${sonEsc(data.zoneName)}</div>
+          <div style="margin-top:8px;font-size:15px;color:${C.muted};">${sonEsc(data.monthYear)}</div>
+          <div style="margin-top:22px;padding-top:16px;border-top:2px solid ${C.border};font-size:14px;color:${C.ink};">
+            Presented by ${sonEsc(captainLine)}
+          </div>
         </div>
-      `).join('');
+      `);
+
+      const slide2 = sonSlideShell(`
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:${C.accent};margin-bottom:10px;">Our zone</div>
+        <div style="font-size:28px;font-weight:800;color:${C.accentDark};margin-bottom:20px;">At a glance</div>
+        <div style="display:flex;gap:14px;margin-bottom:22px;">
+          ${sonStatCard(data.totalAddresses, 'Addresses', 'Homes & lots in the zone')}
+          ${sonStatCard(data.totalPeople, 'Neighbors', 'People on our roster')}
+          ${sonStatCard(data.damage.damaged, 'Damaged lots', data.damage.damagedPct + '% of the zone')}
+        </div>
+        <div style="font-size:15px;line-height:1.55;color:${C.ink};max-width:560px;">
+          This briefing shares a snapshot of fire impact, county permitting progress, and what neighbors are planning as we rebuild together.
+        </div>
+      `);
+
+      const slide3 = sonSlideShell(`
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:${C.accent};margin-bottom:10px;">Impact</div>
+        <div style="font-size:28px;font-weight:800;color:${C.accentDark};margin-bottom:12px;">What the fire did here</div>
+        <div style="font-size:15px;color:${C.ink};line-height:1.5;margin-bottom:18px;">
+          ${data.damage.totalLossPct}% of addresses in this zone were total losses
+          (${data.damage.totalLoss} of ${data.totalAddresses}).
+        </div>
+        ${sonDistributionBar(damageItems.filter((i) => i.count > 0 || ['Total Loss', 'Standing', 'Partial Damage'].includes(i.label)), data.totalAddresses)}
+      `);
+
+      const slide4 = sonSlideShell(`
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:${C.accent};margin-bottom:10px;">County records · EPIC-LA</div>
+        <div style="font-size:28px;font-weight:800;color:${C.accentDark};margin-bottom:12px;">Where recovery stands</div>
+        <div style="font-size:15px;color:${C.ink};line-height:1.5;margin-bottom:16px;">${sonEsc(recoveryLine)}</div>
+        ${sonMilestoneStrip(epic)}
+        <div style="margin-top:16px;display:flex;gap:12px;">
+          ${sonStatCard(epic ? epic.damagedWithIssuedPermit : '—', 'Permits issued', 'Damaged lots')}
+          ${sonStatCard(epic ? epic.damagedConstruction : '—', 'Under construction', 'Damaged lots')}
+          ${sonStatCard(epic ? epic.damagedCompleted : '—', 'Completed', 'Damaged lots')}
+          ${sonStatCard(epic ? epic.withTempHousing : '—', 'Temp housing', 'Zone-wide')}
+        </div>
+        ${sonApnCaveatHtml(data, false)}
+        <div style="margin-top:10px;font-size:11px;color:${C.muted};">No county match does not mean no rebuild. ${data.syncLabel ? sonEsc(data.syncLabel) + '.' : ''}</div>
+      `);
+
+      const soldDisplay = data.salesAvailable ? String(data.soldSinceFireCount) : '—';
+      const slide5 = sonSlideShell(`
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:${C.accent};margin-bottom:10px;">Looking ahead</div>
+        <div style="font-size:28px;font-weight:800;color:${C.accentDark};margin-bottom:16px;">Plans &amp; property turnover</div>
+        <div style="display:flex;gap:18px;">
+          <div style="flex:1.4 1 0;min-width:0;">
+            <div style="font-size:14px;font-weight:700;margin-bottom:6px;">Address plan · damaged lots</div>
+            ${sonDistributionBar(data.addressPlanItems, data.damage.damaged || 1)}
+            <div style="margin-top:16px;font-size:14px;font-weight:700;margin-bottom:6px;">Build status · planning to build</div>
+            ${sonDistributionBar(data.buildStatusItems, data.buildingPlanCount || 1)}
+          </div>
+          <div style="flex:0 0 180px;">
+            ${sonStatCard(soldDisplay, 'Sold since fire', data.salesAvailable ? 'Homes that have changed hands' : 'Unavailable')}
+            <div style="margin-top:12px;font-size:12px;color:${C.muted};line-height:1.45;">Counts only — no names or prices in this briefing.</div>
+          </div>
+        </div>
+        ${sonApnCaveatHtml(data, true)}
+      `);
+
+      const slide6 = sonSlideShell(`
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+          <div style="text-transform:uppercase;letter-spacing:0.16em;font-size:12px;font-weight:700;color:${C.accent};margin-bottom:14px;">Altagether</div>
+          <div style="font-size:30px;font-weight:800;color:${C.accentDark};line-height:1.2;max-width:520px;margin-bottom:18px;">Together, we rebuild</div>
+          <div style="font-size:16px;line-height:1.6;color:${C.ink};max-width:520px;">${sonEsc(SON_CLOSING_TEXT)}</div>
+          <div style="margin-top:28px;padding-top:16px;border-top:2px solid ${C.border};font-size:13px;color:${C.muted};">
+            ${sonEsc(data.zoneName)} · ${sonEsc(data.reportDate)}
+          </div>
+        </div>
+      `, true);
+
+      return `
+        <div class="son-deck" style="background:#e8ebe0;padding:16px;display:flex;flex-direction:column;gap:16px;width:752px;box-sizing:border-box;">
+          ${slide1}${slide2}${slide3}${slide4}${slide5}${slide6}
+        </div>`;
     }
-    
-    // Export report to PDF
-    function exportReportToPDF() {
-      const content = document.getElementById('zoneReportContent');
-      if (!content) {
-        alert('Please generate a report first.');
+
+    async function exportSonReportPdf(mode) {
+      if (typeof html2pdf === 'undefined') {
+        alert('PDF export library not available. Please refresh and try again, or use browser print.');
         return;
       }
-      
-      // Use html2pdf library if available, otherwise use browser print
-      if (typeof html2pdf !== 'undefined') {
-        // Wait a moment to ensure charts are fully rendered
-        setTimeout(() => {
-          // Clone the content to avoid modifying the original
-          const clonedContent = content.cloneNode(true);
-          
-          // Convert Chart.js canvases to static images
-          // This ensures charts appear in the PDF
-          const canvases = content.querySelectorAll('canvas[id^="report"]');
-          const canvasImages = new Map();
-          
-          canvases.forEach((canvas) => {
-            try {
-              const dataURL = canvas.toDataURL('image/png', 1.0);
-              canvasImages.set(canvas.id, dataURL);
-            } catch (e) {
-              console.warn('Could not convert canvas to image:', e);
-            }
-          });
-          
-          // Replace canvas elements in cloned content with img elements
-          canvasImages.forEach((dataURL, canvasId) => {
-            const clonedCanvas = clonedContent.querySelector(`canvas#${canvasId}`);
-            if (clonedCanvas) {
-              const img = document.createElement('img');
-              img.src = dataURL;
-              img.style.maxWidth = '100%';
-              img.style.height = 'auto';
-              img.style.display = 'block';
-              // Preserve the original canvas dimensions
-              const computedStyle = window.getComputedStyle(clonedCanvas);
-              if (computedStyle.width) img.style.width = computedStyle.width;
-              if (computedStyle.height) img.style.height = computedStyle.height;
-              clonedCanvas.parentNode.replaceChild(img, clonedCanvas);
-            }
-          });
-          
-          // Create a temporary container for the cloned content
-          const tempContainer = document.createElement('div');
-          tempContainer.style.cssText = 'position: absolute; left: -9999px; top: 0; width: 100%;';
-          tempContainer.appendChild(clonedContent);
-          document.body.appendChild(tempContainer);
-          
-          const opt = {
-            margin: [10, 10, 10, 10],
-            filename: `zone-report-${new Date().toISOString().split('T')[0]}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { 
-              scale: 1.5, // Reduced from 2 to prevent canvas size issues
-              useCORS: true, 
-              logging: false,
-              allowTaint: true
-            },
-            jsPDF: { unit: 'mm', format: 'letter', orientation: 'landscape' },
-            pagebreak: { 
-              mode: ['avoid-all', 'css'],
-              avoid: ['.zone-report-section', '.zone-report-section-title', '.zone-report-table']
-            }
-          };
-          
-          html2pdf().set(opt).from(clonedContent).save().then(() => {
-            // Clean up temporary container
-            if (tempContainer.parentNode) {
-              document.body.removeChild(tempContainer);
-            }
-          }).catch((error) => {
-            console.error('PDF export error:', error);
-            // Clean up on error
-            if (tempContainer.parentNode) {
-              document.body.removeChild(tempContainer);
-            }
-          });
-        }, 500); // Wait 500ms for charts to fully render
-      } else {
-        // Fallback to print dialog
-        alert('PDF export library not available. Please use browser print instead.');
-      }
-    }
-    
-    // Create charts for the report
-    function createReportCharts(stats) {
-      if (typeof Chart === 'undefined') {
-        console.error('Chart.js is not available');
+      if (!sonReportState.onePagerHtml || !sonReportState.deckHtml) {
+        alert('Please generate a briefing first.');
         return;
       }
-      
-      if (!stats) {
-        console.error('Stats object is missing');
-        return;
-      }
-      
-      // Damage Chart
-      const damageCtx = document.getElementById('reportDamageChart');
-      if (damageCtx && stats.damageBreakdown) {
-        const damageLabels = Object.keys(stats.damageBreakdown);
-        const damageData = Object.values(stats.damageBreakdown);
-        const damageTotal = damageData.reduce((a, b) => a + b, 0);
-        const damageLabelsWithPct = damageLabels.map((label, index) => {
-          const value = damageData[index];
-          const pct = damageTotal > 0 ? ((value / damageTotal) * 100).toFixed(1) : '0';
-          return `${label || 'Not Set'} (${pct}%)`;
-        });
-        // Map damage status to map pin colors
-        const getDamageColor = (label) => {
-          const labelLower = (label || '').toLowerCase();
-          if (labelLower.includes('total')) return '#bc455a'; // Red - total loss
-          if (labelLower.includes('partial')) return '#fdba77'; // Yellow - partial loss
-          if (labelLower.includes('standing')) return '#81bdc3'; // Blue - standing
-          return '#e5e5e5'; // Pale green/gray - unknown
+
+      const isDeck = mode === 'deck';
+      const exportBtn = document.getElementById(isDeck ? 'btnExportSonDeck' : 'btnExportSonOnePager');
+      if (exportBtn) exportBtn.disabled = true;
+      setSonReportStatus(isDeck ? 'Building meeting deck PDF…' : 'Building one-pager PDF…', 'loading');
+
+      const container = document.createElement('div');
+      container.style.cssText = 'position:absolute;left:-99999px;top:0;background:#ffffff;';
+      document.body.appendChild(container);
+
+      try {
+        const sourceHtml = isDeck ? sonReportState.deckHtml : sonReportState.onePagerHtml;
+        container.innerHTML = sourceHtml;
+        const target = container.firstElementChild;
+        if (!target) throw new Error('Nothing to export');
+
+        // For deck PDF, remove preview-only gap styling so pages are clean
+        if (isDeck) {
+          target.style.background = '#ffffff';
+          target.style.padding = '0';
+          target.style.gap = '0';
+          target.querySelectorAll('.son-slide').forEach((slide) => {
+            slide.style.margin = '0';
+          });
+        }
+
+        const zoneSlug = String((sonReportState.data && sonReportState.data.zoneName) || 'zone')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+          .slice(0, 40) || 'zone';
+        const dateForFile = new Date().toISOString().split('T')[0];
+        const filename = isDeck
+          ? `state-of-neighborhood-${zoneSlug}-deck-${dateForFile}.pdf`
+          : `state-of-neighborhood-${zoneSlug}-one-pager-${dateForFile}.pdf`;
+
+        const opt = {
+          margin: isDeck ? [8, 8, 8, 8] : [10, 10, 10, 10],
+          filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            logging: false,
+            backgroundColor: '#ffffff'
+          },
+          jsPDF: {
+            unit: 'mm',
+            format: 'letter',
+            orientation: isDeck ? 'landscape' : 'portrait'
+          },
+          pagebreak: isDeck
+            ? { mode: ['css'], after: '.son-slide' }
+            : { mode: ['css', 'legacy'] }
         };
-        const damageColors = damageLabels.map(label => getDamageColor(label));
-        
-        new Chart(damageCtx, {
-          type: 'pie',
-          data: {
-            labels: damageLabelsWithPct,
-            datasets: [{
-              data: damageData,
-              backgroundColor: damageColors,
-              borderWidth: 2,
-              borderColor: '#fff'
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            aspectRatio: 1,
-            plugins: {
-              legend: {
-                position: 'bottom',
-                padding: 12,
-                labels: {
-                  padding: 12,
-                  font: { size: 16 },
-                  boxWidth: 20,
-                  boxHeight: 20
-                }
-              },
-              tooltip: {
-                titleFont: { size: 18 },
-                bodyFont: { size: 16 },
-                padding: 12,
-                callbacks: {
-                  label: function(context) {
-                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                    const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0';
-                    const labelWithoutPct = context.label.replace(/\s*\([^)]*\)\s*$/, '');
-                    return labelWithoutPct + ': ' + context.parsed + ' (' + percentage + '%)';
-                  }
-                }
-              }
-            }
-          }
-        });
-      }
-      
-      // Status Chart
-      const statusCtx = document.getElementById('reportStatusChart');
-      if (statusCtx && stats.addressPlanBreakdown) {
-        const statusLabels = Object.keys(stats.addressPlanBreakdown);
-        const statusData = Object.values(stats.addressPlanBreakdown);
-        const statusTotal = statusData.reduce((a, b) => a + b, 0);
-        const statusLabelsWithPct = statusLabels.map((label, index) => {
-          const value = statusData[index];
-          const pct = statusTotal > 0 ? ((value / statusTotal) * 100).toFixed(1) : '0';
-          return `${label || 'Not Set'} (${pct}%)`;
-        });
-        const statusColors = ['#afc892', '#81bdc3', '#fdba77', '#f6cf98', '#bc455a', '#e5e5e5', '#f9d6d3'];
-        
-        new Chart(statusCtx, {
-          type: 'pie',
-          data: {
-            labels: statusLabelsWithPct,
-            datasets: [{
-              data: statusData,
-              backgroundColor: statusColors.slice(0, statusLabels.length),
-              borderWidth: 2,
-              borderColor: '#fff'
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            aspectRatio: 1,
-            plugins: {
-              legend: {
-                position: 'bottom',
-                padding: 12,
-                labels: {
-                  padding: 12,
-                  font: { size: 16 },
-                  boxWidth: 20,
-                  boxHeight: 20
-                }
-              },
-              tooltip: {
-                titleFont: { size: 18 },
-                bodyFont: { size: 16 },
-                padding: 12,
-                callbacks: {
-                  label: function(context) {
-                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                    const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0';
-                    const labelWithoutPct = context.label.replace(/\s*\([^)]*\)\s*$/, '');
-                    return labelWithoutPct + ': ' + context.parsed + ' (' + percentage + '%)';
-                  }
-                }
-              }
-            }
-          }
-        });
-      }
-      
-      // Build Status Chart (horizontal bar chart like homepage)
-      const rebuildCtx = document.getElementById('reportRebuildChart');
-      if (rebuildCtx && stats.rebuildBreakdown) {
-        // Define rebuild stages in the same order as homepage
-        const rebuildStages = [
-          'Planning/Not Ready to Build Yet',
-          'Permits & Pre-Construction',
-          'Under Construction',
-          'Finishing/Preparing to Move Back',
-          'Moved In'
-        ];
-        
-        // Process rebuild breakdown to include all stages in order
-        const rebuildCounts = {};
-        rebuildStages.forEach(stage => {
-          rebuildCounts[stage] = 0;
-        });
-        rebuildCounts['Not Started'] = 0;
-        rebuildCounts['Unknown'] = 0;
-        
-        // Populate counts from stats.rebuildBreakdown
-        Object.entries(stats.rebuildBreakdown).forEach(([label, count]) => {
-          if (rebuildCounts.hasOwnProperty(label)) {
-            rebuildCounts[label] = count;
-          } else {
-            // Custom stage - add to rebuildCounts
-            rebuildCounts[label] = count;
-          }
-        });
-        
-        // Collect all stages (predefined + custom)
-        const allStagesSet = new Set(rebuildStages);
-        Object.keys(rebuildCounts).forEach(key => {
-          if (key !== 'Not Started' && key !== 'Unknown') {
-            allStagesSet.add(key);
-          }
-        });
-        
-        // Build final labels array: Not Started first, then predefined stages, then custom stages, then Unknown
-        const customStages = Array.from(allStagesSet).filter(s => !rebuildStages.includes(s) && s !== 'Not Started' && s !== 'Unknown');
-        const allRebuildLabels = ['Not Started', ...rebuildStages, ...customStages, 'Unknown'];
-        
-        // Generate data array for all labels (use 0 if stage doesn't exist in rebuildCounts)
-        const rebuildData = allRebuildLabels.map(label => rebuildCounts[label] || 0);
-        
-        const rebuildColors = ['#9e9e9e', '#bc455a', '#fdba77', '#f6cf98', '#afc892', '#81bdc3', '#e5e5e5', '#f9d6d3', '#e0e0e0', '#d4a574', '#c8a2c8', '#a8d8ea'];
-        
-        new Chart(rebuildCtx, {
-          type: 'bar',
-          data: {
-            labels: allRebuildLabels,
-            datasets: [{
-              label: 'Count',
-              data: rebuildData,
-              backgroundColor: rebuildColors.slice(0, allRebuildLabels.length).map((color, i) => rebuildColors[i % rebuildColors.length]),
-              borderColor: rebuildColors.slice(0, allRebuildLabels.length).map((color, i) => rebuildColors[i % rebuildColors.length]),
-              borderWidth: 1
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: 'y',
-            plugins: {
-              legend: {
-                display: false
-              },
-              tooltip: {
-                titleFont: { size: 18 },
-                bodyFont: { size: 16 },
-                padding: 12,
-                callbacks: {
-                  label: function(context) {
-                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                    const percentage = total > 0 ? ((context.parsed.x / total) * 100).toFixed(1) : '0';
-                    const fullLabel = allRebuildLabels[context.dataIndex] || context.label;
-                    return fullLabel + ': ' + context.parsed.x + ' (' + percentage + '%)';
-                  }
-                }
-              }
-            },
-            scales: {
-              x: {
-                beginAtZero: true,
-                ticks: {
-                  stepSize: 1,
-                  precision: 0,
-                  font: {
-                    size: 16
-                  }
-                },
-                grid: {
-                  display: true,
-                  color: 'rgba(0, 0, 0, 0.05)'
-                }
-              },
-              y: {
-                ticks: {
-                  font: {
-                    size: 14
-                  },
-                  maxRotation: 0,
-                  autoSkip: false,
-                  callback: function(value, index) {
-                    const label = allRebuildLabels[index];
-                    // Truncate long labels and show full text in tooltip
-                    if (label && label.length > 35) {
-                      return label.substring(0, 32) + '...';
-                    }
-                    return label;
-                  }
-                },
-                grid: {
-                  display: false
-                }
-              }
-            },
-            layout: {
-              padding: {
-                right: 10
-              }
-            }
-          }
-        });
-      }
-      
-      // Outreach Chart
-      const contactCtx = document.getElementById('reportContactChart');
-      if (contactCtx && stats.contactedAddresses !== undefined) {
-        const contacted = stats.contactedAddresses;
-        const uncontacted = stats.uncontactedAddresses;
-        const total = contacted + uncontacted;
-        const contactedPct = total > 0 ? ((contacted / total) * 100).toFixed(1) : '0';
-        const uncontactedPct = total > 0 ? ((uncontacted / total) * 100).toFixed(1) : '0';
-        
-        new Chart(contactCtx, {
-          type: 'pie',
-          data: {
-            labels: [`Outreach Attempted (${contactedPct}%)`, `No Outreach Yet (${uncontactedPct}%)`],
-            datasets: [{
-              data: [contacted, uncontacted],
-              backgroundColor: ['#afc892', '#e5e5e5'],
-              borderWidth: 2,
-              borderColor: '#fff'
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-              legend: {
-                position: 'bottom',
-                padding: 12,
-                labels: {
-                  padding: 12,
-                  font: { size: 16 },
-                  boxWidth: 20,
-                  boxHeight: 20
-                }
-              },
-              tooltip: {
-                titleFont: { size: 18 },
-                bodyFont: { size: 16 },
-                padding: 12,
-                callbacks: {
-                  label: function(context) {
-                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                    const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0';
-                    return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
-                  }
-                }
-              }
-            }
-          }
-        });
-      }
-      
-      // Street Chart (bar chart showing addresses per street)
-      const streetCtx = document.getElementById('reportStreetChart');
-      if (streetCtx && stats.streetStats) {
-        const streetEntries = Object.entries(stats.streetStats)
-          .sort((a, b) => b[1].addresses - a[1].addresses)
-          .slice(0, 10); // Top 10 streets
-        
-        const streetLabels = streetEntries.map(([street]) => street || 'Unknown');
-        const streetData = streetEntries.map(([, data]) => data.addresses);
-        const streetColors = ['#afc892', '#81bdc3', '#fdba77', '#f6cf98', '#bc455a', '#e5e5e5', '#f9d6d3', '#d4a574', '#a8c090', '#e8c4a0'];
-        
-        new Chart(streetCtx, {
-          type: 'bar',
-          data: {
-            labels: streetLabels,
-            datasets: [{
-              label: 'Addresses',
-              data: streetData,
-              backgroundColor: streetColors.slice(0, streetLabels.length),
-              borderWidth: 2,
-              borderColor: '#fff'
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            aspectRatio: 2,
-            plugins: {
-              legend: {
-                display: false
-              },
-              tooltip: {
-                titleFont: { size: 18 },
-                bodyFont: { size: 16 },
-                padding: 12,
-                callbacks: {
-                  label: function(context) {
-                    return 'Addresses: ' + context.parsed.y;
-                  }
-                }
-              }
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                ticks: {
-                  stepSize: 1,
-                  font: {
-                    size: 16
-                  }
-                }
-              },
-              x: {
-                ticks: {
-                  maxRotation: 45,
-                  minRotation: 45,
-                  font: {
-                    size: 14
-                  }
-                }
-              }
-            }
-          }
-        });
+
+        await html2pdf().set(opt).from(target).save();
+        setSonReportStatus(`Saved ${filename}`, '');
+        setTimeout(() => setSonReportStatus('', ''), 4000);
+      } catch (error) {
+        console.error('State of the Neighborhood PDF export failed:', error);
+        setSonReportStatus('PDF export failed — see console for details.', 'error');
+        alert('PDF export failed: ' + (error.message || error));
+      } finally {
+        if (container.parentNode) container.parentNode.removeChild(container);
+        if (exportBtn) exportBtn.disabled = false;
       }
     }
+
     
     const directoryWorkspaceTitles = {
       tools: {
         batchTagging: 'Batch Data Entry',
-        zoneAnalysis: 'Zone Analysis',
+        zoneAnalysis: 'State of the Neighborhood',
         eventTemplates: 'Event Planning Templates'
       },
       resources: {

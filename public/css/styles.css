@@ -10295,7 +10295,7 @@
       font-style: italic;
     }
 
-    /* Zone Report Generator Styles */
+    /* Zone Report / State of the Neighborhood */
     .zone-report-controls {
       display: flex;
       align-items: center;
@@ -10324,6 +10324,13 @@
       box-shadow: 0 4px 12px rgba(40, 54, 24, 0.3);
     }
 
+    .btn-generate-report:disabled,
+    .btn-export:disabled {
+      opacity: 0.65;
+      cursor: wait;
+      transform: none;
+    }
+
     .zone-report-status {
       padding: 8px 16px;
       border-radius: 6px;
@@ -10345,15 +10352,90 @@
       margin-top: 32px;
     }
 
-    .zone-report-content {
-      background: white;
+    .son-report-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 20px;
+      padding: 16px;
+      background: rgba(96, 108, 56, 0.05);
       border-radius: 8px;
-      padding: 40px;
+      border: 2px solid var(--primary);
+    }
+
+    .son-report-preview-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .son-report-tab {
+      appearance: none;
+      border: 1px solid rgba(40, 54, 24, 0.2);
+      background: #fff;
+      color: var(--primary-dark);
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      font-family: 'Chivo', sans-serif;
+      cursor: pointer;
+    }
+
+    .son-report-tab:hover {
+      border-color: var(--primary);
+    }
+
+    .son-report-tab.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .son-report-export-btns {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .son-report-export-btns .btn-export {
+      font-size: 1rem;
+      padding: 12px 20px;
+    }
+
+    .btn-export--secondary {
+      background: #314059;
+    }
+
+    .btn-export--secondary:hover {
+      background: #243247;
+    }
+
+    .zone-report-content {
+      background: #e8ebe0;
+      border-radius: 8px;
+      padding: 20px;
       box-shadow: 0 2px 8px rgba(40, 54, 24, 0.1);
       max-width: 100%;
       overflow-x: auto;
       overflow-y: visible;
       max-height: none;
+    }
+
+    .son-report-preview .son-one-pager,
+    .son-report-preview .son-deck {
+      margin: 0 auto;
+      box-shadow: 0 8px 24px rgba(40, 54, 24, 0.12);
+    }
+
+    .son-report-preview .son-deck {
+      gap: 16px;
+    }
+
+    .son-report-preview .son-slide {
+      box-shadow: 0 2px 10px rgba(40, 54, 24, 0.08);
+      border: 1px solid #d9ddc7;
+      border-radius: 4px;
     }
 
     /* Print-friendly styles */
