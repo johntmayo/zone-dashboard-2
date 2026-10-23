@@ -27174,39 +27174,61 @@
           : `state-of-neighborhood-${zoneSlug}-one-pager-${dateForFile}.pdf`;
 
         // 16:9 landscape pages for deck (338.67 × 190.5 mm ≈ 13.33" × 7.5")
-        const baseOpt = {
-          margin: isDeck ? [0, 0, 0, 0] : [10, 10, 10, 10],
-          filename,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: {
-            scale: 2,
-            useCORS: true,
-            allowTaint: true,
-            logging: false,
-            backgroundColor: isDeck ? null : '#ffffff',
-            width: isDeck ? SON_SLIDE_W : undefined,
-            height: isDeck ? SON_SLIDE_H : undefined,
-            windowWidth: isDeck ? SON_SLIDE_W : undefined
-          },
-          jsPDF: isDeck
-            ? { unit: 'mm', format: [338.67, 190.5], orientation: 'landscape' }
-            : { unit: 'mm', format: 'letter', orientation: 'portrait' },
-          pagebreak: { mode: ['css', 'legacy'] }
+        const pageWmm = 338.67;
+        const pageHmm = 190.5;
+        const canvasOpts = {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          backgroundColor: '#ffffff'
         };
 
         if (isDeck) {
           const slides = Array.from(target.querySelectorAll('.son-slide'));
           if (!slides.length) throw new Error('No slides to export');
-          let worker = html2pdf().set(baseOpt).from(slides[0]).toPdf();
+
+          // Render each slide to a canvas, then stitch into one PDF.
+          // (html2pdf's chained .get('pdf').from(next) path throws in this build.)
+          const slideOpt = {
+            margin: 0,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: {
+              ...canvasOpts,
+              width: SON_SLIDE_W,
+              height: SON_SLIDE_H,
+              windowWidth: SON_SLIDE_W
+            },
+            jsPDF: { unit: 'mm', format: [pageWmm, pageHmm], orientation: 'landscape' }
+          };
+
+          const pdf = await html2pdf().set(slideOpt).from(slides[0]).toPdf().get('pdf');
+          if (!pdf) throw new Error('Failed to create PDF from first slide');
+          const pageWidth = pdf.internal.pageSize.getWidth();
+          const pageHeight = pdf.internal.pageSize.getHeight();
           for (let i = 1; i < slides.length; i += 1) {
-            const slide = slides[i];
-            worker = worker.get('pdf').then((pdf) => {
-              pdf.addPage([338.67, 190.5], 'landscape');
-            }).from(slide).toContainer().toCanvas().toPdf();
+            const canvas = await html2pdf().set(slideOpt).from(slides[i]).toCanvas().get('canvas');
+            if (!canvas) throw new Error('Failed to render slide ' + (i + 1));
+            pdf.addPage();
+            pdf.addImage(
+              canvas.toDataURL('image/jpeg', 0.98),
+              'JPEG',
+              0,
+              0,
+              pageWidth,
+              pageHeight
+            );
           }
-          await worker.save();
+          pdf.save(filename);
         } else {
-          await html2pdf().set(baseOpt).from(target).save();
+          await html2pdf().set({
+            margin: [10, 10, 10, 10],
+            filename,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: canvasOpts,
+            jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
+            pagebreak: { mode: ['css', 'legacy'] }
+          }).from(target).save();
         }
 
         setSonReportStatus(`Saved ${filename}`, '');
