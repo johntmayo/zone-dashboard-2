@@ -10295,7 +10295,7 @@
       font-style: italic;
     }
 
-    /* Zone Report Generator Styles */
+    /* Zone Report / State of the Neighborhood */
     .zone-report-controls {
       display: flex;
       align-items: center;
@@ -10324,6 +10324,13 @@
       box-shadow: 0 4px 12px rgba(40, 54, 24, 0.3);
     }
 
+    .btn-generate-report:disabled,
+    .btn-export:disabled {
+      opacity: 0.65;
+      cursor: wait;
+      transform: none;
+    }
+
     .zone-report-status {
       padding: 8px 16px;
       border-radius: 6px;
@@ -10345,15 +10352,183 @@
       margin-top: 32px;
     }
 
-    .zone-report-content {
-      background: white;
+    .son-report-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 20px;
+      padding: 16px;
+      background: rgba(96, 108, 56, 0.05);
       border-radius: 8px;
-      padding: 40px;
+      border: 2px solid var(--primary);
+    }
+
+    .son-report-preview-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .son-report-tab {
+      appearance: none;
+      border: 1px solid rgba(40, 54, 24, 0.2);
+      background: #fff;
+      color: var(--primary-dark);
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      font-family: 'Chivo', sans-serif;
+      cursor: pointer;
+    }
+
+    .son-report-tab:hover {
+      border-color: var(--primary);
+    }
+
+    .son-report-tab.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .son-report-export-btns {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .son-report-export-btns .btn-export {
+      font-size: 1rem;
+      padding: 12px 20px;
+    }
+
+    .btn-export--secondary {
+      background: #314059;
+    }
+
+    .btn-export--secondary:hover {
+      background: #243247;
+    }
+
+    .zone-report-content {
+      background: #e8ebe0;
+      border-radius: 8px;
+      padding: 20px;
       box-shadow: 0 2px 8px rgba(40, 54, 24, 0.1);
       max-width: 100%;
       overflow-x: auto;
       overflow-y: visible;
       max-height: none;
+    }
+
+    .son-captain-note-field {
+      margin: 0 0 18px;
+      max-width: 720px;
+    }
+
+    .son-captain-note-field label {
+      display: block;
+      font-family: 'Chivo', sans-serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--primary-dark, #283618);
+      margin-bottom: 6px;
+    }
+
+    .son-captain-note-field label span {
+      font-weight: 400;
+      color: #5f6b4d;
+    }
+
+    .son-captain-note-field textarea {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px dashed #a8b08f;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-family: 'Lora', Georgia, serif;
+      font-size: 1rem;
+      line-height: 1.45;
+      background: #FDFBF7;
+      color: #1F2937;
+      resize: vertical;
+      min-height: 64px;
+    }
+
+    .son-captain-note-field textarea:focus {
+      outline: 2px solid rgba(96, 108, 56, 0.35);
+      border-color: #606c38;
+    }
+
+    .son-captain-note-meta {
+      margin-top: 4px;
+      font-size: 0.8rem;
+      color: #5f6b4d;
+      text-align: right;
+    }
+
+    .son-report-preview {
+      overflow-x: hidden;
+    }
+
+    .son-report-preview .son-one-pager,
+    .son-report-preview .son-deck {
+      margin: 0 auto;
+      box-shadow: none;
+      background: transparent;
+      max-width: 100%;
+    }
+
+    .son-report-preview .son-deck {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      width: 100% !important;
+      padding: 0 !important;
+    }
+
+    /* Scale 1280×720 slides to fit the preview pane without clipping */
+    .son-report-preview .son-slide-frame {
+      width: 100%;
+      max-width: 1280px;
+      margin: 0 auto;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      border-radius: 6px;
+      border: 1px solid #d0cfc8;
+      box-shadow: 0 4px 16px rgba(40, 54, 24, 0.12);
+      background: #fff;
+      position: relative;
+    }
+
+    .son-report-preview .son-slide-frame .son-slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform-origin: top left;
+      box-shadow: none;
+      border: none;
+      border-radius: 0;
+    }
+
+    .son-report-preview .son-one-pager-frame {
+      width: 100%;
+      max-width: 720px;
+      margin: 0 auto;
+      overflow: hidden;
+      border-radius: 6px;
+      border: 1px solid #d0cfc8;
+      box-shadow: 0 4px 16px rgba(40, 54, 24, 0.12);
+      background: #FDFBF7;
+      position: relative;
+    }
+
+    .son-report-preview .son-one-pager-frame .son-one-pager {
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform-origin: top left;
     }
 
     /* Print-friendly styles */
