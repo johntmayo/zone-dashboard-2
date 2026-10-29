@@ -28,6 +28,16 @@ test('recruitment actions keep the requested two-column order', () => {
     html,
     /class="recruitment-card recruitment-card--double-height" id="recruitmentPlacesCard"/
   );
+  assert.match(html, /id="recruitCaptainsLink"/);
+  assert.match(html, /Help Altagether expand the captain network\./);
+  assert.match(
+    html,
+    /Nominate someone, share flyers, make a pitch at an event or meeting, or post on social media—there are lots of ways to help\./
+  );
+  assert.equal(html.indexOf('phone banks next week'), -1);
+  assert.equal(html.indexOf('id="navRecruitment"'), -1);
+  assert.equal(html.indexOf('id="recruitmentView"'), -1);
+  assert.match(html, /recruitCaptains: 'Recruit Neighborhood Captains'/);
 });
 
 test('onboarding tour does not reference the retired Actions tab', () => {

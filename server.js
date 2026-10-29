@@ -1698,7 +1698,7 @@ try {
     sessionAuth
   });
   const recruitmentConfig = getRecruitmentConfig();
-  console.log(`Recruitment routes registered (enabled: ${recruitmentConfig.enabled}, sheet: ${recruitmentConfig.sheetId || 'not configured'}).`);
+  console.log(`Recruitment routes registered (sheet: ${recruitmentConfig.sheetId || 'not configured'}).`);
 } catch (err) {
   console.error('Failed to register Recruitment routes:', err.message);
 }
@@ -1760,7 +1760,7 @@ app.listen(PORT, () => {
   try {
     const { getRecruitmentConfig } = require('./recruitment/routes');
     const recruitmentConfig = getRecruitmentConfig();
-    console.log(`Recruitment tab: ${recruitmentConfig.enabled ? 'on' : 'off'} (sheet: ${recruitmentConfig.sheetId || 'not configured'})`);
+    console.log(`Recruitment sheet: ${recruitmentConfig.sheetId || 'not configured'}`);
   } catch (err) {
     console.log('Recruitment tab: unavailable');
   }
