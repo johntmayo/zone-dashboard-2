@@ -16013,8 +16013,8 @@
    Recruitment Drive
    ═══════════════════════════════════════════════════════════════ */
 .recruitment-page {
-  max-width: 1180px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
 }
 
 .recruitment-hero {
@@ -16032,8 +16032,8 @@
 }
 
 .recruitment-lead {
-  max-width: 46rem;
-  margin: 12px 0 0;
+  max-width: 70ch;
+  margin: 0 0 16px;
   font-family: var(--font-reading);
   font-size: 1.05rem;
   line-height: 1.55;
