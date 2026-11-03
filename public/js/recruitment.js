@@ -1,6 +1,7 @@
 /**
- * Recruitment Drive — tab visibility, signup forms, and community feeds.
- * Depends on globals from index.html / utils.js (escapeHtml, fetchSheetWrite).
+ * Recruit Neighborhood Captains — signup forms and community feeds.
+ * Opened from Tools. Depends on globals from index.html / utils.js
+ * (escapeHtml, fetchSheetWrite).
  */
 (function (global) {
   'use strict';
@@ -91,18 +92,7 @@
   }
 
   function isEnabled() {
-    return Boolean(config.enabled);
-  }
-
-  function applyNavVisibility() {
-    var show = isEnabled();
-    ['navRecruitment', 'mobileMoreRecruitment'].forEach(function (id) {
-      var el = document.getElementById(id);
-      if (el) el.classList.toggle('hidden', !show);
-    });
-    if (typeof updateNavigationState === 'function') {
-      try { updateNavigationState(); } catch (err) { /* ignore */ }
-    }
+    return true;
   }
 
   function linksForSection(section) {
@@ -448,17 +438,15 @@
       var data = await fetch('/api/recruitment/config', { credentials: 'include' }).then(function (res) {
         return res.json();
       });
-      config.enabled = data && typeof data.enabled === 'boolean' ? data.enabled : CLIENT_ENABLED;
+      config.enabled = true;
       config.sheetConfigured = Boolean(data && data.sheetConfigured);
     } catch (err) {
-      config.enabled = CLIENT_ENABLED;
+      config.enabled = true;
     }
-    applyNavVisibility();
     return config;
   }
 
   async function loadFeed() {
-    if (!isEnabled()) return;
     var placeFeed = document.getElementById('recruitmentPlaceFeed');
     var eventFeed = document.getElementById('recruitmentEventFeed');
     if (!loaded) {
@@ -553,7 +541,7 @@
   }
 
   async function loadPage() {
-    if (!isEnabled() || loading) return;
+    if (loading) return;
     loading = true;
     fillCaptainFields();
     bindForms();
@@ -579,7 +567,6 @@
   global.Recruitment = {
     CLIENT_ENABLED: CLIENT_ENABLED,
     isEnabled: isEnabled,
-    applyNavVisibility: applyNavVisibility,
     loadConfig: loadConfig,
     loadPage: loadPage,
     fillCaptainFields: fillCaptainFields

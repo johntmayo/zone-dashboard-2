@@ -10,8 +10,8 @@
  *   Links      Label | URL | Section
  *
  * Env:
- *   RECRUITMENT_ENABLED   default on; set 0/false/off to hide the tab
  *   RECRUITMENT_SHEET_ID  spreadsheet id or full URL
+ *   RECRUITMENT_ENABLED   ignored. The tool stays available from Tools.
  */
 
 const {
@@ -90,7 +90,7 @@ function parseEnabledFlag(raw, defaultValue) {
 
 function getRecruitmentConfig() {
   return {
-    enabled: parseEnabledFlag(process.env.RECRUITMENT_ENABLED, true),
+    enabled: true,
     sheetId: extractSpreadsheetId(strEnv('RECRUITMENT_SHEET_ID')),
     placesTab: strEnv('RECRUITMENT_PLACES_TAB', 'Places'),
     eventsTab: strEnv('RECRUITMENT_EVENTS_TAB', 'Events'),
@@ -504,9 +504,6 @@ function registerRecruitmentRoutes(app, deps) {
   app.get('/api/recruitment/feed', requireRecruitmentAuth, async (req, res) => {
     try {
       const config = getRecruitmentConfig();
-      if (!config.enabled) {
-        return res.status(404).json({ error: 'recruitment_disabled', message: 'Recruitment is turned off.' });
-      }
       if (!config.sheetId) {
         return res.json({
           sheetConfigured: false,
@@ -581,9 +578,6 @@ function registerRecruitmentRoutes(app, deps) {
   app.post('/api/recruitment/places', requireRecruitmentAuth, async (req, res) => {
     try {
       const config = getRecruitmentConfig();
-      if (!config.enabled) {
-        return res.status(404).json({ error: 'recruitment_disabled', message: 'Recruitment is turned off.' });
-      }
       if (!config.sheetId) {
         return res.status(503).json({
           error: 'recruitment_not_configured',
@@ -641,9 +635,6 @@ function registerRecruitmentRoutes(app, deps) {
   app.post('/api/recruitment/events', requireRecruitmentAuth, async (req, res) => {
     try {
       const config = getRecruitmentConfig();
-      if (!config.enabled) {
-        return res.status(404).json({ error: 'recruitment_disabled', message: 'Recruitment is turned off.' });
-      }
       if (!config.sheetId) {
         return res.status(503).json({
           error: 'recruitment_not_configured',

@@ -128,7 +128,6 @@
         <button class="nav-item active" data-view="home" id="navHome">Home</button>
         <button class="nav-item" data-view="map" id="navMap">Map</button>
         <button class="nav-item" data-view="people" id="navPeople">Neighbors</button>
-        <button class="nav-item hidden" data-view="recruitment" id="navRecruitment">Recruitment Drive</button>
         <button class="nav-item hidden" data-view="meetups" id="navMeetups">Actions</button>
         <button class="nav-item" data-view="tools" id="navTools">Tools</button>
         <button class="nav-item" data-view="resources" id="navResources">Resources</button>
@@ -792,6 +791,13 @@
               <strong>Flyer Creator</strong>
               <span>Print and social flyers for zone events.</span>
             </a>
+            <button type="button" class="dir-tile" id="recruitCaptainsLink" data-workspace="recruitCaptains" data-workspace-page="tools">
+              <span class="dir-tile__icon" aria-hidden="true">
+                <img class="dir-ico" src="public/images/dir-icons/recruit-captains.svg" alt="">
+              </span>
+              <strong>Recruit Neighborhood Captains</strong>
+              <span>Help Altagether expand the captain network.</span>
+            </button>
           </div>
         </section>
       </div>
@@ -1084,6 +1090,81 @@
             </article>
           </div>
         </div>
+
+        <div id="ws-recruitCaptains" class="dir-ws-pane hidden">
+          <p class="recruitment-lead">Help grow the Neighborhood Captain network. Nominate someone, share flyers, make a pitch at an event or meeting, or post on social media—there are lots of ways to help.</p>
+          <div class="recruitment-bento">
+            <div class="recruitment-column">
+              <section class="recruitment-card" id="recruitmentNominateCard">
+                <div class="recruitment-card-header">
+                  <h3>Nominate a Captain</h3>
+                  <p>Do you know someone who would make a great Neighborhood Captain? Maybe someone who's already playing that role in their neighborhood, who you think we should know? Nominate them and we'll reach out!</p>
+                </div>
+                <div class="recruitment-card-links">
+                  <a class="tool-link-btn" href="https://altagether.org/nominate-a-captain" target="_blank" rel="noopener noreferrer">Nominate a Captain</a>
+                </div>
+              </section>
+
+              <section class="recruitment-card" id="recruitmentSocialCard">
+                <div class="recruitment-card-header">
+                  <h3>Post on social media</h3>
+                  <p>Help us reach people we might not know. Share the Captain recruitment drive with friends, neighbors, or local groups.</p>
+                </div>
+                <div class="recruitment-card-links">
+                  <button class="tool-link-btn" type="button" id="recruitmentShareOpen"></button>
+                </div>
+              </section>
+
+              <section class="recruitment-card" id="recruitmentEventsCard">
+                <div class="recruitment-card-header">
+                  <h3>Recruit at a community event or meeting</h3>
+                  <p>Are you active in another organization that has an upcoming meeting? Or are you attending an event where you could distribute flyers or make a short pitch? Let us know below, then download the suggested script and flyers.</p>
+                </div>
+                <form class="recruitment-form" id="recruitmentEventForm">
+                  <label class="recruitment-label" for="recruitmentEventCaptain">Your name</label>
+                  <input class="recruitment-input" id="recruitmentEventCaptain" type="text" readonly>
+                  <label class="recruitment-label" for="recruitmentEventName">Event or meeting</label>
+                  <input class="recruitment-input" id="recruitmentEventName" type="text" maxlength="160" placeholder="e.g. Rotary Club" required>
+                  <label class="recruitment-label" for="recruitmentEventWhen">When</label>
+                  <div class="recruitment-form-row">
+                    <input class="recruitment-input" id="recruitmentEventWhen" type="text" maxlength="160" placeholder="e.g. Wednesday, September 9" required>
+                    <button type="submit" class="btn-save btn-save-small" id="recruitmentEventSubmit">Add</button>
+                  </div>
+                  <p class="recruitment-status" id="recruitmentEventStatus"></p>
+                </form>
+                <div class="recruitment-resources" id="recruitmentEventResources"></div>
+                <h4 class="recruitment-feed-heading">Events captains have claimed</h4>
+                <ul class="recruitment-feed" id="recruitmentEventFeed">
+                  <li class="recruitment-feed-empty">Loading…</li>
+                </ul>
+              </section>
+            </div>
+
+            <div class="recruitment-column">
+              <section class="recruitment-card recruitment-card--double-height" id="recruitmentPlacesCard">
+                <div class="recruitment-card-header">
+                  <h3>Post flyers</h3>
+                  <p>Can you think of a business or a community space where Altagether should have a recruitment flyer? Claim it here! Then print the flyer and post it (with permission.)</p>
+                </div>
+                <form class="recruitment-form" id="recruitmentPlaceForm">
+                  <label class="recruitment-label" for="recruitmentPlaceCaptain">Your name</label>
+                  <input class="recruitment-input" id="recruitmentPlaceCaptain" type="text" readonly>
+                  <label class="recruitment-label" for="recruitmentPlaceName">Business or community space</label>
+                  <div class="recruitment-form-row">
+                    <input class="recruitment-input" id="recruitmentPlaceName" type="text" maxlength="160" placeholder="e.g. Fox's, Altadena Library, community center" required>
+                    <button type="submit" class="btn-save btn-save-small" id="recruitmentPlaceSubmit">Add</button>
+                  </div>
+                  <p class="recruitment-status" id="recruitmentPlaceStatus"></p>
+                </form>
+                <div class="recruitment-resources" id="recruitmentPlaceResources"></div>
+                <h4 class="recruitment-feed-heading">Places captains have claimed</h4>
+                <ul class="recruitment-feed" id="recruitmentPlaceFeed">
+                  <li class="recruitment-feed-empty">Loading…</li>
+                </ul>
+              </section>
+            </div>
+          </div>
+        </div>
         <div id="eventTemplateModal" class="dir-template-modal hidden" role="dialog" aria-modal="true" aria-label="Event template preview">
           <div class="dir-template-modal__dialog" role="document">
             <button type="button" class="dir-template-modal__close" id="eventTemplateModalClose" aria-label="Close template preview">×</button>
@@ -1125,89 +1206,6 @@
         </div>
       </div>
 
-    </div>
-
-    <!-- Recruitment View -->
-    <div class="content-view hidden" id="recruitmentView">
-      <div class="recruitment-page">
-        <header class="recruitment-hero">
-          <p class="recruitment-kicker">Limited-time drive</p>
-          <h2 class="page-title">Recruitment</h2>
-          <p class="recruitment-lead">Help grow the Neighborhood Captain network. Share flyers, make a pitch at an event or meeting, join a phone bank—there are lots of ways to help.</p>
-        </header>
-
-        <div class="recruitment-bento">
-          <div class="recruitment-column">
-            <section class="recruitment-card" id="recruitmentNominateCard">
-              <div class="recruitment-card-header">
-                <h3>Nominate a Captain</h3>
-                <p>Do you know someone who would make a great Neighborhood Captain? Maybe someone who's already playing that role in their neighborhood, who you think we should know? Nominate them and we'll reach out!</p>
-              </div>
-              <div class="recruitment-card-links">
-                <a class="tool-link-btn" href="https://altagether.org/nominate-a-captain" target="_blank" rel="noopener noreferrer">Nominate a Captain</a>
-              </div>
-            </section>
-
-            <section class="recruitment-card" id="recruitmentSocialCard">
-              <div class="recruitment-card-header">
-                <h3>Post on social media</h3>
-                <p>Help us reach people we might not know. Share the Captain recruitment drive with friends, neighbors, or local groups.</p>
-              </div>
-              <div class="recruitment-card-links">
-                <button class="tool-link-btn" type="button" id="recruitmentShareOpen"></button>
-              </div>
-            </section>
-
-            <section class="recruitment-card" id="recruitmentEventsCard">
-              <div class="recruitment-card-header">
-                <h3>Recruit at a community event or meeting</h3>
-                <p>Are you active in another organization that has an upcoming meeting? Or are you attending an event where you could distribute flyers or make a short pitch? Let us know below, then download the suggested script and flyers.</p>
-              </div>
-              <form class="recruitment-form" id="recruitmentEventForm">
-                <label class="recruitment-label" for="recruitmentEventCaptain">Your name</label>
-                <input class="recruitment-input" id="recruitmentEventCaptain" type="text" readonly>
-                <label class="recruitment-label" for="recruitmentEventName">Event or meeting</label>
-                <input class="recruitment-input" id="recruitmentEventName" type="text" maxlength="160" placeholder="e.g. Rotary Club" required>
-                <label class="recruitment-label" for="recruitmentEventWhen">When</label>
-                <div class="recruitment-form-row">
-                  <input class="recruitment-input" id="recruitmentEventWhen" type="text" maxlength="160" placeholder="e.g. Wednesday, September 9" required>
-                  <button type="submit" class="btn-save btn-save-small" id="recruitmentEventSubmit">Add</button>
-                </div>
-                <p class="recruitment-status" id="recruitmentEventStatus"></p>
-              </form>
-              <div class="recruitment-resources" id="recruitmentEventResources"></div>
-              <h4 class="recruitment-feed-heading">Events captains have claimed</h4>
-              <ul class="recruitment-feed" id="recruitmentEventFeed">
-                <li class="recruitment-feed-empty">Loading…</li>
-              </ul>
-            </section>
-          </div>
-
-          <div class="recruitment-column">
-            <section class="recruitment-card recruitment-card--double-height" id="recruitmentPlacesCard">
-              <div class="recruitment-card-header">
-                <h3>Post flyers</h3>
-                <p>Can you think of a business or a community space where Altagether should have a recruitment flyer? Claim it here! Then print the flyer and post it (with permission.) <strong class="recruitment-highlight recruitment-highlight--block">If you'd rather pick up some printed flyers in person, stop by one of the phone banks next week at the EFC.</strong></p>
-              </div>
-              <form class="recruitment-form" id="recruitmentPlaceForm">
-                <label class="recruitment-label" for="recruitmentPlaceCaptain">Your name</label>
-                <input class="recruitment-input" id="recruitmentPlaceCaptain" type="text" readonly>
-                <label class="recruitment-label" for="recruitmentPlaceName">Business or community space</label>
-                <div class="recruitment-form-row">
-                  <input class="recruitment-input" id="recruitmentPlaceName" type="text" maxlength="160" placeholder="e.g. Fox's, Altadena Library, community center" required>
-                  <button type="submit" class="btn-save btn-save-small" id="recruitmentPlaceSubmit">Add</button>
-                </div>
-                <p class="recruitment-status" id="recruitmentPlaceStatus"></p>
-              </form>
-              <div class="recruitment-resources" id="recruitmentPlaceResources"></div>
-              <h4 class="recruitment-feed-heading">Places captains have claimed</h4>
-              <ul class="recruitment-feed" id="recruitmentPlaceFeed">
-                <li class="recruitment-feed-empty">Loading…</li>
-              </ul>
-            </section>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="recruitment-share-overlay hidden" id="recruitmentShareModal" role="dialog" aria-modal="true" aria-labelledby="recruitmentShareTitle">
@@ -1427,9 +1425,6 @@
       <div class="mobile-more-handle"></div>
       <div class="mobile-more-zone" id="mobileMoreZone">Zone XX</div>
       <nav class="mobile-more-list">
-        <button class="mobile-more-item hidden" data-view="recruitment" id="mobileMoreRecruitment">
-          <span>Recruitment Drive</span><span class="mobile-more-item-arrow">›</span>
-        </button>
         <button class="mobile-more-item" data-view="tools">
           <span>Tools</span><span class="mobile-more-item-arrow">›</span>
         </button>
@@ -3739,15 +3734,12 @@
       if (viewName === 'home') return true;
       if (viewName === 'lotWeedingAdmin') return canAccessLotWeedingAdminView();
       if (isZonelessLotWeedingOnlyUser()) return false;
-      return viewName === 'profile' || viewName === 'recruitment' || (viewName === 'godmode' && isCurrentUserAdmin);
+      return viewName === 'profile' || (viewName === 'godmode' && isCurrentUserAdmin);
     }
 
     function canOpenView(viewName) {
       // Signed-out users stay on the canonical Home login screen — no tab hopping.
       if (!isSignedIn()) return viewName === 'home';
-      if (viewName === 'recruitment' && window.Recruitment && !window.Recruitment.isEnabled()) {
-        return false;
-      }
       if (currentSheetUrl || localStorage.getItem('savedSheetUrl')) {
         if (viewName === 'godmode') return isCurrentUserAdmin;
         if (viewName === 'lotWeedingAdmin') return canAccessLotWeedingAdminView();
@@ -3811,7 +3803,7 @@
         const mobileMoreBtn = document.getElementById('mobileNavMore');
         if (mobileMoreBtn) {
           const moreAllowed = canOpenView('tools') || canOpenView('resources') || canOpenView('profile') ||
-            canOpenView('godmode') || canOpenView('lotWeedingAdmin') || canOpenView('recruitment');
+            canOpenView('godmode') || canOpenView('lotWeedingAdmin');
           mobileMoreBtn.disabled = !moreAllowed;
           mobileMoreBtn.style.pointerEvents = moreAllowed ? 'auto' : 'none';
           mobileMoreBtn.classList.toggle('is-nav-disabled', !moreAllowed);
@@ -16935,6 +16927,9 @@
 
     // Navigation System - Single Page Navigation
     function switchView(viewName) {
+      // Older sessions saved the recruitment page as its own view.
+      const openRecruitmentTool = viewName === 'recruitment';
+      if (openRecruitmentTool) viewName = 'tools';
       // Signed-out users always stay on the canonical Home login screen.
       if (!isSignedIn()) {
         viewName = 'home';
@@ -17129,10 +17124,8 @@
           initializeContactListCreator();
           initializeZoneReportGenerator();
         }, 100);
-      } else if (viewName === 'recruitment') {
-        if (window.Recruitment && typeof window.Recruitment.loadPage === 'function') {
-          window.Recruitment.fillCaptainFields();
-          window.Recruitment.loadPage();
+        if (openRecruitmentTool) {
+          openDirectoryWorkspace('tools', 'recruitCaptains');
         }
       } else if (viewName === 'profile') {
         loadProfileView();
@@ -27699,7 +27692,8 @@
       tools: {
         batchTagging: 'Batch Data Entry',
         zoneAnalysis: 'State of the Neighborhood',
-        eventTemplates: 'Event Planning Templates'
+        eventTemplates: 'Event Planning Templates',
+        recruitCaptains: 'Recruit Neighborhood Captains'
       },
       resources: {
         neighborSupport: 'Refer a neighbor for support',
@@ -27758,6 +27752,10 @@
       }
       if (workspaceId === 'zoneAnalysis' && typeof initializeZoneReportGenerator === 'function') {
         initializeZoneReportGenerator();
+      }
+      if (workspaceId === 'recruitCaptains' && window.Recruitment && typeof window.Recruitment.loadPage === 'function') {
+        window.Recruitment.fillCaptainFields();
+        window.Recruitment.loadPage();
       }
     }
 
@@ -27968,7 +27966,7 @@
 
       // ---- Sync mobile bottom nav active state ----
       function syncMobileNav(viewName) {
-        var moreViews = ['tools', 'resources', 'profile', 'godmode', 'lotWeedingAdmin', 'recruitment'];
+        var moreViews = ['tools', 'resources', 'profile', 'godmode', 'lotWeedingAdmin'];
         document.querySelectorAll('.mobile-nav-tab[data-view]').forEach(function(tab) {
           tab.classList.toggle('active', tab.getAttribute('data-view') === viewName);
         });
