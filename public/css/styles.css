@@ -16069,6 +16069,25 @@
   flex: 1;
 }
 
+/* Let the places list fill the card so it lines up with the taller left column. */
+@media (min-width: 769px) {
+  .recruitment-column:has(#recruitmentPlacesCard) {
+    height: 0;
+    min-height: 100%;
+  }
+
+  #recruitmentPlacesCard {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #recruitmentPlaceFeed {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+  }
+}
+
 .recruitment-card-header h3 {
   margin: 0 0 6px;
   font-family: var(--font-ui);
