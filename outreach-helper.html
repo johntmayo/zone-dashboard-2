@@ -4,278 +4,528 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Ready-to-use messages for Altagether Neighborhood Captains reaching out to neighbors.">
-  <title>What to Say to Your Neighbors | Altagether</title>
+  <title>Outreach Helper | Altagether</title>
   <link rel="icon" type="image/x-icon" href="public/images/favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=Lora:wght@400;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --paper: #fdfbf7;
-      --card: #ffffff;
-      --navy: #314059;
-      --ink: #1f2937;
-      --muted: #4b5563;
-      --gold: #f59e0b;
-      --green: #283618;
-      --line: #e5e7eb;
+      --deep-space-blue: #304059;
+      --golden-orange: #f59e09;
+      --porcelain: #fdfbf8;
+      --floral-white: #fffdf5;
+      --rosy-copper: #bc5839;
+      --muted-olive: #afc892;
+      --apricot-cream: #f6cf98;
+      --floral-white-warm: #fdf8ec;
+      --surface-white: #ffffff;
+      --text-primary: #1f2937;
+      --text-secondary: #4b5563;
+      --border-color: #e5e5e5;
+      --font-ui: "Chivo", Arial, sans-serif;
+      --font-reading: "Lora", Georgia, serif;
+      --radius-small: 4px;
+      --radius-medium: 8px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 24px;
+      --space-6: 32px;
+      --space-7: 48px;
+      --shadow-card: 4px 4px 0 var(--border-color);
     }
 
     *, *::before, *::after { box-sizing: border-box; }
 
-    html { scroll-behavior: smooth; }
+    [hidden] { display: none !important; }
 
-    body {
-      min-height: 100vh;
+    html, body {
+      min-height: 100%;
       margin: 0;
-      background: var(--paper);
-      color: var(--ink);
-      font-family: "Chivo", sans-serif;
-      line-height: 1.5;
+      background: var(--porcelain);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      line-height: 1.45;
     }
 
     :focus-visible {
-      outline: 3px solid var(--gold);
-      outline-offset: 3px;
+      outline: 3px solid var(--golden-orange);
+      outline-offset: 2px;
     }
 
     .skip-link {
       position: fixed;
-      top: 0.75rem;
-      left: 0.75rem;
+      top: 12px;
+      left: 12px;
       z-index: 10;
-      padding: 0.65rem 0.9rem;
-      border-radius: 4px;
-      background: white;
-      color: var(--navy);
+      padding: 10px 14px;
+      border-radius: var(--radius-small);
+      background: var(--surface-white);
+      color: var(--deep-space-blue);
       font-weight: 700;
       transform: translateY(-160%);
-      transition: transform 160ms ease;
     }
 
     .skip-link:focus { transform: translateY(0); }
 
-    .site-header {
+    .app-header {
       display: flex;
       align-items: center;
-      gap: 1rem;
-      min-height: 76px;
-      padding: 1rem 1.5rem;
-      border-bottom: 3px solid var(--ink);
-      background: var(--navy);
+      gap: var(--space-4);
+      padding: 16px 24px;
+      background: var(--deep-space-blue);
       color: white;
+      border-bottom: 3px solid var(--text-primary);
     }
 
-    .site-header img {
+    .app-header img {
       display: block;
-      width: 50px;
       height: 50px;
-      object-fit: contain;
+      width: auto;
     }
 
-    .site-header span {
-      font-size: 1.5rem;
+    .app-header h1 {
+      margin: 0;
+      font-size: 24px;
       font-weight: 700;
+      line-height: 1.2;
     }
 
     main {
-      width: min(760px, calc(100% - 40px));
-      margin: 0 auto;
-      padding: 3.5rem 0 4.5rem;
+      width: min(1200px, 100%);
+      margin-inline: auto;
+      padding: 24px;
     }
 
-    .eyebrow {
-      margin: 0 0 0.65rem;
-      color: var(--gold);
-      font-size: 0.75rem;
-      font-weight: 900;
-      letter-spacing: 0.09em;
-      text-transform: uppercase;
+    .intro,
+    .section-lead,
+    .closing {
+      max-width: 48rem;
+      margin: 0;
+      font-family: var(--font-reading);
+      font-size: 16px;
+      line-height: 1.65;
     }
 
-    h1 {
-      max-width: 650px;
-      margin: 0 0 1rem;
-      color: var(--navy);
-      font-size: clamp(2.25rem, 7vw, 3.8rem);
-      font-weight: 900;
-      letter-spacing: -0.045em;
-      line-height: 1.02;
-    }
+    .intro { margin-bottom: var(--space-4); }
 
-    .intro {
-      max-width: 680px;
-      margin: 0 0 2.5rem;
-      color: var(--muted);
-      font-family: "Lora", Georgia, serif;
-      font-size: 1.02rem;
-      line-height: 1.7;
-    }
-
-    .examples {
-      display: grid;
-      gap: 1.1rem;
-    }
-
-    .example {
-      padding: clamp(1.2rem, 4vw, 1.6rem);
-      border: 2px solid var(--line);
-      border-radius: 8px;
-      background: var(--card);
-      box-shadow: 4px 4px 0 var(--line);
-    }
-
-    .example-header {
+    .jumps {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      gap: 8px 20px;
+      margin: 0 0 var(--space-6);
+    }
+
+    .region,
+    .card { scroll-margin-top: 16px; }
+
+    .section-lead,
+    .for-you p,
+    .message {
+      color: var(--text-primary);
+    }
+
+    .section-lead { color: var(--text-secondary); }
+
+    .region {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+      margin-bottom: var(--space-7);
     }
 
     h2 {
       margin: 0;
-      color: var(--navy);
-      font-size: 0.9rem;
-      font-weight: 900;
-      letter-spacing: 0.07em;
-      text-transform: uppercase;
+      color: var(--deep-space-blue);
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.25;
     }
 
-    .copy-btn {
-      min-width: 82px;
-      padding: 0.48rem 0.8rem;
-      border: 2px solid var(--green);
-      border-radius: 4px;
-      background: white;
-      color: var(--green);
-      font: 700 0.85rem "Chivo", sans-serif;
-      cursor: pointer;
-      transition: background 150ms ease, color 150ms ease, transform 150ms ease;
-    }
-
-    .copy-btn:hover {
-      background: var(--green);
-      color: white;
-      transform: translateY(-1px);
-    }
-
-    .copy-btn.copied {
-      border-color: var(--navy);
-      background: var(--navy);
-      color: white;
-    }
-
-    .copy {
+    h3 {
       margin: 0;
-      color: var(--ink);
-      font-family: "Lora", Georgia, serif;
-      font-size: 0.98rem;
-      line-height: 1.68;
-      white-space: pre-wrap;
+      color: var(--deep-space-blue);
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.3;
     }
 
-    .note {
-      margin: 2rem 0 0;
-      padding: 1rem 1.15rem;
-      border-left: 4px solid var(--gold);
-      background: #fef3c7;
-      color: var(--muted);
-      font-family: "Lora", Georgia, serif;
-      font-size: 0.92rem;
+    .card {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+      padding: 20px;
+      background: var(--surface-white);
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-medium);
+      box-shadow: var(--shadow-card);
+    }
+
+    .card-alert { border-color: var(--golden-orange); }
+
+    .when {
+      align-self: flex-start;
+      margin: 0;
+      padding: 5px 10px;
+      background: var(--apricot-cream);
+      color: var(--deep-space-blue);
+      border-radius: var(--radius-small);
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .for-you,
+    .support {
+      padding: 16px 18px;
+      background: rgba(175, 200, 146, 0.24);
+      border-left: 5px solid #6d844f;
+      border-radius: var(--radius-small);
+    }
+
+    .for-you p,
+    .support p,
+    .support li {
+      margin: 0;
+      font-family: var(--font-reading);
+      font-size: 15px;
       line-height: 1.6;
     }
 
-    footer {
-      padding: 0 1.25rem 2rem;
-      color: var(--muted);
-      font-size: 0.78rem;
-      text-align: center;
+    .for-you-label,
+    .support h3 {
+      margin: 0 0 4px;
+      font-family: var(--font-ui);
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.3;
     }
 
-    @media (max-width: 560px) {
-      .site-header { min-height: 66px; padding: 0.8rem 1rem; }
-      main { width: min(100% - 28px, 760px); padding-top: 2.25rem; }
-      .example-header { align-items: flex-start; }
+    .support ol {
+      margin: 12px 0 0;
+      padding-left: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .support-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      margin-top: 12px;
+    }
+
+    a {
+      color: var(--deep-space-blue);
+      font-weight: 700;
+      text-underline-offset: 2px;
+    }
+
+    .versions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-4);
+    }
+
+    .version {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      min-width: 0;
+      padding: 16px;
+      background: var(--floral-white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-medium);
+    }
+
+    .version-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-3);
+    }
+
+    .version-title {
+      margin: 0;
+      color: var(--deep-space-blue);
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .version-head p,
+    .hint,
+    .sheet-note {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .message {
+      margin: 0;
+      font-family: var(--font-reading);
+      font-size: 16px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+    }
+
+    .copy-btn,
+    .chip {
+      min-height: 44px;
+      padding: 8px 12px;
+      border: 2px solid var(--deep-space-blue);
+      border-radius: var(--radius-small);
+      background: var(--surface-white);
+      color: var(--deep-space-blue);
+      font: 700 16px/1.2 var(--font-ui);
+      cursor: pointer;
+      transition: transform 150ms ease, background 150ms ease, color 150ms ease;
+    }
+
+    .copy-btn { flex: 0 0 auto; }
+
+    .copy-btn:hover,
+    .chip:hover { transform: translateY(-1px); }
+
+    .copy-btn.copied {
+      background: var(--deep-space-blue);
+      color: white;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+    }
+
+    .chip[aria-pressed="true"] {
+      background: var(--golden-orange);
+      color: var(--deep-space-blue);
+    }
+
+    .sheets {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 8px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .closing {
+      padding: 16px 18px;
+      background: var(--floral-white-warm);
+      border: 2px solid var(--golden-orange);
+      border-radius: var(--radius-medium);
+    }
+
+    footer {
+      padding: 0 24px 32px;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .versions.is-single .version { max-width: 40rem; }
+
+    @media (min-width: 800px) {
+      .versions { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+      .versions.is-single { grid-template-columns: minmax(0, 1fr); }
+    }
+
+    @media (max-width: 640px) {
+      .app-header,
+      main { padding-left: 16px; padding-right: 16px; }
+      footer { padding-left: 16px; padding-right: 16px; }
+      .version-head { align-items: stretch; flex-direction: column; }
+      .copy-btn { align-self: flex-start; }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      html { scroll-behavior: auto; }
-      *, *::before, *::after { transition-duration: 0.01ms !important; }
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+      .copy-btn:hover,
+      .chip:hover { transform: none; }
     }
   </style>
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to messages</a>
 
-  <header class="site-header">
-    <img src="public/images/logo_white_transparent.png" alt="Altagether">
-    <span>Outreach Helper</span>
+  <header class="app-header">
+    <img src="public/images/altagether-logo-white.png" alt="Altagether">
+    <h1>Outreach Helper</h1>
   </header>
 
   <main id="main-content">
-    <p class="eyebrow">Neighborhood Captain resource</p>
-    <h1>What to Say to Your Neighbors</h1>
-    <p class="intro">
-      Not sure what to say when you first reach out to your neighbors? Keep it simple. Introduce yourself, let them know what a Neighborhood Captain does, and give them an easy way to stay connected. Copy anything below and change it however you like.
-    </p>
+    <p class="intro">This page contains suggested language for specific kinds of outreach. Time-sensitive items are at the top. General outreach templates are toward the bottom. Copy a message, change it to sound like you, and send it the way you usually reach your neighbors. You can also use these as a script when you’re making phone calls or talking to people in person.</p>
+    <nav class="jumps" aria-label="On this page">
+      <a href="#election">Town Council election</a>
+      <a href="#insurance">Insurance claims</a>
+      <a href="#initial-outreach">Initial outreach</a>
+      <a href="#event-invitations">Event invitations</a>
+      <a href="#what-is-altagether">What is Altagether?</a>
+    </nav>
 
-    <div class="examples">
-      <section class="example">
-        <div class="example-header">
-          <h2>Text</h2>
-          <button class="copy-btn" type="button" data-copy="text-copy" aria-label="Copy text message">Copy</button>
+    <section class="region" aria-labelledby="timely-title">
+      <h2 id="timely-title">Time-sensitive topics</h2>
+
+      <article class="card card-alert" id="election">
+        <p class="when">Send before Saturday, Nov. 7</p>
+        <h3>Altadena Town Council elections</h3>
+        <div class="for-you">
+          <p class="for-you-label">Attention Captains</p>
+          <p>In-person voting on Tuesday, Nov. 3 has ended. Neighbors can still vote on Saturday, Nov. 7, from 10 AM to 4 PM. Use the add-on only if your census tract has one candidate.</p>
         </div>
-        <p class="copy" id="text-copy">Hi [Name], I’m [Your Name], one of the Neighborhood Captains for our area. I’m part of Altagether, a network of Altadena neighbors helping neighbors stay connected and find useful information and resources during recovery.
+        <div class="versions">
+          <div class="version">
+            <div class="version-head">
+              <div>
+                <p class="version-title">Short version</p>
+                <p>For a text, a call, or a conversation</p>
+              </div>
+              <button class="copy-btn" type="button" data-copy="election-short" aria-label="Copy short election message">Copy</button>
+            </div>
+            <p class="message" id="election-short">🗳️ *Altadena Town Council elections are happening this week!*
 
-I don’t know the answer to every question, but I’m always happy to help find an answer or connect you with someone who might.
+As Altadena rebuilds, it's more important than ever that our community's voice is heard. Let's show up and vote!
 
-[Optional: We also have a neighborhood WhatsApp / text chain / Facebook group if you’d like to join.]</p>
-      </section>
+*You can still vote in person:*
+* *Saturday, Nov. 7:* 10 AM–4 PM
 
-      <section class="example">
-        <div class="example-header">
-          <h2>Email</h2>
-          <button class="copy-btn" type="button" data-copy="email-copy" aria-label="Copy email message">Copy</button>
+There are 13 candidates running for 8 seats on the Town Council.
+
+👉 *Find polling locations, read candidate statements, and watch the candidate forum here:*
+https://altagether.github.io/atc-forum-2026/#candidates
+
+Last year, Altadena set a record with 890 ballots cast. Let's beat that this year! *The more neighbors who vote, the stronger our community's voice.*</p>
+          </div>
+          <div class="version">
+            <div class="version-head">
+              <div>
+                <p class="version-title">Longer version</p>
+                <p>For email or a note you leave</p>
+              </div>
+              <button class="copy-btn" type="button" data-copy="election-long" aria-label="Copy longer election message">Copy</button>
+            </div>
+            <p class="hint">Skip the subject line if you are leaving a note.</p>
+            <p class="message" id="election-long">Subject: Altadena Town Council elections are this week
+
+Hi Neighbor,
+
+Altadena Town Council elections are happening this week. As Altadena rebuilds, it's more important than ever that our community's voice is heard. Let's show up and vote.
+
+You can still vote in person on Saturday, Nov. 7, from 10 AM to 4 PM.
+
+There are 13 candidates running for 8 seats on the Town Council. Find polling locations, read candidate statements, and watch the candidate forum here:
+https://altagether.github.io/atc-forum-2026/#candidates
+
+Last year, Altadena set a record with 890 ballots cast. Let's beat that this year. The more neighbors who vote, the stronger our community's voice.
+
+[Your Name]</p>
+          </div>
         </div>
-        <p class="copy" id="email-copy">Subject: Hello from your Neighborhood Captain
+        <div class="version">
+          <div class="version-head">
+            <div>
+              <p class="version-title">Optional add-on</p>
+              <p>Only if your census tract has one candidate. Paste this after the main message.</p>
+            </div>
+            <button class="copy-btn" type="button" data-copy="election-addon" aria-label="Copy optional election add-on">Copy</button>
+          </div>
+          <p class="message" id="election-addon">🗳️ *Why vote when there's only one candidate?*
+
+Our census tract has just one candidate running for Altadena Town Council this year, but your participation still matters!
+
+The Town Council represents our neighborhoods in conversations with LA County and other government agencies. *Strong voter turnout sends an important message: Altadena residents are engaged, paying attention, and expect to have a voice in our community's recovery and rebuilding.*
+
+Even when a race is uncontested, showing up is a way to demonstrate that our neighborhood cares about its future!</p>
+        </div>
+      </article>
+
+      <article class="card card-alert" id="insurance">
+        <p class="when">Send before January 7, 2027</p>
+        <h3>Insurance claims</h3>
+        <div class="for-you">
+          <p class="for-you-label">Attention Captains</p>
+          <p>Neighbors have until January 7, 2027 to file an insurance claim related to the fire. Add the official filing link before you send this, and only share details you have confirmed.</p>
+        </div>
+        <div class="versions">
+          <div class="version">
+            <div class="version-head">
+              <div>
+                <p class="version-title">Short version</p>
+                <p>For a text, a call, or a conversation</p>
+              </div>
+              <button class="copy-btn" type="button" data-copy="insurance-short" aria-label="Copy short insurance message">Copy</button>
+            </div>
+            <p class="message" id="insurance-short">Hi [Name], this is [Your Name], your Neighborhood Captain. Insurance claims related to the fire need to be filed by January 7, 2027.
+
+If you still need to file, start here: [official link]. I’m happy to help you find the right information if you get stuck.</p>
+          </div>
+          <div class="version">
+            <div class="version-head">
+              <div>
+                <p class="version-title">Longer version</p>
+                <p>For email or a note you leave</p>
+              </div>
+              <button class="copy-btn" type="button" data-copy="insurance-long" aria-label="Copy longer insurance message">Copy</button>
+            </div>
+            <p class="hint">Skip the subject line if you are leaving a note.</p>
+            <p class="message" id="insurance-long">Subject: Insurance claims are due January 7, 2027
 
 Hi [Name],
 
-I’m [Your Name], one of the Neighborhood Captains for our area. I’m part of Altagether, a network of Altadena neighbors helping neighbors stay connected and find useful information and resources during recovery.
+I’m [Your Name], your Neighborhood Captain. Insurance claims related to the fire need to be filed by January 7, 2027.
 
-My role is really just to be a local point of connection. I don’t know the answer to every question, but I’m happy to help find answers, connect you with resources, or point you toward someone who may be able to help.
-
-[Optional: We also have a neighborhood WhatsApp / text chain / Facebook group if you’d like to join.]
-
-Feel free to reach out anytime.
+Start here: [official link]. If you’re not sure this applies to you, use that page as the source.
 
 [Your Name]
-[Phone / Email]</p>
-      </section>
-
-      <section class="example">
-        <div class="example-header">
-          <h2>Phone or In Person</h2>
-          <button class="copy-btn" type="button" data-copy="phone-copy" aria-label="Copy phone or in-person message">Copy</button>
+[Phone]</p>
+          </div>
         </div>
-        <p class="copy" id="phone-copy">Hi, I’m [Your Name]. I live nearby and I’m one of the Neighborhood Captains for this area.
+      </article>
+    </section>
+
+    <section class="region" id="initial-outreach" aria-labelledby="zone-title">
+      <h2 id="zone-title">Initial outreach to your zone</h2>
+      <p class="section-lead">Use this when you are reaching everybody in your zone for the first time.</p>
+      <article class="card">
+        <div class="versions">
+          <div class="version">
+            <div class="version-head">
+              <div>
+                <p class="version-title">Short version</p>
+                <p>For a text, a call, or a conversation</p>
+              </div>
+              <button class="copy-btn" type="button" data-copy="zone-short" aria-label="Copy short whole-zone message">Copy</button>
+            </div>
+            <p class="message" id="zone-short">Hi, I’m [Your Name]. I live nearby and I’m a Neighborhood Captain for your area.
 
 I’m part of Altagether, which is basically a network of Altadena neighbors helping neighbors stay connected and find information and resources during recovery.
 
 I definitely don’t know the answer to everything, but if you ever have a question or need help finding something, I’m happy to try to help.
 
 [Optional: We also have a neighborhood WhatsApp / text chain / Facebook group if you’d like to join.]</p>
-      </section>
+          </div>
+          <div class="version">
+            <div class="version-head">
+              <div>
+                <p class="version-title">Longer version</p>
+                <p>For email or a note you leave</p>
+              </div>
+              <button class="copy-btn" type="button" data-copy="zone-long" aria-label="Copy longer whole-zone message">Copy</button>
+            </div>
+            <p class="hint">Skip the subject line if you are leaving a note.</p>
+            <p class="message" id="zone-long">Subject: Hello from your Neighborhood Captain
 
-      <section class="example">
-        <div class="example-header">
-          <h2>Note or Letter</h2>
-          <button class="copy-btn" type="button" data-copy="letter-copy" aria-label="Copy note or letter">Copy</button>
-        </div>
-        <p class="copy" id="letter-copy">Hi Neighbor,
+Hi Neighbor,
 
-I’m [Your Name], one of the Neighborhood Captains for our area. I wanted to introduce myself and make sure you know there’s someone nearby you can reach out to.
+I’m [Your Name], a Neighborhood Captain for your area. I wanted to introduce myself and make sure you know there’s someone nearby you can reach out to.
 
 I’m part of Altagether, a network of Altadena neighbors helping neighbors stay connected and find useful information and resources during recovery.
 
@@ -288,55 +538,294 @@ You can reach me at:
 [Email]
 
 [Your Name]</p>
-      </section>
-    </div>
+          </div>
+        </div>
+        <div class="support">
+          <h3>If you’re mailing this</h3>
+          <p>Altagether covers postage and printing for this first mailing. Keep your receipts.</p>
+          <ol>
+            <li>On the Neighbors tab, choose Export, then Export CSV. Clear any filters first if you want the whole zone.</li>
+            <li>Open that file in Google Sheets and print labels from there.</li>
+            <li>Send the longer version above.</li>
+          </ol>
+          <div class="support-links">
+            <a href="https://airtable.com/appQZ2SGzHK2MdPVj/pagfmDt9a5JrXK9Z0/form" target="_blank" rel="noopener noreferrer">Request reimbursement ↗</a>
+            <a href="dashboard-training-resources.html" target="_blank" rel="noopener noreferrer">Open the Training page</a>
+          </div>
+        </div>
+      </article>
+    </section>
 
-    <p class="note">
-      These are starting points, not scripts. Change the wording, make it sound like you, and use whatever is useful.
-    </p>
+    <section class="region" id="event-invitations" aria-labelledby="events-title">
+      <h2 id="events-title">Event invitations</h2>
+      <p class="section-lead">Choose a gathering, copy the invitation, and fill in the blanks. You can find full event planning templates in the Tools section of the dashboard.</p>
+      <div class="chips" role="group" aria-label="Choose a gathering">
+        <button class="chip" type="button" data-panel="panel-framing" aria-pressed="true">Framing party</button>
+        <button class="chip" type="button" data-panel="panel-coffee" aria-pressed="false">Coffee in the driveway</button>
+        <button class="chip" type="button" data-panel="panel-picnic" aria-pressed="false">Bring-your-own blanket picnic</button>
+        <button class="chip" type="button" data-panel="panel-walk" aria-pressed="false">Neighborhood walk</button>
+        <button class="chip" type="button" data-panel="panel-potluck" aria-pressed="false">Potluck dinner</button>
+      </div>
+
+      <article class="card" id="panel-framing">
+        <div class="versions">
+          <div class="version">
+            <div class="version-head">
+              <div>
+                <p class="version-title">Short version</p>
+                <p>For a text, a call, or a conversation</p>
+              </div>
+              <button class="copy-btn" type="button" data-copy="framing-short" aria-label="Copy short framing party invitation">Copy</button>
+            </div>
+            <p class="message" id="framing-short">Hey neighbors! We’re hosting a Framing Party at [Name]’s house this [day] at [time]. The frame is up! Come sign the studs before the walls go in. Neighbors, friends, family, kids all welcome. Markers and refreshments provided.
+[Address]</p>
+          </div>
+          <div class="version">
+            <div class="version-head">
+              <div>
+                <p class="version-title">Longer version</p>
+                <p>For email or a note you leave</p>
+              </div>
+              <button class="copy-btn" type="button" data-copy="framing-long" aria-label="Copy longer framing party invitation">Copy</button>
+            </div>
+            <p class="message" id="framing-long">Hi everyone! [Name]'s home is being rebuilt, and the frame is up. Before drywall closes the walls in, we're gathering to sign the studs.
+
+Write your name, a message, a hope — whatever you want to say. It'll be sealed inside the walls and be part of that home forever. Neighbors, friends, and family all welcome. Bring the kids.
+
+Markers and refreshments provided.
+[Address] · [Time]</p>
+          </div>
+        </div>
+        <div>
+          <p class="sheet-note">The event planning template provides a detailed overview of this event.</p>
+          <div class="support-links">
+            <a href="public/docs/event-templates/framing-party.pdf" target="_blank" rel="noopener noreferrer">Download PDF</a>
+            <a href="https://docs.google.com/document/d/1u3ltpx4AmnqHUP9YR3hHoGfCNxliw3Bsd4Ax67PHLDs/copy" target="_blank" rel="noopener noreferrer">Make a Google Docs copy ↗</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="card" id="panel-coffee" hidden>
+        <div class="versions is-single">
+          <div class="version">
+            <div class="version-head">
+              <div>
+                <p class="version-title">Short version</p>
+                <p>For a text, a call, or a conversation</p>
+              </div>
+              <button class="copy-btn" type="button" data-copy="coffee-short" aria-label="Copy coffee in the driveway invitation">Copy</button>
+            </div>
+            <p class="message" id="coffee-short">Good morning neighbors! I'm hosting Coffee in the Driveway this Sunday from 9–10am. Swing by for a few minutes, grab a cup, and say hello. Kids are welcome. No agenda, just community!
+
+[Address]</p>
+          </div>
+        </div>
+        <div>
+          <p class="sheet-note">The event planning template provides a detailed overview of this event.</p>
+          <div class="support-links">
+            <a href="public/docs/event-templates/coffee-driveway.pdf" target="_blank" rel="noopener noreferrer">Download PDF</a>
+            <a href="https://docs.google.com/document/d/1ko0IipRuva-oHSyb5NW5D0TlZqYx8URoQzwVGHYnSGA/copy" target="_blank" rel="noopener noreferrer">Make a Google Docs copy ↗</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="card" id="panel-picnic" hidden>
+        <div class="versions">
+          <div class="version">
+            <div class="version-head">
+              <div>
+                <p class="version-title">Short version</p>
+                <p>For a text, a call, or a conversation</p>
+              </div>
+              <button class="copy-btn" type="button" data-copy="picnic-short" aria-label="Copy short picnic invitation">Copy</button>
+            </div>
+            <p class="message" id="picnic-short">Hey neighbors! Let's enjoy the afternoon together — BYO Blanket Picnic this Friday at [time] at [park/location]. Bring snacks and a drink. We'll gather informally and let the kids play. All ages welcome!
+
+[Address]</p>
+          </div>
+          <div class="version">
+            <div class="version-head">
+              <div>
+                <p class="version-title">Longer version</p>
+                <p>For email or a note you leave</p>
+              </div>
+              <button class="copy-btn" type="button" data-copy="picnic-long" aria-label="Copy longer picnic invitation">Copy</button>
+            </div>
+            <p class="message" id="picnic-long">Hi neighbors! We’re getting together for a simple afternoon picnic and would love to see you there.
+
+Bring a blanket, something to eat or drink, and come spend some time with your neighbors. There’s no formal agenda — just a chance to catch up, meet some people you may not know yet, let the kids play, and enjoy being together.
+
+[Day, Date] from [Time range]
+[Park/Location]
+
+Bring your family, a friend, or just yourself. All ages are welcome, and feel free to come and go whenever works for you.
+
+Hope to see you there!</p>
+          </div>
+        </div>
+        <div>
+          <p class="sheet-note">The event planning template provides a detailed overview of this event.</p>
+          <div class="support-links">
+            <a href="public/docs/event-templates/picnic.pdf" target="_blank" rel="noopener noreferrer">Download PDF</a>
+            <a href="https://docs.google.com/document/d/1AecWgesOEypidDwqlwgL7-FfczoiMqrqRbSlhZjMhT0/copy" target="_blank" rel="noopener noreferrer">Make a Google Docs copy ↗</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="card" id="panel-walk" hidden>
+        <div class="versions">
+          <div class="version">
+            <div class="version-head">
+              <div>
+                <p class="version-title">Short version</p>
+                <p>For a text, a call, or a conversation</p>
+              </div>
+              <button class="copy-btn" type="button" data-copy="walk-short" aria-label="Copy short neighborhood walk invitation">Copy</button>
+            </div>
+            <p class="message" id="walk-short">Hi neighbors — You're invited to a gentle Healing Walk this Saturday at 9am. We'll meet at the corner of [Street] and [Street] for a slow, community walk together. All ages and paces welcome. Just a chance to breathe and reconnect. Hope to see you there.</p>
+          </div>
+          <div class="version">
+            <div class="version-head">
+              <div>
+                <p class="version-title">Longer version</p>
+                <p>For email or a note you leave</p>
+              </div>
+              <button class="copy-btn" type="button" data-copy="walk-long" aria-label="Copy longer neighborhood walk invitation">Copy</button>
+            </div>
+            <p class="message" id="walk-long">As we continue navigating recovery together, I'd love to invite you to a Healing Walk in our neighborhood. This isn't a formal event—just a calming, slow-paced walk with neighbors who care about this community.
+
+[Date/time/location].
+
+Bring a friend, a dog, or your morning coffee. The goal is simple: connection, fresh air, and a reminder that none of us are walking this recovery path alone. Hope you'll join us.</p>
+          </div>
+        </div>
+        <div>
+          <p class="sheet-note">The event planning template provides a detailed overview of this event.</p>
+          <div class="support-links">
+            <a href="public/docs/event-templates/neighborhood-walk.pdf" target="_blank" rel="noopener noreferrer">Download PDF</a>
+            <a href="https://docs.google.com/document/d/1LOZht0rbfDpVCKOq0XD0pDxiue67LIbcoC1Rxsa5_7w/copy" target="_blank" rel="noopener noreferrer">Make a Google Docs copy ↗</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="card" id="panel-potluck" hidden>
+        <div class="versions">
+          <div class="version">
+            <div class="version-head">
+              <div>
+                <p class="version-title">Short version</p>
+                <p>For a text, a call, or a conversation</p>
+              </div>
+              <button class="copy-btn" type="button" data-copy="potluck-short" aria-label="Copy short potluck invitation">Copy</button>
+            </div>
+            <p class="message" id="potluck-short">Hi neighbors! Potluck dinner at [location] this [day] at [time]. Bring a dish, dessert, or drink to share if you can, but please come either way. All ages welcome. Hope to see you there!
+
+[Address]</p>
+          </div>
+          <div class="version">
+            <div class="version-head">
+              <div>
+                <p class="version-title">Longer version</p>
+                <p>For email or a note you leave</p>
+              </div>
+              <button class="copy-btn" type="button" data-copy="potluck-long" aria-label="Copy longer potluck invitation">Copy</button>
+            </div>
+            <p class="message" id="potluck-long">Hi neighbors! We’re getting together for a neighborhood potluck dinner and would love to have you join us.
+
+Bring a favorite dish, side, dessert, or drink to share if you can. Homemade, store-bought, or picked up on the way is all completely welcome. And if bringing something is a hassle, just bring yourself.
+
+[Day, Date] from [Time]
+[Location / Address]
+
+We’ll put everything on the table and have dinner together. Bring the family, bring a neighbor, and come hungry. All ages are welcome. Hope to see you there!</p>
+          </div>
+        </div>
+        <div>
+          <p class="sheet-note">The event planning template provides a detailed overview of this event.</p>
+          <div class="support-links">
+            <a href="public/docs/event-templates/potluck-dinner.pdf" target="_blank" rel="noopener noreferrer">Download PDF</a>
+            <a href="https://docs.google.com/document/d/1I1csbpELwmOgQ2Mkbxvi1JkGrP_kT-CE6DAbYejD8Yw/copy" target="_blank" rel="noopener noreferrer">Make a Google Docs copy ↗</a>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="region" id="what-is-altagether" aria-labelledby="altagether-title">
+      <h2 id="altagether-title">What is Altagether?</h2>
+      <p class="section-lead">Send this if a neighbor asks what Altagether is.</p>
+      <article class="card">
+        <div class="versions is-single">
+          <div class="version">
+            <div class="version-head">
+              <div>
+                <p class="version-title">Short version</p>
+                <p>For a text, a call, or a conversation</p>
+              </div>
+              <button class="copy-btn" type="button" data-copy="what-altagether" aria-label="Copy the Altagether explanation">Copy</button>
+            </div>
+            <p class="message" id="what-altagether">Altagether is a network of people affected by the Eaton Fire who volunteer to keep their neighbors connected and informed throughout recovery. Some parts of town have a captain already, some have multiple captains working together, and some areas aren’t yet covered.
+
+You can visit altagether.org to learn more or to express your interest in becoming a Neighborhood Captain yourself!</p>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <p class="closing">These are starting points. Change the wording so it sounds like you.</p>
   </main>
 
   <footer>Altagether · Neighbors helping neighbors</footer>
 
   <script>
-    document.querySelectorAll(".copy-btn").forEach((button) => {
-      button.addEventListener("click", async () => {
-        const target = document.getElementById(button.dataset.copy);
-        const text = target.innerText;
-
-        try {
-          if (navigator.clipboard && window.isSecureContext) {
-            await navigator.clipboard.writeText(text);
-          } else {
-            const helper = document.createElement("textarea");
-            helper.value = text;
-            helper.setAttribute("readonly", "");
-            helper.style.position = "fixed";
-            helper.style.opacity = "0";
-            document.body.appendChild(helper);
-            helper.select();
-            const copied = document.execCommand("copy");
-            helper.remove();
-            if (!copied) throw new Error("Copy command failed");
-          }
-
-          button.textContent = "Copied";
-          button.classList.add("copied");
-
-          window.setTimeout(() => {
-            button.textContent = "Copy";
-            button.classList.remove("copied");
-          }, 1400);
-        } catch (error) {
-          const range = document.createRange();
-          range.selectNodeContents(target);
-          const selection = window.getSelection();
-          selection.removeAllRanges();
-          selection.addRange(range);
-          button.textContent = "Select text";
-        }
+    (function () {
+      var chips = document.querySelectorAll("[data-panel]");
+      chips.forEach(function (chip) {
+        chip.addEventListener("click", function () {
+          chips.forEach(function (other) {
+            var on = other === chip;
+            other.setAttribute("aria-pressed", on ? "true" : "false");
+            var panel = document.getElementById(other.getAttribute("data-panel"));
+            if (panel) panel.hidden = !on;
+          });
+        });
       });
-    });
+
+      document.querySelectorAll(".copy-btn").forEach(function (button) {
+        button.addEventListener("click", async function () {
+          var target = document.getElementById(button.dataset.copy);
+          var text = target.innerText;
+          try {
+            if (navigator.clipboard && window.isSecureContext) {
+              await navigator.clipboard.writeText(text);
+            } else {
+              var helper = document.createElement("textarea");
+              helper.value = text;
+              helper.setAttribute("readonly", "");
+              helper.style.position = "fixed";
+              helper.style.opacity = "0";
+              document.body.appendChild(helper);
+              helper.select();
+              var copied = document.execCommand("copy");
+              helper.remove();
+              if (!copied) throw new Error("Copy command failed");
+            }
+            button.textContent = "Copied";
+            button.classList.add("copied");
+            window.setTimeout(function () {
+              button.textContent = "Copy";
+              button.classList.remove("copied");
+            }, 1400);
+          } catch (error) {
+            var range = document.createRange();
+            range.selectNodeContents(target);
+            var selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            button.textContent = "Select text";
+          }
+        });
+      });
+    })();
   </script>
 </body>
 </html>
