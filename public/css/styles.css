@@ -1371,8 +1371,7 @@
     .home-panels-grid .contact-checkin-feed-panel .cci-feed-list,
     .home-panels-grid .announcement-description,
     .home-panels-grid .quick-action-text,
-    .home-panels-grid .br-headline,
-    .home-panels-grid .br-metric-label {
+    .home-panels-grid .br-headline {
       font-size: inherit;
       line-height: inherit;
       color: var(--text-primary);
@@ -1505,60 +1504,6 @@
       font-size: 0.82rem;
       color: var(--text-secondary);
       font-weight: 700;
-    }
-
-    .br-metric-list {
-      display: grid;
-      gap: 6px;
-    }
-
-    .br-metric-row {
-      display: grid;
-      grid-template-columns: minmax(0, 1.4fr) minmax(60px, 1fr) auto;
-      gap: 10px;
-      align-items: center;
-      width: 100%;
-      border: 0;
-      background: transparent;
-      padding: 4px 0;
-      cursor: pointer;
-      text-align: left;
-      font: inherit;
-      color: inherit;
-    }
-
-    .br-metric-row:hover .br-metric-label {
-      color: var(--accent-clay);
-    }
-
-    .br-metric-label {
-      color: var(--text-primary);
-      line-height: 1.25;
-    }
-
-    .br-metric-track {
-      height: 8px;
-      background: rgba(49, 64, 89, 0.08);
-      overflow: hidden;
-    }
-
-    .br-metric-fill {
-      display: block;
-      height: 100%;
-      background: var(--accent-teal);
-    }
-
-    .br-metric-fill--zone {
-      background: var(--brand-primary-dark);
-    }
-
-    .br-metric-count {
-      font-family: 'Chivo', sans-serif;
-      font-weight: 900;
-      font-size: 0.9rem;
-      color: var(--brand-primary-dark);
-      min-width: 1.5rem;
-      text-align: right;
     }
 
     .br-temp-housing {
@@ -2108,6 +2053,10 @@
       gap: 8px;
     }
 
+    .br-activity-grid.br-activity-grid--two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .br-activity-card {
       display: flex;
       min-width: 0;
@@ -2311,17 +2260,6 @@
         flex-direction: column;
         gap: 3px;
       }
-
-      .br-metric-row {
-        grid-template-columns: 1fr auto;
-        grid-template-areas:
-          "label count"
-          "track track";
-        gap: 4px 10px;
-      }
-      .br-metric-label { grid-area: label; }
-      .br-metric-count { grid-area: count; }
-      .br-metric-track { grid-area: track; }
     }
 
     @media (max-width: 430px) {
@@ -10466,6 +10404,54 @@
       font-size: 0.8rem;
       color: #5f6b4d;
       text-align: right;
+    }
+
+    .son-captain-data-toggle {
+      margin: 0 0 18px;
+      max-width: 720px;
+      padding: 12px 14px;
+      border: 1px solid #d8dccb;
+      border-radius: 8px;
+      background: #FDFBF7;
+    }
+
+    .son-captain-data-toggle__label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: 'Chivo', sans-serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--primary-dark, #283618);
+      cursor: pointer;
+    }
+
+    .son-captain-data-toggle__label input {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      flex-shrink: 0;
+      accent-color: #606c38;
+      cursor: pointer;
+    }
+
+    .son-captain-data-toggle__fields {
+      font-weight: 400;
+      color: #5f6b4d;
+    }
+
+    .son-captain-data-toggle__help {
+      margin: 6px 0 0 28px;
+      font-size: 0.85rem;
+      line-height: 1.45;
+      color: #5f6b4d;
+    }
+
+    .son-captain-data-toggle__help span:not(:empty) {
+      display: block;
+      margin-top: 4px;
+      font-weight: 700;
+      color: #283618;
     }
 
     .son-report-preview {
