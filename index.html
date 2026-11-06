@@ -27022,19 +27022,6 @@
         + (milestoneMap.construction_underway || 0)
         + (milestoneMap.construction_completed || 0);
       const countyMilestoneTotal = Object.keys(milestoneMap).reduce((sum, key) => sum + (milestoneMap[key] || 0), 0);
-      const countyConstructionOrFurther = (milestoneMap.construction_underway || 0)
-        + (milestoneMap.construction_completed || 0);
-
-      const captainConstructionOrFurther = Object.entries(buildStatusCounts).reduce((sum, [label, count]) => {
-        const key = String(label || '').toLowerCase();
-        if (key.includes('under construction') || key.includes('finishing') || key.includes('moved in')) {
-          return sum + count;
-        }
-        return sum;
-      }, 0);
-      const planningToRebuildPct = damagedAddressCount > 0
-        ? Math.round((buildingPlanCount / damagedAddressCount) * 100)
-        : 0;
 
       const now = new Date();
       const reportDate = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -27065,14 +27052,11 @@
         addressPlanItems,
         buildStatusItems,
         buildingPlanCount,
-        planningToRebuildPct,
-        captainConstructionOrFurther,
         soldSinceFireCount,
         salesAvailable: centralSalesAvailable,
         epic: epicSummary,
         milestoneMap,
         countyPermitOrBeyond,
-        countyConstructionOrFurther,
         countyMilestoneTotal,
         appliedLast30: epicSummary ? (epicSummary.appliedLast30 || 0) : 0,
         issuedLast30: epicSummary ? (epicSummary.issuedLast30 || 0) : 0,
@@ -27096,6 +27080,55 @@
 
     function sonSourceChip(text) {
       return `<span style="display:inline-block;padding:5px 10px;border-radius:999px;background:rgba(49,64,89,0.08);color:${SON_REPORT_COLORS.navy};font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">${sonEsc(text)}</span>`;
+    }
+
+    // EPIC milestone counts are current stage only (each lot counted once), so
+    // "Permit issued" excludes lots already under construction or completed.
+    const SON_STAGE_LABELS = {
+      application_or_plans: 'Plans / applications',
+      permit_issued: 'Permitted, not yet building',
+      construction_underway: 'Under construction',
+      construction_completed: 'Completed'
+    };
+
+    function sonHeadlineStats(data) {
+      const C = SON_REPORT_COLORS;
+      const m = data.milestoneMap || {};
+      const hasCounty = !!data.epic;
+      const underway = m.construction_underway || 0;
+      const completed = m.construction_completed || 0;
+      const permitOnly = m.permit_issued || 0;
+      const unavailable = 'County data unavailable';
+      return [
+        {
+          value: hasCounty ? data.countyPermitOrBeyond : '—',
+          label: 'Have a building permit',
+          note: hasCounty ? `${permitOnly} not yet building · ${underway} under construction · ${completed} completed` : unavailable,
+          color: C.accentSoft,
+          source: SON_SOURCES.county
+        },
+        {
+          value: hasCounty ? underway : '—',
+          label: 'Under construction',
+          note: hasCounty ? 'Building now' : unavailable,
+          color: C.teal,
+          source: SON_SOURCES.county
+        },
+        {
+          value: hasCounty ? completed : '—',
+          label: 'Construction completed',
+          note: hasCounty ? 'County marked complete' : unavailable,
+          color: C.accent,
+          source: SON_SOURCES.county
+        },
+        {
+          value: data.salesAvailable ? data.soldSinceFireCount : '—',
+          label: 'Sold since the fire',
+          note: data.salesAvailable ? 'Count only — no names or prices' : 'Sales data unavailable',
+          color: C.navy,
+          source: SON_SOURCES.sales
+        }
+      ];
     }
 
     function sonSourceTag(text, fontSize) {
@@ -27186,7 +27219,7 @@
       };
       const shortLabels = {
         application_or_plans: 'Plans &\napplications',
-        permit_issued: 'Permit\nissued',
+        permit_issued: 'Permitted,\nnot yet building',
         construction_underway: 'Under\nconstruction',
         construction_completed: 'Construction\ncompleted'
       };
@@ -27289,21 +27322,16 @@
           ${note ? `<div style="margin-top:6px;font-size:14px;color:${C.muted};line-height:1.4;">${sonEsc(note)}</div>` : ''}
           <div style="margin-top:auto;padding-top:14px;">${sonSourceTag(source, 11)}</div>
         </div>`;
-      const soldDisplay = data.salesAvailable ? String(data.soldSinceFireCount) : '—';
-      const soldHero = heroStat(soldDisplay, 'Sold since the fire', data.salesAvailable ? 'Count only — no names or prices' : 'Sales data unavailable', C.navy, SON_SOURCES.sales);
-      const leadHeroes = data.includeCaptainData
-        ? heroStat(data.planningToRebuildPct + '%', 'Planning to rebuild', `${data.buildingPlanCount} of ${data.damage.damaged} damaged lots`, C.accentSoft, SON_SOURCES.captain)
-          + heroStat(data.captainConstructionOrFurther, 'Under construction or further', 'From captain Build Status notes', C.teal, SON_SOURCES.captain)
-        : heroStat(epic ? data.countyPermitOrBeyond : '—', 'Permit issued or further', epic ? 'Lots with a county building permit or later' : 'County data unavailable', C.accentSoft, SON_SOURCES.county)
-          + heroStat(epic ? data.countyConstructionOrFurther : '—', 'Under construction or completed', epic ? 'From county construction milestones' : 'County data unavailable', C.teal, SON_SOURCES.county);
+      const headlineHeroes = sonHeadlineStats(data)
+        .map((s) => heroStat(s.value, s.label, s.note, s.color, s.source))
+        .join('');
       const slide2 = sonSlide(`
         <div>
           <div style="text-transform:uppercase;letter-spacing:0.16em;font-size:13px;font-weight:700;color:${C.accentSoft};margin-bottom:10px;">Where we stand</div>
           <div style="font-size:40px;font-weight:900;line-height:1.12;color:${C.accent};max-width:820px;">Neighbors are rebuilding</div>
         </div>
         <div style="margin-top:28px;display:flex;gap:18px;">
-          ${leadHeroes}
-          ${soldHero}
+          ${headlineHeroes}
         </div>
         <div style="margin-top:auto;padding-top:20px;display:flex;justify-content:space-between;gap:24px;align-items:flex-end;">
           <div style="font-size:16px;line-height:1.5;color:${C.muted};max-width:720px;">
@@ -27327,8 +27355,8 @@
           </div>`
         : '';
       const countyLead = epic
-        ? `<strong style="color:${C.accent};">${data.countyPermitOrBeyond}</strong> county-matched lots have a building permit issued or are further along
-            (${(data.milestoneMap && data.milestoneMap.permit_issued) || 0} permit issued · ${(data.milestoneMap && data.milestoneMap.construction_underway) || 0} under construction · ${(data.milestoneMap && data.milestoneMap.construction_completed) || 0} completed).`
+        ? `<strong style="color:${C.accent};">${data.countyMilestoneTotal}</strong> lots in our zone have a county rebuild record.
+            Each one is counted once below, at the furthest stage it has reached.`
         : (data.epicError
           ? 'County permitting data could not be loaded for this briefing.'
           : 'County permitting data is still loading.');
@@ -27429,11 +27457,7 @@
       }).join('') || `<div style="color:${C.muted};">Captain contact not listed</div>`;
 
       const milestoneCells = (epic && epic.milestones ? epic.milestones : []).map((m) => {
-        const short = String(m.label || '')
-          .replace('Application or plans under review', 'Plans / apps')
-          .replace('Permit issued', 'Permit issued')
-          .replace('Construction underway', 'Under const.')
-          .replace('Construction completed', 'Completed');
+        const short = SON_STAGE_LABELS[m.key] || m.label || '';
         return `
           <div style="background:${C.soft};padding:8px 4px;border-radius:6px;text-align:center;min-width:0;">
             <div style="font-size:18px;font-weight:900;color:${C.teal};line-height:1;">${m.count}</div>
@@ -27449,12 +27473,9 @@
           <div style="margin-top:auto;padding-top:6px;">${sonSourceTag(source, 8)}</div>
         </div>`;
 
-      const soldDisplay = data.salesAvailable ? String(data.soldSinceFireCount) : '—';
-      const leadHeroes = data.includeCaptainData
-        ? hero(data.planningToRebuildPct + '%', 'Planning to rebuild', `${data.buildingPlanCount} of ${data.damage.damaged} damaged lots`, C.accentSoft, SON_SOURCES.captain)
-          + hero(data.captainConstructionOrFurther, 'Under construction or further', 'Captain Build Status', C.teal, SON_SOURCES.captain)
-        : hero(epic ? data.countyPermitOrBeyond : '—', 'Permit issued or further', epic ? 'County building permit or later' : 'Unavailable', C.accentSoft, SON_SOURCES.county)
-          + hero(epic ? data.countyConstructionOrFurther : '—', 'Under construction or completed', epic ? 'County construction milestones' : 'Unavailable', C.teal, SON_SOURCES.county);
+      const headlineHeroes = sonHeadlineStats(data)
+        .map((s) => hero(s.value, s.label, s.note, s.color, s.source))
+        .join('');
 
       const captainPlanGrid = `
             <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1 1 auto;min-height:0;">
@@ -27490,7 +27511,7 @@
                 </div>`).join('')}
             </div>`;
       const countyLead = epic
-        ? `${data.countyPermitOrBeyond} lots have a county-issued building permit or are further along.`
+        ? `${data.countyMilestoneTotal} lots have a county rebuild record. Each is counted once, at the furthest stage it has reached:`
         : 'County permitting data unavailable.';
 
       const thisMonth = (data.appliedLast30 || data.issuedLast30 || data.inspectedLast30)
@@ -27526,8 +27547,7 @@
             ${note ? `<div style="margin-top:8px;padding:8px 10px;background:${C.soft};border-left:3px solid ${C.gold};font-family:Lora,Georgia,serif;font-size:12px;line-height:1.4;flex-shrink:0;">${sonEsc(note)}</div>` : ''}
 
             <div style="margin-top:10px;display:flex;gap:8px;flex-shrink:0;">
-              ${leadHeroes}
-              ${hero(soldDisplay, 'Sold since the fire', data.salesAvailable ? 'Count only' : 'Unavailable', C.navy, SON_SOURCES.sales)}
+              ${headlineHeroes}
             </div>
 
             <div style="margin-top:10px;display:flex;gap:12px;flex-shrink:0;">
