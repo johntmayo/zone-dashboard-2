@@ -37,7 +37,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <link rel="stylesheet" href="public/css/styles.css?v=10">
+  <link rel="stylesheet" href="public/css/styles.css?v=11">
   <script src="public/js/utils.js?v=3"></script>
   <script src="public/js/address-id.js"></script>
   <script src="public/js/resident-placeholder.js"></script>
@@ -1502,7 +1502,7 @@
       </div>
 
       <div class="br-help-note">
-        <p>The headline, match rate, and permit/construction cards focus on damaged addresses. Recent activity, current county labels, waiting/on-hold, and temporary-housing counts cover matched addresses across the full zone.</p>
+        <p>The headline and match rate focus on damaged addresses. Everything else—the four stage cards, recent activity, waiting/on-hold, and temporary housing—covers every matched address in the zone. Each address appears in exactly one stage card, based on its latest county label.</p>
         <p>These are current snapshots and advisory county labels—not historical trends or a determination that work is or is not happening.</p>
       </div>
 
@@ -12573,9 +12573,6 @@
       let damagedWithEpic = 0;
       let damagedWithoutEpic = 0;
       let damagedMissingApn = 0;
-      let damagedWithIssuedPermit = 0;
-      let damagedConstruction = 0;
-      let damagedCompleted = 0;
       let attentionAddresses = 0;
       let damagedAttention = 0;
       let issuedPermitAddresses = 0;
@@ -12608,10 +12605,7 @@
           attentionAddresses += 1;
           if (isDamaged) damagedAttention += 1;
         }
-        if (facts.hasIssuedPermit) {
-          issuedPermitAddresses += 1;
-          if (isDamaged) damagedWithIssuedPermit += 1;
-        }
+        if (facts.hasIssuedPermit) issuedPermitAddresses += 1;
         if (facts.appliedLast30) appliedLast30 += 1;
         if (facts.issuedLast30) issuedLast30 += 1;
         if (facts.inspectedLast30) inspectedLast30 += 1;
@@ -12621,8 +12615,6 @@
         const milestone = facts.milestone;
         if (milestone) {
           withRebuildEpic += 1;
-          if (isDamaged && milestone === 'construction_underway') damagedConstruction += 1;
-          if (isDamaged && milestone === 'construction_completed') damagedCompleted += 1;
           if (Object.prototype.hasOwnProperty.call(milestoneCounts, milestone)) {
             milestoneCounts[milestone] += 1;
           }
@@ -12642,9 +12634,6 @@
         damagedWithEpic,
         damagedWithoutEpic,
         damagedMissingApn,
-        damagedWithIssuedPermit,
-        damagedConstruction,
-        damagedCompleted,
         damagedAttention,
         attentionAddresses,
         issuedPermitAddresses,
@@ -22609,17 +22598,12 @@
       const damagedTotal = summary.damagedAddresses || 0;
       const damagedMatched = summary.damagedWithEpic || 0;
       const coveragePct = summary.damagedCoveragePct || 0;
-      const maxMilestone = Math.max(1, ...summary.milestones.map((m) => m.count));
-      const rows = summary.milestones.map((m) => {
-        const width = Math.round((m.count / maxMilestone) * 100);
-        return [
-          '<button type="button" class="br-metric-row" data-br-epic="epic_' + m.key + '">',
-          '  <span class="br-metric-label">' + escapeBrHtml(m.label) + '</span>',
-          '  <span class="br-metric-track"><span class="br-metric-fill" style="width:' + width + '%"></span></span>',
-          '  <span class="br-metric-count">' + m.count + '</span>',
-          '</button>'
-        ].join('');
-      }).join('');
+      const milestoneTones = {
+        application_or_plans: 'status',
+        permit_issued: 'issued',
+        construction_underway: 'construction',
+        construction_completed: 'complete'
+      };
 
       const signalCard = (filter, value, label, detail, tone) => [
         '<button type="button" class="br-signal-card br-signal-card--' + tone + '" data-br-epic="' + filter + '">',
@@ -22656,34 +22640,13 @@
         '  </button>',
         '</div>',
         '<div class="br-signal-grid">',
-        signalCard(
-          'epic_damaged_issued',
-          summary.damagedWithIssuedPermit,
-          'Issued permit on file',
-          'damaged address' + (summary.damagedWithIssuedPermit === 1 ? '' : 'es'),
-          'issued'
-        ),
-        signalCard(
-          'epic_damaged_construction',
-          summary.damagedConstruction,
-          'Construction underway',
-          'latest county label',
-          'construction'
-        ),
-        signalCard(
-          'epic_damaged_completed',
-          summary.damagedCompleted,
-          'Construction completed',
-          'latest county label',
-          'complete'
-        ),
-        signalCard(
-          'epic_attention',
-          summary.attentionAddresses,
-          'Waiting / on hold',
-          'current county status',
-          'status'
-        ),
+        summary.milestones.map((m) => signalCard(
+          'epic_' + m.key,
+          m.count,
+          escapeBrHtml(m.label),
+          'address' + (m.count === 1 ? '' : 'es') + ' · latest county label',
+          milestoneTones[m.key] || 'status'
+        )).join(''),
         '</div>',
         '<div class="br-detail-grid">',
         '  <section class="br-detail-section">',
@@ -22699,10 +22662,13 @@
         '  </section>',
         '  <section class="br-detail-section">',
         '    <div class="br-section-heading">',
-        '      <div><span class="br-eyebrow">Current snapshot</span><h3>Latest county label</h3></div>',
-        '      <span class="br-section-note">Advisory, not cumulative statistics</span>',
+        '      <div><span class="br-eyebrow">Current snapshot</span><h3>County status</h3></div>',
+        '      <span class="br-section-note">Addresses, not case rows</span>',
         '    </div>',
-        '    <div class="br-metric-list">' + rows + '</div>',
+        '    <div class="br-activity-grid br-activity-grid--two">',
+        activityCard('epic_attention', summary.attentionAddresses, 'Waiting / on hold'),
+        activityCard('epic_temp_housing', summary.withTempHousing, 'Temporary housing'),
+        '    </div>',
         '  </section>',
         '</div>',
         '<aside class="br-match-guide">',
@@ -22721,7 +22687,6 @@
         '</aside>',
         '<div class="br-utility-row">',
         '  <button type="button" class="br-utility-link" data-br-epic="epic_damaged_no_epic"><strong>' + summary.damagedWithoutEpic + '</strong> damaged address' + (summary.damagedWithoutEpic === 1 ? '' : 'es') + ' with no matched record</button>',
-        '  <button type="button" class="br-utility-link" data-br-epic="epic_temp_housing"><strong>' + summary.withTempHousing + '</strong> temporary housing address' + (summary.withTempHousing === 1 ? '' : 'es') + '</button>',
         '</div>',
         '<div class="br-data-note">',
         '  <span>County progress labels are advisory and are not cumulative statistics.</span>',
@@ -27078,41 +27043,24 @@
       return `<span style="display:inline-block;padding:5px 10px;border-radius:999px;background:rgba(49,64,89,0.08);color:${SON_REPORT_COLORS.navy};font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">${sonEsc(text)}</span>`;
     }
 
-    // EPIC milestone counts cover every zone address (not just damaged) at its
-    // furthest stage only, so "Permit issued" excludes lots already building.
-    const SON_STAGE_LABELS = {
-      application_or_plans: 'Plans / applications',
-      permit_issued: 'Permitted, not yet building',
-      construction_underway: 'Under construction',
-      construction_completed: 'Completed'
-    };
-
-    // Same damaged-address figures as the dashboard's Building & Permitting cards.
+    // Same per-stage counts as the dashboard's Building & Permitting cards.
     function sonHeadlineStats(data) {
       const C = SON_REPORT_COLORS;
       const epic = data.epic;
-      const damagedNote = epic
-        ? `Of ${epic.damagedAddresses || 0} damaged address${epic.damagedAddresses === 1 ? '' : 'es'}`
-        : 'County data unavailable';
+      const m = data.milestoneMap || {};
+      const note = epic ? 'Latest county label' : 'County data unavailable';
       return [
         {
-          value: epic ? (epic.damagedWithIssuedPermit || 0) : '—',
-          label: 'Issued permit on file',
-          note: damagedNote,
-          color: C.accentSoft,
-          source: SON_SOURCES.county
-        },
-        {
-          value: epic ? (epic.damagedConstruction || 0) : '—',
+          value: epic ? (m.construction_underway || 0) : '—',
           label: 'Construction underway',
-          note: damagedNote,
+          note,
           color: C.teal,
           source: SON_SOURCES.county
         },
         {
-          value: epic ? (epic.damagedCompleted || 0) : '—',
+          value: epic ? (m.construction_completed || 0) : '—',
           label: 'Construction completed',
-          note: damagedNote,
+          note,
           color: C.accent,
           source: SON_SOURCES.county
         },
@@ -27213,9 +27161,9 @@
         construction_completed: C.navy
       };
       const shortLabels = {
-        application_or_plans: 'Plans &\napplications',
-        permit_issued: 'Permitted,\nnot yet building',
-        construction_underway: 'Under\nconstruction',
+        application_or_plans: 'Application or plans\nunder review',
+        permit_issued: 'Permit\nissued',
+        construction_underway: 'Construction\nunderway',
         construction_completed: 'Construction\ncompleted'
       };
       const steps = epic.milestones.map((m, idx) => {
@@ -27350,8 +27298,8 @@
           </div>`
         : '';
       const countyLead = epic
-        ? `Across the whole zone, damaged or not, <strong style="color:${C.accent};">${data.countyMilestoneTotal}</strong> addresses have a county rebuild record.
-            Each one is counted once below, at the furthest stage it has reached.`
+        ? `<strong style="color:${C.accent};">${data.countyMilestoneTotal}</strong> addresses in our zone have a county rebuild record.
+            Each one is counted once below, by its latest county label.`
         : (data.epicError
           ? 'County permitting data could not be loaded for this briefing.'
           : 'County permitting data is still loading.');
@@ -27452,7 +27400,7 @@
       }).join('') || `<div style="color:${C.muted};">Captain contact not listed</div>`;
 
       const milestoneCells = (epic && epic.milestones ? epic.milestones : []).map((m) => {
-        const short = SON_STAGE_LABELS[m.key] || m.label || '';
+        const short = m.label || '';
         return `
           <div style="background:${C.soft};padding:8px 4px;border-radius:6px;text-align:center;min-width:0;">
             <div style="font-size:18px;font-weight:900;color:${C.teal};line-height:1;">${m.count}</div>
@@ -27506,7 +27454,7 @@
                 </div>`).join('')}
             </div>`;
       const countyLead = epic
-        ? `Across the whole zone, damaged or not, ${data.countyMilestoneTotal} addresses have a county rebuild record. Each is counted once, at the furthest stage it has reached:`
+        ? `${data.countyMilestoneTotal} addresses in our zone have a county rebuild record. Each is counted once, by its latest county label:`
         : 'County permitting data unavailable.';
 
       const thisMonth = (data.appliedLast30 || data.issuedLast30 || data.inspectedLast30)
