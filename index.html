@@ -27018,9 +27018,6 @@
       if (epicSummary && Array.isArray(epicSummary.milestones)) {
         epicSummary.milestones.forEach((m) => { milestoneMap[m.key] = m.count || 0; });
       }
-      const countyPermitOrBeyond = (milestoneMap.permit_issued || 0)
-        + (milestoneMap.construction_underway || 0)
-        + (milestoneMap.construction_completed || 0);
       const countyMilestoneTotal = Object.keys(milestoneMap).reduce((sum, key) => sum + (milestoneMap[key] || 0), 0);
 
       const now = new Date();
@@ -27056,7 +27053,6 @@
         salesAvailable: centralSalesAvailable,
         epic: epicSummary,
         milestoneMap,
-        countyPermitOrBeyond,
         countyMilestoneTotal,
         appliedLast30: epicSummary ? (epicSummary.appliedLast30 || 0) : 0,
         issuedLast30: epicSummary ? (epicSummary.issuedLast30 || 0) : 0,
@@ -27082,8 +27078,8 @@
       return `<span style="display:inline-block;padding:5px 10px;border-radius:999px;background:rgba(49,64,89,0.08);color:${SON_REPORT_COLORS.navy};font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">${sonEsc(text)}</span>`;
     }
 
-    // EPIC milestone counts are current stage only (each lot counted once), so
-    // "Permit issued" excludes lots already under construction or completed.
+    // EPIC milestone counts cover every zone address (not just damaged) at its
+    // furthest stage only, so "Permit issued" excludes lots already building.
     const SON_STAGE_LABELS = {
       application_or_plans: 'Plans / applications',
       permit_issued: 'Permitted, not yet building',
@@ -27091,33 +27087,32 @@
       construction_completed: 'Completed'
     };
 
+    // Same damaged-address figures as the dashboard's Building & Permitting cards.
     function sonHeadlineStats(data) {
       const C = SON_REPORT_COLORS;
-      const m = data.milestoneMap || {};
-      const hasCounty = !!data.epic;
-      const underway = m.construction_underway || 0;
-      const completed = m.construction_completed || 0;
-      const permitOnly = m.permit_issued || 0;
-      const unavailable = 'County data unavailable';
+      const epic = data.epic;
+      const damagedNote = epic
+        ? `Of ${epic.damagedAddresses || 0} damaged address${epic.damagedAddresses === 1 ? '' : 'es'}`
+        : 'County data unavailable';
       return [
         {
-          value: hasCounty ? data.countyPermitOrBeyond : '—',
-          label: 'Have a building permit',
-          note: hasCounty ? `${permitOnly} not yet building · ${underway} under construction · ${completed} completed` : unavailable,
+          value: epic ? (epic.damagedWithIssuedPermit || 0) : '—',
+          label: 'Issued permit on file',
+          note: damagedNote,
           color: C.accentSoft,
           source: SON_SOURCES.county
         },
         {
-          value: hasCounty ? underway : '—',
-          label: 'Under construction',
-          note: hasCounty ? 'Building now' : unavailable,
+          value: epic ? (epic.damagedConstruction || 0) : '—',
+          label: 'Construction underway',
+          note: damagedNote,
           color: C.teal,
           source: SON_SOURCES.county
         },
         {
-          value: hasCounty ? completed : '—',
+          value: epic ? (epic.damagedCompleted || 0) : '—',
           label: 'Construction completed',
-          note: hasCounty ? 'County marked complete' : unavailable,
+          note: damagedNote,
           color: C.accent,
           source: SON_SOURCES.county
         },
@@ -27355,7 +27350,7 @@
           </div>`
         : '';
       const countyLead = epic
-        ? `<strong style="color:${C.accent};">${data.countyMilestoneTotal}</strong> lots in our zone have a county rebuild record.
+        ? `Across the whole zone, damaged or not, <strong style="color:${C.accent};">${data.countyMilestoneTotal}</strong> addresses have a county rebuild record.
             Each one is counted once below, at the furthest stage it has reached.`
         : (data.epicError
           ? 'County permitting data could not be loaded for this briefing.'
@@ -27511,7 +27506,7 @@
                 </div>`).join('')}
             </div>`;
       const countyLead = epic
-        ? `${data.countyMilestoneTotal} lots have a county rebuild record. Each is counted once, at the furthest stage it has reached:`
+        ? `Across the whole zone, damaged or not, ${data.countyMilestoneTotal} addresses have a county rebuild record. Each is counted once, at the furthest stage it has reached:`
         : 'County permitting data unavailable.';
 
       const thisMonth = (data.appliedLast30 || data.issuedLast30 || data.inspectedLast30)
