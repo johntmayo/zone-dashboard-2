@@ -10468,6 +10468,54 @@
       text-align: right;
     }
 
+    .son-captain-data-toggle {
+      margin: 0 0 18px;
+      max-width: 720px;
+      padding: 12px 14px;
+      border: 1px solid #d8dccb;
+      border-radius: 8px;
+      background: #FDFBF7;
+    }
+
+    .son-captain-data-toggle__label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: 'Chivo', sans-serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--primary-dark, #283618);
+      cursor: pointer;
+    }
+
+    .son-captain-data-toggle__label input {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      flex-shrink: 0;
+      accent-color: #606c38;
+      cursor: pointer;
+    }
+
+    .son-captain-data-toggle__fields {
+      font-weight: 400;
+      color: #5f6b4d;
+    }
+
+    .son-captain-data-toggle__help {
+      margin: 6px 0 0 28px;
+      font-size: 0.85rem;
+      line-height: 1.45;
+      color: #5f6b4d;
+    }
+
+    .son-captain-data-toggle__help span:not(:empty) {
+      display: block;
+      margin-top: 4px;
+      font-weight: 700;
+      color: #283618;
+    }
+
     .son-report-preview {
       overflow-x: hidden;
     }
