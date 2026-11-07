@@ -1591,6 +1591,7 @@
     let availableSheets = []; // Sheets returned by /api/user-sheets for zone selection
     let isCurrentUserAdmin = localStorage.getItem('godmodeAdmin') === 'true'; // UI convenience; server still enforces admin access.
     let isCurrentUserLotWeedingAdmin = localStorage.getItem('lotWeedingAdmin') === 'true'; // UI convenience; server still enforces lot-weeding access.
+    let hasMultipleAssignedZones = localStorage.getItem('multiZoneUser') === 'true'; // UI convenience; server still enforces per-zone access.
     // Session helpers referenced during early boot (token restore / welcome UI).
     let oauthRefreshIntervalId = null;
     let preferSelectAccountOnce = false;
@@ -2310,6 +2311,12 @@
       } else {
         localStorage.removeItem('lotWeedingAdmin');
       }
+      hasMultipleAssignedZones = Array.isArray(sheets) && sheets.length > 1;
+      if (hasMultipleAssignedZones) {
+        localStorage.setItem('multiZoneUser', 'true');
+      } else {
+        localStorage.removeItem('multiZoneUser');
+      }
       updateNavigationState();
     }
 
@@ -2317,7 +2324,11 @@
       setAccessFromAuthResult(sheets, {});
     }
 
-    async function refreshAdminAccessForCurrentUser() {
+    function canSwitchZones() {
+      return Boolean(isCurrentUserAdmin || hasMultipleAssignedZones);
+    }
+
+    async function refreshAccessForCurrentUser() {
       if (!currentUserEmail) return;
       const sheetsResult = await fetchUserSheets(currentUserEmail);
       if (!sheetsResult.error) {
@@ -2350,10 +2361,10 @@
       updateWelcomeMessage();
     }
 
-    async function openAdminZoneSwitcher() {
+    async function openZoneSwitcher() {
       if (!isSignedIn() || !currentUserEmail) {
         welcomeAuthState = 'server_error';
-        welcomeAuthMessage = 'Sign in with an admin account before switching zones.';
+        welcomeAuthMessage = 'Sign in before switching zones.';
         switchView('home');
         updateWelcomeMessage();
         return;
@@ -2728,6 +2739,7 @@
       availableSheets = [];
       isCurrentUserAdmin = false;
       isCurrentUserLotWeedingAdmin = false;
+      hasMultipleAssignedZones = false;
       currentUserRoles = [];
       currentUserCapabilities = [];
       godmodeState.loaded = false;
@@ -2744,6 +2756,7 @@
       localStorage.removeItem('ncProfileUserEmail');
       localStorage.removeItem('godmodeAdmin');
       localStorage.removeItem('lotWeedingAdmin');
+      localStorage.removeItem('multiZoneUser');
       localStorage.removeItem('ncProfileExists');
       if (clearZoneMemory) {
         localStorage.removeItem('savedSheetUrl');
@@ -3770,9 +3783,13 @@
       const mobileLotWeedingAdminNav = document.getElementById('mobileMoreLotWeedingAdmin');
       const switchZoneNav = document.getElementById('navSwitchZone');
       const mobileSwitchZoneNav = document.getElementById('mobileMoreSwitchZone');
-      [godmodeNav, mobileGodmodeNav, switchZoneNav, mobileSwitchZoneNav].forEach((item) => {
+      [godmodeNav, mobileGodmodeNav].forEach((item) => {
         if (!item) return;
         item.classList.toggle('hidden', !isCurrentUserAdmin);
+      });
+      [switchZoneNav, mobileSwitchZoneNav].forEach((item) => {
+        if (!item) return;
+        item.classList.toggle('hidden', !canSwitchZones());
       });
       [lotWeedingAdminNav, mobileLotWeedingAdminNav].forEach((item) => {
         if (!item) return;
@@ -8935,11 +8952,11 @@
     if (signOutBtn) {
       signOutBtn.addEventListener('click', signOut);
     }
-    document.getElementById('navSwitchZone')?.addEventListener('click', openAdminZoneSwitcher);
+    document.getElementById('navSwitchZone')?.addEventListener('click', openZoneSwitcher);
     document.getElementById('mobileMoreSwitchZone')?.addEventListener('click', () => {
       const drawer = document.getElementById('mobileMoreDrawer');
       if (drawer) drawer.classList.add('hidden');
-      openAdminZoneSwitcher();
+      openZoneSwitcher();
     });
 
     // Home sign-in button handler (uses same signIn function)
@@ -17252,6 +17269,9 @@
               loadAddressData(currentSheetUrl);
             }
           }, 100);
+          refreshAccessForCurrentUser().catch((error) => {
+            console.warn('Could not refresh zone access:', error);
+          });
         } else if (currentUserEmail) {
           welcomeAuthState = 'loading';
           await resolveAuthorizedSheetsForCurrentUser();
