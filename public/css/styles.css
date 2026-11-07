@@ -3265,6 +3265,162 @@
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(196, 90, 17, 0.3);
     }
+    .export-modal-btn-csv:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Export modal: what-to-make choices, field picker, label options */
+    .export-format-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .export-format-option {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      column-gap: 8px;
+      row-gap: 4px;
+      padding: 12px 14px;
+      border: 2px solid var(--border-soft);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .export-format-option:hover {
+      border-color: var(--primary);
+    }
+    .export-format-option:has(input:checked) {
+      border-color: var(--brand-primary-dark);
+      background: rgba(96, 108, 56, 0.06);
+    }
+    .export-format-option input {
+      margin: 0;
+      accent-color: var(--brand-primary-dark);
+    }
+    .export-format-option-title {
+      font-weight: 800;
+      color: var(--primary-dark);
+    }
+    .export-format-option-desc {
+      grid-column: 2;
+      font-size: 0.85rem;
+      line-height: 1.4;
+      color: var(--text-light);
+    }
+    .export-panel-summary {
+      margin: 0 0 12px;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      color: var(--text);
+    }
+    .export-panel-note {
+      margin: 8px 0 12px;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: var(--text-light);
+    }
+    .export-field-label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+    }
+    .export-select {
+      font: inherit;
+      min-width: 260px;
+      max-width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border-soft);
+      border-radius: 6px;
+      background: white;
+    }
+    .export-field-picker,
+    .export-help {
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      padding: 10px 14px;
+    }
+    .export-field-picker summary,
+    .export-help summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--primary-dark);
+    }
+    .export-field-picker[open] summary,
+    .export-help[open] summary {
+      margin-bottom: 10px;
+    }
+    .export-field-picker-actions {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+    .export-text-btn {
+      background: none;
+      border: none;
+      padding: 0;
+      font: inherit;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--brand-primary-dark);
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .export-field-group {
+      border: none;
+      padding: 0;
+      margin: 0 0 12px;
+    }
+    .export-field-group legend {
+      padding: 0;
+      margin-bottom: 6px;
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-light);
+    }
+    .export-field-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 4px 12px;
+    }
+    .export-field-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 2px 0;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .export-field-option input {
+      margin: 0;
+      accent-color: var(--brand-primary-dark);
+    }
+    .export-label-warning {
+      margin-bottom: 12px;
+      padding: 10px 14px;
+      border-left: 4px solid #f57c00;
+      border-radius: 6px;
+      background: rgba(255, 152, 0, 0.08);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .export-help ul {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+    .export-help li {
+      margin-bottom: 6px;
+    }
 
     .btn-copy-emails {
       background: var(--brand-primary-dark);

@@ -37,10 +37,11 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <link rel="stylesheet" href="public/css/styles.css?v=11">
+  <link rel="stylesheet" href="public/css/styles.css?v=12">
   <script src="public/js/utils.js?v=3"></script>
   <script src="public/js/address-id.js"></script>
   <script src="public/js/resident-placeholder.js"></script>
+  <script src="public/js/zone-export.js"></script>
   <script src="public/js/contact-checkin.js"></script>
   <script src="public/js/recruitment.js"></script>
   <script src="public/js/main-map.js"></script>
@@ -13584,8 +13585,55 @@
       return Array.from(emailSet).sort();
     }
     
-    // Show export modal: Print, Export CSV, or Copy all emails (same width as Share Newsletter modal)
+    const EXPORT_FORMAT_STORAGE_KEY = 'neighborsExportFormat';
+    const EXPORT_FIELDS_STORAGE_KEY = 'neighborsExportFields';
+    const EXPORT_ADDRESSEE_STORAGE_KEY = 'neighborsExportAddressee';
+
+    function readExportPreference(key) {
+      try {
+        return localStorage.getItem(key);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function writeExportPreference(key, value) {
+      try {
+        if (value == null) localStorage.removeItem(key);
+        else localStorage.setItem(key, value);
+      } catch (e) {
+        // Private browsing or full storage: preferences just won't persist.
+      }
+    }
+
+    function readExportFieldPreference() {
+      try {
+        const parsed = JSON.parse(readExportPreference(EXPORT_FIELDS_STORAGE_KEY) || 'null');
+        return Array.isArray(parsed) ? parsed : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function downloadCsvFile(csvText, filename) {
+      const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
+
+    // Export modal: contact list CSV, mailing labels CSV, printable call sheet, or copy all emails
     function showExportModal() {
+      if (!sheetData || !sheetData.addressMap) {
+        alert('Load your zone spreadsheet before exporting.');
+        return;
+      }
       const filteredAddresses = getFilteredAddresses();
       const appliedFilters = getAppliedFiltersSummary();
       const hasFilters = appliedFilters.length > 0;
@@ -13600,28 +13648,113 @@
       const emailBlobCount = emailBlobEmails.length;
       const emailBlobText = emailBlobEmails.join(', ');
       
+      const exportFields = resolveExportFields(sheetData.headers, { includeOtherColumns: isCurrentUserAdmin });
+      let selectedFieldIds = new Set(resolveSelectedFieldIds(exportFields, readExportFieldPreference()));
+      const exportSource = {
+        headers: sheetData.headers,
+        addressMap: sheetData.addressMap,
+        addresses: sortAddressesByStreetThenNumber(filteredAddresses)
+      };
+      const residentStats = summarizeExportRows(exportSource);
+      const labelStats = buildMailingLabelExport({ ...exportSource, addresseeMode: 'neighbors' }).stats;
+      const storedFormat = readExportPreference(EXPORT_FORMAT_STORAGE_KEY);
+      let exportFormat = ['contacts', 'labels', 'print'].includes(storedFormat) ? storedFormat : 'contacts';
+      const storedAddressee = readExportPreference(EXPORT_ADDRESSEE_STORAGE_KEY);
+      const addresseeMode = ['neighbors', 'names', 'blank'].includes(storedAddressee) ? storedAddressee : 'neighbors';
+
+      const formatOptions = [
+        { id: 'contacts', title: 'Contact list', desc: 'Spreadsheet (CSV) with one row per neighbor. You choose the fields.' },
+        { id: 'labels', title: 'Mailing labels', desc: 'Spreadsheet (CSV) with one row per address, ready for mail merge.' },
+        { id: 'print', title: 'Call sheet', desc: 'Printable sheet grouped by address, with room for notes.' }
+      ];
+      const formatOptionsHtml = formatOptions.map(option => `
+        <label class="export-format-option">
+          <input type="radio" name="exportFormat" value="${option.id}" ${option.id === exportFormat ? 'checked' : ''}>
+          <span class="export-format-option-title">${option.title}</span>
+          <span class="export-format-option-desc">${option.desc}</span>
+        </label>
+      `).join('');
+
+      const fieldGroupsHtml = EXPORT_FIELD_GROUPS.map(group => {
+        const groupFields = exportFields.filter(field => field.group === group.id);
+        if (!groupFields.length) return '';
+        return `
+          <fieldset class="export-field-group">
+            <legend>${escapeHtml(group.label)}</legend>
+            <div class="export-field-grid">
+              ${groupFields.map(field => `
+                <label class="export-field-option">
+                  <input type="checkbox" value="${escapeHtml(field.id)}" ${selectedFieldIds.has(field.id) ? 'checked' : ''}>
+                  <span>${escapeHtml(field.label)}</span>
+                </label>
+              `).join('')}
+            </div>
+          </fieldset>
+        `;
+      }).join('');
+
+      const missingLabelParts = [
+        [labelStats.missingCity, 'city'],
+        [labelStats.missingState, 'state'],
+        [labelStats.missingZip, 'ZIP code']
+      ].filter(([count]) => count > 0)
+        .map(([count, part]) => `${count.toLocaleString()} ${count === 1 ? 'address has' : 'addresses have'} no ${part}`);
+      const labelWarningHtml = missingLabelParts.length
+        ? `<div class="export-label-warning">${escapeHtml(missingLabelParts.join('; '))} in the sheet. Those labels will be incomplete unless you fill them in first.</div>`
+        : '';
+
       const modalHTML = `
         <div class="newsletter-modal-overlay" id="exportModalOverlay">
-          <div class="newsletter-modal">
+          <div class="newsletter-modal export-modal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
             <button class="newsletter-modal-close" id="exportModalClose" aria-label="Close">&times;</button>
             <div class="newsletter-modal-header">
-              <h3 class="newsletter-modal-title">Export</h3>
-              <p class="newsletter-modal-subtitle">Choose how to export your neighbors list. Export uses the same filtered list you see in the table.</p>
+              <h3 class="newsletter-modal-title" id="exportModalTitle">Export</h3>
+              <p class="newsletter-modal-subtitle">Uses the same filtered list you see in the table. Former and deceased residents are left out.</p>
             </div>
             <div class="newsletter-modal-content">
               ${filterCalloutHtml}
-              <div class="newsletter-modal-section">
-                <h4 class="newsletter-modal-section-title">Export options</h4>
-                <div class="newsletter-modal-instructions">
-                  <p><strong>Print</strong> — Open a print-friendly call sheet in a new window.</p>
-                  <p><strong>Export CSV</strong> — Download a spreadsheet file of the filtered list.</p>
-                  <p><strong>Copy all emails</strong> — Copy a comma-separated list of email addresses to paste into your email client.</p>
-                </div>
+              <div class="export-format-options" role="radiogroup" aria-label="What do you want to make?">
+                ${formatOptionsHtml}
+              </div>
+
+              <div class="export-panel" data-export-panel="contacts">
+                <p class="export-panel-summary" id="exportContactSummary"></p>
+                <details class="export-field-picker">
+                  <summary>Choose fields</summary>
+                  <div class="export-field-picker-actions">
+                    <button type="button" class="export-text-btn" id="exportFieldsSelectAll">Select all</button>
+                    <button type="button" class="export-text-btn" id="exportFieldsReset">Reset to defaults</button>
+                  </div>
+                  <div id="exportFieldGroups">${fieldGroupsHtml}</div>
+                </details>
+              </div>
+
+              <div class="export-panel" data-export-panel="labels">
+                <p class="export-panel-summary">${labelStats.labels.toLocaleString()} label${labelStats.labels === 1 ? '' : 's'}, one per address, including properties where no one is living right now.</p>
+                <label class="export-field-label" for="exportAddresseeMode">First line of each label</label>
+                <select id="exportAddresseeMode" class="export-select">
+                  <option value="neighbors" ${addresseeMode === 'neighbors' ? 'selected' : ''}>“${escapeHtml(NEIGHBORS_ADDRESSEE)}”</option>
+                  <option value="names" ${addresseeMode === 'names' ? 'selected' : ''}>Resident names when known</option>
+                  <option value="blank" ${addresseeMode === 'blank' ? 'selected' : ''}>Leave blank</option>
+                </select>
+                <p class="export-panel-note">The file also has a Resident Names column, so you can personalize individual labels before printing.</p>
+                ${labelWarningHtml}
+                <details class="export-help">
+                  <summary>How to print labels from this file</summary>
+                  <ul>
+                    <li><strong>Microsoft Word:</strong> Mailings → Start Mail Merge → Labels, choose your label (for example Avery 5160), then Select Recipients → Use an Existing List and pick this file. Insert the Addressee, Street Address, City, State, and ZIP fields.</li>
+                    <li><strong>Google Docs:</strong> open the file in Google Sheets, then use a label add-on such as Labelmaker.</li>
+                    <li><strong>Avery Design &amp; Print Online:</strong> free at avery.com. Choose your label, then import this file.</li>
+                  </ul>
+                </details>
+              </div>
+
+              <div class="export-panel" data-export-panel="print">
+                <p class="export-panel-summary">Opens a print-friendly call sheet for ${filteredAddresses.length.toLocaleString()} address${filteredAddresses.length === 1 ? '' : 'es'} in a new window. Print it, or choose “Save as PDF” in the print dialog.</p>
               </div>
             </div>
             <div class="newsletter-modal-actions">
-              <button type="button" class="btn-copy-emails" id="exportModalPrintBtn">Print</button>
-              <button type="button" class="btn-newsletter-link export-modal-btn-csv" id="exportModalCsvBtn">Export CSV</button>
+              <button type="button" class="btn-newsletter-link export-modal-btn-csv" id="exportModalPrimaryBtn">Download CSV</button>
               <button type="button" class="btn-copy-emails" id="exportModalEmailBlobBtn" ${emailBlobCount === 0 ? 'disabled title="No email addresses in the filtered list."' : ''}>Copy all emails</button>
             </div>
           </div>
@@ -13634,9 +13767,68 @@
       
       const overlay = document.getElementById('exportModalOverlay');
       const closeBtn = document.getElementById('exportModalClose');
-      const printBtn = document.getElementById('exportModalPrintBtn');
-      const csvBtn = document.getElementById('exportModalCsvBtn');
+      const primaryBtn = document.getElementById('exportModalPrimaryBtn');
+      const contactSummaryEl = document.getElementById('exportContactSummary');
+      const fieldGroupsEl = document.getElementById('exportFieldGroups');
+      const addresseeSelect = document.getElementById('exportAddresseeMode');
       const emailBlobBtn = document.getElementById('exportModalEmailBlobBtn');
+
+      function renderExportState() {
+        overlay.querySelectorAll('[data-export-panel]').forEach(panel => {
+          panel.hidden = panel.dataset.exportPanel !== exportFormat;
+        });
+        const columnCount = exportFields.filter(field => selectedFieldIds.has(field.id)).length;
+        const rowCount = residentStats.people + residentStats.emptyAddresses;
+        const emptyNote = residentStats.emptyAddresses
+          ? `, plus ${residentStats.emptyAddresses.toLocaleString()} address${residentStats.emptyAddresses === 1 ? '' : 'es'} with no current residents on file`
+          : '';
+        contactSummaryEl.textContent = `${rowCount.toLocaleString()} row${rowCount === 1 ? '' : 's'}: ${residentStats.people.toLocaleString()} neighbor${residentStats.people === 1 ? '' : 's'}${emptyNote}. ${columnCount} column${columnCount === 1 ? '' : 's'} selected.`;
+        primaryBtn.textContent = exportFormat === 'print' ? 'Print call sheet' : 'Download CSV';
+        primaryBtn.disabled = exportFormat === 'contacts' && columnCount === 0;
+      }
+
+      function setSelectedFields(ids) {
+        selectedFieldIds = new Set(ids);
+        fieldGroupsEl.querySelectorAll('input[type="checkbox"]').forEach(input => {
+          input.checked = selectedFieldIds.has(input.value);
+        });
+      }
+
+      overlay.querySelectorAll('input[name="exportFormat"]').forEach(input => {
+        input.addEventListener('change', () => {
+          if (!input.checked) return;
+          exportFormat = input.value;
+          writeExportPreference(EXPORT_FORMAT_STORAGE_KEY, exportFormat);
+          renderExportState();
+        });
+      });
+
+      fieldGroupsEl.addEventListener('change', (e) => {
+        const input = e.target;
+        if (!input || input.type !== 'checkbox') return;
+        if (input.checked) selectedFieldIds.add(input.value);
+        else selectedFieldIds.delete(input.value);
+        writeExportPreference(EXPORT_FIELDS_STORAGE_KEY, JSON.stringify(Array.from(selectedFieldIds)));
+        renderExportState();
+      });
+
+      document.getElementById('exportFieldsSelectAll').addEventListener('click', () => {
+        setSelectedFields(exportFields.map(field => field.id));
+        writeExportPreference(EXPORT_FIELDS_STORAGE_KEY, JSON.stringify(Array.from(selectedFieldIds)));
+        renderExportState();
+      });
+
+      document.getElementById('exportFieldsReset').addEventListener('click', () => {
+        setSelectedFields(resolveSelectedFieldIds(exportFields, null));
+        writeExportPreference(EXPORT_FIELDS_STORAGE_KEY, null);
+        renderExportState();
+      });
+
+      addresseeSelect.addEventListener('change', () => {
+        writeExportPreference(EXPORT_ADDRESSEE_STORAGE_KEY, addresseeSelect.value);
+      });
+
+      renderExportState();
       
       function closeModal() {
         if (overlay && overlay.parentNode) overlay.remove();
@@ -13654,21 +13846,27 @@
       });
       closeBtn.addEventListener('click', closeModal);
       
-      printBtn.addEventListener('click', () => {
-        if (filteredAddresses.length === 0) {
-          alert('No addresses to print. Please adjust your filters.');
-          return;
-        }
-        printAddresses();
-        closeModal();
-      });
-      
-      csvBtn.addEventListener('click', () => {
+      primaryBtn.addEventListener('click', () => {
         if (filteredAddresses.length === 0) {
           alert('No addresses to export. Please adjust your filters.');
           return;
         }
-        exportAddressesToCSV();
+        if (exportFormat === 'print') {
+          printAddresses();
+          closeModal();
+          return;
+        }
+        const result = exportFormat === 'labels'
+          ? buildMailingLabelExport({ ...exportSource, addresseeMode: addresseeSelect.value })
+          : buildContactExport({
+              ...exportSource,
+              fieldIds: Array.from(selectedFieldIds),
+              includeOtherColumns: isCurrentUserAdmin
+            });
+        downloadCsvFile(
+          toCsv(result.headers, result.rows),
+          buildExportFilename(currentZoneName, exportFormat === 'labels' ? 'mailing-labels' : 'contacts')
+        );
         closeModal();
       });
       
@@ -13776,73 +13974,32 @@
       }
       
       const headers = sheetData.headers;
+      const exportContext = createExportContext(headers);
       
-      // Find all relevant columns
-      const residentNameCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return lower.includes('resident name') || (lower.includes('name') && !lower.includes('first') && !lower.includes('last') && !lower.includes('nc'));
-      });
-      const homePhoneCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return (lower.includes('home phone') || lower.includes('homephone') || 
-                (lower.includes('phone') && lower.includes('home'))) && 
-               !lower.includes('cell') && !lower.includes('mobile');
-      });
-      const cellPhoneCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return (lower.includes('cell') || lower.includes('mobile')) && 
-               (lower.includes('phone') || lower.includes('cell') || lower.includes('mobile'));
-      });
-      const emailCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return lower.includes('email address') || (lower.includes('email') && !lower.includes('nc'));
-      });
-      const ageCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return lower === 'age' || lower.includes('age') && !lower.includes('phone') && !lower.includes('resident name');
-      });
-      const genderCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return lower === 'gender' || (lower.includes('gender') && !lower.includes('resident name'));
-      });
+      // Person-level columns
+      const homePhoneCol = findExportColumn(headers, 'homePhone');
+      const cellPhoneCol = findExportColumn(headers, 'cellPhone');
+      const emailCol = findExportColumn(headers, 'email');
+      const ageCol = findExportColumn(headers, 'age');
+      const genderCol = findExportColumn(headers, 'gender');
       
       // Address-level columns
-      const damageCol = findColumn(headers, 'damage');
-      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
-      const rebuildStageCol = findColumn(headers, ['rebuild', 'stage']);
-      const rebuildStatusCol = findColumn(headers, ['rebuild', 'status']);
-      const householdSizeCol = findColumn(headers, ['household', 'size']);
-      const addressNotesCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return lower.includes('address note') || (lower.includes('note') && !lower.includes('person') && !lower.includes('contact'));
-      });
-      const indoorsRemediatedCol = findColumn(headers, ['indoors', 'remediated']);
-      const soilRemediatedCol = findColumn(headers, ['soil', 'remediated']);
-      const remediationStatusCol = findColumn(headers, ['remediation', 'status'], ['note']);
-      const captainAssignedCol = findColumn(headers, ['captain', 'assigned']);
+      const damageCol = findExportColumn(headers, 'damage');
+      const addressPlanCol = findExportColumn(headers, 'addressPlan');
+      const rebuildStageCol = findExportColumn(headers, 'rebuildStage');
+      const rebuildStatusCol = findExportColumn(headers, 'buildStatus');
+      const householdSizeCol = findExportColumn(headers, 'householdSize');
+      const addressNotesCol = findExportColumn(headers, 'addressNotes');
+      const indoorsRemediatedCol = findExportColumn(headers, 'indoorsRemediated');
+      const soilRemediatedCol = findExportColumn(headers, 'soilRemediated');
+      const remediationStatusCol = findExportColumn(headers, 'remediationStatus');
+      const captainAssignedCol = findExportColumn(headers, 'captainAssigned');
       
       // Outreach and notes columns
-      const lastContactDateCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return lower === 'last contact date' ||
-               lower === 'last outreach attempt date' ||
-               lower.includes('last contact') || 
-               lower.includes('last outreach') ||
-               lower.includes('contact date') ||
-               lower.includes('outreach date') ||
-               lower.includes('contacted');
-      });
-      const contactNotesCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return (lower.includes('contact') && lower.includes('note')) ||
-               (lower.includes('outreach') && (lower.includes('note') || lower.includes('log')));
-      });
-      
-      // Find all person notes columns
-      const personNotesCols = headers.filter(h => {
-        const lower = h.toLowerCase();
-        return lower.includes('person note');
-      });
+      const lastContactDateCol = findExportColumn(headers, 'lastOutreach');
+      const contactNotesCol = findExportColumn(headers, 'outreachLog');
+      const personNotesField = resolveExportFields(headers).find(field => field.id === 'personNotes');
+      const personNotesCols = personNotesField ? personNotesField.columns : [];
       
       // Group addresses with full data
       const groupedByAddress = {};
@@ -13869,30 +14026,28 @@
         
         // Get person-level data
         rows.forEach(row => {
-          if (isAddressPlaceholder(row, headers)) return;
-          if (residentNameCol && row[residentNameCol] && row[residentNameCol].trim()) {
-            const person = {
-              name: row[residentNameCol].trim(),
-              homePhone: homePhoneCol ? (row[homePhoneCol] || '').trim() : '',
-              cellPhone: cellPhoneCol ? (row[cellPhoneCol] || '').trim() : '',
-              email: emailCol ? (row[emailCol] || '').trim() : '',
-              age: ageCol ? (row[ageCol] || '').trim() : '',
-              gender: genderCol ? (row[genderCol] || '').trim() : '',
-              lastContactDate: lastContactDateCol ? (row[lastContactDateCol] || '').trim() : '',
-              contactNotes: contactNotesCol ? (row[contactNotesCol] || '').trim() : '',
-              personNotes: []
-            };
-            
-            // Collect all person notes
-            personNotesCols.forEach(noteCol => {
-              const note = row[noteCol] ? (row[noteCol] || '').trim() : '';
-              if (note) {
-                person.personNotes.push({ label: noteCol, value: note });
-              }
-            });
-            
-            addressData.people.push(person);
-          }
+          if (!isCurrentResidentRow(row, exportContext)) return;
+          const person = {
+            name: getExportPersonName(row, exportContext),
+            homePhone: homePhoneCol ? (row[homePhoneCol] || '').trim() : '',
+            cellPhone: cellPhoneCol ? (row[cellPhoneCol] || '').trim() : '',
+            email: emailCol ? (row[emailCol] || '').trim() : '',
+            age: ageCol ? (row[ageCol] || '').trim() : '',
+            gender: genderCol ? (row[genderCol] || '').trim() : '',
+            lastContactDate: lastContactDateCol ? (row[lastContactDateCol] || '').trim() : '',
+            contactNotes: contactNotesCol ? (row[contactNotesCol] || '').trim() : '',
+            personNotes: []
+          };
+          
+          // Collect all person notes
+          personNotesCols.forEach(noteCol => {
+            const note = row[noteCol] ? (row[noteCol] || '').trim() : '';
+            if (note) {
+              person.personNotes.push({ label: noteCol, value: note });
+            }
+          });
+          
+          addressData.people.push(person);
         });
         
         groupedByAddress[addr] = addressData;
@@ -14036,14 +14191,13 @@
           <div class="print-meta">${new Date().toLocaleDateString()} • ${peopleCount} contact${peopleCount !== 1 ? 's' : ''} at ${addressCount} address${addressCount !== 1 ? 'es' : ''}</div>
       `;
       
-      Object.keys(groupedByAddress).sort().forEach(address => {
+      sortAddressesByStreetThenNumber(Object.keys(groupedByAddress)).forEach(address => {
         const data = groupedByAddress[address];
         html += `
           <div class="address-group">
             <div class="address-header">${escapeHtml(address)}</div>
             <div class="address-info">
               ${data.damage ? `<span class="address-info-item"><strong>Damage:</strong>${escapeHtml(data.damage)}</span>` : ''}
-              ${data.status ? `<span class="address-info-item"><strong>Status:</strong>${escapeHtml(data.status)}</span>` : ''}
               ${data.rebuildStage ? `<span class="address-info-item"><strong>Build Stage:</strong>${escapeHtml(data.rebuildStage)}</span>` : ''}
               ${data.rebuildStatus ? `<span class="address-info-item"><strong>Build:</strong>${escapeHtml(data.rebuildStatus)}</span>` : ''}
               ${data.householdSize ? `<span class="address-info-item"><strong>HH Size:</strong>${escapeHtml(data.householdSize)}</span>` : ''}
@@ -14074,11 +14228,6 @@
         `;
         
         data.people.forEach((person, index) => {
-          const phones = [];
-          if (person.homePhone) phones.push(`H:${escapeHtml(person.homePhone)}`);
-          if (person.cellPhone) phones.push(`C:${escapeHtml(person.cellPhone)}`);
-          const phoneDisplay = phones.length > 0 ? phones.join(' ') : '';
-          
           const ageGender = [];
           if (person.age) ageGender.push(escapeHtml(person.age));
           if (person.gender) ageGender.push(escapeHtml(person.gender));
@@ -14128,112 +14277,6 @@
       }, 250);
     }
     
-    // Export addresses to CSV
-    function exportAddressesToCSV() {
-      const filteredAddresses = getFilteredAddresses();
-      if (filteredAddresses.length === 0) {
-        alert('No addresses to export. Please adjust your filters.');
-        return;
-      }
-      
-      const headers = sheetData.headers;
-      const residentNameCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return lower.includes('resident name') || (lower.includes('name') && !lower.includes('first') && !lower.includes('last') && !lower.includes('nc'));
-      });
-      const homePhoneCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return (lower.includes('home phone') || lower.includes('homephone') ||
-                (lower.includes('phone') && lower.includes('home'))) &&
-               !lower.includes('cell') && !lower.includes('mobile');
-      });
-      const cellPhoneCol = headers.find(h => {
-        const lower = h.toLowerCase();
-        return (lower.includes('cell') || lower.includes('mobile')) &&
-               (lower.includes('phone') || lower.includes('cell') || lower.includes('mobile'));
-      });
-      const emailCol = findColumn(headers, 'email');
-      const damageCol = findColumn(headers, 'damage');
-      const addressPlanCol = findColumn(headers, ['address', 'plan'], ['note']);
-      const rebuildCol = findColumn(headers, ['build', 'status'], ['intent']);
-      const remediationStatusCol = findColumn(headers, ['remediation', 'status'], ['note']);
-      const contactDateCol = findOutreachDateColumn(headers);
-      
-      // Build CSV headers
-      const csvHeaders = ['Address', 'Name'];
-      if (homePhoneCol) csvHeaders.push('Home Phone');
-      if (cellPhoneCol) csvHeaders.push('Cell Phone');
-      if (emailCol) csvHeaders.push('Email');
-      if (damageCol) csvHeaders.push('Damage Status');
-      if (addressPlanCol) csvHeaders.push('Address Plan');
-      if (rebuildCol) csvHeaders.push('Build Status');
-      if (remediationStatusCol) csvHeaders.push('Remediation Status');
-      if (contactDateCol) csvHeaders.push('Last Outreach Attempt');
-      
-      // Build CSV rows
-      const csvRows = [];
-      filteredAddresses.forEach(addr => {
-        const rows = sheetData.addressMap.get(addr);
-        if (!rows || rows.length === 0) {
-          // Address with no people
-          const row = [addr, ''];
-          if (homePhoneCol) row.push('');
-          if (cellPhoneCol) row.push('');
-          if (emailCol) row.push('');
-          if (damageCol) row.push('');
-          if (addressPlanCol) row.push('');
-          if (rebuildCol) row.push('');
-          if (remediationStatusCol) row.push('');
-          if (contactDateCol) row.push('');
-          csvRows.push(row);
-          return;
-        }
-        
-        // One row per person
-        rows.forEach((row, index) => {
-          const personName = residentNameCol ? (row[residentNameCol] || '').trim() : '';
-          // Only include row if person has a name
-          if (personName || index === 0) {
-            const csvRow = [addr, personName];
-            if (homePhoneCol) csvRow.push(row[homePhoneCol] || '');
-            if (cellPhoneCol) csvRow.push(row[cellPhoneCol] || '');
-            if (emailCol) csvRow.push(row[emailCol] || '');
-            if (damageCol) csvRow.push(index === 0 ? (rows[0][damageCol] || '') : '');
-            if (addressPlanCol) csvRow.push(index === 0 ? (rows[0][addressPlanCol] || '') : '');
-            if (rebuildCol) csvRow.push(index === 0 ? (rows[0][rebuildCol] || '') : '');
-            if (remediationStatusCol) csvRow.push(index === 0 ? (rows[0][remediationStatusCol] || '') : '');
-            if (contactDateCol) csvRow.push(row[contactDateCol] || '');
-            csvRows.push(csvRow);
-          }
-        });
-      });
-      
-      // Convert to CSV format
-      const escapeCSV = (cell) => {
-        const str = String(cell || '');
-        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-          return `"${str.replace(/"/g, '""')}"`;
-        }
-        return str;
-      };
-      
-      const csv = [
-        csvHeaders.map(escapeCSV).join(','),
-        ...csvRows.map(row => row.map(escapeCSV).join(','))
-      ].join('\n');
-      
-      // Download CSV
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `addresses-${Date.now()}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-
     function displayAddressList(addresses) {
       // Clear selected address when showing list
       selectedAddress = null;
