@@ -628,6 +628,14 @@ function toggleElement(element, force = null, displayType = 'block') {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    normalizeStreet,
+    getTrimmedAddressValue,
+    normalizeHeaderKey,
+    findAddressColumns,
+    formatAddressUnit,
+    buildStreetString,
+    buildAddressString,
+    findColumn,
     isSuccessfullyContactedHeader,
     isSuccessfullyContactedValue,
     isBlankOutreachValue,
