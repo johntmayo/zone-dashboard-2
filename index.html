@@ -15547,7 +15547,7 @@
         if (addressPlaceholder) {
           html += `
             </div>
-            <div class="outreach-status"><span class="outreach-status__value">Address placeholder — add or convert a resident before logging person outreach.</span></div>
+            <div class="outreach-status"><span class="outreach-status__value">This name is a stand-in. Replace Placeholder Resident with the person who lives here before you log outreach. For anyone else at this address, add a new resident.</span></div>
           `;
         } else if (isSignedIn()) {
           const outreachLogValue = outreachLogCol ? (row[outreachLogCol] || '') : '';
@@ -16611,7 +16611,9 @@
                 <div class="person-details-grid">
                   ${textField('Name', nameCol, 'text', {
                     fieldClass: 'person-details-field--full',
-                    helperText: 'Use this field for spelling or formatting corrections. If this is a different person, add them as a new resident.'
+                    helperText: addressPlaceholder
+                      ? 'Replace Placeholder Resident with the real name, then save. That turns this stand-in into a resident.'
+                      : 'Use this field to fix spelling or formatting. If this is a different person, add them as a new resident.'
                   })}
                   ${textField('Approximate Age', ageCol, 'text', {
                     fieldClass: 'person-details-field--compact',
@@ -22122,7 +22124,7 @@
         const rows = sheetData.addressMap.get(address);
         const row = rows ? rows.find(r => r.__originalIndex === originalRowIndex) : null;
         if (!row || isAddressPlaceholder(row, headers)) {
-          throw new Error('Add or convert a resident before logging person outreach.');
+          throw new Error('Replace Placeholder Resident with the person who lives here before you log outreach.');
         }
         const useResidentId = sheetData.useResidentId && row && row['resident_id'];
         const existingOutreachLog = contactNotesCol ? String(row?.[contactNotesCol] || '').trim() : '';
