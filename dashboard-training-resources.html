@@ -146,10 +146,23 @@
       border-bottom: 2px solid var(--deep-space-blue);
     }
 
+    .sidebar-nav h3 {
+      margin: 0 0 8px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
     .nav-list {
       list-style: none;
       padding: 0;
       margin: 0;
+    }
+
+    .nav-list + h3 {
+      margin-top: 20px;
     }
 
     .nav-list li {
@@ -193,14 +206,59 @@
       line-height: 1.65;
     }
 
+    .intro p + p {
+      margin-top: 8px;
+    }
+
+    .intro a {
+      color: var(--deep-space-blue);
+      font-weight: 700;
+      text-underline-offset: 2px;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-bottom: 24px;
+      padding: 12px 24px;
+      color: var(--porcelain);
+      background: var(--deep-space-blue);
+      border: 2px solid var(--text-primary);
+      border-radius: var(--radius-medium);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .back-link:hover {
+      opacity: 0.9;
+    }
+
+    .video-section {
+      scroll-margin-top: 20px;
+    }
+
+    .video-section + .video-section {
+      margin-top: 48px;
+    }
+
+    .video-section > h2 {
+      margin: 0 0 20px;
+      padding-bottom: 10px;
+      color: var(--deep-space-blue);
+      font-size: 1.6rem;
+      font-weight: 900;
+      line-height: 1.2;
+      border-bottom: 2px solid var(--golden-orange);
+    }
+
     .video-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 24px;
-      align-items: start;
     }
 
     .video-card {
+      display: flex;
+      flex-direction: column;
       scroll-margin-top: 20px;
       overflow: hidden;
       background: var(--surface-white);
@@ -210,12 +268,8 @@
       box-shadow: var(--shadow-card);
     }
 
-    .video-card:first-child {
-      border-top-color: var(--golden-orange);
-    }
-
     .video-card__body {
-      min-height: 170px;
+      flex: 1;
       padding: 20px 20px 18px;
     }
 
@@ -229,7 +283,7 @@
       text-transform: uppercase;
     }
 
-    .video-card h2 {
+    .video-card h3 {
       margin: 0 0 10px;
       color: var(--deep-space-blue);
       font-size: 19px;
@@ -293,10 +347,6 @@
     @media (max-width: 760px) {
       .video-grid {
         grid-template-columns: 1fr;
-      }
-
-      .video-card__body {
-        min-height: 0;
       }
     }
 
@@ -363,6 +413,7 @@
       <aside class="sidebar">
         <nav class="sidebar-nav" aria-label="Training videos">
           <h2>Navigation</h2>
+          <h3>Dashboard Overview</h3>
           <ul class="nav-list">
             <li><a href="#video-login-homepage">Login and Homepage</a></li>
             <li><a href="#video-details-panel">Details Panel</a></li>
@@ -370,105 +421,157 @@
             <li><a href="#video-neighbors">Neighbors</a></li>
             <li><a href="#video-tools-resources">Tools and Resources</a></li>
           </ul>
+          <h3>How-To Guides</h3>
+          <ul class="nav-list">
+            <li><a href="#video-export-list">Export a List</a></li>
+            <li><a href="#video-edit-person-details">Edit Person Details</a></li>
+          </ul>
         </nav>
       </aside>
 
       <div class="page-content">
+        <a href="index.html" class="back-link">← Open Dashboard</a>
+
         <section class="intro" aria-label="Introduction">
-          <p>This page houses training videos to help you get started in the dashboard.</p>
+          <p>New to the dashboard? Start with the <a href="#dashboard-overview">Dashboard Overview</a> videos and watch them in order. Each one walks through a different part of the dashboard.</p>
+          <p>Looking for how to do something specific? Jump to the <a href="#how-to-guides">How-To Guides</a>.</p>
         </section>
 
-        <div class="video-grid">
-          <article class="video-card" id="video-login-homepage">
-            <div class="video-card__body">
-              <span class="video-card__number">Video 01</span>
-              <h2>Login and Homepage: Altagether Zone Dashboard Overview</h2>
-              <p>This video provides a quick overview of logging into the Zone dashboard for the first time, as well as an overview of the homepage and the general purpose of the dashboard.</p>
-            </div>
-            <div class="video-frame">
-              <iframe
-                src="https://www.youtube-nocookie.com/embed/GQJFtceJTgc?rel=0"
-                title="Login and Homepage: Altagether Zone Dashboard Overview"
-                loading="lazy"
-                referrerpolicy="strict-origin-when-cross-origin"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowfullscreen>
-              </iframe>
-            </div>
-          </article>
+        <section class="video-section" id="dashboard-overview" aria-labelledby="dashboard-overview-heading">
+          <h2 id="dashboard-overview-heading">Dashboard Overview</h2>
+          <div class="video-grid">
+            <article class="video-card" id="video-login-homepage">
+              <div class="video-card__body">
+                <span class="video-card__number">Part 1 of 5</span>
+                <h3>Login and Homepage</h3>
+                <p>This video provides a quick overview of logging into the Zone dashboard for the first time, as well as an overview of the homepage and the general purpose of the dashboard.</p>
+              </div>
+              <div class="video-frame">
+                <iframe
+                  src="https://www.youtube-nocookie.com/embed/GQJFtceJTgc?rel=0"
+                  title="Login and Homepage: Altagether Zone Dashboard Overview"
+                  loading="lazy"
+                  referrerpolicy="strict-origin-when-cross-origin"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen>
+                </iframe>
+              </div>
+            </article>
 
-          <article class="video-card" id="video-details-panel">
-            <div class="video-card__body">
-              <span class="video-card__number">Video 02</span>
-              <h2>Details Panel: Altagether Zone Dashboard Overview</h2>
-              <p>An overview of the details panel in the Zone dashboard, where you can enter and edit info and notes about addresses and residences in your zone.</p>
-            </div>
-            <div class="video-frame">
-              <iframe
-                src="https://www.youtube-nocookie.com/embed/GBjFVJEZ5XE?rel=0"
-                title="Details Panel: Altagether Zone Dashboard Overview"
-                loading="lazy"
-                referrerpolicy="strict-origin-when-cross-origin"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowfullscreen>
-              </iframe>
-            </div>
-          </article>
+            <article class="video-card" id="video-details-panel">
+              <div class="video-card__body">
+                <span class="video-card__number">Part 2 of 5</span>
+                <h3>Details Panel</h3>
+                <p>An overview of the details panel in the Zone dashboard, where you can enter and edit info and notes about addresses and residences in your zone.</p>
+              </div>
+              <div class="video-frame">
+                <iframe
+                  src="https://www.youtube-nocookie.com/embed/GBjFVJEZ5XE?rel=0"
+                  title="Details Panel: Altagether Zone Dashboard Overview"
+                  loading="lazy"
+                  referrerpolicy="strict-origin-when-cross-origin"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen>
+                </iframe>
+              </div>
+            </article>
 
-          <article class="video-card" id="video-map-page">
-            <div class="video-card__body">
-              <span class="video-card__number">Video 03</span>
-              <h2>Map Page: Altagether Zone Dashboard Overview</h2>
-              <p>A quick overview of the map section of the Altagether Zone dashboard, including filters, layers, and color keys.</p>
-            </div>
-            <div class="video-frame">
-              <iframe
-                src="https://www.youtube-nocookie.com/embed/FYnkXFbYCq8?rel=0"
-                title="Map Page: Altagether Zone Dashboard Overview"
-                loading="lazy"
-                referrerpolicy="strict-origin-when-cross-origin"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowfullscreen>
-              </iframe>
-            </div>
-          </article>
+            <article class="video-card" id="video-map-page">
+              <div class="video-card__body">
+                <span class="video-card__number">Part 3 of 5</span>
+                <h3>Map Page</h3>
+                <p>A quick overview of the map section of the Altagether Zone dashboard, including filters, layers, and color keys.</p>
+              </div>
+              <div class="video-frame">
+                <iframe
+                  src="https://www.youtube-nocookie.com/embed/FYnkXFbYCq8?rel=0"
+                  title="Map Page: Altagether Zone Dashboard Overview"
+                  loading="lazy"
+                  referrerpolicy="strict-origin-when-cross-origin"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen>
+                </iframe>
+              </div>
+            </article>
 
-          <article class="video-card" id="video-neighbors">
-            <div class="video-card__body">
-              <span class="video-card__number">Video 04</span>
-              <h2>Neighbors: Altagether Zone Dashboard Overview</h2>
-              <p>A look at the Neighbors tab of the Altagether Zone dashboard.</p>
-            </div>
-            <div class="video-frame">
-              <iframe
-                src="https://www.youtube-nocookie.com/embed/0KGG-IVX6gc?rel=0"
-                title="Neighbors: Altagether Zone Dashboard Overview"
-                loading="lazy"
-                referrerpolicy="strict-origin-when-cross-origin"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowfullscreen>
-              </iframe>
-            </div>
-          </article>
+            <article class="video-card" id="video-neighbors">
+              <div class="video-card__body">
+                <span class="video-card__number">Part 4 of 5</span>
+                <h3>Neighbors</h3>
+                <p>A look at the Neighbors tab of the Altagether Zone dashboard.</p>
+              </div>
+              <div class="video-frame">
+                <iframe
+                  src="https://www.youtube-nocookie.com/embed/0KGG-IVX6gc?rel=0"
+                  title="Neighbors: Altagether Zone Dashboard Overview"
+                  loading="lazy"
+                  referrerpolicy="strict-origin-when-cross-origin"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen>
+                </iframe>
+              </div>
+            </article>
 
-          <article class="video-card" id="video-tools-resources">
-            <div class="video-card__body">
-              <span class="video-card__number">Video 05</span>
-              <h2>Tools and Resources: Altagether Zone Dashboard Overview</h2>
-              <p>A quick overview of various tools and resources in the Zone dashboard.</p>
-            </div>
-            <div class="video-frame">
-              <iframe
-                src="https://www.youtube-nocookie.com/embed/7CFutFiEFDo?rel=0"
-                title="Tools and Resources: Altagether Zone Dashboard Overview"
-                loading="lazy"
-                referrerpolicy="strict-origin-when-cross-origin"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowfullscreen>
-              </iframe>
-            </div>
-          </article>
-        </div>
+            <article class="video-card" id="video-tools-resources">
+              <div class="video-card__body">
+                <span class="video-card__number">Part 5 of 5</span>
+                <h3>Tools and Resources</h3>
+                <p>A quick overview of various tools and resources in the Zone dashboard.</p>
+              </div>
+              <div class="video-frame">
+                <iframe
+                  src="https://www.youtube-nocookie.com/embed/7CFutFiEFDo?rel=0"
+                  title="Tools and Resources: Altagether Zone Dashboard Overview"
+                  loading="lazy"
+                  referrerpolicy="strict-origin-when-cross-origin"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen>
+                </iframe>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="video-section" id="how-to-guides" aria-labelledby="how-to-guides-heading">
+          <h2 id="how-to-guides-heading">How-To Guides</h2>
+          <div class="video-grid">
+            <article class="video-card" id="video-export-list">
+              <div class="video-card__body">
+                <span class="video-card__number">How-To</span>
+                <h3>How to Export a List</h3>
+                <p>This video shows how to export a list from the Altagether Zone Dashboard.</p>
+              </div>
+              <div class="video-frame">
+                <iframe
+                  src="https://www.youtube-nocookie.com/embed/fUGaKpL3kTI?rel=0"
+                  title="How to Export a List: Altagether Zone Dashboard"
+                  loading="lazy"
+                  referrerpolicy="strict-origin-when-cross-origin"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen>
+                </iframe>
+              </div>
+            </article>
+
+            <article class="video-card" id="video-edit-person-details">
+              <div class="video-card__body">
+                <span class="video-card__number">How-To</span>
+                <h3>How to Edit Person Details</h3>
+                <p>This video shows how to edit person details such as phone number and email in the Altagether Zone Dashboard.</p>
+              </div>
+              <div class="video-frame">
+                <iframe
+                  src="https://www.youtube-nocookie.com/embed/UVSW_1LbTLY?rel=0"
+                  title="How to Edit Person Details: Altagether Zone Dashboard"
+                  loading="lazy"
+                  referrerpolicy="strict-origin-when-cross-origin"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen>
+                </iframe>
+              </div>
+            </article>
+          </div>
+        </section>
       </div>
     </div>
   </main>
