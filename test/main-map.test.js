@@ -657,7 +657,7 @@ test('resident name editing protects identity and converts placeholders', () => 
   assert.match(html, /data-name-change-choice="cancel">Cancel/);
   assert.match(html, /placeholderNameChange === 'placeholder_conversion'[\s\S]*?value: newValue/);
   assert.match(html, /Mark the current person as Former Resident, then add the new resident separately/);
-  assert.match(html, /Use this field for spelling or formatting corrections\. If this is a different person, add them as a new resident\./);
+  assert.match(html, /addressPlaceholder[\s\S]*?\? 'Replace Placeholder Resident with the real name, then save\. That turns this stand-in into a resident\.'[\s\S]*?: 'Use this field to fix spelling or formatting\. If this is a different person, add them as a new resident\.'/);
 });
 
 test('address placeholders stay visible but are excluded from person workflows', () => {
@@ -669,7 +669,7 @@ test('address placeholders stay visible but are excluded from person workflows',
   assert.match(html, /function getActiveRealResidentRows[\s\S]*?!isAddressPlaceholder\(row, headers \|\| \[\]\)/);
   assert.match(html, /getActiveRealResidentRows\(rows, headers, formerResidentCol\)\.forEach/);
   assert.match(html, /person\.address && !isAddressPlaceholder\(person\.row, headers\)/);
-  assert.match(html, /addressPlaceholder[\s\S]*?Address placeholder — add or convert a resident before logging person outreach/);
+  assert.match(html, /addressPlaceholder[\s\S]*?This name is a stand-in\. Replace Placeholder Resident with the person who lives here before you log outreach\. For anyone else at this address, add a new resident\./);
   assert.match(checkIn, /residentRows = useRows\.filter[\s\S]*?!isAddressPlaceholder\(row, headers\)/);
   assert.match(checkIn, /setAddressPlaceholderValue\(headers, valuesByColumn, false\)/);
 });
