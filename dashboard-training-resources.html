@@ -303,13 +303,140 @@
       position: relative;
       overflow: hidden;
       aspect-ratio: 16 / 9;
-      margin: 0 12px 12px;
+      margin: 0 12px 10px;
       background: #111827;
       border: 2px solid var(--deep-space-blue);
       border-radius: var(--radius-small);
     }
 
-    .video-frame iframe {
+    .video-thumb {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      padding: 0;
+      background: none;
+      border: 0;
+      cursor: pointer;
+    }
+
+    .video-thumb:focus-visible {
+      outline-offset: -4px;
+    }
+
+    .video-thumb img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.2s ease;
+    }
+
+    .video-thumb:hover img {
+      transform: scale(1.03);
+    }
+
+    .video-thumb__play {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 64px;
+      height: 64px;
+      background: var(--deep-space-blue);
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+      transform: translate(-50%, -50%);
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+
+    .video-thumb__play::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 54%;
+      border-style: solid;
+      border-width: 11px 0 11px 18px;
+      border-color: transparent transparent transparent #ffffff;
+      transform: translate(-50%, -50%);
+    }
+
+    .video-thumb:hover .video-thumb__play,
+    .video-thumb:focus-visible .video-thumb__play {
+      background: var(--golden-orange);
+      transform: translate(-50%, -50%) scale(1.08);
+    }
+
+    .video-card__youtube {
+      align-self: flex-start;
+      margin: 0 14px 14px;
+      color: var(--deep-space-blue);
+      font-size: 13px;
+      font-weight: 700;
+      text-underline-offset: 2px;
+    }
+
+    .video-dialog {
+      width: min(1200px, 94vw, calc((100vh - 120px) * 16 / 9));
+      max-width: none;
+      max-height: none;
+      padding: 0;
+      overflow: hidden;
+      color: #ffffff;
+      background: #111827;
+      border: 2px solid var(--text-primary);
+      border-radius: var(--radius-medium);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .video-dialog::backdrop {
+      background: rgba(17, 24, 39, 0.85);
+    }
+
+    body:has(.video-dialog[open]) {
+      overflow: hidden;
+    }
+
+    .video-dialog__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 12px 12px 20px;
+    }
+
+    .video-dialog__title {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .video-dialog__close {
+      flex: 0 0 auto;
+      padding: 8px 14px;
+      color: #ffffff;
+      background: transparent;
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      border-radius: var(--radius-small);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .video-dialog__close:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .video-dialog__frame {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      background: #000000;
+    }
+
+    .video-dialog__frame iframe {
       position: absolute;
       inset: 0;
       width: 100%;
@@ -387,6 +514,18 @@
       .video-frame {
         margin: 0 8px 8px;
       }
+
+      .video-card__youtube {
+        margin: 0 10px 12px;
+      }
+
+      .video-dialog__header {
+        padding: 10px 10px 10px 14px;
+      }
+
+      .video-dialog__title {
+        font-size: 15px;
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -447,15 +586,12 @@
                 <p>This video provides a quick overview of logging into the Zone dashboard for the first time, as well as an overview of the homepage and the general purpose of the dashboard.</p>
               </div>
               <div class="video-frame">
-                <iframe
-                  src="https://www.youtube-nocookie.com/embed/GQJFtceJTgc?rel=0"
-                  title="Login and Homepage: Altagether Zone Dashboard Overview"
-                  loading="lazy"
-                  referrerpolicy="strict-origin-when-cross-origin"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowfullscreen>
-                </iframe>
+                <button type="button" class="video-thumb" data-video-id="GQJFtceJTgc" aria-label="Play video: Login and Homepage">
+                  <img src="https://i.ytimg.com/vi/GQJFtceJTgc/hqdefault.jpg" alt="" loading="lazy">
+                  <span class="video-thumb__play" aria-hidden="true"></span>
+                </button>
               </div>
+              <a class="video-card__youtube" href="https://youtu.be/GQJFtceJTgc" target="_blank" rel="noopener">Open on YouTube</a>
             </article>
 
             <article class="video-card" id="video-details-panel">
@@ -465,15 +601,12 @@
                 <p>An overview of the details panel in the Zone dashboard, where you can enter and edit info and notes about addresses and residences in your zone.</p>
               </div>
               <div class="video-frame">
-                <iframe
-                  src="https://www.youtube-nocookie.com/embed/GBjFVJEZ5XE?rel=0"
-                  title="Details Panel: Altagether Zone Dashboard Overview"
-                  loading="lazy"
-                  referrerpolicy="strict-origin-when-cross-origin"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowfullscreen>
-                </iframe>
+                <button type="button" class="video-thumb" data-video-id="GBjFVJEZ5XE" aria-label="Play video: Details Panel">
+                  <img src="https://i.ytimg.com/vi/GBjFVJEZ5XE/hqdefault.jpg" alt="" loading="lazy">
+                  <span class="video-thumb__play" aria-hidden="true"></span>
+                </button>
               </div>
+              <a class="video-card__youtube" href="https://youtu.be/GBjFVJEZ5XE" target="_blank" rel="noopener">Open on YouTube</a>
             </article>
 
             <article class="video-card" id="video-map-page">
@@ -483,15 +616,12 @@
                 <p>A quick overview of the map section of the Altagether Zone dashboard, including filters, layers, and color keys.</p>
               </div>
               <div class="video-frame">
-                <iframe
-                  src="https://www.youtube-nocookie.com/embed/FYnkXFbYCq8?rel=0"
-                  title="Map Page: Altagether Zone Dashboard Overview"
-                  loading="lazy"
-                  referrerpolicy="strict-origin-when-cross-origin"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowfullscreen>
-                </iframe>
+                <button type="button" class="video-thumb" data-video-id="FYnkXFbYCq8" aria-label="Play video: Map Page">
+                  <img src="https://i.ytimg.com/vi/FYnkXFbYCq8/hqdefault.jpg" alt="" loading="lazy">
+                  <span class="video-thumb__play" aria-hidden="true"></span>
+                </button>
               </div>
+              <a class="video-card__youtube" href="https://youtu.be/FYnkXFbYCq8" target="_blank" rel="noopener">Open on YouTube</a>
             </article>
 
             <article class="video-card" id="video-neighbors">
@@ -501,15 +631,12 @@
                 <p>A look at the Neighbors tab of the Altagether Zone dashboard.</p>
               </div>
               <div class="video-frame">
-                <iframe
-                  src="https://www.youtube-nocookie.com/embed/0KGG-IVX6gc?rel=0"
-                  title="Neighbors: Altagether Zone Dashboard Overview"
-                  loading="lazy"
-                  referrerpolicy="strict-origin-when-cross-origin"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowfullscreen>
-                </iframe>
+                <button type="button" class="video-thumb" data-video-id="0KGG-IVX6gc" aria-label="Play video: Neighbors">
+                  <img src="https://i.ytimg.com/vi/0KGG-IVX6gc/hqdefault.jpg" alt="" loading="lazy">
+                  <span class="video-thumb__play" aria-hidden="true"></span>
+                </button>
               </div>
+              <a class="video-card__youtube" href="https://youtu.be/0KGG-IVX6gc" target="_blank" rel="noopener">Open on YouTube</a>
             </article>
 
             <article class="video-card" id="video-tools-resources">
@@ -519,15 +646,12 @@
                 <p>A quick overview of various tools and resources in the Zone dashboard.</p>
               </div>
               <div class="video-frame">
-                <iframe
-                  src="https://www.youtube-nocookie.com/embed/7CFutFiEFDo?rel=0"
-                  title="Tools and Resources: Altagether Zone Dashboard Overview"
-                  loading="lazy"
-                  referrerpolicy="strict-origin-when-cross-origin"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowfullscreen>
-                </iframe>
+                <button type="button" class="video-thumb" data-video-id="7CFutFiEFDo" aria-label="Play video: Tools and Resources">
+                  <img src="https://i.ytimg.com/vi/7CFutFiEFDo/hqdefault.jpg" alt="" loading="lazy">
+                  <span class="video-thumb__play" aria-hidden="true"></span>
+                </button>
               </div>
+              <a class="video-card__youtube" href="https://youtu.be/7CFutFiEFDo" target="_blank" rel="noopener">Open on YouTube</a>
             </article>
           </div>
         </section>
@@ -542,15 +666,12 @@
                 <p>This video shows how to export a list from the Altagether Zone Dashboard.</p>
               </div>
               <div class="video-frame">
-                <iframe
-                  src="https://www.youtube-nocookie.com/embed/fUGaKpL3kTI?rel=0"
-                  title="How to Export a List: Altagether Zone Dashboard"
-                  loading="lazy"
-                  referrerpolicy="strict-origin-when-cross-origin"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowfullscreen>
-                </iframe>
+                <button type="button" class="video-thumb" data-video-id="fUGaKpL3kTI" aria-label="Play video: How to Export a List">
+                  <img src="https://i.ytimg.com/vi/fUGaKpL3kTI/hqdefault.jpg" alt="" loading="lazy">
+                  <span class="video-thumb__play" aria-hidden="true"></span>
+                </button>
               </div>
+              <a class="video-card__youtube" href="https://youtu.be/fUGaKpL3kTI" target="_blank" rel="noopener">Open on YouTube</a>
             </article>
 
             <article class="video-card" id="video-edit-person-details">
@@ -560,15 +681,12 @@
                 <p>This video shows how to edit person details such as phone number and email in the Altagether Zone Dashboard.</p>
               </div>
               <div class="video-frame">
-                <iframe
-                  src="https://www.youtube-nocookie.com/embed/UVSW_1LbTLY?rel=0"
-                  title="How to Edit Person Details: Altagether Zone Dashboard"
-                  loading="lazy"
-                  referrerpolicy="strict-origin-when-cross-origin"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowfullscreen>
-                </iframe>
+                <button type="button" class="video-thumb" data-video-id="UVSW_1LbTLY" aria-label="Play video: How to Edit Person Details">
+                  <img src="https://i.ytimg.com/vi/UVSW_1LbTLY/hqdefault.jpg" alt="" loading="lazy">
+                  <span class="video-thumb__play" aria-hidden="true"></span>
+                </button>
               </div>
+              <a class="video-card__youtube" href="https://youtu.be/UVSW_1LbTLY" target="_blank" rel="noopener">Open on YouTube</a>
             </article>
           </div>
         </section>
@@ -577,5 +695,51 @@
   </main>
 
   <footer>Altagether · Neighbors helping neighbors · <a href="mailto:info@altagether.org">info@altagether.org</a></footer>
+
+  <dialog class="video-dialog" id="video-dialog" aria-labelledby="video-dialog-title">
+    <div class="video-dialog__header">
+      <h2 class="video-dialog__title" id="video-dialog-title"></h2>
+      <button type="button" class="video-dialog__close">Close ✕</button>
+    </div>
+    <div class="video-dialog__frame"></div>
+  </dialog>
+
+  <script>
+    (function () {
+      var dialog = document.getElementById('video-dialog');
+      var dialogTitle = document.getElementById('video-dialog-title');
+      var dialogFrame = dialog.querySelector('.video-dialog__frame');
+
+      document.querySelectorAll('.video-thumb').forEach(function (button) {
+        button.addEventListener('click', function () {
+          var title = button.closest('.video-card').querySelector('h3').textContent;
+          var iframe = document.createElement('iframe');
+          iframe.src = 'https://www.youtube-nocookie.com/embed/' + button.dataset.videoId + '?rel=0&autoplay=1';
+          iframe.title = title;
+          iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+          iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+          iframe.allowFullscreen = true;
+
+          dialogTitle.textContent = title;
+          dialogFrame.replaceChildren(iframe);
+          dialog.showModal();
+        });
+      });
+
+      dialog.querySelector('.video-dialog__close').addEventListener('click', function () {
+        dialog.close();
+      });
+
+      dialog.addEventListener('click', function (event) {
+        if (event.target === dialog) {
+          dialog.close();
+        }
+      });
+
+      dialog.addEventListener('close', function () {
+        dialogFrame.replaceChildren();
+      });
+    })();
+  </script>
 </body>
 </html>
