@@ -19,6 +19,30 @@ test('Successfully Contacted is a persistent person tag, not a campaign write', 
   assert.doesNotMatch(html, /\/api\/contact-checkin\/review/);
 });
 
+test('Batch Tag person rows credit Successfully Contacted when no outreach date is logged', () => {
+  assert.match(html, /formatBatchDateDisplay = \(rawValue, successfullyContacted\) => \{[\s\S]*?return successfullyContacted \? 'Successfully contacted' : 'No outreach logged yet'/);
+  assert.match(html, /formatBatchDateDisplay\(person\.lastContactRaw, person\.successfullyContacted\)/);
+  assert.match(html, /const successfullyContacted = Boolean\(\s*successfullyContactedCol &&\s*typeof isSuccessfullyContactedValue === 'function' &&\s*isSuccessfullyContactedValue\(row\[successfullyContactedCol\]\)\s*\)/);
+  assert.match(html, /person\.successfullyContacted = typeof isSuccessfullyContactedValue === 'function'[\s\S]*?isSuccessfullyContactedValue\(successfullyContactedWriteValue\)/);
+
+  const vm = require('node:vm');
+  const context = { console, module: { exports: {} }, exports: {} };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(root, 'public/js/utils.js'), 'utf8'), context);
+  const source = html.match(/const formatBatchDateDisplay = \(rawValue, successfullyContacted\) => \{[\s\S]*?\n      \};/);
+  assert.ok(source, 'formatBatchDateDisplay source should be extractable');
+  const formatBatchDateDisplay = vm.runInContext(
+    `(${source[0].replace(/^const formatBatchDateDisplay = /, '').replace(/;$/, '')})`,
+    context
+  );
+  assert.equal(formatBatchDateDisplay('', true), 'Successfully contacted');
+  assert.equal(formatBatchDateDisplay('   ', true), 'Successfully contacted');
+  assert.equal(formatBatchDateDisplay('', false), 'No outreach logged yet');
+  assert.equal(formatBatchDateDisplay('not-a-date', true), 'Last outreach logged: not-a-date');
+  assert.match(formatBatchDateDisplay('7/8/2026', true), /^Last outreach logged: July 8, 2026$/);
+  assert.match(formatBatchDateDisplay('7/8/2026', false), /^Last outreach logged: July 8, 2026$/);
+});
+
 test('Batch Tagging exposes Successfully contacted separately from outreach status', () => {
   assert.match(html, /id="batchPersonSuccessfullyContacted"/);
   assert.match(html, /id="batchPersonSuccessfullyContactedHelp"/);

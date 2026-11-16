@@ -24387,9 +24387,9 @@
         }
         return output;
       };
-      const formatBatchDateDisplay = (rawValue) => {
+      const formatBatchDateDisplay = (rawValue, successfullyContacted) => {
         const trimmed = String(rawValue || '').trim();
-        if (!trimmed) return 'No outreach logged yet';
+        if (!trimmed) return successfullyContacted ? 'Successfully contacted' : 'No outreach logged yet';
         const parsed = parseDate(trimmed);
         if (!parsed) return `Last outreach logged: ${trimmed}`;
         return `Last outreach logged: ${parsed.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
@@ -24451,6 +24451,11 @@
           const hasOutreachAttempt = typeof hasPersonOutreachAttempt === 'function'
             ? hasPersonOutreachAttempt(row, headers)
             : Boolean(lastContactRaw);
+          const successfullyContacted = Boolean(
+            successfullyContactedCol &&
+            typeof isSuccessfullyContactedValue === 'function' &&
+            isSuccessfullyContactedValue(row[successfullyContactedCol])
+          );
           const isFormerResident = formerResidentCol ? isTruthySheetCheckbox(row[formerResidentCol]) : false;
           return {
             key: String(originalIndex),
@@ -24462,6 +24467,7 @@
             residentId,
             lastContactRaw,
             hasOutreachAttempt,
+            successfullyContacted,
             isFormerResident,
             hasEmail: rowHasEmail(row)
           };
@@ -24933,7 +24939,7 @@
             meta.className = 'batch-tag-row-meta';
             const metaParts = [];
             if (person.isFormerResident) metaParts.push('Former resident');
-            metaParts.push(formatBatchDateDisplay(person.lastContactRaw));
+            metaParts.push(formatBatchDateDisplay(person.lastContactRaw, person.successfullyContacted));
             meta.textContent = metaParts.join(' · ');
 
             rowGrid.appendChild(main);
@@ -25508,6 +25514,11 @@
             }
             if (successfullyContactedValue && successfullyContactedCol && row) {
               row[successfullyContactedCol] = successfullyContactedWriteValue;
+              if (person) {
+                person.successfullyContacted = typeof isSuccessfullyContactedValue === 'function'
+                  ? isSuccessfullyContactedValue(successfullyContactedWriteValue)
+                  : false;
+              }
             }
             if (person && row) {
               person.hasOutreachAttempt = typeof hasPersonOutreachAttempt === 'function'
