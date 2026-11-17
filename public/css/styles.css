@@ -13720,6 +13720,10 @@
   background: #fdfbf7;
 }
 
+.profile-card--after-actions {
+  margin-top: 18px;
+}
+
 .profile-card--shared .profile-card-kicker {
   margin-bottom: 2px;
 }

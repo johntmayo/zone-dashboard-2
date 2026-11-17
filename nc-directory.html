@@ -557,7 +557,7 @@
             if (!buildSearchableText(c).includes(query)) return false;
           }
           if (zone && (c[ZONE_KEY] || '').trim() !== zone) return false;
-          if (censusTract && (c[CENSUS_TRACT_KEY] || '').trim() !== censusTract) return false;
+          if (censusTract && !parseMultiSelect(c[CENSUS_TRACT_KEY]).includes(censusTract)) return false;
           if (waterDistrict) {
             const wdSet = new Set(parseMultiSelect(c[WATER_DISTRICT_KEY]));
             if (!wdSet.has(waterDistrict)) return false;
@@ -735,7 +735,7 @@
           const askMeAbout = (c[EXPERTISE_ASK_ME_KEY] || '').trim();
           const otherOrgs = parseMultiSelect(c[OTHER_ORGS_KEY]);
           const zoneIssues = (c[ZONE_ISSUES_KEY] || '').trim();
-          const zoneLine = [c[ZONE_KEY], c[CENSUS_TRACT_KEY]].filter(Boolean).join(' · ');
+          const zoneLine = [c[ZONE_KEY], parseMultiSelect(c[CENSUS_TRACT_KEY]).join(', ')].filter(Boolean).join(' · ');
           return '<div class="card">' +
             '<h3>' + escapeHtml(c[NAME_KEY] || '—') + '</h3>' +
             (zoneLine ? '<div class="zone">' + escapeHtml(zoneLine) + '</div>' : '') +
@@ -788,7 +788,7 @@
         const set = new Set();
         allCaptains.forEach(c => {
           const val = c[key];
-          if (key === WORKING_GROUP_KEY || key === WATER_DISTRICT_KEY) parseMultiSelect(val).forEach(x => set.add(x));
+          if (key === WORKING_GROUP_KEY || key === WATER_DISTRICT_KEY || key === CENSUS_TRACT_KEY) parseMultiSelect(val).forEach(x => set.add(x));
           else if (val && String(val).trim()) set.add(String(val).trim());
         });
         return [...set].sort();
