@@ -37,7 +37,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <link rel="stylesheet" href="public/css/styles.css?v=13">
+  <link rel="stylesheet" href="public/css/styles.css?v=14">
   <script src="public/js/utils.js?v=3"></script>
   <script src="public/js/address-id.js"></script>
   <script src="public/js/resident-placeholder.js"></script>
@@ -1321,13 +1321,15 @@
                 <label class="profile-label" for="ncLocation">Location</label>
                 <input type="text" id="ncLocation" name="Location" class="profile-input" placeholder="Describe your location">
               </div>
-              <div class="profile-field">
-                <label class="profile-label" for="ncCensusTract">Predominant Census Tract of Zone</label>
-                <select id="ncCensusTract" name="Predominant Census Tract of Zone" class="profile-select"></select>
+              <div class="profile-field" role="group" aria-labelledby="ncCensusTractLabel">
+                <div class="profile-label" id="ncCensusTractLabel">Census Tracts in Zone</div>
+                <p class="profile-field-help">Select all that apply.</p>
+                <div id="ncCensusTract" class="profile-choice-grid profile-choice-grid--compact"></div>
               </div>
-              <div class="profile-field">
-                <label class="profile-label" for="ncWaterDistrict">Water Districts in Zone</label>
-                <select id="ncWaterDistrict" name="Water Districts in Zone" class="profile-select"></select>
+              <div class="profile-field" role="group" aria-labelledby="ncWaterDistrictLabel">
+                <div class="profile-label" id="ncWaterDistrictLabel">Water Districts in Zone</div>
+                <p class="profile-field-help">Select all that apply.</p>
+                <div id="ncWaterDistrict" class="profile-choice-grid profile-choice-grid--compact"></div>
               </div>
             </div>
           </section>
@@ -1383,7 +1385,34 @@
             </div>
             <div id="ncInterestAreas" class="profile-interest-groups"></div>
           </section>
-          <section class="profile-card profile-card--shared" id="zoneNotebookSection">
+          <section class="profile-card">
+            <div class="profile-section-header">
+              <h3>Home Context</h3>
+              <p>Optional context that can help other captains understand your situation.</p>
+            </div>
+            <div class="profile-grid profile-grid--two">
+              <div class="profile-field">
+                <label class="profile-label" for="ncHousing">Housing Arrangement</label>
+                <select id="ncHousing" name="Housing Arrangement" class="profile-select"></select>
+              </div>
+              <div class="profile-field">
+                <label class="profile-label" for="ncDamage">Damage to home</label>
+                <select id="ncDamage" name="Damage to home" class="profile-select"></select>
+              </div>
+              <div class="profile-field profile-field--span-2">
+                <label class="profile-check profile-check--single" for="ncDenaNative">
+                  <input type="checkbox" id="ncDenaNative" name="dena native">
+                  <span>I'm a Dena native</span>
+                </label>
+              </div>
+              <div id="ncBadgesReadOnly" class="hidden profile-badges-readonly profile-field--span-2"></div>
+            </div>
+          </section>
+          <div class="profile-form-actions">
+            <button type="button" id="ncProfileSaveBtn" class="btn-save">Save profile</button>
+            <p id="profileSaveStatus" class="hidden profile-status-text"></p>
+          </div>
+          <section class="profile-card profile-card--shared profile-card--after-actions" id="zoneNotebookSection">
             <div class="profile-section-header">
               <div class="profile-card-kicker" id="zoneNotebookKicker">Shared with your zone's captains</div>
               <h3 id="zoneNotebookTitle">Your Zone</h3>
@@ -1432,33 +1461,6 @@
               </div>
             </div>
           </section>
-          <section class="profile-card">
-            <div class="profile-section-header">
-              <h3>Home Context</h3>
-              <p>Optional context that can help other captains understand your situation.</p>
-            </div>
-            <div class="profile-grid profile-grid--two">
-              <div class="profile-field">
-                <label class="profile-label" for="ncHousing">Housing Arrangement</label>
-                <select id="ncHousing" name="Housing Arrangement" class="profile-select"></select>
-              </div>
-              <div class="profile-field">
-                <label class="profile-label" for="ncDamage">Damage to home</label>
-                <select id="ncDamage" name="Damage to home" class="profile-select"></select>
-              </div>
-              <div class="profile-field profile-field--span-2">
-                <label class="profile-check profile-check--single" for="ncDenaNative">
-                  <input type="checkbox" id="ncDenaNative" name="dena native">
-                  <span>I'm a Dena native</span>
-                </label>
-              </div>
-              <div id="ncBadgesReadOnly" class="hidden profile-badges-readonly profile-field--span-2"></div>
-            </div>
-          </section>
-          <div class="profile-form-actions">
-            <button type="button" id="ncProfileSaveBtn" class="btn-save">Save profile</button>
-            <p id="profileSaveStatus" class="hidden profile-status-text"></p>
-          </div>
         </form>
       </div>
     </div>
@@ -2974,6 +2976,18 @@
       }).join('');
     }
 
+    // Known options plus any existing sheet values, so nothing is dropped on save.
+    function renderProfileMultiChoice(containerId, optionsKey, idPrefix, selectedValues) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      const options = [...new Set([...(NC_PROFILE_OPTIONS[optionsKey] || []), ...(selectedValues || [])])];
+      container.innerHTML = renderProfileChoiceOptions(options, selectedValues, optionsKey, idPrefix);
+    }
+
+    function getCheckedProfileChoices(containerId) {
+      return Array.from(document.querySelectorAll('#' + containerId + ' input[type=checkbox]:checked')).map(cb => cb.value);
+    }
+
     function renderProfileWorkingGroups(selectedValues) {
       const wgContainer = document.getElementById('ncWorkingGroups');
       if (!wgContainer) return;
@@ -3087,11 +3101,8 @@
     }
     function populateProfileForm(row) {
       const opts = NC_PROFILE_OPTIONS;
-      const ncCensusTract = document.getElementById('ncCensusTract');
-      if (ncCensusTract) {
-        ncCensusTract.innerHTML = '<option value="">—</option>' + (opts['Predominant Census Tract of Zone'] || []).map(v => '<option value="' + escapeHtmlAttr(v) + '">' + escapeHtml(v) + '</option>').join('');
-        ncCensusTract.value = getRowVal(row, 'Predominant Census Tract of Zone', 'Census Tract');
-      }
+      renderProfileMultiChoice('ncCensusTract', 'Predominant Census Tract of Zone', 'ncCt_',
+        parseMultiSelect(getRowVal(row, 'Predominant Census Tract of Zone', 'Census Tract')));
       const ncHousing = document.getElementById('ncHousing');
       if (ncHousing) {
         ncHousing.innerHTML = '<option value="">—</option>' + (opts['Housing Arrangement'] || []).map(v => '<option value="' + escapeHtmlAttr(v) + '">' + escapeHtml(v) + '</option>').join('');
@@ -3103,11 +3114,8 @@
         ncDamage.innerHTML = '<option value="">—</option>' + (opts['Damage to home'] || []).map(v => '<option value="' + escapeHtmlAttr(v) + '">' + escapeHtml(v) + '</option>').join('');
         ncDamage.value = (row['Damage to home'] || '').trim();
       }
-      const ncWaterDistrict = document.getElementById('ncWaterDistrict');
-      if (ncWaterDistrict) {
-        ncWaterDistrict.innerHTML = '<option value="">—</option>' + (opts['Water Districts in Zone'] || []).map(v => '<option value="' + escapeHtmlAttr(v) + '">' + escapeHtml(v) + '</option>').join('');
-        ncWaterDistrict.value = (row['Water Districts in Zone'] || '').trim();
-      }
+      renderProfileMultiChoice('ncWaterDistrict', 'Water Districts in Zone', 'ncWd_',
+        parseMultiSelect(row['Water Districts in Zone']));
       document.getElementById('ncName').value = getRowVal(row, 'Name');
       document.getElementById('ncZone').value = getRowVal(row, 'Zone');
       const ncLocation = document.getElementById('ncLocation');
@@ -3149,7 +3157,7 @@
       row['Name'] = (document.getElementById('ncName').value || '').trim();
       row['Zone'] = (document.getElementById('ncZone').value || '').trim();
       row['Location'] = (document.getElementById('ncLocation')?.value || '').trim();
-      row['Predominant Census Tract of Zone'] = (document.getElementById('ncCensusTract').value || '').trim();
+      row['Predominant Census Tract of Zone'] = formatMultiSelectForSheet(getCheckedProfileChoices('ncCensusTract'));
       row['Phone'] = (document.getElementById('ncPhone').value || '').trim();
       row['Preferred email'] = (document.getElementById('ncPreferredEmail').value || '').trim();
       row['Working Group Participation'] = formatMultiSelectForSheet(Array.from(document.querySelectorAll('#ncWorkingGroups input[type=checkbox]:checked')).map(cb => cb.value));
@@ -3162,7 +3170,7 @@
       commitPendingOrganizationInput();
       row['Other Organizations'] = formatMultiSelectForSheet(ncProfileOrganizations);
       row['Google email'] = (ncProfileRowData['Google email'] || '').trim();
-      row['Water Districts in Zone'] = (document.getElementById('ncWaterDistrict').value || '').trim();
+      row['Water Districts in Zone'] = formatMultiSelectForSheet(getCheckedProfileChoices('ncWaterDistrict'));
       const existingBadges = parseMultiSelect(ncProfileRowData['Badges'] || '').filter(b => (b || '').trim().toLowerCase() !== 'dena native');
       if (document.getElementById('ncDenaNative')?.checked) existingBadges.push('dena native');
       row['Badges'] = formatMultiSelectForSheet(existingBadges);
