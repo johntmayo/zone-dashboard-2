@@ -37,13 +37,14 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <link rel="stylesheet" href="public/css/styles.css?v=12">
+  <link rel="stylesheet" href="public/css/styles.css?v=13">
   <script src="public/js/utils.js?v=3"></script>
   <script src="public/js/address-id.js"></script>
   <script src="public/js/resident-placeholder.js"></script>
   <script src="public/js/zone-export.js"></script>
   <script src="public/js/contact-checkin.js"></script>
   <script src="public/js/recruitment.js"></script>
+  <script src="public/js/organization-suggestions.js"></script>
   <script src="public/js/main-map.js"></script>
   <!-- Google Analytics 4 (loads only when GA_MEASUREMENT_ID is set) -->
   <script>
@@ -132,8 +133,8 @@
         <button class="nav-item hidden" data-view="meetups" id="navMeetups">Actions</button>
         <button class="nav-item" data-view="tools" id="navTools">Tools</button>
         <button class="nav-item" data-view="resources" id="navResources">Resources</button>
-        <button class="nav-item" type="button" id="navDirectory">NC Directory ↗</button>
-        <button class="nav-item" data-view="profile" id="navProfile">My NC Profile</button>
+        <button class="nav-item" type="button" id="navDirectory">Captain Directory ↗</button>
+        <button class="nav-item" data-view="profile" id="navProfile">My Profile</button>
         <button class="nav-item hidden" type="button" id="navSwitchZone">Switch Zone</button>
         <button class="nav-item hidden" data-view="godmode" id="navGodmode">Admin Mode</button>
         <button class="nav-item hidden" data-view="lotWeedingAdmin" id="navLotWeedingAdmin">Lot Weeding Command Center</button>
@@ -364,7 +365,7 @@
                 <!-- NC Directory nudge (shown when signed in but no directory profile exists) -->
                 <div id="profileNudgeCard" class="onboarding-nudge hidden">
                   <div class="onboarding-nudge-copy">
-                    <p class="onboarding-nudge-title">You're not in the NC Directory yet</p>
+                    <p class="onboarding-nudge-title">You're not in the Captain Directory yet</p>
                     <p class="onboarding-nudge-text">Add yourself so other captains can find you and know what you can help with.</p>
                   </div>
                   <div class="onboarding-nudge-actions">
@@ -1261,10 +1262,10 @@
       </div>
     </div>
 
-    <!-- My NC Profile View (NC Directory) -->
+    <!-- My Profile View (NC Directory) -->
     <div class="content-view hidden profile-view" id="profileView">
       <div class="profile-page-header">
-        <h2 class="page-title">My NC Profile</h2>
+        <h2 class="page-title">My Profile</h2>
         <div class="profile-page-intro">
           <p class="profile-page-lead">Update your public Neighborhood Captain profile here. Changes sync with the <a href="nc-directory.html" target="_blank" rel="noopener noreferrer">Neighborhood Captain Directory</a>.</p>
         </div>
@@ -1348,13 +1349,86 @@
                 <label class="profile-label" for="ncLanguages">Languages Spoken</label>
                 <input type="text" id="ncLanguages" name="Languages Spoken" class="profile-input" placeholder="English, Spanish, Armenian...">
               </div>
-              <div class="profile-field">
-                <label class="profile-label" for="ncExpertiseAskMe">Expertise (Ask Me About...)</label>
-                <input type="text" id="ncExpertiseAskMe" name="Expertise (Ask Me About...)" class="profile-input" placeholder="Things you are knowledgeable about">
+              <div class="profile-field profile-field--span-2">
+                <label class="profile-label" for="ncNotesBio">About Me</label>
+                <textarea id="ncNotesBio" name="Notes/Bio" rows="4" class="profile-textarea" placeholder="A few lines about your background, lived experience, or what kind of neighbor-to-neighbor work you care about."></textarea>
               </div>
               <div class="profile-field profile-field--span-2">
-                <label class="profile-label" for="ncNotesBio">Notes/Bio</label>
-                <textarea id="ncNotesBio" name="Notes/Bio" rows="4" class="profile-textarea" placeholder="A few lines about your background, lived experience, or what kind of neighbor-to-neighbor work you care about."></textarea>
+                <label class="profile-label" for="ncExpertiseAskMe">Expertise (Ask Me About...)</label>
+                <p class="profile-field-help" id="ncExpertiseAskMeHelp">What are you especially knowledgeable about that you could help other captains or neighbors with? These could be things you've had to learn since the fire.</p>
+                <textarea id="ncExpertiseAskMe" name="Expertise (Ask Me About...)" rows="4" class="profile-textarea" aria-describedby="ncExpertiseAskMeHelp" placeholder="e.g. Navigating insurance claims, soil testing, permitting with LA County, organizing block meetings…"></textarea>
+              </div>
+              <div class="profile-field profile-field--span-2">
+                <label class="profile-label" for="ncOrgsInput">Other Groups &amp; Organizations</label>
+                <p class="profile-field-help" id="ncOrgsHelp">Other groups you're part of: neighborhood associations, mutual aid groups, nonprofits, faith communities, and so on. Start typing to pick from the list, or add your own.</p>
+                <div class="profile-tag-input" id="ncOrgsTagInput">
+                  <ul class="profile-tag-list" id="ncOrgsTags" aria-label="Selected organizations"></ul>
+                  <input type="text" id="ncOrgsInput" class="profile-tag-input-field" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ncOrgsSuggestions" aria-describedby="ncOrgsHelp" placeholder="Start typing an organization…">
+                  <ul class="profile-tag-suggestions hidden" id="ncOrgsSuggestions" role="listbox"></ul>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section class="profile-card hidden" aria-hidden="true">
+            <div class="profile-section-header">
+              <h3>Working Group Participation</h3>
+              <p>Select any formal working groups you are already participating in.</p>
+            </div>
+            <div id="ncWorkingGroups" class="profile-choice-grid"></div>
+          </section>
+          <section class="profile-card">
+            <div class="profile-section-header">
+              <h3>Interest Areas</h3>
+              <p>These match the spreadsheet dropdown vocabulary exactly. Pick as many as apply.</p>
+            </div>
+            <div id="ncInterestAreas" class="profile-interest-groups"></div>
+          </section>
+          <section class="profile-card profile-card--shared" id="zoneNotebookSection">
+            <div class="profile-section-header">
+              <div class="profile-card-kicker" id="zoneNotebookKicker">Shared with your zone's captains</div>
+              <h3 id="zoneNotebookTitle">Your Zone</h3>
+              <p class="profile-shared-note">Anything in this section is shared. Any Neighborhood Captain in your zone can see and edit it, and changes save straight to the zone, separately from the rest of your profile.</p>
+            </div>
+            <div id="zoneNotebookStatus" class="profile-status-text hidden"></div>
+            <div id="zoneNotebookBody" class="hidden">
+              <div class="profile-field">
+                <label class="profile-label" for="zoneIssuesText">Any issues specific to your zone?</label>
+                <p class="profile-field-help" id="zoneIssuesHelp">Things other captains should know about: a private road, a stalled rebuild cluster, a utility problem, a block that's hard to reach…</p>
+                <textarea id="zoneIssuesText" rows="4" class="profile-textarea" aria-describedby="zoneIssuesHelp" placeholder="Describe anything particular to your zone."></textarea>
+                <div id="zoneIssuesConflict" class="zone-issues-conflict hidden" aria-live="polite"></div>
+                <div class="profile-inline-actions">
+                  <button type="button" id="zoneIssuesSaveBtn" class="btn-save">Save zone issues</button>
+                  <span id="zoneIssuesStatus" class="profile-status-text"></span>
+                </div>
+              </div>
+              <div class="zone-events">
+                <div class="zone-events-head">
+                  <div class="profile-label">Events hosted in your zone</div>
+                  <p class="profile-field-help">Neighborhood meetings, block parties, info sessions, cleanups: anything a captain in your zone hosted or helped host.</p>
+                </div>
+                <ul class="zone-events-list" id="zoneEventsList"></ul>
+                <button type="button" id="zoneEventAddBtn" class="profile-btn-secondary zone-event-add-btn">+ Add an event</button>
+                <div class="zone-event-form hidden" id="zoneEventForm">
+                  <div class="profile-grid profile-grid--two">
+                    <div class="profile-field">
+                      <label class="profile-label" for="zoneEventName">Event <span class="profile-required">*</span></label>
+                      <input type="text" id="zoneEventName" class="profile-input" maxlength="160" placeholder="e.g. Block meeting with LA County Public Works">
+                    </div>
+                    <div class="profile-field">
+                      <label class="profile-label" for="zoneEventDate">Date</label>
+                      <input type="date" id="zoneEventDate" class="profile-input">
+                    </div>
+                    <div class="profile-field profile-field--span-2">
+                      <label class="profile-label" for="zoneEventNotes">Notes</label>
+                      <textarea id="zoneEventNotes" rows="3" class="profile-textarea" maxlength="2000" placeholder="Anything worth remembering: who came, what you covered, what's next."></textarea>
+                    </div>
+                  </div>
+                  <div class="profile-inline-actions">
+                    <button type="button" id="zoneEventSaveBtn" class="btn-save">Save event</button>
+                    <button type="button" id="zoneEventCancelBtn" class="profile-btn-secondary">Cancel</button>
+                    <span id="zoneEventStatus" class="profile-status-text"></span>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
@@ -1380,20 +1454,6 @@
               </div>
               <div id="ncBadgesReadOnly" class="hidden profile-badges-readonly profile-field--span-2"></div>
             </div>
-          </section>
-          <section class="profile-card">
-            <div class="profile-section-header">
-              <h3>Working Group Participation</h3>
-              <p>Select any formal working groups you are already participating in.</p>
-            </div>
-            <div id="ncWorkingGroups" class="profile-choice-grid"></div>
-          </section>
-          <section class="profile-card">
-            <div class="profile-section-header">
-              <h3>Interest Areas</h3>
-              <p>These match the spreadsheet dropdown vocabulary exactly. Pick as many as apply.</p>
-            </div>
-            <div id="ncInterestAreas" class="profile-interest-groups"></div>
           </section>
           <div class="profile-form-actions">
             <button type="button" id="ncProfileSaveBtn" class="btn-save">Save profile</button>
@@ -1443,10 +1503,10 @@
           <span>Resources</span><span class="mobile-more-item-arrow">›</span>
         </button>
         <button class="mobile-more-item" type="button" id="mobileMoreDirectory">
-          <span>NC Directory ↗</span><span class="mobile-more-item-arrow">›</span>
+          <span>Captain Directory ↗</span><span class="mobile-more-item-arrow">›</span>
         </button>
         <button class="mobile-more-item" data-view="profile">
-          <span>My NC Profile</span><span class="mobile-more-item-arrow">›</span>
+          <span>My Profile</span><span class="mobile-more-item-arrow">›</span>
         </button>
         <button class="mobile-more-item hidden" data-view="godmode" id="mobileMoreGodmode">
           <span>Admin Mode</span><span class="mobile-more-item-arrow">›</span>
@@ -2780,7 +2840,7 @@
     }
 
     // ---- NC Directory / My NC Profile ----
-    const NC_PROFILE_HEADERS = ['Name', 'Zone', 'Location', 'Predominant Census Tract of Zone', 'Phone', 'Preferred email', 'Working Group Participation', 'Housing Arrangement', 'Damage to home', 'Notes/Bio', 'Interest Areas', 'Expertise (Ask Me About...)', 'Languages Spoken', 'Google email', 'Water Districts in Zone', 'Badges'];
+    const NC_PROFILE_HEADERS = ['Name', 'Zone', 'Location', 'Predominant Census Tract of Zone', 'Phone', 'Preferred email', 'Working Group Participation', 'Housing Arrangement', 'Damage to home', 'Notes/Bio', 'Interest Areas', 'Expertise (Ask Me About...)', 'Languages Spoken', 'Google email', 'Water Districts in Zone', 'Badges', 'Other Organizations'];
     const NC_PROFILE_OPTIONS = {
       'Predominant Census Tract of Zone': ['CT 4601', 'CT 4602', 'CT 4603.01', 'CT 4603.02', 'CT 4610', 'CT 4611', 'CT 4612', 'CT 4613'],
       'Housing Arrangement': ['Renter', 'Homeowner', 'RV', 'Other'],
@@ -2986,7 +3046,8 @@
       }
 
       try {
-        const values = await fetchViaOAuth(NC_DIRECTORY_SHEET_ID, 'A1:P500', 'Sheet1');
+        const values = await fetchViaOAuth(NC_DIRECTORY_SHEET_ID, 'A1:Z1000', 'Sheet1');
+        if (values && values.length) ncProfileHeaders = values[0].map(h => (h || '').trim());
         if (!values || values.length < 2) {
           showProfileWizard();
           return;
@@ -3009,6 +3070,7 @@
         ncProfileHeaders = headers;
         populateProfileForm(ncProfileRowData);
         if (formEl) formEl.classList.remove('hidden');
+        loadZoneNotebook();
       } catch (err) {
         console.error('NC Profile load error:', err);
         if (wizardEl) {
@@ -3057,6 +3119,7 @@
       const ncExpertiseAskMe = document.getElementById('ncExpertiseAskMe');
       if (ncExpertiseAskMe) ncExpertiseAskMe.value = (row['Expertise (Ask Me About...)'] || '').trim();
       document.getElementById('ncLanguages').value = (row['Languages Spoken'] || '').trim();
+      setProfileOrganizations(parseMultiSelect(row['Other Organizations']));
       renderProfileWorkingGroups(parseMultiSelect(row['Working Group Participation']));
       renderProfileInterestAreas(parseMultiSelect(row['Interest Areas']));
       const ncDenaNative = document.getElementById('ncDenaNative');
@@ -3096,6 +3159,8 @@
       row['Interest Areas'] = formatMultiSelectForSheet(Array.from(document.querySelectorAll('#ncInterestAreas input[type=checkbox]:checked')).map(cb => cb.value));
       row['Expertise (Ask Me About...)'] = (document.getElementById('ncExpertiseAskMe')?.value || '').trim();
       row['Languages Spoken'] = (document.getElementById('ncLanguages').value || '').trim();
+      commitPendingOrganizationInput();
+      row['Other Organizations'] = formatMultiSelectForSheet(ncProfileOrganizations);
       row['Google email'] = (ncProfileRowData['Google email'] || '').trim();
       row['Water Districts in Zone'] = (document.getElementById('ncWaterDistrict').value || '').trim();
       const existingBadges = parseMultiSelect(ncProfileRowData['Badges'] || '').filter(b => (b || '').trim().toLowerCase() !== 'dena native');
@@ -3125,12 +3190,14 @@
       }
       if (data.length === 0 && ncProfileHeaders) {
         const rowValues = NC_PROFILE_HEADERS.map(h => row[h] || '');
-        data.push({ range: 'Sheet1!A' + ncProfileRowIndex + ':P' + ncProfileRowIndex, values: [rowValues] });
+        data.push({ range: 'Sheet1!A' + ncProfileRowIndex + ':' + colLetter(NC_PROFILE_HEADERS.length - 1) + ncProfileRowIndex, values: [rowValues] });
       }
+      const orgsColumnMissing = ncProfileHeaders && ncProfileOrganizations.length > 0 && findCol('Other Organizations') < 0;
       const statusEl = document.getElementById('profileSaveStatus');
       const btn = document.getElementById('ncProfileSaveBtn');
       if (btn) btn.disabled = true;
       if (statusEl) { statusEl.textContent = 'Saving…'; statusEl.classList.remove('hidden'); }
+      if (isZoneIssuesDirty()) saveZoneIssues();
       try {
         const res = await fetchSheetWrite('/api/sheets/batch-update', {
           body: JSON.stringify({
@@ -3143,7 +3210,12 @@
           const err = await res.json().catch(() => ({}));
           throw new Error(err.message || err.error || 'Save failed');
         }
-        if (statusEl) { statusEl.textContent = 'Saved.'; statusEl.style.color = 'var(--accent-altagether-green)'; }
+        if (statusEl) {
+          statusEl.textContent = orgsColumnMissing
+            ? 'Saved, except organizations: the directory sheet has no "Other Organizations" column yet.'
+            : 'Saved.';
+          statusEl.style.color = orgsColumnMissing ? 'var(--accent-clay)' : 'var(--accent-altagether-green)';
+        }
         ncProfileRowData = row;
       } catch (e) {
         if (statusEl) { statusEl.textContent = 'Error: ' + (e.message || 'Could not save'); statusEl.style.color = 'var(--accent-clay)'; }
@@ -3152,6 +3224,404 @@
     }
 
     document.getElementById('ncProfileSaveBtn')?.addEventListener('click', saveNcProfile);
+
+    // ---- Other Organizations (tag input with suggestions) ----
+    let ncProfileOrganizations = [];
+    let ncOrgSuggestionOptions = [];
+    let ncOrgSuggestionIndex = -1;
+
+    function orgKey(value) {
+      return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    }
+
+    function addProfileOrganization(value) {
+      const name = String(value || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+      if (!name) return false;
+      const known = (window.NC_ORGANIZATION_SUGGESTIONS || []).find(o => orgKey(o) === orgKey(name));
+      const finalName = known || name;
+      if (ncProfileOrganizations.some(o => orgKey(o) === orgKey(finalName))) return false;
+      ncProfileOrganizations.push(finalName);
+      return true;
+    }
+
+    function setProfileOrganizations(values) {
+      ncProfileOrganizations = [];
+      (values || []).forEach(addProfileOrganization);
+      renderProfileOrganizations();
+    }
+
+    function renderProfileOrganizations() {
+      const list = document.getElementById('ncOrgsTags');
+      if (!list) return;
+      list.innerHTML = ncProfileOrganizations.map((org, i) =>
+        '<li class="profile-tag"><span>' + escapeHtml(org) + '</span>' +
+        '<button type="button" class="profile-tag-remove" data-org-index="' + i + '" aria-label="Remove ' + escapeHtmlAttr(org) + '">×</button></li>'
+      ).join('');
+    }
+
+    function getOrganizationMatches(query) {
+      const q = orgKey(query);
+      if (!q) return [];
+      const selected = new Set(ncProfileOrganizations.map(orgKey));
+      const starts = [];
+      const wordStarts = [];
+      const contains = [];
+      (window.NC_ORGANIZATION_SUGGESTIONS || []).forEach(org => {
+        const k = orgKey(org);
+        if (selected.has(k)) return;
+        if (k.startsWith(q)) starts.push(org);
+        else if (k.split(/[\s/()\-]+/).some(word => word.startsWith(q))) wordStarts.push(org);
+        else if (k.includes(q)) contains.push(org);
+      });
+      const byName = (a, b) => a.localeCompare(b);
+      return [...starts.sort(byName), ...wordStarts.sort(byName), ...contains.sort(byName)].slice(0, 8);
+    }
+
+    function hideOrganizationSuggestions() {
+      const input = document.getElementById('ncOrgsInput');
+      const box = document.getElementById('ncOrgsSuggestions');
+      ncOrgSuggestionOptions = [];
+      ncOrgSuggestionIndex = -1;
+      if (box) { box.innerHTML = ''; box.classList.add('hidden'); }
+      if (input) { input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); }
+    }
+
+    function renderOrganizationSuggestions() {
+      const input = document.getElementById('ncOrgsInput');
+      const box = document.getElementById('ncOrgsSuggestions');
+      if (!input || !box) return;
+      const query = input.value.replace(/\s+/g, ' ').trim();
+      const matches = getOrganizationMatches(query);
+      const alreadyListed = matches.some(m => orgKey(m) === orgKey(query)) || ncProfileOrganizations.some(o => orgKey(o) === orgKey(query));
+      ncOrgSuggestionOptions = matches.map(m => ({ value: m, label: m }));
+      if (query && !alreadyListed) ncOrgSuggestionOptions.push({ value: query, label: 'Add “' + query + '”', custom: true });
+      if (!ncOrgSuggestionOptions.length) { hideOrganizationSuggestions(); return; }
+      if (ncOrgSuggestionIndex >= ncOrgSuggestionOptions.length) ncOrgSuggestionIndex = ncOrgSuggestionOptions.length - 1;
+      box.innerHTML = ncOrgSuggestionOptions.map((opt, i) =>
+        '<li role="option" id="ncOrgOpt' + i + '" data-index="' + i + '" aria-selected="' + (i === ncOrgSuggestionIndex) + '"' +
+        ' class="profile-tag-suggestion' + (opt.custom ? ' profile-tag-suggestion--custom' : '') + (i === ncOrgSuggestionIndex ? ' is-active' : '') + '">' +
+        escapeHtml(opt.label) + '</li>'
+      ).join('');
+      box.classList.remove('hidden');
+      input.setAttribute('aria-expanded', 'true');
+      if (ncOrgSuggestionIndex >= 0) input.setAttribute('aria-activedescendant', 'ncOrgOpt' + ncOrgSuggestionIndex);
+      else input.removeAttribute('aria-activedescendant');
+    }
+
+    function chooseOrganization(value) {
+      const input = document.getElementById('ncOrgsInput');
+      addProfileOrganization(value);
+      renderProfileOrganizations();
+      if (input) input.value = '';
+      hideOrganizationSuggestions();
+    }
+
+    // Typed-but-not-added text still counts when the profile is saved.
+    function commitPendingOrganizationInput() {
+      const input = document.getElementById('ncOrgsInput');
+      if (input && input.value.trim()) chooseOrganization(input.value);
+    }
+
+    (function bindOrganizationInput() {
+      const wrap = document.getElementById('ncOrgsTagInput');
+      const input = document.getElementById('ncOrgsInput');
+      const box = document.getElementById('ncOrgsSuggestions');
+      const tags = document.getElementById('ncOrgsTags');
+      if (!wrap || !input || !box || !tags) return;
+
+      wrap.addEventListener('click', (e) => {
+        if (e.target === wrap) input.focus();
+      });
+      input.addEventListener('input', () => {
+        ncOrgSuggestionIndex = -1;
+        renderOrganizationSuggestions();
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          if (!ncOrgSuggestionOptions.length) renderOrganizationSuggestions();
+          if (!ncOrgSuggestionOptions.length) return;
+          e.preventDefault();
+          const step = e.key === 'ArrowDown' ? 1 : -1;
+          ncOrgSuggestionIndex = (ncOrgSuggestionIndex + step + ncOrgSuggestionOptions.length) % ncOrgSuggestionOptions.length;
+          renderOrganizationSuggestions();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          const active = ncOrgSuggestionOptions[ncOrgSuggestionIndex];
+          if (active) chooseOrganization(active.value);
+          else if (input.value.trim()) chooseOrganization(input.value);
+        } else if (e.key === 'Escape') {
+          hideOrganizationSuggestions();
+        } else if (e.key === 'Backspace' && !input.value && ncProfileOrganizations.length) {
+          ncProfileOrganizations.pop();
+          renderProfileOrganizations();
+        }
+      });
+      input.addEventListener('blur', () => setTimeout(hideOrganizationSuggestions, 120));
+      // mousedown (not click) so the input keeps focus while choosing.
+      box.addEventListener('mousedown', (e) => {
+        const li = e.target.closest('li[data-index]');
+        if (!li) return;
+        e.preventDefault();
+        const opt = ncOrgSuggestionOptions[Number(li.dataset.index)];
+        if (opt) chooseOrganization(opt.value);
+      });
+      tags.addEventListener('click', (e) => {
+        const btn = e.target.closest('.profile-tag-remove');
+        if (!btn) return;
+        ncProfileOrganizations.splice(Number(btn.dataset.orgIndex), 1);
+        renderProfileOrganizations();
+        input.focus();
+      });
+    })();
+
+    // ---- Zone Notebook: events + zone issues shared by every captain of the zone ----
+    let zoneNotebookState = { sheetId: null, zone: '', issues: null, events: [] };
+    let zoneNotebookRequestSeq = 0;
+    let zoneEventEditingId = null;
+
+    async function zoneNotebookRequest(url, options = {}) {
+      const isWrite = options.method && options.method !== 'GET';
+      const res = isWrite
+        ? await fetchSheetWrite(url, options)
+        : await fetch(url, { credentials: 'include', headers: getGoogleAuthHeaders() });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err = new Error(payload.message || payload.error || 'Request failed');
+        err.status = res.status;
+        err.payload = payload;
+        throw err;
+      }
+      return payload;
+    }
+
+    function setZoneNotebookMessage(elId, text, tone) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      el.textContent = text || '';
+      el.classList.toggle('hidden', !text);
+      el.style.color = tone === 'error' ? 'var(--accent-clay)' : (tone === 'ok' ? 'var(--accent-altagether-green)' : '');
+    }
+
+    function formatZoneNotebookDate(isoDate) {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(isoDate || ''));
+      if (!m) return String(isoDate || '');
+      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+        .toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function formatZoneNotebookTimestamp(iso) {
+      const d = new Date(iso);
+      if (!iso || Number.isNaN(d.getTime())) return '';
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function isZoneIssuesDirty() {
+      const textarea = document.getElementById('zoneIssuesText');
+      if (!textarea || !zoneNotebookState.issues) return false;
+      return textarea.value.trim() !== String(zoneNotebookState.issues.text || '').trim();
+    }
+
+    function renderZoneIssuesMeta() {
+      const issues = zoneNotebookState.issues;
+      if (issues && issues.lastUpdatedOn) {
+        const who = issues.lastUpdatedBy ? ' by ' + issues.lastUpdatedBy : '';
+        setZoneNotebookMessage('zoneIssuesStatus', 'Last updated' + who + ' on ' + formatZoneNotebookTimestamp(issues.lastUpdatedOn) + '.');
+      } else {
+        setZoneNotebookMessage('zoneIssuesStatus', '');
+      }
+    }
+
+    function renderZoneEvents() {
+      const list = document.getElementById('zoneEventsList');
+      if (!list) return;
+      const events = zoneNotebookState.events || [];
+      if (!events.length) {
+        list.innerHTML = '<li class="zone-events-empty">No events recorded for this zone yet.</li>';
+        return;
+      }
+      list.innerHTML = events.map(ev => {
+        const added = 'Added by ' + escapeHtml(ev.addedBy || 'a captain') +
+          (ev.addedOn ? ' on ' + escapeHtml(formatZoneNotebookTimestamp(ev.addedOn)) : '');
+        const edited = ev.lastEditedOn
+          ? ' · Edited by ' + escapeHtml(ev.lastEditedBy || 'a captain') + ' on ' + escapeHtml(formatZoneNotebookTimestamp(ev.lastEditedOn))
+          : '';
+        return '<li class="zone-event-item">' +
+          '<div class="zone-event-main">' +
+            '<div class="zone-event-title">' + escapeHtml(ev.event) + '</div>' +
+            (ev.date ? '<div class="zone-event-date">' + escapeHtml(formatZoneNotebookDate(ev.date)) + '</div>' : '') +
+            (ev.notes ? '<div class="zone-event-notes">' + escapeHtml(ev.notes) + '</div>' : '') +
+            '<div class="zone-event-meta">' + added + edited + '</div>' +
+          '</div>' +
+          '<div class="zone-event-actions">' +
+            '<button type="button" class="zone-event-action" data-action="edit" data-id="' + escapeHtmlAttr(ev.id) + '">Edit</button>' +
+            '<button type="button" class="zone-event-action zone-event-action--danger" data-action="delete" data-id="' + escapeHtmlAttr(ev.id) + '">Delete</button>' +
+          '</div>' +
+        '</li>';
+      }).join('');
+    }
+
+    function applyZoneNotebook(data) {
+      zoneNotebookState.zone = data.zone || zoneNotebookState.zone;
+      if (data.issues) zoneNotebookState.issues = data.issues;
+      if (Array.isArray(data.events)) zoneNotebookState.events = data.events;
+      const zoneLabel = zoneNotebookState.zone || 'your zone';
+      const title = document.getElementById('zoneNotebookTitle');
+      if (title) title.textContent = 'Your Zone: ' + zoneLabel;
+      const kicker = document.getElementById('zoneNotebookKicker');
+      if (kicker) kicker.textContent = 'Shared with all ' + zoneLabel + ' captains';
+      renderZoneEvents();
+    }
+
+    function closeZoneEventForm() {
+      zoneEventEditingId = null;
+      document.getElementById('zoneEventForm')?.classList.add('hidden');
+      document.getElementById('zoneEventAddBtn')?.classList.remove('hidden');
+      setZoneNotebookMessage('zoneEventStatus', '');
+    }
+
+    function openZoneEventForm(ev) {
+      zoneEventEditingId = ev ? ev.id : null;
+      document.getElementById('zoneEventName').value = ev ? ev.event : '';
+      document.getElementById('zoneEventDate').value = ev && /^\d{4}-\d{2}-\d{2}$/.test(ev.date) ? ev.date : '';
+      document.getElementById('zoneEventNotes').value = ev ? ev.notes : '';
+      document.getElementById('zoneEventSaveBtn').textContent = ev ? 'Save changes' : 'Save event';
+      document.getElementById('zoneEventForm')?.classList.remove('hidden');
+      document.getElementById('zoneEventAddBtn')?.classList.add('hidden');
+      setZoneNotebookMessage('zoneEventStatus', '');
+      document.getElementById('zoneEventName')?.focus();
+    }
+
+    async function loadZoneNotebook() {
+      const body = document.getElementById('zoneNotebookBody');
+      if (!body) return;
+      const sheetId = currentSheetId;
+      if (!sheetId) {
+        body.classList.add('hidden');
+        setZoneNotebookMessage('zoneNotebookStatus', 'Open your zone from the dashboard to see and edit its shared notes.');
+        return;
+      }
+      const seq = ++zoneNotebookRequestSeq;
+      if (zoneNotebookState.sheetId !== sheetId) {
+        zoneNotebookState = { sheetId, zone: '', issues: null, events: [] };
+        closeZoneEventForm();
+        document.getElementById('zoneIssuesConflict')?.classList.add('hidden');
+        body.classList.add('hidden');
+        setZoneNotebookMessage('zoneNotebookStatus', 'Loading zone notes…');
+      }
+      try {
+        const data = await zoneNotebookRequest('/api/zone-notebook?sheetId=' + encodeURIComponent(sheetId));
+        if (seq !== zoneNotebookRequestSeq) return;
+        const textarea = document.getElementById('zoneIssuesText');
+        const keepDraft = isZoneIssuesDirty();
+        applyZoneNotebook(data);
+        if (textarea && !keepDraft) textarea.value = (data.issues && data.issues.text) || '';
+        renderZoneIssuesMeta();
+        setZoneNotebookMessage('zoneNotebookStatus', '');
+        body.classList.remove('hidden');
+      } catch (err) {
+        if (seq !== zoneNotebookRequestSeq) return;
+        body.classList.add('hidden');
+        setZoneNotebookMessage('zoneNotebookStatus', err.message || 'Could not load zone notes right now.', 'error');
+      }
+    }
+
+    async function saveZoneIssues() {
+      const textarea = document.getElementById('zoneIssuesText');
+      const btn = document.getElementById('zoneIssuesSaveBtn');
+      if (!textarea || !zoneNotebookState.sheetId || !zoneNotebookState.issues) return;
+      if (btn) btn.disabled = true;
+      setZoneNotebookMessage('zoneIssuesStatus', 'Saving…');
+      try {
+        const data = await zoneNotebookRequest('/api/zone-notebook/issues', {
+          method: 'PUT',
+          body: JSON.stringify({
+            sheetId: zoneNotebookState.sheetId,
+            issues: textarea.value,
+            expectedLastUpdatedOn: zoneNotebookState.issues.lastUpdatedOn || ''
+          })
+        });
+        zoneNotebookState.issues = data.issues;
+        textarea.value = data.issues.text || '';
+        document.getElementById('zoneIssuesConflict')?.classList.add('hidden');
+        setZoneNotebookMessage('zoneIssuesStatus', 'Saved. All captains in ' + (zoneNotebookState.zone || 'your zone') + ' will see this.', 'ok');
+      } catch (err) {
+        if (err.status === 409 && err.payload && err.payload.issues) {
+          // Keep this captain's draft; show the other version so they can merge, then save again.
+          zoneNotebookState.issues = err.payload.issues;
+          const conflictEl = document.getElementById('zoneIssuesConflict');
+          if (conflictEl) {
+            conflictEl.innerHTML = '<div class="zone-issues-conflict-label">Their version:</div>' +
+              '<div class="zone-issues-conflict-text">' + (escapeHtml(err.payload.issues.text || '') || '<em>(empty)</em>') + '</div>';
+            conflictEl.classList.remove('hidden');
+          }
+          setZoneNotebookMessage('zoneIssuesStatus', err.message, 'error');
+        } else {
+          setZoneNotebookMessage('zoneIssuesStatus', 'Error: ' + (err.message || 'Could not save.'), 'error');
+        }
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function saveZoneEvent() {
+      const name = (document.getElementById('zoneEventName')?.value || '').trim();
+      const date = (document.getElementById('zoneEventDate')?.value || '').trim();
+      const notes = document.getElementById('zoneEventNotes')?.value || '';
+      if (!name) {
+        setZoneNotebookMessage('zoneEventStatus', 'Enter the event name.', 'error');
+        return;
+      }
+      const btn = document.getElementById('zoneEventSaveBtn');
+      if (btn) btn.disabled = true;
+      setZoneNotebookMessage('zoneEventStatus', 'Saving…');
+      try {
+        const url = zoneEventEditingId
+          ? '/api/zone-notebook/events/' + encodeURIComponent(zoneEventEditingId)
+          : '/api/zone-notebook/events';
+        const data = await zoneNotebookRequest(url, {
+          method: zoneEventEditingId ? 'PUT' : 'POST',
+          body: JSON.stringify({ sheetId: zoneNotebookState.sheetId, event: name, date, notes })
+        });
+        applyZoneNotebook(data);
+        closeZoneEventForm();
+      } catch (err) {
+        setZoneNotebookMessage('zoneEventStatus', 'Error: ' + (err.message || 'Could not save.'), 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function deleteZoneEvent(id) {
+      const ev = (zoneNotebookState.events || []).find(item => item.id === id);
+      if (!ev) return;
+      if (!confirm('Delete "' + ev.event + '"? This removes it for every captain in ' + (zoneNotebookState.zone || 'your zone') + '.')) return;
+      try {
+        const data = await zoneNotebookRequest('/api/zone-notebook/events/' + encodeURIComponent(id), {
+          method: 'DELETE',
+          body: JSON.stringify({ sheetId: zoneNotebookState.sheetId })
+        });
+        if (zoneEventEditingId === id) closeZoneEventForm();
+        applyZoneNotebook(data);
+      } catch (err) {
+        alert(err.message || 'Could not delete the event.');
+      }
+    }
+
+    document.getElementById('zoneIssuesSaveBtn')?.addEventListener('click', saveZoneIssues);
+    document.getElementById('zoneEventAddBtn')?.addEventListener('click', () => openZoneEventForm(null));
+    document.getElementById('zoneEventCancelBtn')?.addEventListener('click', closeZoneEventForm);
+    document.getElementById('zoneEventSaveBtn')?.addEventListener('click', saveZoneEvent);
+    document.getElementById('zoneEventsList')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('.zone-event-action');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      if (btn.dataset.action === 'edit') {
+        const ev = (zoneNotebookState.events || []).find(item => item.id === id);
+        if (ev) openZoneEventForm(ev);
+      } else if (btn.dataset.action === 'delete') {
+        deleteZoneEvent(id);
+      }
+    });
 
     // ---- Profile creation wizard ----
 
@@ -3176,14 +3646,10 @@
       if (btn) btn.disabled = true;
       if (statusEl) { statusEl.textContent = 'Adding you to the directory…'; statusEl.style.color = 'var(--text-secondary)'; }
 
-      // Build a row matching NC_PROFILE_HEADERS column order
-      const newRow = NC_PROFILE_HEADERS.map(h => {
-        if (h === 'Name') return name;
-        if (h === 'Phone') return phone;
-        if (h === 'Preferred email') return email;
-        if (h === 'Google email') return currentUserEmail || '';
-        return '';
-      });
+      // Build the row in the live sheet's column order (falls back to NC_PROFILE_HEADERS)
+      const wizardValues = { 'name': name, 'phone': phone, 'preferred email': email, 'google email': currentUserEmail || '' };
+      const rowHeaders = (ncProfileHeaders && ncProfileHeaders.some(Boolean)) ? ncProfileHeaders : NC_PROFILE_HEADERS;
+      const newRow = rowHeaders.map(h => wizardValues[String(h || '').trim().toLowerCase()] || '');
 
       try {
         const res = await fetchSheetWrite('/api/sheets/append', {
@@ -9404,6 +9870,7 @@
           currentZoneName = '';
         }
         updateHeaderTitle();
+        if (currentView === 'profile') loadZoneNotebook();
 
         await Promise.all([
           loadCentralLotWeedingData(),

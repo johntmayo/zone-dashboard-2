@@ -1237,6 +1237,24 @@ async function requireNcDirectoryCaptain(req, res, next) {
   }
 }
 
+// --- Zone Notebook (zone-shared events + zone issues) ---
+let zoneNotebook = null;
+try {
+  const { createZoneNotebook, getZoneNotebookConfig } = require('./zone-notebook/routes');
+  zoneNotebook = createZoneNotebook({
+    getSheetsClient,
+    readUsersMap,
+    getAccessRowsForEmail,
+    collectAccessRoles,
+    extractGoogleSheetId,
+    sessionAuth
+  });
+  zoneNotebook.register(app);
+  console.log(`Zone Notebook routes registered (sheet: ${getZoneNotebookConfig().sheetId || 'not configured'}).`);
+} catch (err) {
+  console.error('Failed to register Zone Notebook routes:', err.message);
+}
+
 // API Route: NC Directory (Sheet1 only - for standalone directory site)
 // Reads via the service account so the underlying sheet can stay RESTRICTED
 // (no "anyone with the link can view"). The sheet must be shared with the
@@ -1245,6 +1263,13 @@ app.get('/api/nc-directory', requireNcDirectoryCaptain, async (req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
     const { headers, rows } = await fetchSheetViaServiceAccount(NC_DIRECTORY_SHEET_ID, 'A1:ZZ500', 'Sheet1');
+    if (zoneNotebook) {
+      try {
+        await zoneNotebook.attachZoneIssuesToDirectoryRows(rows);
+      } catch (notebookErr) {
+        console.warn('NC Directory: zone issues unavailable:', notebookErr.message);
+      }
+    }
     res.json({ headers, rows });
   } catch (error) {
     console.error('Error fetching NC Directory:', error);

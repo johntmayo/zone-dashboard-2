@@ -233,6 +233,7 @@ If you suspect unauthorized access or a leaked secret:
 | `/api/lot-weeding-admin/requests`, `/request-row` | GET/PATCH | Lot-weeding-admin session | `getSessionEmail` + `hasLotWeedingAdminAccess` (lot-weeding/routes.js) |
 | `/api/contact-checkin/admin` | GET | Admin session | `getSessionEmail` + `isAdminEmail` (contact-checkin/routes.js) |
 | `/api/recruitment/*` | GET/POST | Session-based recruitment auth | `requireRecruitmentAuth` (recruitment/routes.js) |
+| `/api/zone-notebook/*` | GET/PUT/POST/DELETE | Registered captain, and assigned to the requested zone sheet in the Access sheet (admins: any zone). Zone name is resolved server-side, never taken from the client. Writes use RAW so text is never evaluated as a formula. | `requireCaptain` + `resolveZone` (zone-notebook/routes.js) |
 | `/api/auth/session`, `/me`, `/logout` | POST/GET | Session lifecycle | session-auth.js |
 | `/api/sales/records`, `/api/lot-weeding/values`, `/api/epic/by-apn(s)`, `/api/contact-checkin/community`, `/reviews` | GET | **None (see §9)** | — |
 | `/api/homepage-feed`, `/api/actions-feed`, `/api/mapbox-token`, `/api/ga-config` | GET | None (intentionally public, no PII) | — |
