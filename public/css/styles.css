@@ -13411,26 +13411,40 @@
 .profile-jump-links {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: -8px 0 18px;
-  color: var(--text-secondary);
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin: -6px 0 20px;
+}
+
+.profile-jump-label {
+  color: var(--brand-primary-dark);
+  font-family: 'Chivo', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .profile-jump-link {
-  padding: 2px 0;
-  border: 0;
-  background: none;
+  padding: 7px 14px;
+  border: 2px solid var(--brand-primary-dark);
+  border-radius: 999px;
+  background: #fff;
   color: var(--brand-primary-dark);
   font-family: 'Chivo', sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 800;
-  text-decoration: underline;
-  text-underline-offset: 3px;
   cursor: pointer;
+  transition: background-color 0.18s ease;
 }
 
 .profile-jump-link:hover {
-  text-decoration-thickness: 2px;
+  background: #EEF2FF;
+}
+
+.profile-jump-link:focus-visible {
+  outline: 2px solid var(--brand-primary-dark);
+  outline-offset: 2px;
 }
 
 .profile-part-title {
@@ -13661,21 +13675,22 @@
   gap: 18px;
 }
 
+/* Same treatment as .profile-label so subgroup headings match the other field labels. */
 .profile-choice-section-title {
   margin: 0 0 8px;
   color: var(--brand-primary-dark);
   font-family: 'Chivo', sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   font-weight: 900;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .profile-choice-count {
   color: var(--text-secondary);
-  font-family: inherit;
   font-weight: 700;
-  font-size: 0.85rem;
   letter-spacing: 0;
+  text-transform: none;
 }
 
 .profile-field--check {
