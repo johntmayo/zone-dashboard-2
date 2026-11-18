@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -37,7 +37,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <link rel="stylesheet" href="public/css/styles.css?v=14">
+  <link rel="stylesheet" href="public/css/styles.css?v=16">
   <script src="public/js/utils.js?v=3"></script>
   <script src="public/js/address-id.js"></script>
   <script src="public/js/resident-placeholder.js"></script>
@@ -1267,7 +1267,7 @@
       <div class="profile-page-header">
         <h2 class="page-title">My Profile</h2>
         <div class="profile-page-intro">
-          <p class="profile-page-lead">Update your public Neighborhood Captain profile here. Changes sync with the <a href="nc-directory.html" target="_blank" rel="noopener noreferrer">Neighborhood Captain Directory</a>.</p>
+          <p class="profile-page-lead">This is your Neighborhood Captain profile. Anything you enter here may be shared with other Neighborhood Captains through the <a href="nc-directory.html" target="_blank" rel="noopener noreferrer">Neighborhood Captain Directory</a>.</p>
         </div>
       </div>
       <div id="profileSigninPrompt" class="hidden profile-prompt-card">
@@ -1302,10 +1302,19 @@
         </div>
       </div>
       <div id="profileFormContainer" class="hidden profile-shell">
-        <form id="ncProfileForm" class="profile-form">
-          <section class="profile-card">
+        <nav class="profile-jump-links" aria-label="Jump to part of this page">
+          <button type="button" class="profile-jump-link" data-jump-to="profilePartAbout">About you</button>
+          <span aria-hidden="true">·</span>
+          <button type="button" class="profile-jump-link" data-jump-to="profilePartZone">Your zone</button>
+        </nav>
+        <form id="ncProfileForm" class="profile-form" novalidate>
+          <h3 class="profile-part-title" id="profilePartAbout" tabindex="-1">About you</h3>
+          <section class="profile-card" data-save-section="basics">
             <div class="profile-section-header">
-              <h3>Basics</h3>
+              <div class="profile-section-title-row">
+                <h4>Basics</h4>
+                <span class="profile-save-status" data-save-status="basics" aria-live="polite"></span>
+              </div>
               <p>Core details that help other captains recognize you and your zone.</p>
             </div>
             <div class="profile-grid profile-grid--two">
@@ -1333,9 +1342,12 @@
               </div>
             </div>
           </section>
-          <section class="profile-card">
+          <section class="profile-card" data-save-section="contact">
             <div class="profile-section-header">
-              <h3>Contact & Introduction</h3>
+              <div class="profile-section-title-row">
+                <h4>Contact &amp; Introduction</h4>
+                <span class="profile-save-status" data-save-status="contact" aria-live="polite"></span>
+              </div>
               <p>How people can reach you and what they should know about your perspective.</p>
             </div>
             <div class="profile-grid profile-grid--two">
@@ -1350,6 +1362,13 @@
               <div class="profile-field">
                 <label class="profile-label" for="ncLanguages">Languages Spoken</label>
                 <input type="text" id="ncLanguages" name="Languages Spoken" class="profile-input" placeholder="English, Spanish, Armenian...">
+              </div>
+              <div class="profile-field profile-field--check">
+                <label class="profile-check profile-check--single" for="ncDenaNative">
+                  <input type="checkbox" id="ncDenaNative" name="dena native">
+                  <span>I'm a Dena native</span>
+                </label>
+                <div id="ncBadgesReadOnly" class="hidden profile-badges-readonly"></div>
               </div>
               <div class="profile-field profile-field--span-2">
                 <label class="profile-label" for="ncNotesBio">About Me</label>
@@ -1378,16 +1397,22 @@
             </div>
             <div id="ncWorkingGroups" class="profile-choice-grid"></div>
           </section>
-          <section class="profile-card">
+          <section class="profile-card" data-save-section="interests">
             <div class="profile-section-header">
-              <h3>Interest Areas</h3>
-              <p>These match the spreadsheet dropdown vocabulary exactly. Pick as many as apply.</p>
+              <div class="profile-section-title-row">
+                <h4>Interest Areas</h4>
+                <span class="profile-save-status" data-save-status="interests" aria-live="polite"></span>
+              </div>
+              <p>Pick as many as apply.</p>
             </div>
             <div id="ncInterestAreas" class="profile-interest-groups"></div>
           </section>
-          <section class="profile-card">
+          <section class="profile-card" data-save-section="home">
             <div class="profile-section-header">
-              <h3>Home Context</h3>
+              <div class="profile-section-title-row">
+                <h4>Home Context</h4>
+                <span class="profile-save-status" data-save-status="home" aria-live="polite"></span>
+              </div>
               <p>Optional context that can help other captains understand your situation.</p>
             </div>
             <div class="profile-grid profile-grid--two">
@@ -1399,36 +1424,25 @@
                 <label class="profile-label" for="ncDamage">Damage to home</label>
                 <select id="ncDamage" name="Damage to home" class="profile-select"></select>
               </div>
-              <div class="profile-field profile-field--span-2">
-                <label class="profile-check profile-check--single" for="ncDenaNative">
-                  <input type="checkbox" id="ncDenaNative" name="dena native">
-                  <span>I'm a Dena native</span>
-                </label>
-              </div>
-              <div id="ncBadgesReadOnly" class="hidden profile-badges-readonly profile-field--span-2"></div>
             </div>
           </section>
-          <div class="profile-form-actions">
-            <button type="button" id="ncProfileSaveBtn" class="btn-save">Save profile</button>
-            <p id="profileSaveStatus" class="hidden profile-status-text"></p>
-          </div>
-          <section class="profile-card profile-card--shared profile-card--after-actions" id="zoneNotebookSection">
-            <div class="profile-section-header">
-              <div class="profile-card-kicker" id="zoneNotebookKicker">Shared with your zone's captains</div>
-              <h3 id="zoneNotebookTitle">Your Zone</h3>
-              <p class="profile-shared-note">Anything in this section is shared. Any Neighborhood Captain in your zone can see and edit it, and changes save straight to the zone, separately from the rest of your profile.</p>
+          <h3 class="profile-part-title" id="profilePartZone" tabindex="-1">Your zone</h3>
+          <section class="profile-card profile-card--shared" id="zoneNotebookSection" data-save-section="zone">
+            <div class="zone-shared-header">
+              <div class="zone-shared-with" id="zoneSharedWith"></div>
+              <p class="zone-shared-note">Any captain in this zone can edit this section.</p>
             </div>
             <div id="zoneNotebookStatus" class="profile-status-text hidden"></div>
             <div id="zoneNotebookBody" class="hidden">
               <div class="profile-field">
-                <label class="profile-label" for="zoneIssuesText">Any issues specific to your zone?</label>
-                <p class="profile-field-help" id="zoneIssuesHelp">Things other captains should know about: a private road, a stalled rebuild cluster, a utility problem, a block that's hard to reach…</p>
-                <textarea id="zoneIssuesText" rows="4" class="profile-textarea" aria-describedby="zoneIssuesHelp" placeholder="Describe anything particular to your zone."></textarea>
-                <div id="zoneIssuesConflict" class="zone-issues-conflict hidden" aria-live="polite"></div>
-                <div class="profile-inline-actions">
-                  <button type="button" id="zoneIssuesSaveBtn" class="btn-save">Save zone issues</button>
-                  <span id="zoneIssuesStatus" class="profile-status-text"></span>
+                <div class="profile-section-title-row">
+                  <label class="profile-label" for="zoneIssuesText">Any issues specific to your zone?</label>
+                  <span class="profile-save-status" data-save-status="zone" aria-live="polite"></span>
                 </div>
+                <p class="profile-field-help" id="zoneIssuesHelp">Things other captains should know about: a private road, a stalled rebuild cluster, a utility problem, a block that's hard to reach… This also appears on your zone's Captain Directory listing, so captains across the network can find zones facing the same things.</p>
+                <textarea id="zoneIssuesText" rows="4" class="profile-textarea" aria-describedby="zoneIssuesHelp zoneIssuesMeta" placeholder="Describe anything particular to your zone."></textarea>
+                <p id="zoneIssuesMeta" class="profile-edit-meta hidden"></p>
+                <div id="zoneIssuesConflict" class="zone-issues-conflict hidden" aria-live="polite"></div>
               </div>
               <div class="zone-events">
                 <div class="zone-events-head">
@@ -1439,13 +1453,31 @@
                 <button type="button" id="zoneEventAddBtn" class="profile-btn-secondary zone-event-add-btn">+ Add an event</button>
                 <div class="zone-event-form hidden" id="zoneEventForm">
                   <div class="profile-grid profile-grid--two">
-                    <div class="profile-field">
+                    <div class="profile-field profile-field--span-2">
                       <label class="profile-label" for="zoneEventName">Event <span class="profile-required">*</span></label>
                       <input type="text" id="zoneEventName" class="profile-input" maxlength="160" placeholder="e.g. Block meeting with LA County Public Works">
                     </div>
-                    <div class="profile-field">
-                      <label class="profile-label" for="zoneEventDate">Date</label>
-                      <input type="date" id="zoneEventDate" class="profile-input">
+                    <div class="profile-field profile-field--span-2">
+                      <span class="profile-label" id="zoneEventWhenLabel">When was it?</span>
+                      <p class="profile-field-help" id="zoneEventWhenHelp">Don't remember the exact day? Pick a month, a season, or just the year.</p>
+                      <div class="profile-choice-grid profile-choice-grid--compact zone-event-precision" role="radiogroup" aria-labelledby="zoneEventWhenLabel" aria-describedby="zoneEventWhenHelp">
+                        <label class="profile-choice"><input type="radio" name="zoneEventPrecision" value="day" checked><span>Exact date</span></label>
+                        <label class="profile-choice"><input type="radio" name="zoneEventPrecision" value="month"><span>Month</span></label>
+                        <label class="profile-choice"><input type="radio" name="zoneEventPrecision" value="season"><span>Season</span></label>
+                        <label class="profile-choice"><input type="radio" name="zoneEventPrecision" value="year"><span>Year only</span></label>
+                        <label class="profile-choice"><input type="radio" name="zoneEventPrecision" value="none"><span>Not sure</span></label>
+                      </div>
+                      <div class="zone-event-when-inputs">
+                        <input type="date" id="zoneEventDate" class="profile-input" aria-label="Date">
+                        <select id="zoneEventMonth" class="profile-select hidden" aria-label="Month"></select>
+                        <select id="zoneEventSeason" class="profile-select hidden" aria-label="Season">
+                          <option value="Winter">Winter</option>
+                          <option value="Spring">Spring</option>
+                          <option value="Summer">Summer</option>
+                          <option value="Fall">Fall</option>
+                        </select>
+                        <select id="zoneEventYear" class="profile-select hidden" aria-label="Year"></select>
+                      </div>
                     </div>
                     <div class="profile-field profile-field--span-2">
                       <label class="profile-label" for="zoneEventNotes">Notes</label>
@@ -2847,39 +2879,33 @@
       'Predominant Census Tract of Zone': ['CT 4601', 'CT 4602', 'CT 4603.01', 'CT 4603.02', 'CT 4610', 'CT 4611', 'CT 4612', 'CT 4613'],
       'Housing Arrangement': ['Renter', 'Homeowner', 'RV', 'Other'],
       'Damage to home': ['Standing home', 'Partial loss', 'Total loss'],
-      'Water Districts in Zone': ['Rubio Cañon', 'Lincoln Avenue', 'Las Flores', 'TBD'],
+      'Water Districts in Zone': ['Rubio Cañon', 'Lincoln Avenue', 'Las Flores'],
       'Working Group Participation': ['Home Hardening & Fire-Resistant Neighborhoods', 'Bioremediation + Native Plants', 'Political Advocacy', 'Group Purchasing Power', 'Altagether Rebuilding Working Group', 'School Redevelopment'],
       'Interest Areas': ['Alternative Building', 'Architectural heritage', 'Arts', 'Bioremediation', 'Community Land Trusts', 'Commercial redevelopment', 'Community visioning', 'Crime & Safety', 'Disaster preparedness', 'Event planning', 'Faith communities', 'Group purchasing power', 'Home hardening', 'Insurance', 'Landlord issues', 'Mental health', 'Modular, Prefab, and Factory-Built Homes', 'Owner/Builder', 'New tech tools & platforms', 'Passive homes', 'Private Road', 'Rebuilding', 'Renter issues', 'Schools & Children', 'Septic to Sewer', 'Solar power', 'Standing homes', 'Telecom issues', 'Town history & stories', 'Trees & plants', 'Utilities - All', 'Utilities - Electric', 'Utilities - Gas', 'Utilities - Water']
     };
     const NC_INTEREST_AREA_GROUPS = [
       {
         label: 'Rebuilding & Housing',
-        description: 'How you think about homes, rebuilding paths, and resilient construction.',
         options: ['Standing homes', 'Rebuilding', 'Home hardening', 'Insurance', 'Owner/Builder', 'Alternative Building', 'Passive homes', 'Modular, Prefab, and Factory-Built Homes']
       },
       {
         label: 'Community Planning & Preservation',
-        description: 'Land use, culture, memory, and the long-range shape of the neighborhood.',
         options: ['Community visioning', 'Community Land Trusts', 'Commercial redevelopment', 'Architectural heritage', 'Town history & stories', 'Arts']
       },
       {
         label: 'Neighbor Support & Institutions',
-        description: 'People-facing issues, local institutions, and mutual support networks.',
         options: ['Crime & Safety', 'Mental health', 'Renter issues', 'Landlord issues', 'Schools & Children', 'Faith communities', 'Event planning']
       },
       {
         label: 'Environment & Resilience',
-        description: 'Landscape, ecology, climate adaptation, and disaster readiness.',
         options: ['Bioremediation', 'Trees & plants', 'Solar power', 'Disaster preparedness']
       },
       {
         label: 'Infrastructure & Utilities',
-        description: 'The physical systems that keep neighborhoods functioning.',
         options: ['Private Road', 'Septic to Sewer', 'Telecom issues', 'Utilities - All', 'Utilities - Electric', 'Utilities - Gas', 'Utilities - Water']
       },
       {
         label: 'Coordination & Tools',
-        description: 'Practical collaboration tools and ways to work together.',
         options: ['Group purchasing power', 'New tech tools & platforms']
       }
     ];
@@ -2950,14 +2976,12 @@
       const knownSet = new Set(NC_INTEREST_AREA_ORDER);
       const groups = NC_INTEREST_AREA_GROUPS.map(group => ({
         label: group.label,
-        description: group.description,
         options: group.options.filter(option => allSet.has(option))
       })).filter(group => group.options.length > 0);
       const extras = allOptions.filter(option => !knownSet.has(option));
       if (extras.length) {
         groups.push({
-          label: 'Other Existing Values',
-          description: 'These are preserved from the spreadsheet so nothing gets lost while the taxonomy evolves.',
+          label: 'Other interests',
           options: extras
         });
       }
@@ -3001,21 +3025,39 @@
       const groups = getInterestAreaGroups(selectedValues);
       iaContainer.innerHTML = groups.map(group => {
         return '<section class="profile-choice-section">' +
-          '<div class="profile-choice-section-head">' +
-          '<div class="profile-choice-section-title">' + escapeHtml(group.label) + '</div>' +
-          (group.description ? '<p class="profile-choice-section-copy">' + escapeHtml(group.description) + '</p>' : '') +
-          '</div>' +
+          '<div class="profile-choice-section-title">' + escapeHtml(group.label) +
+          '<span class="profile-choice-count hidden"></span></div>' +
           '<div class="profile-choice-grid profile-choice-grid--compact">' +
           renderProfileChoiceOptions(group.options, selectedValues, 'Interest Areas', 'ncIa_') +
           '</div>' +
           '</section>';
       }).join('');
+      updateInterestAreaCounts();
     }
+
+    function updateInterestAreaCounts() {
+      document.querySelectorAll('#ncInterestAreas .profile-choice-section').forEach(section => {
+        const count = section.querySelectorAll('input[type=checkbox]:checked').length;
+        const el = section.querySelector('.profile-choice-count');
+        if (!el) return;
+        el.textContent = count ? ' · ' + count + ' selected' : '';
+        el.classList.toggle('hidden', !count);
+      });
+    }
+
+    document.getElementById('ncInterestAreas')?.addEventListener('change', updateInterestAreaCounts);
 
     async function loadProfileView() {
       const signinEl = document.getElementById('profileSigninPrompt');
       const wizardEl = document.getElementById('profileWizard');
       const formEl = document.getElementById('profileFormContainer');
+      await settleProfileAutosave();
+      // A failed or blocked save means the form holds text the sheet doesn't have yet; don't reload over it.
+      if (formEl && !formEl.classList.contains('hidden') && isSignedIn() &&
+          getProfileAutosaveFields().some(f => PROFILE_FIELD_KEYS.includes(f.key) && (f.failed || f.invalid))) {
+        loadZoneNotebook();
+        return;
+      }
       if (signinEl) signinEl.classList.add('hidden');
       if (wizardEl) wizardEl.classList.add('hidden');
       if (formEl) formEl.classList.add('hidden');
@@ -3048,7 +3090,7 @@
       }
       if (!currentUserEmail) {
         if (signinEl) {
-          signinEl.innerHTML = '<p><strong>Could not determine your Google email.</strong></p><p>Your sign-in may not include email access. Sign out and sign in again so we can link your account to your NC profile.</p><button type="button" class="btn-signin" id="profileSignOutAndInAgain" style="margin-top: 0.5rem;">Sign out and sign in again</button>';
+          signinEl.innerHTML = '<p><strong>Could not determine your Google email.</strong></p><p>Your sign-in may not include email access. Sign out and sign in again so we can link your account to your captain profile.</p><button type="button" class="btn-signin" id="profileSignOutAndInAgain" style="margin-top: 0.5rem;">Sign out and sign in again</button>';
           signinEl.classList.remove('hidden');
           document.getElementById('profileSignOutAndInAgain')?.addEventListener('click', () => {
             preferSelectAccountOnce = true;
@@ -3083,6 +3125,7 @@
         ncProfileRowData = rows[matchIndex];
         ncProfileHeaders = headers;
         populateProfileForm(ncProfileRowData);
+        snapshotProfileAutosave(PROFILE_FIELD_KEYS);
         if (formEl) formEl.classList.remove('hidden');
         loadZoneNotebook();
       } catch (err) {
@@ -3115,7 +3158,7 @@
         ncDamage.value = (row['Damage to home'] || '').trim();
       }
       renderProfileMultiChoice('ncWaterDistrict', 'Water Districts in Zone', 'ncWd_',
-        parseMultiSelect(row['Water Districts in Zone']));
+        parseMultiSelect(row['Water Districts in Zone']).filter(v => v.trim().toLowerCase() !== 'tbd'));
       document.getElementById('ncName').value = getRowVal(row, 'Name');
       document.getElementById('ncZone').value = getRowVal(row, 'Zone');
       const ncLocation = document.getElementById('ncLocation');
@@ -3139,7 +3182,7 @@
       if (badgesEl) {
         const badges = parseMultiSelect(row['Badges'] || '').filter(b => (b || '').trim().toLowerCase() !== 'dena native');
         if (badges.length) {
-          badgesEl.textContent = 'Other badges (read-only): ' + badges.join(', ');
+          badgesEl.textContent = 'Your badges: ' + badges.join(', ');
           badgesEl.classList.remove('hidden');
         } else {
           badgesEl.classList.add('hidden');
@@ -3151,87 +3194,270 @@
       return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    async function saveNcProfile() {
-      if (!isSignedIn() || ncProfileRowIndex == null || !ncProfileRowData) return;
-      const row = {};
-      row['Name'] = (document.getElementById('ncName').value || '').trim();
-      row['Zone'] = (document.getElementById('ncZone').value || '').trim();
-      row['Location'] = (document.getElementById('ncLocation')?.value || '').trim();
-      row['Predominant Census Tract of Zone'] = formatMultiSelectForSheet(getCheckedProfileChoices('ncCensusTract'));
-      row['Phone'] = (document.getElementById('ncPhone').value || '').trim();
-      row['Preferred email'] = (document.getElementById('ncPreferredEmail').value || '').trim();
-      row['Working Group Participation'] = formatMultiSelectForSheet(Array.from(document.querySelectorAll('#ncWorkingGroups input[type=checkbox]:checked')).map(cb => cb.value));
-      row['Housing Arrangement'] = (document.getElementById('ncHousing').value || '').trim();
-      row['Damage to home'] = (document.getElementById('ncDamage').value || '').trim();
-      row['Notes/Bio'] = (document.getElementById('ncNotesBio')?.value || '').trim();
-      row['Interest Areas'] = formatMultiSelectForSheet(Array.from(document.querySelectorAll('#ncInterestAreas input[type=checkbox]:checked')).map(cb => cb.value));
-      row['Expertise (Ask Me About...)'] = (document.getElementById('ncExpertiseAskMe')?.value || '').trim();
-      row['Languages Spoken'] = (document.getElementById('ncLanguages').value || '').trim();
-      commitPendingOrganizationInput();
-      row['Other Organizations'] = formatMultiSelectForSheet(ncProfileOrganizations);
-      row['Google email'] = (ncProfileRowData['Google email'] || '').trim();
-      row['Water Districts in Zone'] = formatMultiSelectForSheet(getCheckedProfileChoices('ncWaterDistrict'));
-      const existingBadges = parseMultiSelect(ncProfileRowData['Badges'] || '').filter(b => (b || '').trim().toLowerCase() !== 'dena native');
-      if (document.getElementById('ncDenaNative')?.checked) existingBadges.push('dena native');
-      row['Badges'] = formatMultiSelectForSheet(existingBadges);
-      const colLetter = (i) => (i < 26 ? String.fromCharCode(65 + i) : String.fromCharCode(64 + Math.floor(i / 26)) + String.fromCharCode(65 + (i % 26)));
-      const norm = (s) => (s || '').trim().toLowerCase();
-      const findCol = (key) => {
-        if (!ncProfileHeaders) return -1;
-        const nk = norm(key);
-        const idx = ncProfileHeaders.findIndex(h => norm(h) === nk);
-        if (idx >= 0) return idx;
-        const aliases = { 'predominant census tract of zone': ['census tract', 'predominant census tract'], 'notes/bio': ['notes', 'bio'] };
-        for (const alt of (aliases[nk] || [])) {
-          const i = ncProfileHeaders.findIndex(h => norm(h) === alt);
-          if (i >= 0) return i;
-        }
-        return -1;
-      };
-      const data = [];
-      for (const key of NC_PROFILE_HEADERS) {
-        const colIdx = findCol(key);
-        if (colIdx >= 0) {
-          const range = 'Sheet1!' + colLetter(colIdx) + ncProfileRowIndex;
-          data.push({ range: range, values: [[row[key] || '']] });
-        }
-      }
-      if (data.length === 0 && ncProfileHeaders) {
-        const rowValues = NC_PROFILE_HEADERS.map(h => row[h] || '');
-        data.push({ range: 'Sheet1!A' + ncProfileRowIndex + ':' + colLetter(NC_PROFILE_HEADERS.length - 1) + ncProfileRowIndex, values: [rowValues] });
-      }
-      const orgsColumnMissing = ncProfileHeaders && ncProfileOrganizations.length > 0 && findCol('Other Organizations') < 0;
-      const statusEl = document.getElementById('profileSaveStatus');
-      const btn = document.getElementById('ncProfileSaveBtn');
-      if (btn) btn.disabled = true;
-      if (statusEl) { statusEl.textContent = 'Saving…'; statusEl.classList.remove('hidden'); }
-      if (isZoneIssuesDirty()) saveZoneIssues();
-      try {
-        const res = await fetchSheetWrite('/api/sheets/batch-update', {
-          body: JSON.stringify({
-            sheetId: NC_DIRECTORY_SHEET_ID,
-            valueInputOption: 'USER_ENTERED',
-            data: data
-          })
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.message || err.error || 'Save failed');
-        }
-        if (statusEl) {
-          statusEl.textContent = orgsColumnMissing
-            ? 'Saved, except organizations: the directory sheet has no "Other Organizations" column yet.'
-            : 'Saved.';
-          statusEl.style.color = orgsColumnMissing ? 'var(--accent-clay)' : 'var(--accent-altagether-green)';
-        }
-        ncProfileRowData = row;
-      } catch (e) {
-        if (statusEl) { statusEl.textContent = 'Error: ' + (e.message || 'Could not save'); statusEl.style.color = 'var(--accent-clay)'; }
-      }
-      if (btn) btn.disabled = false;
+    // ---- My Profile autosave ----
+    // Each field saves on its own (one cell / one zone value), never the whole form.
+    const PROFILE_TEXT_AUTOSAVE_MS = 2000;
+    const PROFILE_SAVED_FADE_MS = 3000;
+    // Google caps the shared service account's writes, so back off before reporting a failure.
+    const PROFILE_SAVE_RETRY_DELAYS_MS = [3000, 8000];
+    const profileAutosaveFields = new Map();
+    const profileSaveFadeTimers = {};
+
+    function registerProfileAutosaveField(key, config) {
+      profileAutosaveFields.set(key, Object.assign({
+        key, timer: null, inFlight: null, again: false, failed: false, invalid: '', paused: false, lastSaved: null
+      }, config));
     }
 
-    document.getElementById('ncProfileSaveBtn')?.addEventListener('click', saveNcProfile);
+    function getProfileAutosaveFields(section) {
+      return Array.from(profileAutosaveFields.values()).filter(f => !section || f.section === section);
+    }
+
+    // Marks the current form values as saved (after loading), so nothing is written until the captain edits.
+    function snapshotProfileAutosave(keys) {
+      (keys || Array.from(profileAutosaveFields.keys())).forEach(key => {
+        const field = profileAutosaveFields.get(key);
+        if (!field) return;
+        clearTimeout(field.timer);
+        Object.assign(field, { timer: null, again: false, failed: false, invalid: '', paused: false, lastSaved: field.read() });
+        renderProfileSaveStatus(field.section);
+      });
+    }
+
+    function scheduleProfileSave(key, immediate) {
+      const field = profileAutosaveFields.get(key);
+      if (!field || field.paused || field.lastSaved === null) return;
+      clearTimeout(field.timer);
+      field.timer = null;
+      if (immediate) {
+        flushProfileField(field);
+        return;
+      }
+      field.timer = setTimeout(() => {
+        field.timer = null;
+        flushProfileField(field);
+      }, PROFILE_TEXT_AUTOSAVE_MS);
+    }
+
+    function isRetryableProfileSaveError(err) {
+      if (!err || err.permanent || err.conflict) return false;
+      if (!err.status) return true;
+      return [429, 500, 502, 503, 504].includes(err.status);
+    }
+
+    async function flushProfileField(field) {
+      clearTimeout(field.timer);
+      field.timer = null;
+      if (field.paused || field.lastSaved === null) return;
+      if (field.inFlight) {
+        field.again = true;
+        return field.inFlight;
+      }
+      const value = field.read();
+      if (value === field.lastSaved) {
+        if (field.failed || field.invalid) {
+          field.failed = false;
+          field.invalid = '';
+          renderProfileSaveStatus(field.section);
+        }
+        return;
+      }
+      field.invalid = field.validate ? (field.validate(value) || '') : '';
+      if (field.invalid) {
+        renderProfileSaveStatus(field.section);
+        return;
+      }
+      field.inFlight = (async () => {
+        for (let attempt = 0; ; attempt++) {
+          try {
+            await field.save(value);
+            field.lastSaved = value;
+            field.failed = false;
+            return true;
+          } catch (err) {
+            if (err && err.conflict) {
+              field.paused = true;
+              return false;
+            }
+            const delay = isRetryableProfileSaveError(err) ? PROFILE_SAVE_RETRY_DELAYS_MS[attempt] : undefined;
+            if (delay === undefined) {
+              console.warn('Profile autosave failed (' + field.key + '):', err && err.message);
+              field.failed = true;
+              return false;
+            }
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+      })();
+      renderProfileSaveStatus(field.section);
+      const ok = await field.inFlight;
+      field.inFlight = null;
+      renderProfileSaveStatus(field.section, ok);
+      if (field.again) {
+        field.again = false;
+        return flushProfileField(field);
+      }
+    }
+
+    function retryProfileSection(section) {
+      getProfileAutosaveFields(section).forEach(field => {
+        if (field.failed) flushProfileField(field);
+      });
+    }
+
+    // Wait for pending and in-flight saves (used before reloading the form from the sheet).
+    async function settleProfileAutosave(section) {
+      await Promise.all(getProfileAutosaveFields(section)
+        .filter(f => f.timer || f.inFlight)
+        .map(f => flushProfileField(f)));
+    }
+
+    function hasUnsavedProfileWork() {
+      return getProfileAutosaveFields().some(f => f.timer || f.inFlight || f.failed || f.invalid || f.paused);
+    }
+
+    function renderProfileSaveStatus(section, justSaved) {
+      const el = document.querySelector('[data-save-status="' + section + '"]');
+      if (!el) return;
+      const fields = getProfileAutosaveFields(section);
+      const invalid = fields.find(f => f.invalid);
+      clearTimeout(profileSaveFadeTimers[section]);
+      el.classList.remove('is-fading');
+      el.dataset.state = '';
+      if (fields.some(f => f.inFlight)) {
+        el.dataset.state = 'saving';
+        el.textContent = 'Saving…';
+      } else if (fields.some(f => f.failed)) {
+        el.dataset.state = 'error';
+        el.innerHTML = 'Couldn’t save · <button type="button" class="profile-save-retry" data-retry-section="' + escapeHtmlAttr(section) + '">Retry</button>';
+      } else if (fields.some(f => f.paused)) {
+        el.dataset.state = 'error';
+        el.textContent = 'Not saved yet · see below';
+      } else if (invalid) {
+        el.dataset.state = 'error';
+        el.textContent = invalid.invalid;
+      } else if (justSaved) {
+        el.dataset.state = 'saved';
+        el.textContent = 'Saved ✓';
+        profileSaveFadeTimers[section] = setTimeout(() => {
+          el.classList.add('is-fading');
+          profileSaveFadeTimers[section] = setTimeout(() => {
+            el.textContent = '';
+            el.dataset.state = '';
+            el.classList.remove('is-fading');
+          }, 400);
+        }, PROFILE_SAVED_FADE_MS);
+      } else {
+        el.textContent = '';
+      }
+    }
+
+    function findProfileColumn(header) {
+      if (!ncProfileHeaders) return -1;
+      const norm = (s) => (s || '').trim().toLowerCase();
+      const key = norm(header);
+      const idx = ncProfileHeaders.findIndex(h => norm(h) === key);
+      if (idx >= 0) return idx;
+      const aliases = { 'predominant census tract of zone': ['census tract', 'predominant census tract'], 'notes/bio': ['notes', 'bio'] };
+      for (const alt of (aliases[key] || [])) {
+        const i = ncProfileHeaders.findIndex(h => norm(h) === alt);
+        if (i >= 0) return i;
+      }
+      return -1;
+    }
+
+    async function writeProfileCell(header, value) {
+      if (!isSignedIn() || ncProfileRowIndex == null || !ncProfileRowData) {
+        throw Object.assign(new Error('Your profile is not loaded.'), { permanent: true });
+      }
+      const colIdx = findProfileColumn(header);
+      if (colIdx < 0) {
+        throw Object.assign(new Error('The directory has no "' + header + '" column.'), { permanent: true });
+      }
+      const res = await fetchSheetWrite('/api/sheets/batch-update', {
+        body: JSON.stringify({
+          sheetId: NC_DIRECTORY_SHEET_ID,
+          valueInputOption: 'RAW',
+          data: [{ range: 'Sheet1!' + indexToColumnLetter(colIdx) + ncProfileRowIndex, values: [[value]] }]
+        })
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw Object.assign(new Error(payload.message || payload.error || 'Save failed'), { status: res.status });
+      }
+      ncProfileRowData[ncProfileHeaders[colIdx]] = value;
+    }
+
+    function readProfileText(id) {
+      return (document.getElementById(id)?.value || '').trim();
+    }
+
+    function readProfileBadges() {
+      const badges = parseMultiSelect((ncProfileRowData && ncProfileRowData['Badges']) || '')
+        .filter(b => (b || '').trim().toLowerCase() !== 'dena native');
+      if (document.getElementById('ncDenaNative')?.checked) badges.push('dena native');
+      return formatMultiSelectForSheet(badges);
+    }
+
+    // [field key, section, directory column, read value, input element id, trigger]
+    const PROFILE_AUTOSAVE_DEFS = [
+      ['name', 'basics', 'Name', () => readProfileText('ncName'), 'ncName', 'text'],
+      ['zone', 'basics', 'Zone', () => readProfileText('ncZone'), 'ncZone', 'text'],
+      ['location', 'basics', 'Location', () => readProfileText('ncLocation'), 'ncLocation', 'text'],
+      ['censusTracts', 'basics', 'Predominant Census Tract of Zone', () => formatMultiSelectForSheet(getCheckedProfileChoices('ncCensusTract')), 'ncCensusTract', 'change'],
+      ['waterDistricts', 'basics', 'Water Districts in Zone', () => formatMultiSelectForSheet(getCheckedProfileChoices('ncWaterDistrict')), 'ncWaterDistrict', 'change'],
+      ['phone', 'contact', 'Phone', () => readProfileText('ncPhone'), 'ncPhone', 'text'],
+      ['preferredEmail', 'contact', 'Preferred email', () => readProfileText('ncPreferredEmail'), 'ncPreferredEmail', 'text'],
+      ['languages', 'contact', 'Languages Spoken', () => readProfileText('ncLanguages'), 'ncLanguages', 'text'],
+      ['denaNative', 'contact', 'Badges', readProfileBadges, 'ncDenaNative', 'change'],
+      ['notesBio', 'contact', 'Notes/Bio', () => readProfileText('ncNotesBio'), 'ncNotesBio', 'text'],
+      ['expertise', 'contact', 'Expertise (Ask Me About...)', () => readProfileText('ncExpertiseAskMe'), 'ncExpertiseAskMe', 'text'],
+      ['orgs', 'contact', 'Other Organizations', () => formatMultiSelectForSheet(ncProfileOrganizations), null, null],
+      ['interests', 'interests', 'Interest Areas', () => formatMultiSelectForSheet(getCheckedProfileChoices('ncInterestAreas')), 'ncInterestAreas', 'change'],
+      ['housing', 'home', 'Housing Arrangement', () => readProfileText('ncHousing'), 'ncHousing', 'change'],
+      ['damage', 'home', 'Damage to home', () => readProfileText('ncDamage'), 'ncDamage', 'change']
+    ];
+    const PROFILE_FIELD_KEYS = PROFILE_AUTOSAVE_DEFS.map(def => def[0]);
+
+    PROFILE_AUTOSAVE_DEFS.forEach(([key, section, header, read, elId, trigger]) => {
+      registerProfileAutosaveField(key, {
+        section,
+        read,
+        save: (value) => writeProfileCell(header, value),
+        validate: key === 'name' ? (value) => (value ? '' : 'Name can’t be blank') : null
+      });
+      const el = elId && document.getElementById(elId);
+      if (!el) return;
+      if (trigger === 'text') {
+        el.addEventListener('input', () => scheduleProfileSave(key, false));
+        el.addEventListener('blur', () => scheduleProfileSave(key, true));
+      } else {
+        el.addEventListener('change', () => scheduleProfileSave(key, true));
+      }
+    });
+
+    document.getElementById('ncProfileForm')?.addEventListener('submit', (e) => e.preventDefault());
+
+    document.addEventListener('click', (e) => {
+      const retry = e.target.closest('.profile-save-retry');
+      if (retry) retryProfileSection(retry.dataset.retrySection);
+    });
+
+    window.addEventListener('beforeunload', (e) => {
+      if (!hasUnsavedProfileWork()) return;
+      getProfileAutosaveFields().forEach(f => { if (f.timer) flushProfileField(f); });
+      e.preventDefault();
+      e.returnValue = '';
+    });
+
+    document.querySelectorAll('[data-jump-to]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = document.getElementById(btn.dataset.jumpTo);
+        if (!target) return;
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        target.focus({ preventScroll: true });
+      });
+    });
 
     // ---- Other Organizations (tag input with suggestions) ----
     let ncProfileOrganizations = [];
@@ -3322,12 +3548,7 @@
       renderProfileOrganizations();
       if (input) input.value = '';
       hideOrganizationSuggestions();
-    }
-
-    // Typed-but-not-added text still counts when the profile is saved.
-    function commitPendingOrganizationInput() {
-      const input = document.getElementById('ncOrgsInput');
-      if (input && input.value.trim()) chooseOrganization(input.value);
+      scheduleProfileSave('orgs', true);
     }
 
     (function bindOrganizationInput() {
@@ -3362,6 +3583,7 @@
         } else if (e.key === 'Backspace' && !input.value && ncProfileOrganizations.length) {
           ncProfileOrganizations.pop();
           renderProfileOrganizations();
+          scheduleProfileSave('orgs', true);
         }
       });
       input.addEventListener('blur', () => setTimeout(hideOrganizationSuggestions, 120));
@@ -3378,12 +3600,13 @@
         if (!btn) return;
         ncProfileOrganizations.splice(Number(btn.dataset.orgIndex), 1);
         renderProfileOrganizations();
+        scheduleProfileSave('orgs', true);
         input.focus();
       });
     })();
 
     // ---- Zone Notebook: events + zone issues shared by every captain of the zone ----
-    let zoneNotebookState = { sheetId: null, zone: '', issues: null, events: [] };
+    let zoneNotebookState = { sheetId: null, zone: '', captains: [], issues: null, events: [] };
     let zoneNotebookRequestSeq = 0;
     let zoneEventEditingId = null;
 
@@ -3410,11 +3633,91 @@
       el.style.color = tone === 'error' ? 'var(--accent-clay)' : (tone === 'ok' ? 'var(--accent-altagether-green)' : '');
     }
 
-    function formatZoneNotebookDate(isoDate) {
-      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(isoDate || ''));
-      if (!m) return String(isoDate || '');
-      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
-        .toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    const ZONE_EVENT_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const ZONE_EVENT_EARLIEST_YEAR = 2020;
+    const ZONE_EVENT_SEASON_BY_MONTH = ['Winter', 'Winter', 'Spring', 'Spring', 'Spring', 'Summer', 'Summer', 'Summer', 'Fall', 'Fall', 'Fall', 'Winter'];
+
+    // Event dates are stored as 'YYYY-MM-DD', 'YYYY-MM', 'Spring YYYY', or 'YYYY'.
+    function parseZoneEventDate(value) {
+      const text = String(value || '').trim();
+      let m;
+      if (!text) return { precision: 'none' };
+      if ((m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text))) return { precision: 'day', day: text, year: m[1], month: String(Number(m[2])) };
+      if ((m = /^(\d{4})-(\d{2})$/.exec(text))) return { precision: 'month', year: m[1], month: String(Number(m[2])) };
+      if ((m = /^(Winter|Spring|Summer|Fall) (\d{4})$/.exec(text))) return { precision: 'season', season: m[1], year: m[2] };
+      if ((m = /^(\d{4})$/.exec(text))) return { precision: 'year', year: m[1] };
+      return { precision: 'none', unreadable: text };
+    }
+
+    function formatZoneNotebookDate(value) {
+      const parsed = parseZoneEventDate(value);
+      if (parsed.precision === 'day') {
+        const [y, mo, d] = parsed.day.split('-').map(Number);
+        return new Date(y, mo - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+      if (parsed.precision === 'month') return ZONE_EVENT_MONTHS[Number(parsed.month) - 1] + ' ' + parsed.year;
+      return String(value || '');
+    }
+
+    function getZoneEventPrecision() {
+      const checked = document.querySelector('input[name="zoneEventPrecision"]:checked');
+      return checked ? checked.value : 'day';
+    }
+
+    function setZoneEventPrecision(precision) {
+      const radio = document.querySelector('input[name="zoneEventPrecision"][value="' + precision + '"]');
+      if (radio) radio.checked = true;
+      document.getElementById('zoneEventDate')?.classList.toggle('hidden', precision !== 'day');
+      document.getElementById('zoneEventMonth')?.classList.toggle('hidden', precision !== 'month');
+      document.getElementById('zoneEventSeason')?.classList.toggle('hidden', precision !== 'season');
+      document.getElementById('zoneEventYear')?.classList.toggle('hidden', !['month', 'season', 'year'].includes(precision));
+    }
+
+    function fillZoneEventYearOptions(extraYear) {
+      const select = document.getElementById('zoneEventYear');
+      if (!select) return;
+      const latest = new Date().getFullYear() + 1;
+      const years = [];
+      for (let y = latest; y >= ZONE_EVENT_EARLIEST_YEAR; y--) years.push(String(y));
+      if (extraYear && !years.includes(String(extraYear))) years.push(String(extraYear));
+      select.innerHTML = years.map(y => '<option value="' + y + '">' + y + '</option>').join('');
+    }
+
+    function fillZoneEventWhen(value) {
+      const parsed = parseZoneEventDate(value);
+      const now = new Date();
+      fillZoneEventYearOptions(parsed.year);
+      const monthSelect = document.getElementById('zoneEventMonth');
+      if (monthSelect && !monthSelect.options.length) {
+        monthSelect.innerHTML = ZONE_EVENT_MONTHS.map((name, i) => '<option value="' + (i + 1) + '">' + name + '</option>').join('');
+      }
+      document.getElementById('zoneEventDate').value = parsed.day || '';
+      document.getElementById('zoneEventMonth').value = parsed.month || String(now.getMonth() + 1);
+      document.getElementById('zoneEventSeason').value = parsed.season || ZONE_EVENT_SEASON_BY_MONTH[now.getMonth()];
+      document.getElementById('zoneEventYear').value = parsed.year || String(now.getFullYear());
+      setZoneEventPrecision(value ? parsed.precision : 'day');
+      return parsed;
+    }
+
+    // Carry an exact date over to the coarser pickers so switching precision doesn't lose it.
+    function syncZoneEventPickersFromDate() {
+      const parsed = parseZoneEventDate(document.getElementById('zoneEventDate')?.value);
+      if (parsed.precision !== 'day') return;
+      if (document.querySelector('#zoneEventYear option[value="' + parsed.year + '"]')) {
+        document.getElementById('zoneEventYear').value = parsed.year;
+      }
+      document.getElementById('zoneEventMonth').value = parsed.month;
+      document.getElementById('zoneEventSeason').value = ZONE_EVENT_SEASON_BY_MONTH[Number(parsed.month) - 1];
+    }
+
+    function readZoneEventWhen() {
+      const precision = getZoneEventPrecision();
+      const year = document.getElementById('zoneEventYear')?.value || '';
+      if (precision === 'day') return (document.getElementById('zoneEventDate')?.value || '').trim();
+      if (precision === 'month') return year + '-' + String(document.getElementById('zoneEventMonth')?.value || '').padStart(2, '0');
+      if (precision === 'season') return (document.getElementById('zoneEventSeason')?.value || '') + ' ' + year;
+      if (precision === 'year') return year;
+      return '';
     }
 
     function formatZoneNotebookTimestamp(iso) {
@@ -3423,20 +3726,64 @@
       return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     }
 
-    function isZoneIssuesDirty() {
-      const textarea = document.getElementById('zoneIssuesText');
-      if (!textarea || !zoneNotebookState.issues) return false;
-      return textarea.value.trim() !== String(zoneNotebookState.issues.text || '').trim();
+    function readZoneIssuesText() {
+      return (document.getElementById('zoneIssuesText')?.value || '').trim();
+    }
+
+    // Has edits (pending, in flight, failed, or blocked by a conflict) that the sheet doesn't have yet.
+    function zoneIssuesHasLocalEdits() {
+      const field = profileAutosaveFields.get('zoneIssues');
+      if (!field || field.lastSaved === null) return false;
+      return !!(field.timer || field.inFlight || field.failed || field.paused || readZoneIssuesText() !== field.lastSaved);
     }
 
     function renderZoneIssuesMeta() {
       const issues = zoneNotebookState.issues;
+      const el = document.getElementById('zoneIssuesMeta');
+      if (!el) return;
       if (issues && issues.lastUpdatedOn) {
-        const who = issues.lastUpdatedBy ? ' by ' + issues.lastUpdatedBy : '';
-        setZoneNotebookMessage('zoneIssuesStatus', 'Last updated' + who + ' on ' + formatZoneNotebookTimestamp(issues.lastUpdatedOn) + '.');
+        const who = issues.lastUpdatedByYou ? 'you' : (issues.lastUpdatedBy || 'a captain');
+        el.textContent = 'Last edited by ' + who + ' · ' + formatZoneNotebookTimestamp(issues.lastUpdatedOn);
+        el.classList.remove('hidden');
       } else {
-        setZoneNotebookMessage('zoneIssuesStatus', '');
+        el.textContent = '';
+        el.classList.add('hidden');
       }
+    }
+
+    function joinNames(names) {
+      if (names.length <= 1) return names.join('');
+      return names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+    }
+
+    function captainInitials(name) {
+      const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) return '?';
+      return ((parts[0][0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+    }
+
+    function renderZoneNotebookHeader() {
+      const zone = zoneNotebookState.zone;
+      const title = document.getElementById('profilePartZone');
+      if (title) title.textContent = zone ? 'Your zone: ' + zone : 'Your zone';
+      const el = document.getElementById('zoneSharedWith');
+      if (!el) return;
+      const captains = zoneNotebookState.captains || [];
+      if (!captains.length) {
+        el.innerHTML = '';
+        el.classList.add('hidden');
+        return;
+      }
+      const others = captains.filter(c => !c.isYou).map(c => c.name);
+      const includesYou = captains.some(c => c.isYou);
+      let text;
+      if (others.length) text = 'Shared with ' + joinNames(includesYou ? [...others, 'you'] : others);
+      else text = 'You’re the only captain in this zone right now';
+      el.innerHTML = '<span class="zone-avatars" aria-hidden="true">' +
+        captains.map(c => '<span class="zone-avatar' + (c.isYou ? ' zone-avatar--you' : '') + '" title="' + escapeHtmlAttr(c.isYou ? 'You' : c.name) + '">' +
+          escapeHtml(captainInitials(c.name)) + '</span>').join('') +
+        '</span><span class="zone-shared-with-text">' + escapeHtml(text) + '</span>';
+      el.classList.remove('hidden');
     }
 
     function renderZoneEvents() {
@@ -3468,15 +3815,12 @@
       }).join('');
     }
 
+    // Zone issues are applied separately (see loadZoneNotebook) so an unsaved draft keeps its conflict baseline.
     function applyZoneNotebook(data) {
       zoneNotebookState.zone = data.zone || zoneNotebookState.zone;
-      if (data.issues) zoneNotebookState.issues = data.issues;
+      if (Array.isArray(data.captains)) zoneNotebookState.captains = data.captains;
       if (Array.isArray(data.events)) zoneNotebookState.events = data.events;
-      const zoneLabel = zoneNotebookState.zone || 'your zone';
-      const title = document.getElementById('zoneNotebookTitle');
-      if (title) title.textContent = 'Your Zone: ' + zoneLabel;
-      const kicker = document.getElementById('zoneNotebookKicker');
-      if (kicker) kicker.textContent = 'Shared with all ' + zoneLabel + ' captains';
+      renderZoneNotebookHeader();
       renderZoneEvents();
     }
 
@@ -3490,12 +3834,14 @@
     function openZoneEventForm(ev) {
       zoneEventEditingId = ev ? ev.id : null;
       document.getElementById('zoneEventName').value = ev ? ev.event : '';
-      document.getElementById('zoneEventDate').value = ev && /^\d{4}-\d{2}-\d{2}$/.test(ev.date) ? ev.date : '';
+      const when = fillZoneEventWhen(ev ? ev.date : '');
       document.getElementById('zoneEventNotes').value = ev ? ev.notes : '';
       document.getElementById('zoneEventSaveBtn').textContent = ev ? 'Save changes' : 'Save event';
       document.getElementById('zoneEventForm')?.classList.remove('hidden');
       document.getElementById('zoneEventAddBtn')?.classList.add('hidden');
-      setZoneNotebookMessage('zoneEventStatus', '');
+      setZoneNotebookMessage('zoneEventStatus', when.unreadable
+        ? 'The saved date “' + when.unreadable + '” isn’t in a format we recognize. Pick when it was above, or it will be cleared when you save.'
+        : '');
       document.getElementById('zoneEventName')?.focus();
     }
 
@@ -3509,20 +3855,30 @@
         return;
       }
       const seq = ++zoneNotebookRequestSeq;
+      const issuesField = profileAutosaveFields.get('zoneIssues');
       if (zoneNotebookState.sheetId !== sheetId) {
-        zoneNotebookState = { sheetId, zone: '', issues: null, events: [] };
+        // Finish saving the previous zone's text before switching zones.
+        await settleProfileAutosave('zone');
+        if (seq !== zoneNotebookRequestSeq) return;
+        zoneNotebookState = { sheetId, zone: '', captains: [], issues: null, events: [] };
+        Object.assign(issuesField, { lastSaved: null, failed: false, paused: false, invalid: '' });
+        hideZoneIssuesConflict();
+        renderProfileSaveStatus('zone');
         closeZoneEventForm();
-        document.getElementById('zoneIssuesConflict')?.classList.add('hidden');
+        renderZoneNotebookHeader();
         body.classList.add('hidden');
         setZoneNotebookMessage('zoneNotebookStatus', 'Loading zone notes…');
       }
       try {
         const data = await zoneNotebookRequest('/api/zone-notebook?sheetId=' + encodeURIComponent(sheetId));
         if (seq !== zoneNotebookRequestSeq) return;
-        const textarea = document.getElementById('zoneIssuesText');
-        const keepDraft = isZoneIssuesDirty();
         applyZoneNotebook(data);
-        if (textarea && !keepDraft) textarea.value = (data.issues && data.issues.text) || '';
+        if (!zoneIssuesHasLocalEdits()) {
+          zoneNotebookState.issues = data.issues || { text: '', lastUpdatedBy: '', lastUpdatedOn: '' };
+          const textarea = document.getElementById('zoneIssuesText');
+          if (textarea) textarea.value = zoneNotebookState.issues.text || '';
+          snapshotProfileAutosave(['zoneIssues']);
+        }
         renderZoneIssuesMeta();
         setZoneNotebookMessage('zoneNotebookStatus', '');
         body.classList.remove('hidden');
@@ -3533,47 +3889,91 @@
       }
     }
 
-    async function saveZoneIssues() {
-      const textarea = document.getElementById('zoneIssuesText');
-      const btn = document.getElementById('zoneIssuesSaveBtn');
-      if (!textarea || !zoneNotebookState.sheetId || !zoneNotebookState.issues) return;
-      if (btn) btn.disabled = true;
-      setZoneNotebookMessage('zoneIssuesStatus', 'Saving…');
+    let zoneIssuesTheirVersion = null;
+
+    async function saveZoneIssuesValue(value) {
+      if (!zoneNotebookState.sheetId || !zoneNotebookState.issues) {
+        throw Object.assign(new Error('Zone notes are not loaded.'), { permanent: true });
+      }
       try {
         const data = await zoneNotebookRequest('/api/zone-notebook/issues', {
           method: 'PUT',
           body: JSON.stringify({
             sheetId: zoneNotebookState.sheetId,
-            issues: textarea.value,
+            issues: value,
             expectedLastUpdatedOn: zoneNotebookState.issues.lastUpdatedOn || ''
           })
         });
         zoneNotebookState.issues = data.issues;
-        textarea.value = data.issues.text || '';
-        document.getElementById('zoneIssuesConflict')?.classList.add('hidden');
-        setZoneNotebookMessage('zoneIssuesStatus', 'Saved. All captains in ' + (zoneNotebookState.zone || 'your zone') + ' will see this.', 'ok');
+        renderZoneIssuesMeta();
       } catch (err) {
         if (err.status === 409 && err.payload && err.payload.issues) {
-          // Keep this captain's draft; show the other version so they can merge, then save again.
-          zoneNotebookState.issues = err.payload.issues;
-          const conflictEl = document.getElementById('zoneIssuesConflict');
-          if (conflictEl) {
-            conflictEl.innerHTML = '<div class="zone-issues-conflict-label">Their version:</div>' +
-              '<div class="zone-issues-conflict-text">' + (escapeHtml(err.payload.issues.text || '') || '<em>(empty)</em>') + '</div>';
-            conflictEl.classList.remove('hidden');
-          }
-          setZoneNotebookMessage('zoneIssuesStatus', err.message, 'error');
-        } else {
-          setZoneNotebookMessage('zoneIssuesStatus', 'Error: ' + (err.message || 'Could not save.'), 'error');
+          showZoneIssuesConflict(err.payload.issues);
+          err.conflict = true;
         }
-      } finally {
-        if (btn) btn.disabled = false;
+        throw err;
       }
     }
 
+    // Autosave pauses on a conflict; the captain chooses which text to keep.
+    function showZoneIssuesConflict(theirs) {
+      zoneIssuesTheirVersion = theirs;
+      const conflictEl = document.getElementById('zoneIssuesConflict');
+      if (!conflictEl) return;
+      const who = theirs.lastUpdatedBy || 'Another captain';
+      conflictEl.innerHTML =
+        '<p class="zone-issues-conflict-message">' + escapeHtml(who) + ' changed this while you were editing. Your text is still in the box above and hasn’t been saved.</p>' +
+        '<div class="zone-issues-conflict-label">Their version:</div>' +
+        '<div class="zone-issues-conflict-text">' + (escapeHtml(theirs.text || '') || '<em>(empty)</em>') + '</div>' +
+        '<div class="profile-inline-actions">' +
+          '<button type="button" class="profile-btn-secondary" data-conflict-choice="mine">Keep what’s in the box</button>' +
+          '<button type="button" class="profile-btn-secondary" data-conflict-choice="theirs">Use their version</button>' +
+        '</div>';
+      conflictEl.classList.remove('hidden');
+    }
+
+    function hideZoneIssuesConflict() {
+      zoneIssuesTheirVersion = null;
+      const conflictEl = document.getElementById('zoneIssuesConflict');
+      if (conflictEl) {
+        conflictEl.innerHTML = '';
+        conflictEl.classList.add('hidden');
+      }
+    }
+
+    function resolveZoneIssuesConflict(choice) {
+      const field = profileAutosaveFields.get('zoneIssues');
+      const theirs = zoneIssuesTheirVersion;
+      if (!field || !theirs) return;
+      zoneNotebookState.issues = theirs;
+      hideZoneIssuesConflict();
+      renderZoneIssuesMeta();
+      field.paused = false;
+      if (choice === 'theirs') {
+        document.getElementById('zoneIssuesText').value = theirs.text || '';
+        snapshotProfileAutosave(['zoneIssues']);
+        return;
+      }
+      // Their text is what the sheet holds now, so saving the box overwrites it on purpose.
+      field.lastSaved = String(theirs.text || '').trim();
+      flushProfileField(field);
+    }
+
+    registerProfileAutosaveField('zoneIssues', {
+      section: 'zone',
+      read: readZoneIssuesText,
+      save: saveZoneIssuesValue
+    });
+    document.getElementById('zoneIssuesText')?.addEventListener('input', () => scheduleProfileSave('zoneIssues', false));
+    document.getElementById('zoneIssuesText')?.addEventListener('blur', () => scheduleProfileSave('zoneIssues', true));
+    document.getElementById('zoneIssuesConflict')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-conflict-choice]');
+      if (btn) resolveZoneIssuesConflict(btn.dataset.conflictChoice);
+    });
+
     async function saveZoneEvent() {
       const name = (document.getElementById('zoneEventName')?.value || '').trim();
-      const date = (document.getElementById('zoneEventDate')?.value || '').trim();
+      const date = readZoneEventWhen();
       const notes = document.getElementById('zoneEventNotes')?.value || '';
       if (!name) {
         setZoneNotebookMessage('zoneEventStatus', 'Enter the event name.', 'error');
@@ -3615,10 +4015,15 @@
       }
     }
 
-    document.getElementById('zoneIssuesSaveBtn')?.addEventListener('click', saveZoneIssues);
     document.getElementById('zoneEventAddBtn')?.addEventListener('click', () => openZoneEventForm(null));
     document.getElementById('zoneEventCancelBtn')?.addEventListener('click', closeZoneEventForm);
     document.getElementById('zoneEventSaveBtn')?.addEventListener('click', saveZoneEvent);
+    document.querySelectorAll('input[name="zoneEventPrecision"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        syncZoneEventPickersFromDate();
+        setZoneEventPrecision(radio.value);
+      });
+    });
     document.getElementById('zoneEventsList')?.addEventListener('click', (e) => {
       const btn = e.target.closest('.zone-event-action');
       if (!btn) return;

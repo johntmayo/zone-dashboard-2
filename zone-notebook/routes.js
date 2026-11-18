@@ -148,31 +148,79 @@ function buildRowValues(headers, existingValues, record, aliasesByField) {
   return values;
 }
 
-// Accepts YYYY-MM-DD or M/D/YYYY. Returns YYYY-MM-DD, '' for blank, or null if unparseable.
+const SEASONS = ['Winter', 'Spring', 'Summer', 'Fall'];
+const SEASON_START_MONTH = { Winter: 1, Spring: 3, Summer: 6, Fall: 9 };
+const MONTH_NAMES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+
+function isPlausibleYear(year) {
+  return Number.isInteger(year) && year >= 1900 && year <= 2100;
+}
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function monthFromName(name) {
+  const lower = String(name || '').toLowerCase();
+  if (lower.length < 3) return 0;
+  return MONTH_NAMES.findIndex((m) => m.startsWith(lower)) + 1;
+}
+
+/**
+ * Event dates can be as precise as the captain remembers. Returns the canonical form
+ * ('YYYY-MM-DD', 'YYYY-MM', 'Spring YYYY', or 'YYYY'), '' for blank, or null if unparseable.
+ * Also accepts M/D/YYYY and "August 2024" so hand-edited sheet cells still read.
+ */
 function normalizeDateInput(value) {
   const text = normalizeText(value);
   if (!text) return '';
-  let year;
-  let month;
-  let day;
-  const iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  const us = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
-  if (iso) {
-    year = Number(iso[1]);
-    month = Number(iso[2]);
-    day = Number(iso[3]);
-  } else if (us) {
-    month = Number(us[1]);
-    day = Number(us[2]);
-    year = Number(us[3].length === 2 ? `20${us[3]}` : us[3]);
-  } else {
-    return null;
+
+  const day = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/) || text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+  if (day) {
+    const isIso = day[1].length === 4;
+    const year = Number(isIso ? day[1] : (day[3].length === 2 ? `20${day[3]}` : day[3]));
+    const month = Number(isIso ? day[2] : day[1]);
+    const date = Number(isIso ? day[3] : day[2]);
+    const check = new Date(Date.UTC(year, month - 1, date));
+    if (!isPlausibleYear(year) || check.getUTCFullYear() !== year || check.getUTCMonth() !== month - 1 || check.getUTCDate() !== date) {
+      return null;
+    }
+    return `${year}-${pad2(month)}-${pad2(date)}`;
   }
-  const check = new Date(Date.UTC(year, month - 1, day));
-  if (check.getUTCFullYear() !== year || check.getUTCMonth() !== month - 1 || check.getUTCDate() !== day) {
-    return null;
+
+  const isoMonth = text.match(/^(\d{4})-(\d{1,2})$/);
+  if (isoMonth) {
+    const year = Number(isoMonth[1]);
+    const month = Number(isoMonth[2]);
+    return isPlausibleYear(year) && month >= 1 && month <= 12 ? `${year}-${pad2(month)}` : null;
   }
-  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+  const year = text.match(/^(\d{4})$/);
+  if (year) return isPlausibleYear(Number(year[1])) ? year[1] : null;
+
+  const named = text.match(/^([a-z]+)\.?,?\s+(\d{4})$/i);
+  if (named && isPlausibleYear(Number(named[2]))) {
+    const word = named[1].toLowerCase();
+    const season = word === 'autumn' ? 'Fall' : SEASONS.find((s) => s.toLowerCase() === word);
+    if (season) return `${season} ${named[2]}`;
+    const month = monthFromName(word);
+    if (month) return `${named[2]}-${pad2(month)}`;
+  }
+  return null;
+}
+
+/** Sort key for a canonical event date: the start of the period, and how precise it is. */
+function eventDateSortKey(date) {
+  const text = String(date || '');
+  let m = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return { start: text, precision: 4 };
+  m = text.match(/^(\d{4})-(\d{2})$/);
+  if (m) return { start: `${text}-01`, precision: 3 };
+  m = text.match(/^(Winter|Spring|Summer|Fall) (\d{4})$/);
+  if (m) return { start: `${m[2]}-${pad2(SEASON_START_MONTH[m[1]])}-01`, precision: 2 };
+  m = text.match(/^(\d{4})$/);
+  if (m) return { start: `${text}-01-01`, precision: 1 };
+  return null;
 }
 
 function nameFromEmail(email) {
@@ -225,6 +273,30 @@ function resolveZoneForCaller({ rows, isAdmin, sheetId, zoneIndex, extractId }) 
   return fromRow && fromRow !== match.url ? fromRow : '';
 }
 
+/**
+ * Captains assigned to a zone spreadsheet, from the Access sheet (admins excluded).
+ * Returns [{ name, isYou }], others alphabetical then the caller. Emails are not exposed.
+ */
+function listZoneCaptains({ usersMap, sheetId, callerEmail, namesByEmail, extractId }) {
+  const wanted = String(sheetId || '').trim();
+  const caller = String(callerEmail || '').trim().toLowerCase();
+  const byEmail = new Map();
+  for (const [email, rows] of Object.entries(usersMap || {})) {
+    for (const entry of (Array.isArray(rows) ? rows : [])) {
+      if (!entry || typeof entry !== 'object' || !entry.url) continue;
+      if (String(entry.role || '').toLowerCase() === 'admin') continue;
+      if (extractId(entry.url) !== wanted) continue;
+      const key = String(email || '').trim().toLowerCase();
+      if (!key || byEmail.has(key)) continue;
+      const name = (namesByEmail && namesByEmail.get(key)) || normalizeText(entry.captainName) || nameFromEmail(key);
+      byEmail.set(key, { name, isYou: key === caller });
+    }
+  }
+  const all = Array.from(byEmail.values());
+  const others = all.filter((c) => !c.isYou).sort((a, b) => a.name.localeCompare(b.name));
+  return [...others, ...all.filter((c) => c.isYou)];
+}
+
 function mapEventRow(headers, rowValues, rowNumber) {
   const rawDate = cellFor(headers, rowValues, EVENT_FIELD_ALIASES.date);
   const normalizedDate = normalizeDateInput(rawDate);
@@ -252,14 +324,17 @@ function mapIssueRow(headers, rowValues, rowNumber) {
   };
 }
 
-// Newest event first; undated events last, newest-added first.
+// Newest period first; within the same start, more precise dates first. Undated last, newest-added first.
 function sortEvents(items) {
   return items.slice().sort((a, b) => {
-    const aDate = /^\d{4}-\d{2}-\d{2}$/.test(a.date) ? a.date : '';
-    const bDate = /^\d{4}-\d{2}-\d{2}$/.test(b.date) ? b.date : '';
-    if (aDate && bDate && aDate !== bDate) return aDate < bDate ? 1 : -1;
-    if (aDate && !bDate) return -1;
-    if (!aDate && bDate) return 1;
+    const aKey = eventDateSortKey(a.date);
+    const bKey = eventDateSortKey(b.date);
+    if (aKey && bKey) {
+      if (aKey.start !== bKey.start) return aKey.start < bKey.start ? 1 : -1;
+      if (aKey.precision !== bKey.precision) return bKey.precision - aKey.precision;
+    }
+    if (aKey && !bKey) return -1;
+    if (!aKey && bKey) return 1;
     return String(b.addedOn || '').localeCompare(String(a.addedOn || ''));
   });
 }
@@ -508,7 +583,11 @@ function createZoneNotebook(deps) {
     res.status(status).json({ error: 'zone_notebook_failed', message: `${fallbackMessage}. Please try again.` });
   }
 
-  async function readZone(sheets, config, zone, { forceRefresh = false } = {}) {
+  function isSameEmail(a, b) {
+    return !!a && String(a).trim().toLowerCase() === String(b || '').trim().toLowerCase();
+  }
+
+  async function readZone(sheets, config, zone, { forceRefresh = false, callerEmail = '' } = {}) {
     const zoneKey = normalizeZoneKey(zone);
     const [eventsTab, issuesTab, names] = await Promise.all([
       loadTab(sheets, config, config.eventsTab, { forceRefresh }),
@@ -526,6 +605,7 @@ function createZoneNotebook(deps) {
       issues: {
         text: issueRow ? issueRow.issues : '',
         lastUpdatedBy: issueRow ? displayName(names, issueRow.lastUpdatedBy) : '',
+        lastUpdatedByYou: !!issueRow && isSameEmail(issueRow.lastUpdatedBy, callerEmail),
         lastUpdatedOn: issueRow ? issueRow.lastUpdatedOn : ''
       },
       events: sortEvents(events).map((item) => toPublicEvent(item, names))
@@ -538,7 +618,7 @@ function createZoneNotebook(deps) {
     const notes = normalizeMultiline(body && body.notes);
     if (!event) return { error: 'Enter the event name.' };
     if (event.length > LIMITS.event) return { error: `Keep the event name under ${LIMITS.event} characters.` };
-    if (date == null) return { error: 'Enter the date as a calendar date, or leave it blank.' };
+    if (date == null) return { error: 'Enter a date, month, season, or year, or leave it blank.' };
     if (notes.length > LIMITS.notes) return { error: `Keep notes under ${LIMITS.notes} characters.` };
     return { event, date, notes };
   }
@@ -560,7 +640,19 @@ function createZoneNotebook(deps) {
         const zone = await resolveZone(req, res);
         if (!zone) return;
         const sheets = await getSheetsClient();
-        res.json(await readZone(sheets, config, zone));
+        const [data, usersMap, names] = await Promise.all([
+          readZone(sheets, config, zone, { callerEmail: req.authUser.email }),
+          readUsersMap(),
+          loadDirectoryNames(sheets, config)
+        ]);
+        data.captains = listZoneCaptains({
+          usersMap,
+          sheetId: String(req.query.sheetId || '').trim(),
+          callerEmail: req.authUser.email,
+          namesByEmail: names,
+          extractId
+        });
+        res.json(data);
       } catch (err) {
         sheetError(res, err, 'Could not load zone notes');
       }
@@ -596,6 +688,7 @@ function createZoneNotebook(deps) {
             issues: {
               text: existing.issues,
               lastUpdatedBy: displayName(names, existing.lastUpdatedBy),
+              lastUpdatedByYou: isSameEmail(existing.lastUpdatedBy, req.authUser.email),
               lastUpdatedOn: existing.lastUpdatedOn
             }
           });
@@ -619,6 +712,7 @@ function createZoneNotebook(deps) {
           issues: {
             text: issues,
             lastUpdatedBy: displayName(names, record.lastUpdatedBy),
+            lastUpdatedByYou: true,
             lastUpdatedOn: record.lastUpdatedOn
           }
         });
@@ -650,7 +744,7 @@ function createZoneNotebook(deps) {
           lastEditedOn: ''
         };
         await appendRow(sheets, config, config.eventsTab, buildRowValues(headers, [], record, EVENT_FIELD_ALIASES));
-        res.json({ success: true, ...(await readZone(sheets, config, zone, { forceRefresh: true })) });
+        res.json({ success: true, ...(await readZone(sheets, config, zone, { forceRefresh: true, callerEmail: req.authUser.email })) });
       } catch (err) {
         sheetError(res, err, 'Could not add the event');
       }
@@ -675,7 +769,7 @@ function createZoneNotebook(deps) {
         };
         await updateRow(sheets, config, config.eventsTab, item.mapped.rowNumber,
           buildRowValues(loaded.headers, item.raw, record, EVENT_FIELD_ALIASES));
-        res.json({ success: true, ...(await readZone(sheets, config, zone, { forceRefresh: true })) });
+        res.json({ success: true, ...(await readZone(sheets, config, zone, { forceRefresh: true, callerEmail: req.authUser.email })) });
       } catch (err) {
         sheetError(res, err, 'Could not save the event');
       }
@@ -690,7 +784,7 @@ function createZoneNotebook(deps) {
         const { item } = await findEvent(sheets, config, zone, String(req.params.id || '').trim());
         if (!item) return res.status(404).json({ error: 'not_found', message: 'That event was not found. It may have already been deleted.' });
         await deleteRow(sheets, config, config.eventsTab, item.mapped.rowNumber);
-        res.json({ success: true, ...(await readZone(sheets, config, zone, { forceRefresh: true })) });
+        res.json({ success: true, ...(await readZone(sheets, config, zone, { forceRefresh: true, callerEmail: req.authUser.email })) });
       } catch (err) {
         sheetError(res, err, 'Could not delete the event');
       }
@@ -754,6 +848,7 @@ module.exports = {
   normalizeMultiline,
   buildZoneNameIndex,
   resolveZoneForCaller,
+  listZoneCaptains,
   buildRowValues,
   mapEventRow,
   mapIssueRow,
