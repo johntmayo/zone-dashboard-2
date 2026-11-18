@@ -273,6 +273,30 @@ function resolveZoneForCaller({ rows, isAdmin, sheetId, zoneIndex, extractId }) 
   return fromRow && fromRow !== match.url ? fromRow : '';
 }
 
+/**
+ * Captains assigned to a zone spreadsheet, from the Access sheet (admins excluded).
+ * Returns [{ name, isYou }], others alphabetical then the caller. Emails are not exposed.
+ */
+function listZoneCaptains({ usersMap, sheetId, callerEmail, namesByEmail, extractId }) {
+  const wanted = String(sheetId || '').trim();
+  const caller = String(callerEmail || '').trim().toLowerCase();
+  const byEmail = new Map();
+  for (const [email, rows] of Object.entries(usersMap || {})) {
+    for (const entry of (Array.isArray(rows) ? rows : [])) {
+      if (!entry || typeof entry !== 'object' || !entry.url) continue;
+      if (String(entry.role || '').toLowerCase() === 'admin') continue;
+      if (extractId(entry.url) !== wanted) continue;
+      const key = String(email || '').trim().toLowerCase();
+      if (!key || byEmail.has(key)) continue;
+      const name = (namesByEmail && namesByEmail.get(key)) || normalizeText(entry.captainName) || nameFromEmail(key);
+      byEmail.set(key, { name, isYou: key === caller });
+    }
+  }
+  const all = Array.from(byEmail.values());
+  const others = all.filter((c) => !c.isYou).sort((a, b) => a.name.localeCompare(b.name));
+  return [...others, ...all.filter((c) => c.isYou)];
+}
+
 function mapEventRow(headers, rowValues, rowNumber) {
   const rawDate = cellFor(headers, rowValues, EVENT_FIELD_ALIASES.date);
   const normalizedDate = normalizeDateInput(rawDate);
@@ -559,7 +583,11 @@ function createZoneNotebook(deps) {
     res.status(status).json({ error: 'zone_notebook_failed', message: `${fallbackMessage}. Please try again.` });
   }
 
-  async function readZone(sheets, config, zone, { forceRefresh = false } = {}) {
+  function isSameEmail(a, b) {
+    return !!a && String(a).trim().toLowerCase() === String(b || '').trim().toLowerCase();
+  }
+
+  async function readZone(sheets, config, zone, { forceRefresh = false, callerEmail = '' } = {}) {
     const zoneKey = normalizeZoneKey(zone);
     const [eventsTab, issuesTab, names] = await Promise.all([
       loadTab(sheets, config, config.eventsTab, { forceRefresh }),
@@ -577,6 +605,7 @@ function createZoneNotebook(deps) {
       issues: {
         text: issueRow ? issueRow.issues : '',
         lastUpdatedBy: issueRow ? displayName(names, issueRow.lastUpdatedBy) : '',
+        lastUpdatedByYou: !!issueRow && isSameEmail(issueRow.lastUpdatedBy, callerEmail),
         lastUpdatedOn: issueRow ? issueRow.lastUpdatedOn : ''
       },
       events: sortEvents(events).map((item) => toPublicEvent(item, names))
@@ -611,7 +640,19 @@ function createZoneNotebook(deps) {
         const zone = await resolveZone(req, res);
         if (!zone) return;
         const sheets = await getSheetsClient();
-        res.json(await readZone(sheets, config, zone));
+        const [data, usersMap, names] = await Promise.all([
+          readZone(sheets, config, zone, { callerEmail: req.authUser.email }),
+          readUsersMap(),
+          loadDirectoryNames(sheets, config)
+        ]);
+        data.captains = listZoneCaptains({
+          usersMap,
+          sheetId: String(req.query.sheetId || '').trim(),
+          callerEmail: req.authUser.email,
+          namesByEmail: names,
+          extractId
+        });
+        res.json(data);
       } catch (err) {
         sheetError(res, err, 'Could not load zone notes');
       }
@@ -647,6 +688,7 @@ function createZoneNotebook(deps) {
             issues: {
               text: existing.issues,
               lastUpdatedBy: displayName(names, existing.lastUpdatedBy),
+              lastUpdatedByYou: isSameEmail(existing.lastUpdatedBy, req.authUser.email),
               lastUpdatedOn: existing.lastUpdatedOn
             }
           });
@@ -670,6 +712,7 @@ function createZoneNotebook(deps) {
           issues: {
             text: issues,
             lastUpdatedBy: displayName(names, record.lastUpdatedBy),
+            lastUpdatedByYou: true,
             lastUpdatedOn: record.lastUpdatedOn
           }
         });
@@ -701,7 +744,7 @@ function createZoneNotebook(deps) {
           lastEditedOn: ''
         };
         await appendRow(sheets, config, config.eventsTab, buildRowValues(headers, [], record, EVENT_FIELD_ALIASES));
-        res.json({ success: true, ...(await readZone(sheets, config, zone, { forceRefresh: true })) });
+        res.json({ success: true, ...(await readZone(sheets, config, zone, { forceRefresh: true, callerEmail: req.authUser.email })) });
       } catch (err) {
         sheetError(res, err, 'Could not add the event');
       }
@@ -726,7 +769,7 @@ function createZoneNotebook(deps) {
         };
         await updateRow(sheets, config, config.eventsTab, item.mapped.rowNumber,
           buildRowValues(loaded.headers, item.raw, record, EVENT_FIELD_ALIASES));
-        res.json({ success: true, ...(await readZone(sheets, config, zone, { forceRefresh: true })) });
+        res.json({ success: true, ...(await readZone(sheets, config, zone, { forceRefresh: true, callerEmail: req.authUser.email })) });
       } catch (err) {
         sheetError(res, err, 'Could not save the event');
       }
@@ -741,7 +784,7 @@ function createZoneNotebook(deps) {
         const { item } = await findEvent(sheets, config, zone, String(req.params.id || '').trim());
         if (!item) return res.status(404).json({ error: 'not_found', message: 'That event was not found. It may have already been deleted.' });
         await deleteRow(sheets, config, config.eventsTab, item.mapped.rowNumber);
-        res.json({ success: true, ...(await readZone(sheets, config, zone, { forceRefresh: true })) });
+        res.json({ success: true, ...(await readZone(sheets, config, zone, { forceRefresh: true, callerEmail: req.authUser.email })) });
       } catch (err) {
         sheetError(res, err, 'Could not delete the event');
       }
@@ -805,6 +848,7 @@ module.exports = {
   normalizeMultiline,
   buildZoneNameIndex,
   resolveZoneForCaller,
+  listZoneCaptains,
   buildRowValues,
   mapEventRow,
   mapIssueRow,

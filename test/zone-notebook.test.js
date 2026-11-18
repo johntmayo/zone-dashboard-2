@@ -9,6 +9,7 @@ const {
   normalizeMultiline,
   buildZoneNameIndex,
   resolveZoneForCaller,
+  listZoneCaptains,
   buildRowValues,
   mapEventRow,
   sortEvents,
@@ -77,6 +78,23 @@ test('resolveZoneForCaller: captains only reach their own zone; admins reach any
   assert.equal(resolveZoneForCaller({ rows: captainRows, isAdmin: false, sheetId: '', zoneIndex, extractId }), '');
   assert.equal(resolveZoneForCaller({ rows: [{ role: 'admin' }], isAdmin: true, sheetId: 'S2', zoneIndex, extractId }), 'Zone 4');
   assert.equal(resolveZoneForCaller({ rows: [{ role: 'admin' }], isAdmin: true, sheetId: 'UNKNOWN', zoneIndex, extractId }), '');
+});
+
+test('listZoneCaptains: zone captains only, directory names preferred, caller last, no admins', () => {
+  const usersMap = {
+    'me@x.com': [{ url: sheetUrl('S1'), name: 'Zone 12', captainName: 'Me Access', role: 'captain' }],
+    'zed@x.com': [{ url: sheetUrl('S1'), name: 'Zone 12', captainName: 'Zed Access', role: 'captain' }],
+    'amy@x.com': [{ url: sheetUrl('S1'), name: 'Zone 12', captainName: '', role: 'captain' }],
+    'other@x.com': [{ url: sheetUrl('S2'), name: 'Zone 4', captainName: 'Other Zone', role: 'captain' }],
+    'admin@x.com': [{ url: sheetUrl('S1'), name: 'Zone 12', captainName: 'Admin', role: 'admin' }]
+  };
+  const namesByEmail = new Map([['zed@x.com', 'Zed Directory']]);
+  const captains = listZoneCaptains({ usersMap, sheetId: 'S1', callerEmail: 'ME@x.com', namesByEmail, extractId });
+  assert.deepEqual(captains, [
+    { name: 'Amy', isYou: false },
+    { name: 'Zed Directory', isYou: false },
+    { name: 'Me Access', isYou: true }
+  ]);
 });
 
 test('buildRowValues: writes by header name and keeps extra columns', () => {
