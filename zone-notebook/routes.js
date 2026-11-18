@@ -148,31 +148,79 @@ function buildRowValues(headers, existingValues, record, aliasesByField) {
   return values;
 }
 
-// Accepts YYYY-MM-DD or M/D/YYYY. Returns YYYY-MM-DD, '' for blank, or null if unparseable.
+const SEASONS = ['Winter', 'Spring', 'Summer', 'Fall'];
+const SEASON_START_MONTH = { Winter: 1, Spring: 3, Summer: 6, Fall: 9 };
+const MONTH_NAMES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+
+function isPlausibleYear(year) {
+  return Number.isInteger(year) && year >= 1900 && year <= 2100;
+}
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function monthFromName(name) {
+  const lower = String(name || '').toLowerCase();
+  if (lower.length < 3) return 0;
+  return MONTH_NAMES.findIndex((m) => m.startsWith(lower)) + 1;
+}
+
+/**
+ * Event dates can be as precise as the captain remembers. Returns the canonical form
+ * ('YYYY-MM-DD', 'YYYY-MM', 'Spring YYYY', or 'YYYY'), '' for blank, or null if unparseable.
+ * Also accepts M/D/YYYY and "August 2024" so hand-edited sheet cells still read.
+ */
 function normalizeDateInput(value) {
   const text = normalizeText(value);
   if (!text) return '';
-  let year;
-  let month;
-  let day;
-  const iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  const us = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
-  if (iso) {
-    year = Number(iso[1]);
-    month = Number(iso[2]);
-    day = Number(iso[3]);
-  } else if (us) {
-    month = Number(us[1]);
-    day = Number(us[2]);
-    year = Number(us[3].length === 2 ? `20${us[3]}` : us[3]);
-  } else {
-    return null;
+
+  const day = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/) || text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+  if (day) {
+    const isIso = day[1].length === 4;
+    const year = Number(isIso ? day[1] : (day[3].length === 2 ? `20${day[3]}` : day[3]));
+    const month = Number(isIso ? day[2] : day[1]);
+    const date = Number(isIso ? day[3] : day[2]);
+    const check = new Date(Date.UTC(year, month - 1, date));
+    if (!isPlausibleYear(year) || check.getUTCFullYear() !== year || check.getUTCMonth() !== month - 1 || check.getUTCDate() !== date) {
+      return null;
+    }
+    return `${year}-${pad2(month)}-${pad2(date)}`;
   }
-  const check = new Date(Date.UTC(year, month - 1, day));
-  if (check.getUTCFullYear() !== year || check.getUTCMonth() !== month - 1 || check.getUTCDate() !== day) {
-    return null;
+
+  const isoMonth = text.match(/^(\d{4})-(\d{1,2})$/);
+  if (isoMonth) {
+    const year = Number(isoMonth[1]);
+    const month = Number(isoMonth[2]);
+    return isPlausibleYear(year) && month >= 1 && month <= 12 ? `${year}-${pad2(month)}` : null;
   }
-  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+  const year = text.match(/^(\d{4})$/);
+  if (year) return isPlausibleYear(Number(year[1])) ? year[1] : null;
+
+  const named = text.match(/^([a-z]+)\.?,?\s+(\d{4})$/i);
+  if (named && isPlausibleYear(Number(named[2]))) {
+    const word = named[1].toLowerCase();
+    const season = word === 'autumn' ? 'Fall' : SEASONS.find((s) => s.toLowerCase() === word);
+    if (season) return `${season} ${named[2]}`;
+    const month = monthFromName(word);
+    if (month) return `${named[2]}-${pad2(month)}`;
+  }
+  return null;
+}
+
+/** Sort key for a canonical event date: the start of the period, and how precise it is. */
+function eventDateSortKey(date) {
+  const text = String(date || '');
+  let m = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return { start: text, precision: 4 };
+  m = text.match(/^(\d{4})-(\d{2})$/);
+  if (m) return { start: `${text}-01`, precision: 3 };
+  m = text.match(/^(Winter|Spring|Summer|Fall) (\d{4})$/);
+  if (m) return { start: `${m[2]}-${pad2(SEASON_START_MONTH[m[1]])}-01`, precision: 2 };
+  m = text.match(/^(\d{4})$/);
+  if (m) return { start: `${text}-01-01`, precision: 1 };
+  return null;
 }
 
 function nameFromEmail(email) {
@@ -252,14 +300,17 @@ function mapIssueRow(headers, rowValues, rowNumber) {
   };
 }
 
-// Newest event first; undated events last, newest-added first.
+// Newest period first; within the same start, more precise dates first. Undated last, newest-added first.
 function sortEvents(items) {
   return items.slice().sort((a, b) => {
-    const aDate = /^\d{4}-\d{2}-\d{2}$/.test(a.date) ? a.date : '';
-    const bDate = /^\d{4}-\d{2}-\d{2}$/.test(b.date) ? b.date : '';
-    if (aDate && bDate && aDate !== bDate) return aDate < bDate ? 1 : -1;
-    if (aDate && !bDate) return -1;
-    if (!aDate && bDate) return 1;
+    const aKey = eventDateSortKey(a.date);
+    const bKey = eventDateSortKey(b.date);
+    if (aKey && bKey) {
+      if (aKey.start !== bKey.start) return aKey.start < bKey.start ? 1 : -1;
+      if (aKey.precision !== bKey.precision) return bKey.precision - aKey.precision;
+    }
+    if (aKey && !bKey) return -1;
+    if (!aKey && bKey) return 1;
     return String(b.addedOn || '').localeCompare(String(a.addedOn || ''));
   });
 }
@@ -538,7 +589,7 @@ function createZoneNotebook(deps) {
     const notes = normalizeMultiline(body && body.notes);
     if (!event) return { error: 'Enter the event name.' };
     if (event.length > LIMITS.event) return { error: `Keep the event name under ${LIMITS.event} characters.` };
-    if (date == null) return { error: 'Enter the date as a calendar date, or leave it blank.' };
+    if (date == null) return { error: 'Enter a date, month, season, or year, or leave it blank.' };
     if (notes.length > LIMITS.notes) return { error: `Keep notes under ${LIMITS.notes} characters.` };
     return { event, date, notes };
   }

@@ -37,7 +37,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <link rel="stylesheet" href="public/css/styles.css?v=14">
+  <link rel="stylesheet" href="public/css/styles.css?v=15">
   <script src="public/js/utils.js?v=3"></script>
   <script src="public/js/address-id.js"></script>
   <script src="public/js/resident-placeholder.js"></script>
@@ -1416,13 +1416,13 @@
             <div class="profile-section-header">
               <div class="profile-card-kicker" id="zoneNotebookKicker">Shared with your zone's captains</div>
               <h3 id="zoneNotebookTitle">Your Zone</h3>
-              <p class="profile-shared-note">Anything in this section is shared. Any Neighborhood Captain in your zone can see and edit it, and changes save straight to the zone, separately from the rest of your profile.</p>
+              <p class="profile-shared-note" id="zoneNotebookSharedNote">This section belongs to your whole zone, not just your profile. Every Neighborhood Captain in your zone sees the same zone issues and events here, and any of them can add, edit, or delete them. Changes save on their own, separately from your profile.</p>
             </div>
             <div id="zoneNotebookStatus" class="profile-status-text hidden"></div>
             <div id="zoneNotebookBody" class="hidden">
               <div class="profile-field">
                 <label class="profile-label" for="zoneIssuesText">Any issues specific to your zone?</label>
-                <p class="profile-field-help" id="zoneIssuesHelp">Things other captains should know about: a private road, a stalled rebuild cluster, a utility problem, a block that's hard to reach…</p>
+                <p class="profile-field-help" id="zoneIssuesHelp">Things other captains should know about: a private road, a stalled rebuild cluster, a utility problem, a block that's hard to reach… This also appears on your zone's Captain Directory listing, so captains across the network can find zones facing the same things.</p>
                 <textarea id="zoneIssuesText" rows="4" class="profile-textarea" aria-describedby="zoneIssuesHelp" placeholder="Describe anything particular to your zone."></textarea>
                 <div id="zoneIssuesConflict" class="zone-issues-conflict hidden" aria-live="polite"></div>
                 <div class="profile-inline-actions">
@@ -1439,13 +1439,31 @@
                 <button type="button" id="zoneEventAddBtn" class="profile-btn-secondary zone-event-add-btn">+ Add an event</button>
                 <div class="zone-event-form hidden" id="zoneEventForm">
                   <div class="profile-grid profile-grid--two">
-                    <div class="profile-field">
+                    <div class="profile-field profile-field--span-2">
                       <label class="profile-label" for="zoneEventName">Event <span class="profile-required">*</span></label>
                       <input type="text" id="zoneEventName" class="profile-input" maxlength="160" placeholder="e.g. Block meeting with LA County Public Works">
                     </div>
-                    <div class="profile-field">
-                      <label class="profile-label" for="zoneEventDate">Date</label>
-                      <input type="date" id="zoneEventDate" class="profile-input">
+                    <div class="profile-field profile-field--span-2">
+                      <span class="profile-label" id="zoneEventWhenLabel">When was it?</span>
+                      <p class="profile-field-help" id="zoneEventWhenHelp">Don't remember the exact day? Pick a month, a season, or just the year.</p>
+                      <div class="profile-choice-grid profile-choice-grid--compact zone-event-precision" role="radiogroup" aria-labelledby="zoneEventWhenLabel" aria-describedby="zoneEventWhenHelp">
+                        <label class="profile-choice"><input type="radio" name="zoneEventPrecision" value="day" checked><span>Exact date</span></label>
+                        <label class="profile-choice"><input type="radio" name="zoneEventPrecision" value="month"><span>Month</span></label>
+                        <label class="profile-choice"><input type="radio" name="zoneEventPrecision" value="season"><span>Season</span></label>
+                        <label class="profile-choice"><input type="radio" name="zoneEventPrecision" value="year"><span>Year only</span></label>
+                        <label class="profile-choice"><input type="radio" name="zoneEventPrecision" value="none"><span>Not sure</span></label>
+                      </div>
+                      <div class="zone-event-when-inputs">
+                        <input type="date" id="zoneEventDate" class="profile-input" aria-label="Date">
+                        <select id="zoneEventMonth" class="profile-select hidden" aria-label="Month"></select>
+                        <select id="zoneEventSeason" class="profile-select hidden" aria-label="Season">
+                          <option value="Winter">Winter</option>
+                          <option value="Spring">Spring</option>
+                          <option value="Summer">Summer</option>
+                          <option value="Fall">Fall</option>
+                        </select>
+                        <select id="zoneEventYear" class="profile-select hidden" aria-label="Year"></select>
+                      </div>
                     </div>
                     <div class="profile-field profile-field--span-2">
                       <label class="profile-label" for="zoneEventNotes">Notes</label>
@@ -3410,11 +3428,91 @@
       el.style.color = tone === 'error' ? 'var(--accent-clay)' : (tone === 'ok' ? 'var(--accent-altagether-green)' : '');
     }
 
-    function formatZoneNotebookDate(isoDate) {
-      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(isoDate || ''));
-      if (!m) return String(isoDate || '');
-      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
-        .toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    const ZONE_EVENT_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const ZONE_EVENT_EARLIEST_YEAR = 2020;
+    const ZONE_EVENT_SEASON_BY_MONTH = ['Winter', 'Winter', 'Spring', 'Spring', 'Spring', 'Summer', 'Summer', 'Summer', 'Fall', 'Fall', 'Fall', 'Winter'];
+
+    // Event dates are stored as 'YYYY-MM-DD', 'YYYY-MM', 'Spring YYYY', or 'YYYY'.
+    function parseZoneEventDate(value) {
+      const text = String(value || '').trim();
+      let m;
+      if (!text) return { precision: 'none' };
+      if ((m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text))) return { precision: 'day', day: text, year: m[1], month: String(Number(m[2])) };
+      if ((m = /^(\d{4})-(\d{2})$/.exec(text))) return { precision: 'month', year: m[1], month: String(Number(m[2])) };
+      if ((m = /^(Winter|Spring|Summer|Fall) (\d{4})$/.exec(text))) return { precision: 'season', season: m[1], year: m[2] };
+      if ((m = /^(\d{4})$/.exec(text))) return { precision: 'year', year: m[1] };
+      return { precision: 'none', unreadable: text };
+    }
+
+    function formatZoneNotebookDate(value) {
+      const parsed = parseZoneEventDate(value);
+      if (parsed.precision === 'day') {
+        const [y, mo, d] = parsed.day.split('-').map(Number);
+        return new Date(y, mo - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+      if (parsed.precision === 'month') return ZONE_EVENT_MONTHS[Number(parsed.month) - 1] + ' ' + parsed.year;
+      return String(value || '');
+    }
+
+    function getZoneEventPrecision() {
+      const checked = document.querySelector('input[name="zoneEventPrecision"]:checked');
+      return checked ? checked.value : 'day';
+    }
+
+    function setZoneEventPrecision(precision) {
+      const radio = document.querySelector('input[name="zoneEventPrecision"][value="' + precision + '"]');
+      if (radio) radio.checked = true;
+      document.getElementById('zoneEventDate')?.classList.toggle('hidden', precision !== 'day');
+      document.getElementById('zoneEventMonth')?.classList.toggle('hidden', precision !== 'month');
+      document.getElementById('zoneEventSeason')?.classList.toggle('hidden', precision !== 'season');
+      document.getElementById('zoneEventYear')?.classList.toggle('hidden', !['month', 'season', 'year'].includes(precision));
+    }
+
+    function fillZoneEventYearOptions(extraYear) {
+      const select = document.getElementById('zoneEventYear');
+      if (!select) return;
+      const latest = new Date().getFullYear() + 1;
+      const years = [];
+      for (let y = latest; y >= ZONE_EVENT_EARLIEST_YEAR; y--) years.push(String(y));
+      if (extraYear && !years.includes(String(extraYear))) years.push(String(extraYear));
+      select.innerHTML = years.map(y => '<option value="' + y + '">' + y + '</option>').join('');
+    }
+
+    function fillZoneEventWhen(value) {
+      const parsed = parseZoneEventDate(value);
+      const now = new Date();
+      fillZoneEventYearOptions(parsed.year);
+      const monthSelect = document.getElementById('zoneEventMonth');
+      if (monthSelect && !monthSelect.options.length) {
+        monthSelect.innerHTML = ZONE_EVENT_MONTHS.map((name, i) => '<option value="' + (i + 1) + '">' + name + '</option>').join('');
+      }
+      document.getElementById('zoneEventDate').value = parsed.day || '';
+      document.getElementById('zoneEventMonth').value = parsed.month || String(now.getMonth() + 1);
+      document.getElementById('zoneEventSeason').value = parsed.season || ZONE_EVENT_SEASON_BY_MONTH[now.getMonth()];
+      document.getElementById('zoneEventYear').value = parsed.year || String(now.getFullYear());
+      setZoneEventPrecision(value ? parsed.precision : 'day');
+      return parsed;
+    }
+
+    // Carry an exact date over to the coarser pickers so switching precision doesn't lose it.
+    function syncZoneEventPickersFromDate() {
+      const parsed = parseZoneEventDate(document.getElementById('zoneEventDate')?.value);
+      if (parsed.precision !== 'day') return;
+      if (document.querySelector('#zoneEventYear option[value="' + parsed.year + '"]')) {
+        document.getElementById('zoneEventYear').value = parsed.year;
+      }
+      document.getElementById('zoneEventMonth').value = parsed.month;
+      document.getElementById('zoneEventSeason').value = ZONE_EVENT_SEASON_BY_MONTH[Number(parsed.month) - 1];
+    }
+
+    function readZoneEventWhen() {
+      const precision = getZoneEventPrecision();
+      const year = document.getElementById('zoneEventYear')?.value || '';
+      if (precision === 'day') return (document.getElementById('zoneEventDate')?.value || '').trim();
+      if (precision === 'month') return year + '-' + String(document.getElementById('zoneEventMonth')?.value || '').padStart(2, '0');
+      if (precision === 'season') return (document.getElementById('zoneEventSeason')?.value || '') + ' ' + year;
+      if (precision === 'year') return year;
+      return '';
     }
 
     function formatZoneNotebookTimestamp(iso) {
@@ -3477,6 +3575,11 @@
       if (title) title.textContent = 'Your Zone: ' + zoneLabel;
       const kicker = document.getElementById('zoneNotebookKicker');
       if (kicker) kicker.textContent = 'Shared with all ' + zoneLabel + ' captains';
+      const note = document.getElementById('zoneNotebookSharedNote');
+      if (note && zoneNotebookState.zone) {
+        note.textContent = 'This section belongs to all of ' + zoneNotebookState.zone + ', not just your profile. Every Neighborhood Captain in ' +
+          zoneNotebookState.zone + ' sees the same zone issues and events here, and any of them can add, edit, or delete them. Changes save on their own, separately from your profile.';
+      }
       renderZoneEvents();
     }
 
@@ -3490,12 +3593,14 @@
     function openZoneEventForm(ev) {
       zoneEventEditingId = ev ? ev.id : null;
       document.getElementById('zoneEventName').value = ev ? ev.event : '';
-      document.getElementById('zoneEventDate').value = ev && /^\d{4}-\d{2}-\d{2}$/.test(ev.date) ? ev.date : '';
+      const when = fillZoneEventWhen(ev ? ev.date : '');
       document.getElementById('zoneEventNotes').value = ev ? ev.notes : '';
       document.getElementById('zoneEventSaveBtn').textContent = ev ? 'Save changes' : 'Save event';
       document.getElementById('zoneEventForm')?.classList.remove('hidden');
       document.getElementById('zoneEventAddBtn')?.classList.add('hidden');
-      setZoneNotebookMessage('zoneEventStatus', '');
+      setZoneNotebookMessage('zoneEventStatus', when.unreadable
+        ? 'The saved date “' + when.unreadable + '” isn’t in a format we recognize. Pick when it was above, or it will be cleared when you save.'
+        : '');
       document.getElementById('zoneEventName')?.focus();
     }
 
@@ -3573,7 +3678,7 @@
 
     async function saveZoneEvent() {
       const name = (document.getElementById('zoneEventName')?.value || '').trim();
-      const date = (document.getElementById('zoneEventDate')?.value || '').trim();
+      const date = readZoneEventWhen();
       const notes = document.getElementById('zoneEventNotes')?.value || '';
       if (!name) {
         setZoneNotebookMessage('zoneEventStatus', 'Enter the event name.', 'error');
@@ -3619,6 +3724,12 @@
     document.getElementById('zoneEventAddBtn')?.addEventListener('click', () => openZoneEventForm(null));
     document.getElementById('zoneEventCancelBtn')?.addEventListener('click', closeZoneEventForm);
     document.getElementById('zoneEventSaveBtn')?.addEventListener('click', saveZoneEvent);
+    document.querySelectorAll('input[name="zoneEventPrecision"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        syncZoneEventPickersFromDate();
+        setZoneEventPrecision(radio.value);
+      });
+    });
     document.getElementById('zoneEventsList')?.addEventListener('click', (e) => {
       const btn = e.target.closest('.zone-event-action');
       if (!btn) return;

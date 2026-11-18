@@ -41,6 +41,18 @@ test('normalizeDateInput: accepts ISO and US dates, rejects junk', () => {
   assert.equal(normalizeDateInput('sometime in spring'), null);
 });
 
+test('normalizeDateInput: accepts month, season, and year-only dates', () => {
+  assert.equal(normalizeDateInput('2024-8'), '2024-08');
+  assert.equal(normalizeDateInput('August 2024'), '2024-08');
+  assert.equal(normalizeDateInput('Sept 2024'), '2024-09');
+  assert.equal(normalizeDateInput('spring 2026'), 'Spring 2026');
+  assert.equal(normalizeDateInput('Autumn 2025'), 'Fall 2025');
+  assert.equal(normalizeDateInput('2024'), '2024');
+  assert.equal(normalizeDateInput('2024-13'), null);
+  assert.equal(normalizeDateInput('Ju 2024'), null);
+  assert.equal(normalizeDateInput('0024'), null);
+});
+
 test('normalizeMultiline: trims and collapses runs of blank lines', () => {
   assert.equal(normalizeMultiline('  a  \r\n\r\n\r\n\r\nb  '), 'a\n\nb');
 });
@@ -99,4 +111,16 @@ test('sortEvents: newest dated events first, undated last', () => {
     { event: 'Newer', date: '2026-02-01', addedOn: '2026-02-02' }
   ]);
   assert.deepEqual(sorted.map((e) => e.event), ['Newer', 'Older', 'Undated']);
+});
+
+test('sortEvents: approximate dates sort by period start, after exact dates in the same period', () => {
+  const sorted = sortEvents([
+    { event: 'Year 2024', date: '2024' },
+    { event: 'Aug 2024', date: '2024-08' },
+    { event: 'Aug 1 2024', date: '2024-08-01' },
+    { event: 'Spring 2026', date: 'Spring 2026' },
+    { event: 'May 2026', date: '2026-05-10' },
+    { event: 'Undated', date: '' }
+  ]);
+  assert.deepEqual(sorted.map((e) => e.event), ['May 2026', 'Spring 2026', 'Aug 1 2024', 'Aug 2024', 'Year 2024', 'Undated']);
 });
