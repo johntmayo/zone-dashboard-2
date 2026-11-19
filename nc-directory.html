@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>NC Directory | Altagether</title>
+  <title>Captain Directory | Altagether</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/x-icon" href="public/images/favicon.ico" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -173,7 +173,9 @@
     .card .bio { font-family: 'Lora', serif; font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; }
     .card .location { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; }
     .card .notes-bio { font-family: 'Lora', serif; font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4; font-style: italic; }
-    .card .ask-me-about { font-family: 'Lora', serif; font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.1rem; line-height: 1.4; }
+    .card .ask-me-about { font-family: 'Lora', serif; font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.1rem; line-height: 1.4; white-space: pre-line; }
+    .card .zone-issues { font-size: 0.88rem; color: var(--text-secondary); margin-top: 0.1rem; line-height: 1.4; white-space: pre-line; }
+    .tag.tag--org { background: #ECF4E4; color: #3F5A24; }
     .loading, .error { text-align: center; padding: 2rem; font-size: 1.1rem; }
     .error { color: var(--accent-clay); }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
@@ -305,7 +307,7 @@
   </section>
   <main class="container hidden" id="directoryMain">
     <div class="intro-blurb"><strong>Dear Neighborhood Captains,</strong> this directory is intended for your use only so that you can find each other to coordinate and collaborate. To protect the privacy of your fellow captains, please do not share this directory outside of Altagether.</div>
-    <p class="intro-instructions"><strong>To use:</strong> Search by name, zone, skills, or interests, and use the filters below to narrow your results.<br><br><strong>To update your profile:</strong> Make changes in the zone dashboard under My NC Profile.</p>
+    <p class="intro-instructions"><strong>To use:</strong> Search by name, zone, skills, or interests, and use the filters below to narrow your results.<br><br><strong>To update your profile:</strong> Make changes in the zone dashboard under My Profile.</p>
     <div class="toolbar">
       <div class="search-wrap">
         <input type="search" id="searchInput" placeholder="Search by name, zone, skills, interests…" aria-label="Search directory" />
@@ -390,6 +392,8 @@
       const LOCATION_KEY = 'Location';
       const NOTES_BIO_KEY = 'Notes/Bio';
       const EXPERTISE_ASK_ME_KEY = 'Expertise (Ask Me About...)';
+      const OTHER_ORGS_KEY = 'Other Organizations';
+      const ZONE_ISSUES_KEY = 'Zone Issues';
       const SKILLS_KEY = 'Skills & Expertise';
       const LANGUAGES_KEY = 'Languages Spoken';
       const HOUSING_KEY = 'Housing Arrangement';
@@ -534,6 +538,8 @@
           captain[LOCATION_KEY],
           captain[NOTES_BIO_KEY],
           captain[EXPERTISE_ASK_ME_KEY],
+          captain[ZONE_ISSUES_KEY],
+          parseMultiSelect(captain[OTHER_ORGS_KEY]).join(' '),
           parseMultiSelect(captain[WORKING_GROUP_KEY]).join(' '),
           parseMultiSelect(captain[INTEREST_AREAS_KEY]).join(' ')
         ];
@@ -551,7 +557,7 @@
             if (!buildSearchableText(c).includes(query)) return false;
           }
           if (zone && (c[ZONE_KEY] || '').trim() !== zone) return false;
-          if (censusTract && (c[CENSUS_TRACT_KEY] || '').trim() !== censusTract) return false;
+          if (censusTract && !parseMultiSelect(c[CENSUS_TRACT_KEY]).includes(censusTract)) return false;
           if (waterDistrict) {
             const wdSet = new Set(parseMultiSelect(c[WATER_DISTRICT_KEY]));
             if (!wdSet.has(waterDistrict)) return false;
@@ -727,7 +733,9 @@
           const location = (c[LOCATION_KEY] || '').trim();
           const notesBio = (c[NOTES_BIO_KEY] || '').trim();
           const askMeAbout = (c[EXPERTISE_ASK_ME_KEY] || '').trim();
-          const zoneLine = [c[ZONE_KEY], c[CENSUS_TRACT_KEY]].filter(Boolean).join(' · ');
+          const otherOrgs = parseMultiSelect(c[OTHER_ORGS_KEY]);
+          const zoneIssues = (c[ZONE_ISSUES_KEY] || '').trim();
+          const zoneLine = [c[ZONE_KEY], parseMultiSelect(c[CENSUS_TRACT_KEY]).join(', ')].filter(Boolean).join(' · ');
           return '<div class="card">' +
             '<h3>' + escapeHtml(c[NAME_KEY] || '—') + '</h3>' +
             (zoneLine ? '<div class="zone">' + escapeHtml(zoneLine) + '</div>' : '') +
@@ -737,6 +745,8 @@
             (skills ? '<div class="bio">' + escapeHtml(skills.slice(0, 200)) + (skills.length > 200 ? '…' : '') + '</div>' : '') +
             (notesBio ? '<div class="notes-bio">' + escapeHtml(notesBio) + '</div>' : '') +
             (askMeAbout ? '<div class="tags-label">Ask Me About:</div><div class="ask-me-about">' + escapeHtml(askMeAbout) + '</div>' : '') +
+            (otherOrgs.length ? '<div class="tags-label">Also active in:</div><div class="tags">' + otherOrgs.map(x => '<span class="tag tag--org">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
+            (zoneIssues ? '<div class="tags-label">Zone issues:</div><div class="zone-issues">' + escapeHtml(zoneIssues) + '</div>' : '') +
             (wg.length ? '<div class="tags-label">Working groups:</div><div class="tags">' + wg.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div>' : '') +
             (groupedInterests.length ? '<div class="tags-label">Interest areas:</div><div class="interest-groups-block">' + groupedInterests.map(group => '<div class="interest-group"><div class="interest-group-label">' + escapeHtml(group.label) + '</div><div class="tags tags--interest">' + group.options.map(x => '<span class="tag">' + escapeHtml(x) + '</span>').join('') + '</div></div>').join('') + '</div>' : '') +
             (badges.length ? '<div class="tags">' + badges.map(x => { const t = (x || '').trim(); const special = t === '1 Year of Service' ? ' badge-1year' : (t === 'Working Group Chair' ? ' badge-chair' : (t === 'Newsletter' ? ' badge-newsletter' : (t.toLowerCase() === 'dena native' ? ' badge-dena-native' : ''))); return '<span class="tag badge' + special + '">' + escapeHtml(x) + '</span>'; }).join('') + '</div>' : '') +
@@ -778,7 +788,7 @@
         const set = new Set();
         allCaptains.forEach(c => {
           const val = c[key];
-          if (key === WORKING_GROUP_KEY || key === WATER_DISTRICT_KEY) parseMultiSelect(val).forEach(x => set.add(x));
+          if (key === WORKING_GROUP_KEY || key === WATER_DISTRICT_KEY || key === CENSUS_TRACT_KEY) parseMultiSelect(val).forEach(x => set.add(x));
           else if (val && String(val).trim()) set.add(String(val).trim());
         });
         return [...set].sort();
