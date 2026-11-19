@@ -37,7 +37,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <link rel="stylesheet" href="public/css/styles.css?v=16">
+  <link rel="stylesheet" href="public/css/styles.css?v=17">
   <script src="public/js/utils.js?v=3"></script>
   <script src="public/js/address-id.js"></script>
   <script src="public/js/resident-placeholder.js"></script>
@@ -1302,10 +1302,10 @@
         </div>
       </div>
       <div id="profileFormContainer" class="hidden profile-shell">
-        <nav class="profile-jump-links" aria-label="Jump to part of this page">
-          <button type="button" class="profile-jump-link" data-jump-to="profilePartAbout">About you</button>
-          <span aria-hidden="true">·</span>
-          <button type="button" class="profile-jump-link" data-jump-to="profilePartZone">Your zone</button>
+        <nav class="profile-jump-links" aria-labelledby="profileJumpLabel">
+          <span class="profile-jump-label" id="profileJumpLabel">Jump to section</span>
+          <button type="button" class="profile-jump-link" data-jump-to="profilePartAbout">About you <span aria-hidden="true">↓</span></button>
+          <button type="button" class="profile-jump-link" data-jump-to="profilePartZone">Your zone <span aria-hidden="true">↓</span></button>
         </nav>
         <form id="ncProfileForm" class="profile-form" novalidate>
           <h3 class="profile-part-title" id="profilePartAbout" tabindex="-1">About you</h3>
@@ -1332,12 +1332,12 @@
               </div>
               <div class="profile-field" role="group" aria-labelledby="ncCensusTractLabel">
                 <div class="profile-label" id="ncCensusTractLabel">Census Tracts in Zone</div>
-                <p class="profile-field-help">Select all that apply.</p>
+                <p class="profile-field-help">Select all that apply. Not sure? Turn on the Census Tracts layer in the Map tab.</p>
                 <div id="ncCensusTract" class="profile-choice-grid profile-choice-grid--compact"></div>
               </div>
               <div class="profile-field" role="group" aria-labelledby="ncWaterDistrictLabel">
                 <div class="profile-label" id="ncWaterDistrictLabel">Water Districts in Zone</div>
-                <p class="profile-field-help">Select all that apply.</p>
+                <p class="profile-field-help">Select all that apply. Not sure? Turn on the Water Districts layer in the Map tab.</p>
                 <div id="ncWaterDistrict" class="profile-choice-grid profile-choice-grid--compact"></div>
               </div>
             </div>
